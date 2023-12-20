@@ -4,7 +4,7 @@ import requests
 import sys
 import os
 import subprocess
-from importlib.metadata import version
+import pkg_resources
 
 HUB_DIR = '/etc/SIMO/hub'
 
@@ -53,7 +53,7 @@ if __name__ == "__main__":
     if not os.path.exists('/etc/SIMO/_var/auto_update'):
         print("Auto updates are disabled")
     else:
-        current = version('simo')
+        current = pkg_resources.get_distribution('simo').version
         resp = requests.get("https://pypi.org/pypi/simo/json")
         if resp.status_code != 200:
             sys.exit("Bad response from PyPi")

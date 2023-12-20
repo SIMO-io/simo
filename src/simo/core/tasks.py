@@ -8,7 +8,7 @@ import requests
 import subprocess
 import threading
 import simo
-from importlib.metadata import version
+import pkg_resources
 from django.db.models import Q
 from django.db import connection
 from django.db import transaction
@@ -109,7 +109,7 @@ def sync_with_remote():
         return
 
     report_data = {
-        'simo_version': simo.__version__,
+        'simo_version': pkg_resources.get_distribution('simo').version,
         'local_http': 'https://%s' % get_self_ip(),
         'hub_uid': dynamic_settings['core__hub_uid'],
         'hub_secret': dynamic_settings['core__hub_secret'],
