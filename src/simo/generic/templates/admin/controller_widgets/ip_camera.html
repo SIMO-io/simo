@@ -1,0 +1,25 @@
+{% load static %}
+<img id='cam_{{ obj.id }}' data-ws_url="{{ obj.controller.get_stream_socket_url }}" style="max-width: 600px"/>
+<script>
+(function($) {
+
+    var $img = $('#cam_{{ obj.id }}');
+
+    var ws_url = $img.data('ws_url');
+    if (ws_url === ''){
+        return;
+    }
+
+    var socket_proto = 'ws://';
+    if (location.protocol === 'https:'){
+        socket_proto = 'wss://';
+    }
+    var socket_url = socket_proto + window.location.host + ws_url;
+    var controllerSocket = new WebSocket(socket_url);
+
+    controllerSocket.onmessage = function(e){
+        $img.attr('src', 'data:image/jpg;base64,' + e.data);
+    };
+
+})(django.jQuery);
+</script>

@@ -1,0 +1,12 @@
+<div class="component-controller"
+       data-ws_url="{{ obj.get_socket_url|default_if_none:"" }}">
+  {% if obj.value %}
+    <i class="fas fa-toggle-on fa-2x component_switch action"
+       data-method="turn_off"
+    ></i>
+  {% else %}
+    <i class="fas fa-toggle-off fa-2x component_switch action"
+       data-method="turn_on"
+    ></i>
+  {% endif %}
+</div>

@@ -1,0 +1,7 @@
+{% if invitation.taken_by == user %}
+  Sorry, but this invitation to join <strong>{{ invitation.instance.name }}</strong> sent by <strong>{{ invitation.from_user }}</strong>
+  is already taken by you on <strong>{{ invitation.taken_date }}</strong>.
+{% else %}
+  Sorry, to say but invitation to join <strong>{{ invitation.instance.name }}</strong> sent by <strong>{{ invitation.from_user }}</strong>
+  is already taken by other user.
+{% endif %}

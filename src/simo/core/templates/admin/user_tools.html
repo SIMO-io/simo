@@ -1,0 +1,54 @@
+{% load static %}
+
+<div id="user-toolz">
+
+  <div id="version">
+    V. {{ current_version }}
+    {% if update_available %}
+     | <a href="{% url 'update' %}" title="Update hub" class="update_link" style="color: #eeff00">
+      update available ({{ update_available }})
+     </a>
+    {% endif %}
+  </div>
+  <div class="dropdown-menu">
+    <div class="dropbtn">
+      <i class="fas fa-cog fa-lg" style="margin-right:5px"></i>
+      <i class="fas fa-sort-down"></i>
+    </div>
+    <div class="dropdown-content" style="right: 110px">
+      <a href="{% url 'setup-wizard' %}">
+        <i class="fas fa-magic"></i>  Core Setup Wizard
+      </a>
+      <a href="{% url 'update' %}" title="Update hub" class="update_link">
+        <i class="fas fa-angle-double-up"></i> Update
+      </a>
+      <a href="{% url 'restart' %}" title="Restart main processes">
+        <i class="far fa-power-off" ></i> Restart
+      </a>
+      <a href="{% url 'reboot' %}" title="Reboot hub" id="reboot_link">
+        <i class="fad fa-power-off"></i> Reboot
+      </a>
+   </div>
+
+  </div>
+
+ <div class="dropdown-menu">
+   <div class="dropbtn">
+     <img src="{{ user.avatar.sm.url }}" style="width: 32px; border-radius: 50%; margin-right:5px">
+     <i class="fas fa-sort-down"></i>
+   </div>
+
+   <div class="dropdown-content" style="right: 40px">
+     <a href="https://simo.io/hubs/my-hubs/">
+       <i class="fas fa-chart-network"></i> My Hubs
+     </a>
+     <a href="https://simo.io/users/account-settings/">
+       <i class="fas fa-user"></i> Account Settings
+     </a>
+     <a href="{% url 'logout' %}" style="border-top: 1px solid #6a6a6a;">
+       <i class="fas fa-sign-out-alt"></i> Log Out
+     </a>
+   </div>
+ </div>
+
+</div>

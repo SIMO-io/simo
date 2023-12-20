@@ -1,0 +1,5 @@
+{% if invitation.taken_by == user %}
+  Please contact one of the admins and request for new invitation if you are unable to connect to <strong>{{ invitation.instance.name }}</strong> .
+{% else %}
+  Please contact one of {{ invitation.instance.name }} owners to request for new invitation.
+{% endif %}

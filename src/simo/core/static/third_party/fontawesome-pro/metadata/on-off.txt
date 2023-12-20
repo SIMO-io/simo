@@ -1,0 +1,14 @@
+sensor-on, sensor
+toggle-on, toggle-off
+siren-on, siren
+lightbulb-on, lightbulb
+bell-on, bell
+light-switch-on, light-switch-off
+garage-open, garage
+door-open, door-closed
+window-frame-open, window-frame
+blinds, blinds-raised
+eye, eye-blink
+lock-open-alt, lock-alt
+unlock-alt, unlock
+rocket-launch, rocket

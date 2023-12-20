@@ -1,0 +1,13 @@
+<div class="component-controller" data-ws_url="{{ obj.get_socket_url }}">
+  {% if obj.value|slice:":6" == 'closed' %}
+    <i class="fas fa-warehouse fa-2x component_switch action
+        {% if obj.value|slice:"7:" == 'moving' %}blinking_control{% endif %}"
+       data-method="call"
+    ></i>
+  {% else %}
+    <i class="fas fa-garage-car fa-2x component_switch action
+              {% if obj.value|slice:"5:" == 'moving' %}blinking_control{% endif %}"
+       data-method="call"
+    ></i>
+  {% endif %}
+</div>

@@ -1,0 +1,4 @@
+<div class="component-controller"
+       data-ws_url="{{ obj.get_socket_url|default_if_none:"" }}">
+{{ obj.value }} {{ obj.value_units|default_if_none:'' }}
+</div>

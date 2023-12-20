@@ -1,0 +1,225 @@
+{% load static i18n bootstrap4 %}
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <title>SIMO.io HUB setup wizard</title>
+  <link rel="shortcut icon" type="image/png" href="{% static 'logo/favicon_color_bg_w.svg' %}"/>
+
+  <script type="text/javascript" src="{% static 'admin/js/vendor/jquery/jquery.js' %}"></script>
+  <script type="text/javascript" src="{% static 'admin/js/jquery.init.js' %}"></script>
+  <script>
+    var $ = django.jQuery;
+    var jQuery = django.jQuery;
+  </script>
+  <script type="text/javascript" src="/admin/jsi18n/"></script>
+
+  <link rel="stylesheet" href="https://simo.io/static/css/bootstrap.min.css">
+  <link rel="stylesheet" href="{% static 'third_party/fontawesome-pro/css/all.min.css' %}" rel="stylesheet">
+
+  <style>
+    html, body, form{
+      height:100%;
+    }
+    body{
+      background-image: url("{% static 'img/setup_bg.jpg' %}");
+      background-size: cover;
+    }
+    #branding{
+      padding-top: 30px;
+      padding-left:40px;
+      height: 15%;
+      position: relative;
+    }
+    #branding img{
+      width: 160px;
+    }
+    #branding .brand_lead{
+      position: absolute;
+      top: 46px;
+      left: 223px;
+      color: #e2e2e2;
+      display: block;
+      text-align: center;
+    }
+    .form-group{
+      text-align:center;
+    }
+    .form-group label{
+      color: #e2e2e2;
+      font-size: 1.25rem;
+      display: block;
+      text-align: center;
+    }
+    .form-group .form-control{
+      color: #e2e2e2;
+      border-color: #B3B3B3;
+      background-color: #23252c;
+      text-align: center;
+      background-repeat: no-repeat;
+      background-position: left 0.8rem center;
+      background-size: calc(.75em + .375rem) calc(.75em + .375rem);
+    }
+
+    .help-text{
+      color: #e2e2e2;
+    }
+    footer{
+      height:15%;
+      padding: 0 50px;
+    }
+    footer .c_button{
+      margin-bottom: 30px
+    }
+
+    .form-group input.form-control[name=name] {
+      background-image: url("{% static 'img/icons/home-solid.svg' %}");
+    }
+    .form-group .form-control[name=time_zone] {
+      background-image: url("{% static 'img/icons/clock-regular.svg' %}");
+      padding-left: 40px;
+      text-align: left;
+    }
+    .mw-wrap{
+      width: 100% !important;
+    }
+    .mw-map-wrapper{
+      height:450px !important;
+    }
+    .mw-map{
+      height: 440px !important;
+    }
+    .mw-coordinates-wrap{
+      display: none !important;
+    }
+    iframe{
+      height: 80%;
+      width: 100%;
+      border: 1px solid #000000;
+      border-radius: 5px;
+      background-color: #000000;
+      box-shadow: 5px 5px 7px #000000;
+    }
+    .form-check{
+      text-align: left;
+      margin-left: 15px;
+    }
+    .form-check-style .form-group{
+      background-color: #131822;
+      border-radius: 5px;
+      border: 1px solid #21262a;
+      padding: 9px 0;
+      box-shadow: 5px 5px 7px #000000;
+    }
+    .form-check-style .form-group label{
+      text-align: left;
+      font-size: 1rem;
+    }
+    .btn-secondary{
+      background: linear-gradient(.45turn,#1e242a,#17191a);
+    }
+    .btn-secondary:not([disabled]):not(.disabled).active, .btn-secondary:not([disabled]):not(.disabled):active, .btn-secondary:not([disabled]):not(.disabled):focus, .btn-secondary:not([disabled]):not(.disabled):hover{
+      background: linear-gradient(#282b2e,#181818 40%,#0e0e0e);
+      background-color: #000000;
+      border-color: #000000;
+    }
+    #map_location{
+        width: 100% !important;
+        height: 400px !important;
+    }
+    .location-widget .form-group{
+        padding: 15px
+    }
+    label[for=id_location]{
+        text-align: center !important;
+    }
+    /*input[name=location]{*/
+    /*    display:none;*/
+    /*}*/
+  </style>
+</head>
+<body>
+  {{ form.media }}
+  <form method="post" enctype="multipart/form-data">
+    <div id="branding">
+      <img src="{% static 'logo/logo_color_bg_b.svg' %}"/>
+      <span class="brand_lead">hub setup wizard</span>
+      <div style="float: right; color: white; margin-right: 50px; margin-top: 10px; text-align: right">
+          Hello, <strong>{{ user.name }}</strong>. <br>
+          Let's configure you hub!
+      </div>
+    </div>
+
+    <div class="container" style="height: 70%">
+      {% csrf_token %}
+
+      {% if step == 1 %}
+        <div class="row align-items-center" style="height:100%">
+          <div class="col-sm-4 offset-sm-4">
+            {% bootstrap_form form %}
+          </div>
+        </div>
+        <input type="hidden" name="location-guess" id="location-guess">
+        <script>
+            var $location_field = $('#location-guess');
+            function setPosition(position){
+                $location_field.val(
+                    position.coords.latitude + ', ' + position.coords.longitude
+                );
+                console.log($location_field.val());
+            }
+            if (navigator.geolocation){
+                navigator.geolocation.getCurrentPosition(setPosition);
+            };
+        </script>
+      {% elif step == 2 %}
+        <div style="padding-top:50px"></div>
+        <span class="form-check-style location-widget">
+          {% bootstrap_field form.location %}
+        </span>
+
+        <span class="form-check-style">
+          {% bootstrap_field form.share_location %}
+        </span>
+        <div class="clearfix"></div>
+        <p class="text-center help-text">
+          {% blocktrans %}
+            Location is used for weather, sunset/sunrise and other location related tasks on your HUB.<br>
+            Please set it accurately.
+          {% endblocktrans %}
+        </p>
+      {% elif step == 3 %}
+        <div style="padding-top:50px"></div>
+        <iframe src="https://simo.io/hub-terms/" title="SIMO.io Hub terms and conditions"></iframe>
+        <br><br>
+        <span class="form-check-style">
+          {% bootstrap_form form %}
+        </span>
+      {% endif %}
+    </div>
+
+    <div class="clearfix"></div>
+    <footer class="d-flex">
+        {% if step != 1 %}
+          <div class="mr-auto mt-auto c_button">
+            <button type="submit" name="back" class="btn btn-secondary">
+              <i class="fa fa-angle-double-left"></i> {% trans 'Prev' %}
+            </button>
+          </div>
+        {% endif %}
+        <div class="ml-auto mt-auto c_button">
+          <button type="submit" class="btn btn-primary">
+            {% if step == 3 %}
+              <i class="fa fa-check"></i> {% trans 'Finish' %}
+            {% else %}
+              {% trans 'Next' %} <i class="fa fa-angle-double-right"></i>
+            {% endif %}
+          </button>
+        </div>
+      <div class="clearfix"></div>
+    </footer>
+
+  </form>
+</body>
+</html>

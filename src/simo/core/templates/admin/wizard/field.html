@@ -1,0 +1,18 @@
+
+
+
+
+<div class="form-row {% if field.errors %} errors{% endif %}{% if field.field.is_hidden %} hidden{% endif %}">
+    {% if field.errors %}{{ field.errors }}{% endif %}
+
+    <label {% if field.field.required %}class="required"{% endif %}>{{ field.label_tag }}</label>
+
+    {{ field }}
+
+    {% if field.field.help_text %}
+        <div class="help">{{ field.field.help_text|safe }}</div>
+    {% endif %}
+</div>
+
+
+

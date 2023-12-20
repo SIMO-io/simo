@@ -1,0 +1,150 @@
+{% load i18n static %}<!DOCTYPE html>
+{% get_current_language as LANGUAGE_CODE %}{% get_current_language_bidi as LANGUAGE_BIDI %}
+<html lang="{{ LANGUAGE_CODE|default:"en-us" }}" {% if LANGUAGE_BIDI %}dir="rtl"{% endif %}>
+<head>
+<title>SIMO.io | {% if instances|length == 1 %}{{ instance.name }}{% else %}Hub{% endif %} Admin</title>
+
+
+<style>
+  /* cyrillic */
+  @font-face {
+    font-family: 'Russo One';
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url({% static 'fonts/RussoOne-Regular.ttf' %});
+    unicode-range: U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+  }
+  /* latin-ext */
+  @font-face {
+    font-family: 'Russo One';
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url({% static 'fonts/RussoOne-Regular.ttf' %});
+    unicode-range: U+0100-024F, U+0259, U+1E00-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;
+  }
+  /* latin */
+  @font-face {
+    font-family: 'Russo One';
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url({% static 'fonts/RussoOne-Regular.ttf' %});
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+  }
+</style>
+
+<link rel="stylesheet" type="text/css" href="{% block stylesheet %}{% static "admin/css/base.css" %}{% endblock %}">
+<link href="{% static 'admin/css/simo.css' %}" rel="stylesheet">
+<link href="{% static 'third_party/precision-inputs/precision-inputs.base.css' %}" rel="stylesheet">
+<link href="{% static 'third_party/precision-inputs/precision-inputs.fl-controls.css' %}" rel="stylesheet">
+
+
+
+
+{% block extrastyle %}{% endblock %}
+
+<link rel="shortcut icon" type="image/png" href="{% static 'logo/favicon_color_bg_w.svg' %}"/>
+<link rel="stylesheet" href="{% static 'third_party/fontawesome-pro/css/all.min.css' %}" rel="stylesheet">
+
+<style>
+  body{
+      background: url({% static 'img/bg_dots.png' %}) repeat scroll 0 0 #ffffff;
+  }
+  #header{
+      background: linear-gradient(0.4turn, #091832, #000000);
+      background-image: url({% static 'img/setup_bg.jpg' %});
+      background-position-y: -723px;
+    }
+</style>
+
+
+{% if LANGUAGE_BIDI %}<link rel="stylesheet" type="text/css" href="{% block stylesheet_rtl %}{% static "admin/css/rtl.css" %}{% endblock %}">{% endif %}
+<script type="text/javascript" src="{% static 'admin/js/vendor/jquery/jquery.js' %}"></script>
+<script type="text/javascript" src="{% static 'admin/js/jquery.init.js' %}"></script>
+
+<script>
+  var $ = django.jQuery;
+  var jQuery = django.jQuery;
+</script>
+  {% block extrahead %}{% endblock %}
+{% block responsive %}
+    <meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1.0, maximum-scale=1.0">
+    <link rel="stylesheet" type="text/css" href="{% static "admin/css/responsive.css" %}">
+    {% if LANGUAGE_BIDI %}<link rel="stylesheet" type="text/css" href="{% static "admin/css/responsive_rtl.css" %}">{% endif %}
+{% endblock %}
+{% block blockbots %}<meta name="robots" content="NONE,NOARCHIVE">{% endblock %}
+</head>
+{% load i18n %}
+
+<body class="{% if is_popup %}popup {% endif %}{% block bodyclass %}{% endblock %}"
+  data-admin-utc-offset="{% now "Z" %}">
+
+<!-- Container -->
+<div id="container">
+
+    {% if not is_popup %}
+    <!-- Header -->
+    <div id="header">
+      <a href="/admin/">
+        <div id="branding" style="background-image: url({% static 'logo/logo_color_bg_b.svg' %})"></div>
+
+        <div style="
+              color: white;
+              font-size: 16px;
+              padding: 11px 0px;
+              margin-top: 4px;
+              display: inline-block;
+          ">
+          <span style="display: inline-block; margin-right: 6px">|</span>
+          <span style="display: inline-block; font-family: 'Russo One'; color: #f3ff4a;">
+            {% if instances|length == 1 %}{{ instances.0.name }}{% else %}Hub Admin{% endif %}
+          </span>
+        </div>
+      </a>
+        {% block usertools %}
+          {% include 'admin/user_tools.html' %}
+        {% endblock %}
+        {% block nav-global %}{% endblock %}
+    </div>
+    <!-- END Header -->
+    {% block breadcrumbs %}
+    <div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">{% trans 'Home' %}</a>
+    {% if title %} &rsaquo; {{ title }}{% endif %}
+    </div>
+    {% endblock %}
+    {% endif %}
+
+    {% block messages %}
+        {% if messages %}
+        <ul class="messagelist">{% for message in messages %}
+          <li{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message|capfirst }}</li>
+        {% endfor %}</ul>
+        {% endif %}
+    {% endblock messages %}
+
+    <!-- Content -->
+    <div id="content" class="{% block coltype %}colM{% endblock %}">
+        {% block pretitle %}{% endblock %}
+        {% block content_title %}{% if title %}<h1>{{ title }}</h1>{% endif %}{% endblock %}
+        {% block content %}
+        {% block object-tools %}{% endblock %}
+        {{ content }}
+        {% endblock %}
+        {% block sidebar %}{% endblock %}
+        <br class="clear">
+    </div>
+    <!-- END Content -->
+
+    {% block footer %}<div id="footer"></div>{% endblock %}
+</div>
+<!-- END Container -->
+
+<script src="{% static 'third_party/precision-inputs/precision-inputs.base.js' %}"></script>
+<script src="{% static 'third_party/precision-inputs/precision-inputs.fl-controls.js' %}"></script>
+<script src="{% static 'admin/js/admin_scripts.js' %}"></script>
+
+</body>
+</html>

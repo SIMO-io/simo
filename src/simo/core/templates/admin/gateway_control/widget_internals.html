@@ -1,0 +1,29 @@
+{% if obj.status == 'running' %}
+  <div style="display:inline-block; margin-right: 10px;">
+    <i class="fas fa-cog fa-spin"></i>
+  </div>
+  <button class="button action" style="padding: 5px 10px" data-method="stop" >
+    <i class="fas fa-stop" style="color:#e67878"></i>&nbsp;&nbsp;Stop
+  </button>
+{% elif obj.status == 'error' %}
+  <div style="display:inline-block; margin-right: 10px;">
+    <i class="fas fa-times" style="color:red"></i>
+  </div>
+  <button class="button action" style="padding: 5px 10px" data-method="start">
+    <i class="fas fa-play" style="color:#c9faff"></i>&nbsp;&nbsp;Start
+  </button>
+{% elif obj.status == 'stopped' %}
+  <div style="display:inline-block; margin-right: 10px;">
+    <i class="fas fa-stop" style="color:#e67878"></i>
+  </div>
+  <button class="button action" style="padding: 5px 10px" data-method="start">
+    <i class="fas fa-play" style="color:#c9faff"></i>&nbsp;&nbsp;Start
+  </button>
+{% elif obj.status == 'finished' %}
+  <div style="display:inline-block; margin-right: 10px;">
+    <i class="fas fa-check" style="color:#88e694"></i>
+  </div>
+  <button class="button action" style="padding: 5px 10px" data-method="start">
+    <i class="fas fa-play" style="color:#c9faff"></i>&nbsp;&nbsp;Start
+  </button>
+{% endif %}

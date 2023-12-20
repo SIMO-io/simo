@@ -1,0 +1,42 @@
+
+<div class="component-controller" data-ws_url="{{ obj.get_socket_url }}">
+  {% if obj.config.open_direction == 'left' or obj.config.open_direction == 'right' %}
+      <i class="far fa-chevron-square-left fa-2x component_switch action"
+         data-method="{% if obj.config.open_direction == 'left' %}open{% else %}close{% endif %}"
+         style="margin-right:10px"></i>
+  {% else %}
+     <i class="far fa-chevron-square-down fa-2x component_switch action"
+     data-method="{% if obj.config.open_direction == 'up' %}close{% else %}open{% endif %}"
+     style="margin-right:10px"></i>
+  {% endif %}
+
+  <i class="far fa-pause-circle fa-2x component_switch action"
+     data-method="stop"
+     style="margin-right:10px"></i>
+
+  {% if obj.config.open_direction == 'left' or obj.config.open_direction == 'right' %}
+    <i class="far fa-chevron-square-right fa-2x component_switch action"
+       data-method="{% if obj.config.open_direction == 'left' %}close{% else %}open{% endif %}"
+       style="margin-right:10px"></i>
+  {% else %}
+    <i class="far fa-chevron-square-up fa-2x component_switch action"
+       data-method="{% if obj.config.open_direction == 'up' %}open{% else %}close{% endif %}"
+       style="margin-right:20px"></i>
+  {% endif %}
+
+  <span style="bottom: 5px; position: relative;">
+    position: <strong id='blinds_position'>{{ obj.value.position }}</strong>,
+    target: <strong id='blinds_target'>{{ obj.value.target }}</strong>
+  </span>
+
+</div>
+
+<script>
+{% if obj.value.target != obj.value.position and obj.value.target != -1 %}
+    {% if obj.value.target > obj.value.position %}
+        $('.component-controller').find('[data-method=open]').addClass('active_control');
+    {% else %}
+        $('.component-controller').find('[data-method=close]').addClass('active_control');
+    {% endif %}
+{% endif %}
+</script>

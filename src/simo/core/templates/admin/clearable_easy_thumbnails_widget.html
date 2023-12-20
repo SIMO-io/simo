@@ -1,0 +1,16 @@
+{% if widget.is_initial %}
+
+        <img style="width:100%; max-width:500px; margin-bottom: 20px" src="{{ widget.value.url }}">
+        {% if not widget.required %}
+
+
+            <input type="checkbox" name="{{ widget.checkbox_name }}" id="{{ widget.checkbox_id }}"{% if widget.attrs.disabled %} disabled{% endif %}>
+            <span for="{{ widget.checkbox_id }}">{{ widget.clear_checkbox_label }}</span>
+
+        {% endif %}<br><br>
+
+    {% comment %} <span class="text-muted">{{ widget.input_text }}:</span> {% endcomment %}
+{% endif %}
+<input style="margin-left: 160px;
+    padding-left: 10px;"
+       type="{{ widget.type }}" name="{{ widget.name }}"{% include "django/forms/widgets/attrs.html" %}>

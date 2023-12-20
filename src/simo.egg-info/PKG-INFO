@@ -1,0 +1,49 @@
+Metadata-Version: 2.1
+Name: simo
+Version: 1.5.9
+Summary: Smart Home on Steroids!
+Author-email: Simanas Venčkauskas <simanas@simo.io>
+Project-URL: Homepage, https://simo.io
+Project-URL: Issues, https://github.com/pypa/sampleproject/issues
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+License-File: LICENSE.md
+Requires-Dist: Django==3.2.9
+Requires-Dist: django-filebrowser-no-grappelli==3.8.0
+Requires-Dist: django-autocomplete-light==3.8.2
+Requires-Dist: djangorestframework==3.12.4
+Requires-Dist: django-dynamic-preferences==1.11.0
+Requires-Dist: django-formtools==2.3
+Requires-Dist: easy-thumbnails==2.8
+Requires-Dist: channels==3.0.4
+Requires-Dist: asgiref==3.4.1
+Requires-Dist: django-filter==2.4.0
+Requires-Dist: celery==4.4.7
+Requires-Dist: django-admin-sortable2==1.0.2
+Requires-Dist: django-bootstrap4==3.0.1
+Requires-Dist: psycopg2==2.9.2
+Requires-Dist: django-model-utils==4.2.0
+Requires-Dist: django-dirtyfields==1.7.0
+Requires-Dist: paho-mqtt==1.6.1
+Requires-Dist: django-timezone-field==4.2.1
+Requires-Dist: django-timezone-utils==0.13
+Requires-Dist: itsdangerous==2.0.1
+Requires-Dist: redis==3.5.3
+Requires-Dist: django-redis==4.12.1
+Requires-Dist: webservices==0.7
+Requires-Dist: opencv-python==4.5.4.60
+Requires-Dist: geopy==2.2.0
+Requires-Dist: requests==2.26.0
+Requires-Dist: python-openzwave==0.4.19
+Requires-Dist: click==8.0.3
+Requires-Dist: suntime==1.2.5
+Requires-Dist: django-location-field==2.1.0
+Requires-Dist: django_taggit==2.0.0
+Requires-Dist: ansi2html==1.7.0
+Requires-Dist: django-location-field==2.1.0
+Requires-Dist: slugify==0.0.1
+Requires-Dist: django-countries==7.5.1
+Requires-Dist: librosa==0.10.1

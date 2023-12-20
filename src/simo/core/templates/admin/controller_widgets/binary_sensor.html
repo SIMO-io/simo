@@ -1,0 +1,8 @@
+<div class="component-controller"
+       data-ws_url="{{ obj.get_socket_url|default_if_none:"" }}">
+{% if obj.value %}
+  <i class="far fa-lg fa-dot-circle" style="color: #1b6082;"></i>
+{% else %}
+  <i class="far fa-lg fa-circle" style="color: #a7a7a7;"></i>
+{% endif %}
+</div>

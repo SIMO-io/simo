@@ -1,0 +1,12 @@
+<span style="height:15px; width:15px; margin-top:5px; background-color: #484848;
+            display: inline-block;
+            -webkit-mask: url({{icon.default.url}}) no-repeat center;
+    mask: url({{ icon.default.url }}) no-repeat center; " ></span>
+{% if icon.active %}
+  <span style="display: inline-block; position: relative; top: -3px;">|</span>
+  <span style="height:15px; width:15px; margin-top:5px; background-color: #484848;
+            display: inline-block;
+            -webkit-mask: url({{icon.active.url}}) no-repeat center;
+    mask: url({{ icon.active.url }}) no-repeat center; " ></span>
+{% endif %}
+<span style="display: inline-block; position: relative; top: -3px; left: 5px; {% if icon.active %}font-weight:bold{% endif %}">{{ icon.slug }}</span>

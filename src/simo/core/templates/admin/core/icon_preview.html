@@ -1,0 +1,9 @@
+<div style="height:30px; width:30px; margin:5px; display: inline-block;
+            background-color: #484848; -webkit-mask: url({{ icon.default.url }}) no-repeat center;
+    mask: url({{ icon.default.url }}) no-repeat center; " ></div>
+{% if icon.active %}
+  <span style="display:inline-block; position:relative; bottom:12px; font-size: 20px;">|</span>
+  <div style="height:30px; width:30px; margin:5px; display: inline-block;
+            background-color: #484848; -webkit-mask: url({{ icon.active.url }}) no-repeat center;
+      mask: url({{ icon.active.url }}) no-repeat center; " ></div>
+{% endif %}

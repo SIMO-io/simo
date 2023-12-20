@@ -1,0 +1,1 @@
+.knob-input__container{position:relative}.knob-input__visual{pointer-events:none;width:100%;height:100%}.knob-input__input{cursor:-webkit-grab;cursor:grab;position:absolute;left:0;top:0;width:100%;height:100%;opacity:0}body.knob-input__drag-active,body.knob-input__drag-active *{cursor:-webkit-grabbing!important;cursor:grabbing!important}

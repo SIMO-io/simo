@@ -1,0 +1,4 @@
+Current: {{ obj.value.current_temp|floatformat:1 }} {{ obj.value_units }} <br>
+Target: {{ obj.value.target_temp|floatformat:1 }} {{ obj.value_units }}<br>
+{{ obj.value.mode|title }}
+{% if obj.value.heating %} - heating.{% elif obj.value.cooling %} - cooling.{% else %} - idle.{% endif %}

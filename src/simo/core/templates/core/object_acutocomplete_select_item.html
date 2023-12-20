@@ -1,0 +1,10 @@
+{% if object.zone %}
+  {{ object.zone }} |
+{% endif %}
+{% if object.icon %}
+<span style="height:15px; width:15px; background-color: #484848;
+            display: inline-block; margin-left: 2px; position: relative; top:3px;
+            -webkit-mask: url({{object.icon.default.url}}) no-repeat center;
+    mask: url({{ object.icon.default.url }}) no-repeat center;" ></span>
+{% endif %}
+<span style="display: inline-block; margin-left: 2px;">{{ object.name }}</span>
