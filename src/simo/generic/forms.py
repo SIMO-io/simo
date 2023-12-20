@@ -477,16 +477,17 @@ ACTION_METHODS = (
 class AlarmClockEventForm(forms.Form):
     uid = forms.CharField(widget=forms.HiddenInput(), required=False)
     enabled = forms.BooleanField(initial=True)
+    name = forms.CharField(max_length=30)
     component = forms.ModelChoiceField(
         Component.objects.all(),
         widget=autocomplete.ModelSelect2(
             url='autocomplete-component', attrs={'data-html': True},
         ),
     )
-    play_method = forms.ChoiceField(
+    play_action = forms.ChoiceField(
         initial='turn_on', choices=ACTION_METHODS
     )
-    reverse_method = forms.ChoiceField(
+    reverse_action = forms.ChoiceField(
         required=False, initial='turn_off', choices=ACTION_METHODS
     )
     offset = forms.IntegerField(min_value=-120, max_value=120, initial=0)

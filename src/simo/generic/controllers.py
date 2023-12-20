@@ -1021,6 +1021,10 @@ class AlarmClock(ControllerBase):
                         zone__instance=self.component.zone.instance,
                         pk=event['component']
                     ).first()
+                    # if not comp:
+                    #     event_error['component'] = \
+                    #         f"No such a component on " \
+                    #         f"{self.component.zone.instance}"
 
                 if not event.get('play_action'):
                     event_error['play_action'] = "This field is required!"
@@ -1091,8 +1095,9 @@ class AlarmClock(ControllerBase):
         weekday = localtime.weekday() + 1
 
         remove_ignores = []
-        for ignore_alarm_uid, timestamp in current_value.get('ignore_alarms',
-                                                             {}).items():
+        for ignore_alarm_uid, timestamp in current_value.get(
+                'ignore_alarms',{}
+        ).items():
             # if ignore alarm entry is now past the current time + maximum offset
             # drop it out from ignore_alarms map
             if timestamp < localtime.timestamp():
@@ -1107,6 +1112,8 @@ class AlarmClock(ControllerBase):
 
             alarms = json.loads(json.dumps(alarms))
             for alarm in alarms:
+                if alarm.get('enabled') == False:
+                    continue
                 hour, minute = alarm['time'].split(':')
                 hour = int(hour)
                 minute = int(minute)
@@ -1115,10 +1122,7 @@ class AlarmClock(ControllerBase):
                 week_days = list(set(week_days))
                 week_days.sort()
                 week_days = week_days + [d + 7 for d in week_days]
-                next_week_day = None
                 for wd in week_days:
-                    if next_alarm:
-                        break
                     if wd < weekday:
                         continue
                     days_diff = wd - weekday

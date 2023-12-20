@@ -186,14 +186,18 @@ def has_errors(errors_obj):
     if isinstance(errors_obj, dict):
         for key, val in errors_obj.items():
             if type(val) in (list, dict):
-                return has_errors(val)
+                if has_errors(val):
+                    return True
             else:
                 return True
+        return False
     elif isinstance(errors_obj, list):
         for val in errors_obj:
             if type(val) in (list, dict):
-                return has_errors(val)
+                if has_errors(val):
+                    return True
             else:
                 return True
+        return False
     else:
         return True
