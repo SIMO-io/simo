@@ -19,6 +19,6 @@ class CoreAppConfig(AppConfig):
             # We are running as root and there is no symbolic link yet made
             # for auto updates.
             os.symlink(auto_update_file_path, executable_path)
-            auto_update_cron = f'*/10 * * * * {executable_path} \n'
+            auto_update_cron = f'0 * * * * {executable_path} \n'
             cron_out = subprocess.Popen(['crontab', '-'], stdin=subprocess.PIPE)
             cron_out.communicate(input=str.encode(auto_update_cron))
