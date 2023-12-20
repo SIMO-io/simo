@@ -24,7 +24,6 @@ webservices==0.7
 opencv-python==4.5.4.60
 geopy==2.2.0
 requests==2.26.0
-python-openzwave==0.4.19
 click==8.0.3
 suntime==1.2.5
 django-location-field==2.1.0

@@ -1,5 +1,6 @@
 import importlib
 import simo
+from importlib.metadata import version
 from simo.core.utils.helpers import get_self_ip
 from django.apps import apps
 from simo.core.models import Instance
@@ -11,7 +12,7 @@ def additional_templates_context(request):
     ctx = {
         'hub_ip': get_self_ip(),
         'dynamic_settings': dynamic_settings,
-        'current_version': simo.__version__,
+        'current_version': version('simo'),
         'update_available': is_update_available(True),
         'instances': Instance.objects.all()
     }

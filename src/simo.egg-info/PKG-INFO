@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: simo
-Version: 1.5.9
+Version: 1.6.0
 Summary: Smart Home on Steroids!
 Author-email: Simanas Venčkauskas <simanas@simo.io>
 Project-URL: Homepage, https://simo.io
@@ -37,7 +37,6 @@ Requires-Dist: webservices==0.7
 Requires-Dist: opencv-python==4.5.4.60
 Requires-Dist: geopy==2.2.0
 Requires-Dist: requests==2.26.0
-Requires-Dist: python-openzwave==0.4.19
 Requires-Dist: click==8.0.3
 Requires-Dist: suntime==1.2.5
 Requires-Dist: django-location-field==2.1.0

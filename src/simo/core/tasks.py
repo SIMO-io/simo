@@ -8,6 +8,7 @@ import requests
 import subprocess
 import threading
 import simo
+from importlib.metadata import version
 from django.db.models import Q
 from django.db import connection
 from django.db import transaction
@@ -171,7 +172,6 @@ def sync_with_remote():
         instance.save()
 
     r_json = response.json()
-    dynamic_settings['core__latest_version_available'] = r_json.get('latest_version_available')
     dynamic_settings['core__remote_http'] = r_json.get('hub_remote_http')
     if 'new_secret' in r_json:
         dynamic_settings['core__hub_secret'] = r_json['new_secret']
@@ -284,7 +284,18 @@ def vacuum_full():
 
 @celery_app.task
 def update():
-    subprocess.call(['simo-auto-update'])
+    from simo.auto_update import perform_update
+    perform_update()
+
+
+@celery_app.task
+def update_latest_version_available():
+    resp = requests.get("https://pypi.org/pypi/simo/json")
+    if resp.status_code != 200:
+        print("Bad response from server")
+        return
+    latest = list(resp.json()['releases'].keys())[-1]
+    dynamic_settings['core__latest_version_available'] = latest
 
 
 @celery_app.on_after_finalize.connect
@@ -292,3 +303,4 @@ def setup_periodic_tasks(sender, **kwargs):
     sender.add_periodic_task(1, watch_timers.s())
     sender.add_periodic_task(20, sync_with_remote.s())
     sender.add_periodic_task(60 * 60, clear_history.s())
+    sender.add_periodic_task(60 * 60 * 6, update_latest_version_available.s())
