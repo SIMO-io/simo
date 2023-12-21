@@ -124,8 +124,6 @@ class ComponentViewSet(InstanceMixin, viewsets.ReadOnlyModelViewSet):
             if not isinstance(param, list) and not isinstance(param, dict):
                 param = [param]
 
-            print("PARAM: ", param)
-
             try:
                 if isinstance(param, list):
                     result = call(*param)
