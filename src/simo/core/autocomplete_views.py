@@ -1,5 +1,4 @@
 from dal import autocomplete
-from django.urls import get_script_prefix
 from django.db.models import Q
 from django.template.loader import render_to_string
 from simo.core.utils.helpers import search_queryset
@@ -24,7 +23,7 @@ class IconModelAutocomplete(autocomplete.Select2QuerySetView):
     def get_result_label(self, item):
         return render_to_string(
             'core/icon_acutocomplete_select_item.html', {
-                'icon': item, 'prefix': get_script_prefix()[:-1]
+                'icon': item,
             }
         )
 
@@ -70,7 +69,7 @@ class CategoryAutocomplete(autocomplete.Select2QuerySetView):
     def get_result_label(self, item):
         return render_to_string(
             'core/object_acutocomplete_select_item.html', {
-                'object': item, 'prefix': get_script_prefix()[:-1]
+                'object': item
             }
         )
 
@@ -96,7 +95,7 @@ class ZoneAutocomplete(autocomplete.Select2QuerySetView):
     def get_result_label(self, item):
         return render_to_string(
             'core/object_acutocomplete_select_item.html', {
-                'object': item, 'prefix': get_script_prefix()[:-1]
+                'object': item
             }
         )
 
@@ -133,7 +132,7 @@ class ComponentAutocomplete(autocomplete.Select2QuerySetView):
     def get_result_label(self, item):
         return render_to_string(
             'core/object_acutocomplete_select_item.html', {
-                'object': item, 'prefix': get_script_prefix()[:-1]
+                'object': item
             }
         )
 

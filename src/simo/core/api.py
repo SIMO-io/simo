@@ -3,7 +3,6 @@ from calendar import monthrange
 import pytz
 import logging
 from django.db.models import Q, Prefetch
-from django.urls import get_script_prefix
 from django.utils.translation import gettext_lazy as _
 from django.utils import timezone
 from django.shortcuts import get_object_or_404

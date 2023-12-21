@@ -1,13 +1,8 @@
 import pytz
 import threading
-from django.urls import set_script_prefix, get_script_prefix
-from django.shortcuts import redirect, render
+from django.urls import set_script_prefix
 from django.utils import timezone
-from django.conf import settings
-from simo.users.models import User
 from simo.conf import dynamic_settings
-
-
 
 _thread_locals = threading.local()
 
@@ -25,7 +20,6 @@ def simo_router_middleware(get_response):
         _thread_locals.request = request
 
         request.relay = None
-        router_prefix = '/'
 
         if request.META.get('HTTP_HOST', '').endswith('.simo.io'):
             router_prefix = dynamic_settings['core__remote_http']

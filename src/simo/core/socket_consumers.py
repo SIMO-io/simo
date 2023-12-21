@@ -6,7 +6,7 @@ import os
 import logging
 from ansi2html import Ansi2HTMLConverter
 from asgiref.sync import sync_to_async
-from django.urls import set_script_prefix, get_script_prefix
+from django.urls import set_script_prefix
 from django.core.exceptions import ValidationError
 from django.template.loader import render_to_string
 from django.conf import settings
