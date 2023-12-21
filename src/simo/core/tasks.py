@@ -131,9 +131,6 @@ def sync_with_remote():
         for user in User.objects.filter(
             Q(roles__instance=instance) | Q(is_master=True)
         ).exclude(email__in=('system@simo.io', 'device@simo.io')):
-            role = user.get_role(instance)
-            if not role:
-                continue
             is_superuser = False
             user_role = user.get_role(instance)
             if user_role and user_role.is_superuser:
