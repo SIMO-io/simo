@@ -75,14 +75,16 @@ class InstanceUserInline(admin.TabularInline):
 
 @admin.register(User)
 class UserAdmin(OrgUserAdmin):
-    list_display = ('name_display', 'email', 'roles_display', 'is_active')
-    list_filter = ('is_active', )
+    list_display = (
+        'name_display', 'email', 'roles_display', 'is_master', 'is_active'
+    )
+    list_filter = ('is_master', 'is_active', )
     search_fields = ('name', 'email')
     ordering = ('name', 'email')
     filter_horizontal = ()
     fieldsets = None
     fields = (
-        'name', 'email', 'is_active',
+        'name', 'email', 'is_active', 'is_master',
         'ssh_key', 'secret_key',
         'last_seen_location',
     )
@@ -122,7 +124,7 @@ class UserAdmin(OrgUserAdmin):
         qs = super().get_queryset(request)
         if request.user.is_master:
             return qs
-        return qs.filter(role__instance=request.user.instances)
+        return qs.filter(instance_roles__instance__in=request.user.instances)
 
 
 from django.contrib.auth.models import Group

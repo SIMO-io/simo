@@ -132,6 +132,11 @@ class User(AbstractBaseUser, SimoAdminMixin):
             'Unselect this instead of deleting accounts.'
         ),
     )
+    is_master = models.BooleanField(
+        default=False,
+        help_text="Has access to everything "
+                  "even without specific roles on instances."
+    )
     date_joined = models.DateTimeField(auto_now_add=True)
     last_action = models.DateTimeField(
         auto_now_add=True, db_index=True,
@@ -152,7 +157,6 @@ class User(AbstractBaseUser, SimoAdminMixin):
     secret_key = models.CharField(
         max_length=20, db_index=True, default=get_random_string
     )
-
 
     objects = UserManager()
 
@@ -240,19 +244,13 @@ class User(AbstractBaseUser, SimoAdminMixin):
         from simo.core.models import Instance
 
         self._instances = set()
+        if self.is_master:
+            self._instances = set(Instance.objects.all())
+            return self._instances
+
         for role in self.roles.all():
-            if not role.instance:
-                self._instances = set(Instance.objects.all())
-                return self._instances
             self._instances.add(role.instance)
         return self._instances
-
-    @property
-    def is_master(self):
-        for role in self.roles.all():
-            if not role.instance:
-                return True
-        return False
 
     @property
     def component_permissions(self):
@@ -262,16 +260,20 @@ class User(AbstractBaseUser, SimoAdminMixin):
 
     @property
     def is_superuser(self):
+        if self.is_master:
+            return True
         for role in self.roles.all():
-            if not role.instance and role.is_superuser:
+            if role.is_superuser:
                 return True
         return False
 
     @property
     def is_staff(self):
-        # TODO: inactive users are being redirected to simo.io sso infinitely
+        # TODO: non staff users are being redirected to simo.io sso infinitely
         if not self.is_active:
             return False
+        if self.is_master:
+            return True
         for role in self.roles.all():
             if role.is_superuser:
                 return True
