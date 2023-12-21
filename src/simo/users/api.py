@@ -4,14 +4,9 @@ from rest_framework.decorators import action
 from rest_framework.response import Response as RESTResponse
 from rest_framework.exceptions import ValidationError
 from django.contrib.gis.geos import Point
-from django.db.models import Q
-from geopy.distance import distance
-from simo.conf import dynamic_settings
 from simo.core.api import InstanceMixin
-from simo.core.models import Instance
 from .models import (
     User, UserDevice, UserDeviceReportLog, PermissionsRole, InstanceInvitation,
-    InstanceUser
 )
 from .serializers import (
     UserSerializer, PermissionsRoleSerializer, InstanceInvitationSerializer
@@ -168,42 +163,6 @@ class UserDeviceReport(viewsets.GenericViewSet):
         relay = None
         if request.META.get('HTTP_HOST', '').endswith('.simo.io'):
             relay = request.META.get('HTTP_HOST')
-
-
-        # TODO: fire at home event:
-        # from simo.core.events import Event
-        # Event(
-        #     self, {
-        #         'at_home': {'old': org.at_home, 'new': self.at_home}
-        #     }
-        # ).publish()
-
-        if not relay:
-            for item in InstanceUser.objects.filter(user=request.user):
-                item.at_home = True
-                item.save()
-        elif location:
-            for instance in Instance.objects.all():
-                cords = instance.location
-                try:
-                    instance_location = Point(
-                        [float(cords.split(',')[0]), float(cords.split(',')[1])],
-                        srid=4326
-                    )
-                except:
-                    pass
-                else:
-                    if distance(instance_location, location).meters < \
-                            dynamic_settings['users__at_home_radius']:
-                        at_home = True
-                    else:
-                        at_home = False
-
-                    for item in InstanceUser.objects.filter(
-                        user=request.user, instance=instance
-                    ):
-                        item.at_home = at_home
-                        item.save()
 
         log_entry = UserDeviceReportLog.objects.create(
             user_device=user_device,

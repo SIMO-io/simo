@@ -9,6 +9,8 @@ from django.db.models.signals import post_save, post_delete, m2m_changed
 from django.dispatch import receiver
 from model_utils import FieldTracker
 from dirtyfields import DirtyFieldsMixin
+from django.contrib.gis.geos import Point
+from geopy.distance import distance
 from django.core.exceptions import ValidationError
 from django.contrib.auth.models import (
     AbstractBaseUser, PermissionsMixin, UserManager as DefaultUserManager
@@ -347,6 +349,47 @@ class UserDeviceReportLog(models.Model):
 
     class Meta:
         ordering = '-datetime',
+
+
+@receiver(post_save, sender=UserDeviceReportLog)
+def set_user_at_home(sender, instance, created, **kwargs):
+    from simo.core.models import Instance
+    if not created:
+        return
+    if not instance.relay:
+        for item in InstanceUser.objects.filter(user=instance.user_device.user):
+            item.at_home = True
+            item.save()
+        return
+    if not instance.location:
+        return
+
+    for instance in Instance.objects.all():
+        cords = instance.location
+        try:
+            instance_location = Point(
+                [float(cords.split(',')[0]), float(cords.split(',')[1])],
+                srid=4326
+            )
+        except:
+            return
+        try:
+            log_location = Point(
+                [
+                    float(instance.location.split(',')[0]),
+                    float(cords.instance.location(',')[1])
+                ], srid=4326
+            )
+        except:
+            return
+        else:
+            for item in InstanceUser.objects.filter(
+                    user=instance.user_device.user, instance=instance
+            ):
+                item.at_home = distance(
+                    instance_location, log_location
+                ).meters < dynamic_settings['users__at_home_radius']
+                item.save()
 
 
 class ComponentPermission(models.Model):
