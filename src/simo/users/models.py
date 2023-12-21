@@ -366,11 +366,11 @@ def set_user_at_home(sender, instance, created, **kwargs):
     if not instance.location:
         return
 
-    for instance in Instance.objects.all():
-        cords = instance.location
+    for hub_instance in Instance.objects.all():
         try:
             instance_location = Point(
-                [float(cords.split(',')[0]), float(cords.split(',')[1])],
+                [float(hub_instance.location.split(',')[0]),
+                 float(hub_instance.location.split(',')[1])],
                 srid=4326
             )
         except:
@@ -379,14 +379,14 @@ def set_user_at_home(sender, instance, created, **kwargs):
             log_location = Point(
                 [
                     float(instance.location.split(',')[0]),
-                    float(cords.instance.location(',')[1])
+                    float(instance.location.split(',')[1])
                 ], srid=4326
             )
         except:
             return
         else:
             for item in InstanceUser.objects.filter(
-                    user=instance.user_device.user, instance=instance
+                user=instance.user_device.user, instance=hub_instance
             ):
                 item.at_home = distance(
                     instance_location, log_location
