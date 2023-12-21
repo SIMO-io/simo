@@ -1,19 +1,11 @@
 
 
-def get_superuser_role():
-    from .models import PermissionsRole
-    admin_role, new = PermissionsRole.objects.get_or_create(
-        is_superuser=True, instance=None,
-        defaults={'name': 'Global Admin'}
-    )
-    return admin_role
-
 
 def get_system_user():
     from .models import User
     system, new = User.objects.get_or_create(
         email='system@simo.io', defaults={
-            'role': get_superuser_role(), 'name': "System"
+            'name': "System"
         }
     )
     return system

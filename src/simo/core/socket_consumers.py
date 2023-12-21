@@ -71,11 +71,12 @@ class LogConsumer(AsyncWebsocketConsumer):
                 instance = getattr(self.obj, 'instance', None)
             return self.scope['user'].get_role(instance)
 
-        role = await sync_to_async(
-            get_role, thread_sensitive=True
-        )()
-        if not role.is_superuser:
-            return self.close()
+        if not self.scope['user'].is_master:
+            role = await sync_to_async(
+                get_role, thread_sensitive=True
+            )()
+            if not role or not role.is_superuser:
+                return self.close()
 
         self.log_file_path = get_log_file_path(self.obj)
         self.log_file = open(self.log_file_path)

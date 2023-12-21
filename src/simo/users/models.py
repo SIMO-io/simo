@@ -28,7 +28,7 @@ from .utils import rebuild_authorized_keys
 
 class PermissionsRole(models.Model):
     instance = models.ForeignKey(
-        'core.Instance', null=True, blank=True, on_delete=models.CASCADE,
+        'core.Instance', on_delete=models.CASCADE,
         help_text="Global role if instance is not set."
     )
     name = models.CharField(max_length=100, db_index=True)

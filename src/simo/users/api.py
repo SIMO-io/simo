@@ -42,14 +42,14 @@ class UsersViewSet(mixins.RetrieveModelMixin,
 
         user = self.get_object()
         user.set_instance(self.instance)
-        if request.user.is_superuser \
-        or request.user.get_role(self.instance).can_manage_users:
-            pass
-        else:
-            raise ValidationError(
-                'You are not allowed to change this!',
-                code=403
-            )
+
+        user_role = request.user.get_role(self.instance)
+        if not request.user.is_superuser:
+            if not user_role or not user_role.can_manage_users:
+                raise ValidationError(
+                    'You are not allowed to change this!',
+                    code=403
+                )
 
         serializer = self.get_serializer(
             user, data=request.data, partial=partial
@@ -59,24 +59,25 @@ class UsersViewSet(mixins.RetrieveModelMixin,
         except Exception as e:
             raise ValidationError(str(e), code=403)
 
+
+
+
         try:
             set_role_to = PermissionsRole.objects.get(id=request.data.get('role'))
         except Exception as e:
             raise ValidationError(e, code=403)
 
         if set_role_to.is_superuser:
-            if request.user.is_superuser \
-            or request.user.get_role(self.instance).is_superuser:
-                pass
-            else:
-                raise ValidationError(
-                    "You are not allowed to grant superuser roles to others "
-                    "if you are not a superuser yourself.",
-                    code=403
-                )
+            if not request.user.is_superuser:
+                if not user_role or not user_role.is_superuser:
+                    raise ValidationError(
+                        "You are not allowed to grant superuser roles to others "
+                        "if you are not a superuser yourself.",
+                        code=403
+                    )
 
         if user == request.user \
-        and request.user.get_role(self.instance).is_superuser \
+        and user_role and user_role.is_superuser \
         and not set_role_to.is_superuser:
         # User is trying to downgrade his own role from
         # superuser to something lower, we must make sure
@@ -101,15 +102,16 @@ class UsersViewSet(mixins.RetrieveModelMixin,
 
     def destroy(self, request, *args, **kwargs):
         user = self.get_object()
-        if request.user.is_superuser \
-        or request.user.get_role(self.instance).is_superuser:
+        if request.user.pk == user.pk:
             pass
-        elif request.user.pk == user.pk:
+        elif request.user.is_superuser:
             pass
         else:
-            raise ValidationError(
-                'You do not have permission for this!', code=403
-            )
+            role = request.user.get_role(self.instance)
+            if not role or not role.is_superuser:
+                raise ValidationError(
+                    'You do not have permission for this!', code=403
+                )
         self.perform_destroy(user)
         return RESTResponse(status=status.HTTP_204_NO_CONTENT)
 
@@ -192,10 +194,11 @@ class InvitationsViewSet(InstanceMixin, viewsets.ModelViewSet):
     serializer_class = InstanceInvitationSerializer
 
     def get_queryset(self):
-        if self.request.user.is_superuser \
-        or self.request.user.get_role(self.instance).can_manage_users:
-            return InstanceInvitation.objects.filter(instance=self.instance)
-        return InstanceInvitation.objects.none()
+        if not self.request.user.is_superuser:
+            role = self.request.user.get_role(self.instance)
+            if not role or not role.can_manage_users:
+                return InstanceInvitation.objects.none()
+        return InstanceInvitation.objects.filter(instance=self.instance)
 
     def perform_create(self, serializer):
         serializer.save(

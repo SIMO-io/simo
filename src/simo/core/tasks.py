@@ -129,15 +129,19 @@ def sync_with_remote():
         }
 
         for user in User.objects.filter(
-            Q(roles__instance=instance) | Q(roles__instance__isnull=True)
+            Q(roles__instance=instance) | Q(is_master=True)
         ).exclude(email__in=('system@simo.io', 'device@simo.io')):
             role = user.get_role(instance)
             if not role:
                 continue
+            is_superuser = False
+            user_role = user.get_role(instance)
+            if user_role and user_role.is_superuser:
+                is_superuser = True
             instance_data['users'].append({
                 'email': user.email,
                 'is_hub_master': user.is_master,
-                'is_superuser': user.get_role(instance).is_superuser,
+                'is_superuser': is_superuser,
                 'device_token': user.primary_device_token
             })
 
