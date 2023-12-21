@@ -165,4 +165,5 @@ src/simo/users/migrations/0017_auto_20231221_0735.py
 src/simo/users/migrations/0018_user_is_god.py
 src/simo/users/migrations/0019_auto_20231221_1155.py
 src/simo/users/migrations/0020_rename_is_god_user_is_master.py
+src/simo/users/migrations/0021_alter_permissionsrole_instance.py
 src/simo/users/migrations/__init__.py

@@ -5,8 +5,6 @@ from django.core.files import File
 from django.contrib.auth.backends import ModelBackend
 from django.utils import timezone
 from .models import User, InstanceInvitation, InstanceUser
-from .utils import get_superuser_role
-
 
 
 # TODO: get explanation when user tries to log in to admin but is unable to, because of lack of permissions on his role
@@ -29,8 +27,9 @@ class SSOBackend(ModelBackend):
             # so we create first user right away!
             if not User.objects.all().exclude(email__in=system_user_emails).count():
                 user = User.objects.create(
-                    email=user_data['email'], role=get_superuser_role(),
-                    name=user_data['name']
+                    email=user_data['email'],
+                    name=user_data['name'],
+                    is_master=True,
                 )
 
         try:
