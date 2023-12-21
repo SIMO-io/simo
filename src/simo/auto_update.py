@@ -57,9 +57,10 @@ if __name__ == "__main__":
         resp = requests.get("https://pypi.org/pypi/simo/json")
         if resp.status_code != 200:
             sys.exit("Bad response from PyPi")
-        latest = list(resp.json()['releases'].keys())[-1]
+        latest = resp.json()['info']['version']
         if current != latest:
-            print("Need to update!")
+            print(f"Need to update! We are on {current} but {latest} is available!")
+            print("Let's GO!")
             perform_update()
         else:
             print("Already up to date. Version: %s" % latest)
