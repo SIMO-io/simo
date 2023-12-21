@@ -92,11 +92,8 @@ def post_instance_save(sender, instance, created, **kwargs):
     if created:
         from simo.users.models import PermissionsRole
         PermissionsRole.objects.create(
-            is_superuser=True, name='Admin'
-        )
-        PermissionsRole.objects.create(
             instance=instance, name='Owner', can_manage_users=True,
         )
         PermissionsRole.objects.create(
-            name='User', can_manage_users=False, is_default=True
+            instance=instance, name='User', can_manage_users=False, is_default=True
         )

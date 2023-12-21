@@ -12,17 +12,10 @@ def get_system_user():
 
 
 def get_device_user():
-    from .models import User, PermissionsRole
-    user_role = PermissionsRole.objects.filter(
-        is_superuser=False, instance=None, name='Global User'
-    ).first()
-    if not user_role:
-        user_role = PermissionsRole.objects.create(
-            is_superuser=False, instance=None, name='Global User'
-        )
+    from .models import User
     device, new = User.objects.get_or_create(
         email='device@simo.io', defaults={
-            'role': user_role, 'name': "Device"
+            'name': "Device"
         }
     )
     return device
