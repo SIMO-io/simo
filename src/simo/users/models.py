@@ -7,6 +7,8 @@ from django.db.models import Q
 from django.db import transaction
 from django.db.models.signals import post_save, post_delete, m2m_changed
 from django.dispatch import receiver
+from model_utils import FieldTracker
+from dirtyfields import DirtyFieldsMixin
 from django.core.exceptions import ValidationError
 from django.contrib.auth.models import (
     AbstractBaseUser, PermissionsMixin, UserManager as DefaultUserManager
@@ -17,6 +19,7 @@ from location_field.models.plain import PlainLocationField
 from simo.conf import dynamic_settings
 from simo.core.utils.mixins import SimoAdminMixin
 from simo.core.utils.helpers import get_random_string
+from simo.core.events import OnChangeMixin
 from .middleware import get_current_user
 from .utils import rebuild_authorized_keys
 
@@ -69,7 +72,7 @@ class UserManager(DefaultUserManager):
         return user
 
 
-class UserInstanceRole(models.Model):
+class InstanceUser(DirtyFieldsMixin, models.Model, OnChangeMixin):
     user = models.ForeignKey(
         'User', on_delete=models.CASCADE, related_name='instance_roles'
     )
@@ -91,6 +94,23 @@ class UserInstanceRole(models.Model):
         self.instance = self.role.instance
         return super().save(*args, **kwargs)
 
+    def get_instance(self):
+        return self.instance
+
+
+@receiver(post_save, sender=InstanceUser)
+def post_instance_user_save(sender, instance, created, **kwargs):
+    if created:
+        return
+    from simo.core.events import ObjectManagementEvent
+    dirty_fields = instance.get_dirty_fields()
+    if 'at_home' in dirty_fields:
+        def post_update():
+            ObjectManagementEvent(
+                instance, 'changed', dirty_fields=dirty_fields
+            ).publish()
+        transaction.on_commit(post_update)
+
 
 class User(AbstractBaseUser, SimoAdminMixin):
     name = models.CharField(_('name'), max_length=150)
@@ -101,7 +121,7 @@ class User(AbstractBaseUser, SimoAdminMixin):
     )
     avatar_url = models.URLField(null=True, blank=True)
     avatar_last_change = models.DateTimeField(auto_now_add=True)
-    roles = models.ManyToManyField(PermissionsRole, through=UserInstanceRole)
+    roles = models.ManyToManyField(PermissionsRole, through=InstanceUser)
     is_active = models.BooleanField(
         _('active'),
         default=True,
@@ -205,7 +225,7 @@ class User(AbstractBaseUser, SimoAdminMixin):
         if not role:
             raise ValueError("There is no such a role on this instance")
 
-        UserInstanceRole.objects.update_or_create(
+        InstanceUser.objects.update_or_create(
             user=self, instance=self._instance, defaults={
                 'role': role
             }
@@ -324,7 +344,6 @@ class UserDeviceReportLog(models.Model):
         help_text="Sent via remote relay if specified, otherwise it's from LAN."
     )
     location = PlainLocationField(zoom=7, null=True, blank=True)
-    at_home = models.BooleanField(default=False)
 
     class Meta:
         ordering = '-datetime',

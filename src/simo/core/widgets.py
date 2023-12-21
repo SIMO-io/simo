@@ -1,5 +1,6 @@
 from django import forms
 from django.conf import settings
+from django.templatetags.static import static
 from django.utils.safestring import mark_safe
 from location_field.widgets import LocationWidget as OrgLocationWidget
 
@@ -11,6 +12,14 @@ class LocationWidget(OrgLocationWidget):
         zoom = kwargs.get('zoom', None)
         if zoom:
             self.options['map.zoom'] = zoom
+
+    @property
+    def media(self):
+        return forms.Media({
+            'js': [
+                static('location_field') + '/js/form.js',
+            ],
+        })
 
 
 class SVGFileWidget(forms.ClearableFileInput):

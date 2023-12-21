@@ -1123,6 +1123,7 @@ class AlarmClock(ControllerBase):
                 week_days.sort()
                 week_days = week_days + [d + 7 for d in week_days]
                 for wd in week_days:
+                    alarm = json.loads(json.dumps(alarm))
                     if wd < weekday:
                         continue
                     days_diff = wd - weekday

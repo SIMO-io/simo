@@ -4,7 +4,7 @@ import requests
 from django.core.files import File
 from django.contrib.auth.backends import ModelBackend
 from django.utils import timezone
-from .models import User, InstanceInvitation, UserInstanceRole
+from .models import User, InstanceInvitation, InstanceUser
 from .utils import get_superuser_role
 
 
@@ -52,7 +52,7 @@ class SSOBackend(ModelBackend):
         if invitation:
             invitation.taken_by = user
             invitation.save()
-            UserInstanceRole.objects.create(
+            InstanceUser.objects.create(
                 user=user, role=invitation.role,
                 instance=invitation.instance
             )

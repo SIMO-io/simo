@@ -11,7 +11,7 @@ from simo.core.api import InstanceMixin
 from simo.core.models import Instance
 from .models import (
     User, UserDevice, UserDeviceReportLog, PermissionsRole, InstanceInvitation,
-    UserInstanceRole
+    InstanceUser
 )
 from .serializers import (
     UserSerializer, PermissionsRoleSerializer, InstanceInvitationSerializer
@@ -169,12 +169,6 @@ class UserDeviceReport(viewsets.GenericViewSet):
         if request.META.get('HTTP_HOST', '').endswith('.simo.io'):
             relay = request.META.get('HTTP_HOST')
 
-        at_home = False
-        if not relay:
-            at_home = True
-        elif location:
-            pass
-
 
         # TODO: fire at home event:
         # from simo.core.events import Event
@@ -185,9 +179,9 @@ class UserDeviceReport(viewsets.GenericViewSet):
         # ).publish()
 
         if not relay:
-            UserInstanceRole.objects.filter(
-                user=request.user
-            ).update(at_home=True)
+            for item in InstanceUser.objects.filter(user=request.user):
+                item.at_home = True
+                item.save()
         elif location:
             for instance in Instance.objects.all():
                 cords = instance.location
@@ -201,19 +195,21 @@ class UserDeviceReport(viewsets.GenericViewSet):
                 else:
                     if distance(instance_location, location).meters < \
                             dynamic_settings['users__at_home_radius']:
-                        UserInstanceRole.objects.filter(
-                            user=request.user, instance=instance
-                        ).update(at_home=True)
+                        at_home = True
                     else:
-                        UserInstanceRole.objects.filter(
-                            user=request.user, instance=instance
-                        ).update(at_home=False)
+                        at_home = False
+
+                    for item in InstanceUser.objects.filter(
+                        user=request.user, instance=instance
+                    ):
+                        item.at_home = at_home
+                        item.save()
 
         log_entry = UserDeviceReportLog.objects.create(
             user_device=user_device,
             app_open=request.data.get('app_open', False),
             location=','.join([str(i) for i in location]) if location else None,
-            relay=relay, at_home=at_home
+            relay=relay
         )
         # Do not keep more than 1000 entries for every device.
         for log in UserDeviceReportLog.objects.filter(

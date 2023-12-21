@@ -2,9 +2,14 @@ import json
 import time
 import logging
 import threading
+import sys
+import json
+import traceback
+import pytz
 from django.contrib.contenttypes.models import ContentType
 from django.conf import settings
 import paho.mqtt.client as mqtt
+from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 import paho.mqtt.publish as mqtt_publish
 
@@ -130,3 +135,54 @@ class EventsStream:
     def on_tick(self):
         """Override me to do something every second"""
         pass
+
+
+class OnChangeMixin:
+
+    on_change_fields = ('value', )
+
+    def get_instance(self):
+        # default for component
+        return self.zone.instance.timezone
+
+    def on_mqtt_connect(self, mqtt_client, userdata, flags, rc):
+        mqtt_client.subscribe(ObjectManagementEvent.TOPIC)
+
+    def on_mqtt_message(self, client, userdata, msg):
+        payload = json.loads(msg.payload)
+        if not self._on_change_function:
+            return
+        if payload['obj_pk'] != self.id:
+            return
+        if payload['obj_ct_pk'] != self._obj_ct_id:
+            return
+        if payload['event'] != 'changed':
+            return
+        if 'value' not in payload.get('dirty_fields', {}):
+            return
+
+        tz = pytz.timezone(self.gget_instance().timezone)
+        timezone.activate(tz)
+
+        self.refresh_from_db()
+
+        try:
+            self._on_change_function(self)
+        except Exception:
+            print(traceback.format_exc(), file=sys.stderr)
+
+    def on_change(self, function):
+        if function:
+            self._mqtt_client = mqtt.Client()
+            self._mqtt_client.on_connect = self.on_mqtt_connect
+            self._mqtt_client.on_message = self.on_mqtt_message
+            self._mqtt_client.connect(host=settings.MQTT_HOST,
+                                     port=settings.MQTT_PORT)
+            self._mqtt_client.loop_start()
+            self._on_change_function = function
+            self._obj_ct_id = ContentType.objects.get_for_model(self).pk
+        elif self._mqtt_client:
+            self._mqtt_client.disconnect()
+            self._mqtt_client.loop_stop()
+            self._mqtt_client = None
+            self._on_change_function = None

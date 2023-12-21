@@ -6,7 +6,7 @@ from django.contrib.auth.admin import UserAdmin as OrgUserAdmin
 from django.contrib import admin
 from .models import (
     PermissionsRole, ComponentPermission, User, UserDevice, UserDeviceReportLog,
-    InstanceInvitation, UserInstanceRole
+    InstanceInvitation, InstanceUser
 )
 
 
@@ -67,8 +67,8 @@ class UserDeviceInline(admin.TabularInline):
         return mark_safe('<a href="%s">more >></a>' % obj.get_admin_url())
 
 
-class UserInstanceRoleInline(admin.TabularInline):
-    model = UserInstanceRole
+class InstanceUserInline(admin.TabularInline):
+    model = InstanceUser
     extra = 0
     readonly_fields = 'instance', 'at_home'
 
@@ -90,7 +90,7 @@ class UserAdmin(OrgUserAdmin):
         'name', 'email', 'avatar',
         'last_action', 'ssh_key',
     )
-    inlines = UserDeviceInline, UserInstanceRoleInline
+    inlines = UserDeviceInline, InstanceUserInline
 
     def name_display(self, obj=None):
         if not obj:
@@ -132,8 +132,8 @@ admin.site.unregister(Group)
 @admin.register(UserDeviceReportLog)
 class UserDeviceLogInline(admin.ModelAdmin):
     model = UserDeviceReportLog
-    readonly_fields = 'datetime', 'app_open', 'location', 'relay', 'at_home'
-    list_display = 'datetime', 'app_open', 'location', 'relay', 'at_home'
+    readonly_fields = 'datetime', 'app_open', 'location', 'relay'
+    list_display = 'datetime', 'app_open', 'location', 'relay'
     fields = readonly_fields
     list_filter = 'user_device__user',
 

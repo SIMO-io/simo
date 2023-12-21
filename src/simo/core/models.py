@@ -1,9 +1,7 @@
 import os
 import sys
 import inspect
-import json
-import traceback
-import pytz
+
 from django.utils.text import slugify
 from django.core.cache import cache
 from django.urls import reverse_lazy
@@ -25,10 +23,7 @@ from django.contrib.contenttypes.models import ContentType
 from simo.core.utils.mixins import SimoAdminMixin
 from simo.core.storage import OverwriteStorage
 from simo.core.utils.validators import validate_svg
-from .events import ObjectCommand, ObjectManagementEvent
-
-
-
+from .events import ObjectCommand, ObjectManagementEvent, OnChangeMixin
 
 
 User = get_user_model()
@@ -239,7 +234,7 @@ class Gateway(DirtyFieldsMixin, models.Model, SimoAdminMixin):
             )
 
 
-class Component(DirtyFieldsMixin, models.Model, SimoAdminMixin):
+class Component(DirtyFieldsMixin, models.Model, SimoAdminMixin, OnChangeMixin):
     name = models.CharField(
         _('name'), max_length=100, db_index=True
     )
@@ -403,47 +398,6 @@ def translate_before_set(self, value):
             return '%s | %s' % (self.zone.name, self.name)
         return self.name
 
-    def on_mqtt_connect(self, mqtt_client, userdata, flags, rc):
-        mqtt_client.subscribe(ObjectManagementEvent.TOPIC)
-
-    def on_mqtt_message(self, client, userdata, msg):
-        payload = json.loads(msg.payload)
-        if not self._on_change_function:
-            return
-        if payload['obj_pk'] != self.id:
-            return
-        if payload['obj_ct_pk'] != self._obj_ct_id:
-            return
-        if payload['event'] != 'changed':
-            return
-        if 'value' not in payload.get('dirty_fields', {}):
-            return
-
-        tz = pytz.timezone(self.zone.instance.timezone)
-        timezone.activate(tz)
-
-        self.refresh_from_db()
-
-        try:
-            self._on_change_function(self)
-        except Exception:
-            print(traceback.format_exc(), file=sys.stderr)
-
-    def on_change(self, function):
-        if function:
-            self._mqtt_client = mqtt.Client()
-            self._mqtt_client.on_connect = self.on_mqtt_connect
-            self._mqtt_client.on_message = self.on_mqtt_message
-            self._mqtt_client.connect(host=settings.MQTT_HOST,
-                                     port=settings.MQTT_PORT)
-            self._mqtt_client.loop_start()
-            self._on_change_function = function
-            self._obj_ct_id = ContentType.objects.get_for_model(self).pk
-        elif self._mqtt_client:
-            self._mqtt_client.disconnect()
-            self._mqtt_client.loop_stop()
-            self._mqtt_client = None
-            self._on_change_function = None
 
     def get_socket_url(self):
         return reverse_lazy(

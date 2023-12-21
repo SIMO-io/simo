@@ -3,7 +3,7 @@ from collections.abc import Iterable
 from simo.core.middleware import get_current_request
 from simo.core.serializers import TimestampField
 from easy_thumbnails.files import get_thumbnailer
-from .models import User, PermissionsRole, InstanceInvitation, UserInstanceRole
+from .models import User, PermissionsRole, InstanceInvitation, InstanceUser
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -42,7 +42,7 @@ class UserSerializer(serializers.ModelSerializer):
         return None
 
     def get_at_home(self, obj):
-        return UserInstanceRole.objects.filter(
+        return InstanceUser.objects.filter(
             user=obj
         ).first().at_home
 
