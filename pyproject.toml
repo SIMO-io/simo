@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "simo"
-version = "1.6.12"
+version = "1.6.13"
 authors = [
   { name="Simanas Venčkauskas", email="simanas@simo.io" },
 ]
@@ -19,6 +19,7 @@ classifiers = [
 dynamic = ["dependencies"]
 [tool.setuptools.dynamic]
 dependencies = {file = ["requirements.txt"]}
+
 
 [project.urls]
 Homepage = "https://simo.io"
