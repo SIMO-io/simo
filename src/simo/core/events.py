@@ -161,7 +161,7 @@ class OnChangeMixin:
         if 'value' not in payload.get('dirty_fields', {}):
             return
 
-        tz = pytz.timezone(self.gget_instance().timezone)
+        tz = pytz.timezone(self.get_instance().timezone)
         timezone.activate(tz)
 
         self.refresh_from_db()
