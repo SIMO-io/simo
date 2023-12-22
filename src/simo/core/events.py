@@ -143,7 +143,7 @@ class OnChangeMixin:
 
     def get_instance(self):
         # default for component
-        return self.zone.instance.timezone
+        return self.zone.instance
 
     def on_mqtt_connect(self, mqtt_client, userdata, flags, rc):
         mqtt_client.subscribe(ObjectManagementEvent.TOPIC)
