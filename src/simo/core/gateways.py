@@ -86,7 +86,10 @@ class BaseObjectCommandsGatewayHandler(BaseGatewayHandler):
         if not component:
             return
         print("Perform Value Send!")
-        self.perform_value_send(component, set_val)
+        try:
+            self.perform_value_send(component, set_val)
+        except Exception as e:
+            self.logger.error(e, exc_info=True)
 
     def perform_value_send(self, component, value):
         raise NotImplemented()
