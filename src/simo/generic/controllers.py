@@ -284,6 +284,15 @@ class Thermostat(ControllerBase):
         self.component.save()
         self.evaluate()
 
+    def hold(self, temperature=None):
+        if temperature != None:
+            self.component.config['user_config']['hard'] = {
+                'active': True, 'target': temperature
+            }
+        else:
+            self.component.config['user_config']['hard']['active'] = False
+        self.component.save()
+
 
 class AlarmGroup(ControllerBase):
     name = _("Alarm Group")
