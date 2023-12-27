@@ -12,10 +12,6 @@ def watch_colonels_connection():
     ):
         colonel.socket_connected = False
         colonel.save()
-        for comp in colonel.components.all():
-            comp.alive = False
-            comp.save()
-
 
 @celery_app.task
 def look_for_updates():

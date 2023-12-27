@@ -118,7 +118,7 @@ class Colonel(DirtyFieldsMixin, models.Model):
             return False
         if not self.last_seen:
             return False
-        return self.last_seen > timezone.now() - datetime.timedelta(seconds=30)
+        return True
 
     def newer_firmware_available(self):
         updates = []
