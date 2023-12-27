@@ -68,6 +68,7 @@ INSTALLED_APPS = [
     'simo.notifications',
     'simo.generic',
     'simo.multimedia',
+    'simo.fleet',
 
     'django.contrib.admin',
 ]
