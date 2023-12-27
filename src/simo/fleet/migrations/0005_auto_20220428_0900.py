@@ -7,7 +7,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ('core', '0006_alter_component_subcomponents'),
-        ('simo.fleet', '0004_auto_20220422_0818'),
+        ('fleet', '0004_auto_20220422_0818'),
     ]
 
     operations = [

@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('simo.fleet', '0012_colonel_logs_stream'),
+        ('fleet', '0012_colonel_logs_stream'),
     ]
 
     operations = [

@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('simo.fleet', '0022_remove_colonel_secret'),
+        ('fleet', '0022_remove_colonel_secret'),
     ]
 
     operations = [

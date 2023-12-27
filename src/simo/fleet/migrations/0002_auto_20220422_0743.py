@@ -7,7 +7,7 @@ import simo.fleet.models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('simo.fleet', '0001_initial'),
+        ('fleet', '0001_initial'),
     ]
 
     operations = [

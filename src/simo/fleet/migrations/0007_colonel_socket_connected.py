@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('simo.fleet', '0006_rename_mac_colonel_uid'),
+        ('fleet', '0006_rename_mac_colonel_uid'),
     ]
 
     operations = [

@@ -6,7 +6,7 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('simo.fleet', '0021_auto_20231006_0819'),
+        ('fleet', '0021_auto_20231006_0819'),
     ]
 
     operations = [

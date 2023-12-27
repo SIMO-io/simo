@@ -8,7 +8,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ('core', '0018_auto_20231005_0622'),
-        ('simo.fleet', '0017_alter_colonel_secret'),
+        ('fleet', '0017_alter_colonel_secret'),
     ]
 
     operations = [

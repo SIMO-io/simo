@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('simo.fleet', '0011_i2cinterface_freq'),
+        ('fleet', '0011_i2cinterface_freq'),
     ]
 
     operations = [

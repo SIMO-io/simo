@@ -5,7 +5,7 @@ from django.db import migrations
 
 def forwards_func(apps, schema_editor):
     Instance = apps.get_model("core", "Instance")
-    InstanceOptions = apps.get_model('simo.fleet', 'InstanceOptions')
+    InstanceOptions = apps.get_model('fleet', 'InstanceOptions')
 
     for inst in Instance.objects.all():
         InstanceOptions.objects.get_or_create(instance=inst)
@@ -17,7 +17,7 @@ def reverse_func(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('simo.fleet', '0020_instanceoptions'),
+        ('fleet', '0020_instanceoptions'),
     ]
 
     operations = [
