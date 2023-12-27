@@ -127,7 +127,7 @@ class LogConsumer(AsyncWebsocketConsumer):
                 self.in_error = False
             await self.send(text_data=line)
 
-    def disconnect(self, code):
+    async def disconnect(self, code):
         if self.log_file:
             self.log_file.close()
             self.log_file = None
