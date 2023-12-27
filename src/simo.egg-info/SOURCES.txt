@@ -10217,7 +10217,6 @@ src/simo/users/permissions.py
 src/simo/users/serializers.py
 src/simo/users/sso_urls.py
 src/simo/users/sso_views.py
-src/simo/users/tasks.py
 src/simo/users/utils.py
 src/simo/users/views.py
 src/simo/users/__pycache__/__init__.cpython-38.pyc
@@ -10232,7 +10231,6 @@ src/simo/users/__pycache__/permissions.cpython-38.pyc
 src/simo/users/__pycache__/serializers.cpython-38.pyc
 src/simo/users/__pycache__/sso_urls.cpython-38.pyc
 src/simo/users/__pycache__/sso_views.cpython-38.pyc
-src/simo/users/__pycache__/tasks.cpython-38.pyc
 src/simo/users/__pycache__/utils.cpython-38.pyc
 src/simo/users/__pycache__/views.cpython-38.pyc
 src/simo/users/migrations/0001_initial.py

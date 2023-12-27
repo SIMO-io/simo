@@ -124,6 +124,7 @@ class User(AbstractBaseUser, SimoAdminMixin):
     avatar_url = models.URLField(null=True, blank=True)
     avatar_last_change = models.DateTimeField(auto_now_add=True)
     roles = models.ManyToManyField(PermissionsRole, through=InstanceUser)
+    # TODO: MOVE to InstanceUser object!
     is_active = models.BooleanField(
         _('active'),
         default=True,
