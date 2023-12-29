@@ -54,15 +54,6 @@ class UnitsOfMeasure(ChoicePreference):
 
 
 @global_preferences_registry.register
-class HistoryDays(IntegerPreference):
-    section = core
-    name = 'history_days'
-    default = 90
-    required = True
-    help_text = 'How many days of history to keep.'
-
-
-@global_preferences_registry.register
 class LatestHubOSVersionAvailable(StringPreference):
     section = core
     name = 'latest_version_available'

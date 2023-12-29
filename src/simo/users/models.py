@@ -340,6 +340,9 @@ class UserDeviceReportLog(models.Model):
     user_device = models.ForeignKey(
         UserDevice, on_delete=models.CASCADE, related_name='report_logs'
     )
+    instance = models.ForeignKey(
+        'core.Instance', null=True, on_delete=models.CASCADE
+    )
     datetime = models.DateTimeField(auto_now_add=True)
     app_open = models.BooleanField(
         default=False, help_text="Sent while using app or by background process."

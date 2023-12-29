@@ -228,9 +228,12 @@ def watch_timers():
 
 @celery_app.task
 def clear_history():
-    old_times = timezone.now() - datetime.timedelta(dynamic_settings['core__history_days'])
-    ComponentHistory.objects.filter(date__lt=old_times).delete()
-    HistoryAggregate.objects.filter(start__lt=old_times).delete()
+    for instance in Instance.objects.all():
+        old_times = timezone.now() - datetime.timedelta(
+            days=instance.history_days
+        )
+        ComponentHistory.objects.filter(date__lt=old_times).delete()
+        HistoryAggregate.objects.filter(start__lt=old_times).delete()
 
 
 @celery_app.task

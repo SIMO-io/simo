@@ -13,7 +13,7 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='gateway',
             name='type',
-            field=models.CharField(choices=[('simo.generic.gateways.DummyGatewayHandler', 'Dummy'), ('simo_esphome.gateways.ESPHomeGatewayHandler', 'ESPHome'), ('simo.generic.gateways.GenericGatewayHandler', 'Generic'), ('NukiDevices', 'Nuki'), ('simo_fleet.gateways.FleetGatewayHandler', 'SIMO.io Fleet'), ('simo_sonos.gateways.SONOSGatewayHandler', 'SONOS'), ('simo_zwave.gateways.ZwaveGatewayHandler', 'Zwave')], db_index=True, max_length=200, unique=True),
+            field=models.CharField(choices=[], db_index=True, max_length=200, unique=True),
         ),
         migrations.AlterField(
             model_name='instance',

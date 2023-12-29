@@ -4,6 +4,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response as RESTResponse
 from rest_framework.exceptions import ValidationError
 from django.contrib.gis.geos import Point
+from django.utils import timezone
 from simo.core.api import InstanceMixin
 from .models import (
     User, UserDevice, UserDeviceReportLog, PermissionsRole, InstanceInvitation,
@@ -153,7 +154,6 @@ class UserDeviceReport(viewsets.GenericViewSet):
         if not new:
             for key, val in defaults.items():
                 setattr(user_device, key, val)
-            user_device.save()
         try:
             location = Point(
                 *[float(c) for c in request.data.get('location').split(',')],
@@ -162,28 +162,26 @@ class UserDeviceReport(viewsets.GenericViewSet):
         except:
             location = None
 
+        user_device.last_seen = timezone.now()
+        if location:
+            user_device.last_seen_location = ','.join(
+                [str(i) for i in location]
+            ) if location else None
+        if request.data.get('app_open', False):
+            user_device.is_primary = True
+        user_device.save()
+
         relay = None
         if request.META.get('HTTP_HOST', '').endswith('.simo.io'):
             relay = request.META.get('HTTP_HOST')
 
-        log_entry = UserDeviceReportLog.objects.create(
-            user_device=user_device,
-            app_open=request.data.get('app_open', False),
-            location=','.join([str(i) for i in location]) if location else None,
-            relay=relay
-        )
-        # Do not keep more than 1000 entries for every device.
-        for log in UserDeviceReportLog.objects.filter(
-            user_device=user_device
-        )[1000:]:
-            log.delete()
-
-        user_device.last_seen = log_entry.datetime
-        if log_entry.location:
-            user_device.last_seen_location = log_entry.location
-        if log_entry.app_open:
-            user_device.is_primary = True
-        user_device.save()
+        for instance in request.user.instances:
+            UserDeviceReportLog.objects.create(
+                user_device=user_device, instance=instance,
+                app_open=request.data.get('app_open', False),
+                location=','.join([str(i) for i in location]) if location else None,
+                relay=relay
+            )
 
         return RESTResponse({'status': 'success'})
 

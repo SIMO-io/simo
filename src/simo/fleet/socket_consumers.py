@@ -145,6 +145,25 @@ class FleetConsumer(AsyncWebsocketConsumer):
                 'command': 'set_config', 'data': config
             }))
 
+        asyncio.create_task(self.watch_connection())
+
+    async def watch_connection(self):
+        while self.connected:
+            await sync_to_async(
+                self.colonel.refresh_from_db, thread_sensitive=True
+            )()
+
+            if self.colonel.firmware_auto_update \
+            and self.colonel.minor_upgrade_available:
+                await self.firmware_update(
+                    self.colonel.minor_upgrade_available
+                )
+
+            await asyncio.sleep(10)
+            # Default pinging system sometimes get's lost somewhere,
+            # therefore we use our own to ensure connection
+            await self.send(json.dumps({'command': 'ping'}))
+
     async def firmware_update(self, to_version):
         print("Firmware update: ", str(self.colonel))
         await self.send(json.dumps({'command': 'ota_update', 'version': to_version}))
