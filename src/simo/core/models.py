@@ -105,7 +105,9 @@ class Instance(DirtyFieldsMixin, models.Model, SimoAdminMixin):
         default=90, help_text="How many days of component history do we keep?"
     )
     device_report_history_days = models.PositiveIntegerField(
-        default=7, help_text="How many days of user device reports log do we keep?"
+        default=0,
+        help_text="How many days of user device reports log do we keep? "
+                  "Use 0 if you do not want to keep these logs at all."
     )
 
     def __str__(self):

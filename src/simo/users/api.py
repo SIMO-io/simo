@@ -127,7 +127,7 @@ class RolesViewsets(InstanceMixin, viewsets.ReadOnlyModelViewSet):
         return PermissionsRole.objects.filter(instance=self.instance)
 
 
-class UserDeviceReport(viewsets.GenericViewSet):
+class UserDeviceReport(InstanceMixin, viewsets.GenericViewSet):
     url = 'users'
     basename = 'device_report'
     serializer_class = Serializer
@@ -175,13 +175,12 @@ class UserDeviceReport(viewsets.GenericViewSet):
         if request.META.get('HTTP_HOST', '').endswith('.simo.io'):
             relay = request.META.get('HTTP_HOST')
 
-        for instance in request.user.instances:
-            UserDeviceReportLog.objects.create(
-                user_device=user_device, instance=instance,
-                app_open=request.data.get('app_open', False),
-                location=','.join([str(i) for i in location]) if location else None,
-                relay=relay
-            )
+        UserDeviceReportLog.objects.create(
+            user_device=user_device, instance=self.instance,
+            app_open=request.data.get('app_open', False),
+            location=','.join([str(i) for i in location]) if location else None,
+            relay=relay
+        )
 
         return RESTResponse({'status': 'success'})
 
