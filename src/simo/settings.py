@@ -269,7 +269,6 @@ LOCATION_FIELD = {
     'map.provider': 'openstreetmap',
     'map.zoom': 13,
     'search.provider': 'nominatim',
-    'resources.root_path': '/static/location_field',
 }
 
 
