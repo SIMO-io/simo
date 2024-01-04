@@ -34,10 +34,6 @@ class SIMOWebsocketConsumer(WebsocketConsumer):
         self.headers = {
             key.decode(): val.decode() for key, val in self.scope['headers']
         }
-        if self.headers.get('host').endswith('simo.io'):
-            router_prefix = dynamic_settings['core__remote_http']
-            router_prefix = router_prefix[router_prefix.find('simo.io') + 7:]
-            set_script_prefix(router_prefix)
 
 
 class LogConsumer(AsyncWebsocketConsumer):

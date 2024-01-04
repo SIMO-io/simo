@@ -21,12 +21,6 @@ def simo_router_middleware(get_response):
 
         request.relay = None
 
-        if request.META.get('HTTP_HOST', '').endswith('.simo.io'):
-            router_prefix = dynamic_settings['core__remote_http']
-            router_prefix = router_prefix[router_prefix.find('simo.io') + 7:]
-            set_script_prefix(router_prefix)
-            request.path = router_prefix + request.path
-
         response = get_response(request)
 
         return response
