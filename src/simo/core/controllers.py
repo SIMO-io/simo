@@ -433,7 +433,7 @@ class Dimmer(ControllerBase, TimerMixin):
             if self.component.value_previous:
                 self.send(self.component.value_previous)
             else:
-                self.send(self.component.config.get('max', 1.0))
+                self.send(self.component.config.get('max', 90))
 
     def toggle(self):
         if self.component.value:
