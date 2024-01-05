@@ -102,12 +102,14 @@ class UsersViewSet(mixins.RetrieveModelMixin,
     def destroy(self, request, *args, **kwargs):
         user = self.get_object()
         if request.user.pk == user.pk:
-            pass
-        elif request.user.is_superuser:
+            raise ValidationError(
+                'Deleting yourself is not allowed!', code=403
+            )
+        if request.user.is_superuser:
             pass
         else:
             role = request.user.get_role(self.instance)
-            if not role or not role.is_superuser:
+            if not role or not role.can_manage_users:
                 raise ValidationError(
                     'You do not have permission for this!', code=403
                 )
