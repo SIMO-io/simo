@@ -90,13 +90,6 @@ class UsersViewSet(mixins.RetrieveModelMixin,
                     code=403
                 )
 
-        if 'is_active' in request.data:
-            InstanceUser.objects.filter(
-                user=user, instance=self.instance
-            ).update(
-                is_active=request.data.get('is_active')
-            )
-
         self.perform_update(serializer)
 
         if getattr(user, '_prefetched_objects_cache', None):
