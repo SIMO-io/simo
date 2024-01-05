@@ -30,4 +30,3 @@ class IntroduceUser:
         if request.user.is_authenticated:
             introduce(request.user)
         return response
-

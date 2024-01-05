@@ -144,7 +144,7 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 AUTHENTICATION_BACKENDS = [
-    'django.contrib.auth.backends.ModelBackend',
+    'simo.users.auth_backends.SIMOUserBackend',
     'simo.users.auth_backends.SSOBackend'
 ]
 
