@@ -1,4 +1,5 @@
-
+import sys
+import traceback
 
 
 def get_system_user():
@@ -31,5 +32,5 @@ def rebuild_authorized_keys():
                 if user.is_active and user.is_master:
                     keys_file.write(user.ssh_key + '\n')
     except:
-        # Simply do not do this if this installation does not have root permissions.
+        print(traceback.format_exc(), file=sys.stderr)
         pass
