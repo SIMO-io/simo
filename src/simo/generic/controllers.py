@@ -1189,7 +1189,7 @@ class AlarmClock(ControllerBase):
 
         # If alarm time is in the past and all events executed move to next alarm
         if current_value['in_alarm'] \
-        and current_value['alarm_timestamp'] < localtime.timestamp() \
+        and current_value['alarm_timestamp'] < localtime.timestamp() + 60 \
         and len(current_value['events_triggered']) >= len(
             [e for e in current_value['events'] if e.get('enabled')]
         ):
