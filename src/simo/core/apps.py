@@ -15,7 +15,7 @@ class CoreAppConfig(AppConfig):
         os.chmod(auto_update_file_path, st.st_mode | 0o111)
 
         executable_path = '/usr/local/bin/simo-auto-update'
-        if os.geteuid() == 0 and not os.path.exists(executable_path):
+        if os.geteuid() == 0 and not os.path.islink(executable_path):
             # We are running as root and there is no symbolic link yet made
             # for auto updates.
             os.symlink(auto_update_file_path, executable_path)
