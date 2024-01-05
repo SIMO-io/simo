@@ -13,7 +13,10 @@ def notify_users(instance, severity, title, body=None, component=None, users=Non
         component=component
     )
     if not users:
-        users = User.objects.filter(roles__instnace=instance, is_active=True)
+        users = User.objects.filter(
+            instance_roles__instnace=instance,
+            instance_roles__is_active=True
+        )
     for user in users:
         if instance not in user.instances:
             continue

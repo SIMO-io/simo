@@ -26,9 +26,9 @@ def rebuild_authorized_keys():
     try:
         with open('/root/.ssh/authorized_keys', 'w') as keys_file:
             for user in User.objects.filter(
-                ssh_key__isnull=False, is_active=True
+                ssh_key__isnull=False
             ):
-                if user.is_superuser:
+                if user.is_active and user.is_master:
                     keys_file.write(user.ssh_key + '\n')
     except:
         # Simply do not do this if this installation does not have root permissions.

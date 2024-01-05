@@ -109,7 +109,7 @@ class ZoneSerializer(serializers.ModelSerializer):
         fields = ['id', 'name', 'components']
 
     def get_components_qs(self, obj):
-        qs = obj.components.filter(show_in_app=True)
+        qs = obj.components.all()
         if self.context['request'].user.is_superuser:
             return qs
         user = self.context.get('request').user

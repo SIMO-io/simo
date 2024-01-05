@@ -8,6 +8,7 @@ from django.utils import timezone
 from simo.core.api import InstanceMixin
 from .models import (
     User, UserDevice, UserDeviceReportLog, PermissionsRole, InstanceInvitation,
+    InstanceUser
 )
 from .serializers import (
     UserSerializer, PermissionsRoleSerializer, InstanceInvitationSerializer
@@ -60,9 +61,6 @@ class UsersViewSet(mixins.RetrieveModelMixin,
         except Exception as e:
             raise ValidationError(str(e), code=403)
 
-
-
-
         try:
             set_role_to = PermissionsRole.objects.get(id=request.data.get('role'))
         except Exception as e:
@@ -91,6 +89,13 @@ class UsersViewSet(mixins.RetrieveModelMixin,
                     "therefore you are not alowed to downgrade your role.",
                     code=403
                 )
+
+        if 'is_active' in request.data:
+            InstanceUser.objects.filter(
+                user=user, instance=self.instance
+            ).update(
+                is_active=request.data.pop('is_active')
+            )
 
         self.perform_update(serializer)
 

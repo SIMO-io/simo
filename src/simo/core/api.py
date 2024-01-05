@@ -222,7 +222,6 @@ class ComponentHistoryViewSet(InstanceMixin, viewsets.ReadOnlyModelViewSet):
     def get_queryset(self):
         qs = ComponentHistory.objects.filter(
             component__zone__instance=self.instance,
-            component__show_in_app=True
         )
         if self.request.user.is_superuser:
             return qs

@@ -82,7 +82,8 @@ class InstanceUser(DirtyFieldsMixin, models.Model, OnChangeMixin):
         'core.Instance', on_delete=models.CASCADE, null=True
     )
     role = models.ForeignKey(PermissionsRole, on_delete=models.CASCADE)
-    at_home = models.BooleanField(default=False)
+    at_home = models.BooleanField(default=False, db_index=True)
+    is_active = models.BooleanField(default=True, db_index=True)
 
     class Meta:
         unique_together = 'user', 'instance'
@@ -124,15 +125,6 @@ class User(AbstractBaseUser, SimoAdminMixin):
     avatar_url = models.URLField(null=True, blank=True)
     avatar_last_change = models.DateTimeField(auto_now_add=True)
     roles = models.ManyToManyField(PermissionsRole, through=InstanceUser)
-    # TODO: MOVE to InstanceUser object!
-    is_active = models.BooleanField(
-        _('active'),
-        default=True,
-        help_text=_(
-            'Designates whether this user should be treated as active. '
-            'Unselect this instead of deleting accounts.'
-        ),
-    )
     is_master = models.BooleanField(
         default=False,
         help_text="Has access to everything "
@@ -199,7 +191,7 @@ class User(AbstractBaseUser, SimoAdminMixin):
         return obj
 
     def can_ssh(self):
-        return self.is_active and self.ssh_key and self.is_superuser
+        return self.is_active and self.ssh_key and self.is_master
 
     def get_role(self, instance):
         for role in self.roles.all():
@@ -245,12 +237,14 @@ class User(AbstractBaseUser, SimoAdminMixin):
         from simo.core.models import Instance
 
         self._instances = set()
+        if not self.is_active:
+            return self._instance
         if self.is_master:
             self._instances = set(Instance.objects.all())
             return self._instances
 
-        for role in self.roles.all():
-            self._instances.add(role.instance)
+        for instance_role in self.instance_roles.filter(is_active=True):
+            self._instances.add(instance_role.instance)
         return self._instances
 
     @property
@@ -258,6 +252,13 @@ class User(AbstractBaseUser, SimoAdminMixin):
         return ComponentPermission.objects.filter(
             role__in=self.roles.all()
         )
+
+    @property
+    def is_active(self):
+        return bool(
+            self.instance_roles.filter(is_active=True).first()
+        )
+
 
     @property
     def is_superuser(self):

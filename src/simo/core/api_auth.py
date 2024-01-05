@@ -10,10 +10,13 @@ class SecretKeyAuth(BasicAuthentication):
         secret_key = request.META.get('HTTP_SECRET')
         if secret_key:
             user = User.objects.filter(
-                secret_key=secret_key, is_active=True
+                secret_key=secret_key
             ).first()
-            if user:
-                return (user, None)
+
+            if not user or not user.is_active:
+                return
+
+            return (user, None)
 
     def authenticate_header(self, request):
         return "None"

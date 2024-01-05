@@ -78,7 +78,7 @@ class UserAdmin(OrgUserAdmin):
     list_display = (
         'name_display', 'email', 'roles_display', 'is_master', 'is_active'
     )
-    list_filter = ('is_master', 'is_active', )
+    list_filter = ('is_master', )
     search_fields = ('name', 'email')
     ordering = ('name', 'email')
     filter_horizontal = ()
@@ -90,7 +90,7 @@ class UserAdmin(OrgUserAdmin):
     )
     readonly_fields = (
         'name', 'email', 'avatar',
-        'last_action', 'ssh_key',
+        'last_action', 'ssh_key', 'is_active'
     )
     inlines = UserDeviceInline, InstanceUserInline
 
@@ -134,13 +134,20 @@ admin.site.unregister(Group)
 @admin.register(UserDeviceReportLog)
 class UserDeviceLogInline(admin.ModelAdmin):
     model = UserDeviceReportLog
-    readonly_fields = 'datetime', 'app_open', 'location', 'relay'
-    list_display = 'datetime', 'app_open', 'location', 'relay'
+    readonly_fields = 'datetime', 'app_open', 'location', 'relay', 'user'
+    list_display = 'datetime', 'app_open', 'location', 'relay', 'user'
     fields = readonly_fields
     list_filter = 'user_device__user',
 
     def has_add_permission(self, request, obj=None):
         return False
+
+    def user(self, obj):
+        return mark_safe(
+            f'<a href="{obj.user_device.user.get_admin_url()}">'
+            f'{obj.user_device.user}'
+            f'</a>'
+        )
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
