@@ -32,7 +32,7 @@ class UserSerializer(serializers.ModelSerializer):
 
     def get_is_active(self, obj):
         iu = InstanceUser.objects.filter(
-            user=obj, instance=self.instance
+            user=obj, instance=obj._instance
         ).first()
         if iu:
             return iu.is_active
@@ -52,7 +52,7 @@ class UserSerializer(serializers.ModelSerializer):
 
     def get_at_home(self, obj):
         iu = InstanceUser.objects.filter(
-            user=obj, instance=self.instance
+            user=obj, instance=obj._instance
         ).first()
         if iu:
             return iu.at_home
