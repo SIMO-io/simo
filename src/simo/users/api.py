@@ -63,7 +63,9 @@ class UsersViewSet(mixins.RetrieveModelMixin,
             raise ValidationError(str(e), code=403)
 
         try:
-            set_role_to = PermissionsRole.objects.get(id=request.data.get('role'))
+            set_role_to = PermissionsRole.objects.get(
+                pk=request.data.get('role')
+            )
         except Exception as e:
             print(e, file=sys.stderr)
             raise ValidationError(e, code=403)
