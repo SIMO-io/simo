@@ -1,3 +1,4 @@
+import sys
 from rest_framework import viewsets, mixins, status
 from rest_framework.serializers import Serializer
 from rest_framework.decorators import action
@@ -48,10 +49,9 @@ class UsersViewSet(mixins.RetrieveModelMixin,
         user_role = request.user.get_role(self.instance)
         if not request.user.is_superuser:
             if not user_role or not user_role.can_manage_users:
-                raise ValidationError(
-                    'You are not allowed to change this!',
-                    code=403
-                )
+                msg = 'You are not allowed to change this!'
+                print(msg, file=sys.stderr)
+                raise ValidationError(msg, code=403)
 
         serializer = self.get_serializer(
             user, data=request.data, partial=partial
@@ -59,20 +59,21 @@ class UsersViewSet(mixins.RetrieveModelMixin,
         try:
             serializer.is_valid(raise_exception=True)
         except Exception as e:
+            print(e, file=sys.stderr)
             raise ValidationError(str(e), code=403)
 
         try:
             set_role_to = PermissionsRole.objects.get(id=request.data.get('role'))
         except Exception as e:
+            print(e, file=sys.stderr)
             raise ValidationError(e, code=403)
 
         if set_role_to != user.get_role(self.instance) and set_role_to.is_superuser \
         and not user_role.is_superuser:
-            raise ValidationError(
-                "You are not allowed to grant superuser roles to others "
-                "if you are not a superuser yourself.",
-                code=403
-            )
+            msg = "You are not allowed to grant superuser roles to others " \
+                  "if you are not a superuser yourself."
+            print(msg, file=sys.stderr)
+            raise ValidationError(msg, code=403)
 
         if user == request.user \
         and user_role and user_role.is_superuser \
@@ -83,11 +84,10 @@ class UsersViewSet(mixins.RetrieveModelMixin,
             if not User.objects.filter(
                 roles__instance=self.instance, roles__is_superuser=True
             ).exclude(id=user.id).values('id').first():
-                raise ValidationError(
-                    "You are the only one superuser on this instance, "
-                    "therefore you are not alowed to downgrade your role.",
-                    code=403
-                )
+                msg = "You are the only one superuser on this instance, " \
+                      "therefore you are not alowed to downgrade your role."
+                print(msg, file=sys.stderr)
+                raise ValidationError(msg, code=403)
 
         self.perform_update(serializer)
 
