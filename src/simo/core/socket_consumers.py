@@ -55,7 +55,13 @@ class LogConsumer(AsyncWebsocketConsumer):
 
         if not self.scope['user'].is_authenticated:
             return self.close()
-        if not self.scope['user'].is_active:
+
+        def get_is_active():
+            return self.scope['user'].is_active
+
+        if not await sync_to_async(
+            get_is_active, thread_sensitive=True
+        )():
             return self.close()
 
         def get_role():
@@ -144,8 +150,15 @@ class GatewayController(SIMOWebsocketConsumer):
 
         if not self.scope['user'].is_authenticated:
             return self.close()
-        if not self.scope['user'].is_active:
+
+        def get_is_active():
+            return self.scope['user'].is_active
+
+        if not await sync_to_async(
+                get_is_active, thread_sensitive=True
+        )():
             return self.close()
+
         if not self.scope['user'].is_superuser:
             return self.close()
 
@@ -212,7 +225,12 @@ class ComponentController(SIMOWebsocketConsumer):
             ))
             return self.close()
 
-        if not self.scope['user'].is_active:
+        def get_is_active():
+            return self.scope['user'].is_active
+
+        if not await sync_to_async(
+            get_is_active, thread_sensitive=True
+        )():
             self.send(text_data=json.dumps(
                 {'event': 'close', 'reason': 'auth'}
             ))
