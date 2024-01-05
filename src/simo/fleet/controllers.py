@@ -204,7 +204,7 @@ class PWMOutput(FleeDeviceMixin, BasicOutputMixin, BaseDimmer):
         return value
 
     def _val_to_success(self, value):
-        return self._val_to_success(value)
+        return self._prepare_for_set(value)
 
 
 class RGBLight(FleeDeviceMixin, BasicOutputMixin, BaseRGBWLight):
