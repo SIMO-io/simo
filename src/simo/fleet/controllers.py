@@ -182,8 +182,6 @@ class PWMOutput(FleeDeviceMixin, BasicOutputMixin, BaseDimmer):
             if conf.get('inverse'):
                 pwm_value = conf.get('duty_max', 1023) - pwm_value + conf.get('duty_min')
 
-        print(f"Value prepared for send: {pwm_value}")
-
         return pwm_value
 
     def _prepare_for_set(self, pwm_value):
