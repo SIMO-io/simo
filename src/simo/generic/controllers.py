@@ -1289,15 +1289,15 @@ class AlarmClock(ControllerBase):
         current_value['alarm_datetime'] = str(datetime.datetime.fromtimestamp(
             current_value['alarm_timestamp'],
         ).astimezone(tz=timezone.localtime().tzinfo))
-        triggered_events = []
+        events_triggered = []
         for event in current_value['events']:
             event['fire_timestamp'] += mins * 60
             if event['uid'] in current_value['events_triggered']:
                 if event['fire_timestamp'] > localtime.timestamp():
                     self._execute_event(event, False)
                 else:
-                    triggered_events.append(event['uid'])
-        current_value['triggered_events'] = triggered_events
+                    events_triggered.append(event['uid'])
+        current_value['events_triggered'] = events_triggered
 
         self.component.value = current_value
         self.component.save()
