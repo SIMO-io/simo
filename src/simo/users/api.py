@@ -66,30 +66,29 @@ class UsersViewSet(mixins.RetrieveModelMixin,
             set_role_to = PermissionsRole.objects.get(
                 pk=request.data.get('role')
             )
-        except Exception as e:
-            print(e, file=sys.stderr)
-            raise ValidationError(e, code=403)
-
-        if set_role_to != user.get_role(self.instance) and set_role_to.is_superuser \
-        and not user_role.is_superuser:
-            msg = "You are not allowed to grant superuser roles to others " \
-                  "if you are not a superuser yourself."
-            print(msg, file=sys.stderr)
-            raise ValidationError(msg, code=403)
-
-        if user == request.user \
-        and user_role and user_role.is_superuser \
-        and not set_role_to.is_superuser:
-        # User is trying to downgrade his own role from
-        # superuser to something lower, we must make sure
-        # there is at least one user left that has superuser role on this instance.
-            if not User.objects.filter(
-                roles__instance=self.instance, roles__is_superuser=True
-            ).exclude(id=user.id).values('id').first():
-                msg = "You are the only one superuser on this instance, " \
-                      "therefore you are not alowed to downgrade your role."
+        except:
+            pass
+        else:
+            if set_role_to != user.get_role(self.instance) and set_role_to.is_superuser \
+            and not user_role.is_superuser:
+                msg = "You are not allowed to grant superuser roles to others " \
+                      "if you are not a superuser yourself."
                 print(msg, file=sys.stderr)
                 raise ValidationError(msg, code=403)
+
+            if user == request.user \
+            and user_role and user_role.is_superuser \
+            and not set_role_to.is_superuser:
+            # User is trying to downgrade his own role from
+            # superuser to something lower, we must make sure
+            # there is at least one user left that has superuser role on this instance.
+                if not User.objects.filter(
+                    roles__instance=self.instance, roles__is_superuser=True
+                ).exclude(id=user.id).values('id').first():
+                    msg = "You are the only one superuser on this instance, " \
+                          "therefore you are not alowed to downgrade your role."
+                    print(msg, file=sys.stderr)
+                    raise ValidationError(msg, code=403)
 
         self.perform_update(serializer)
 
