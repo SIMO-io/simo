@@ -1078,16 +1078,14 @@ class AlarmClock(ControllerBase):
         comp = Component.objects.filter(id=event['component']).first()
         if comp:
             if forward:
-                action_name = 'play_method'
+                action_name = 'play_action'
             else:
-                action_name = 'reverse_method'
+                action_name = 'reverse_action'
             action = event.get(action_name)
             action = getattr(comp, action, None)
             if action:
-                try:
-                    action()
-                except:
-                    pass
+                action()
+
 
     def _check_alarm(self, alarms, current_value):
 
