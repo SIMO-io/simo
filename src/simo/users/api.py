@@ -94,7 +94,7 @@ class UsersViewSet(mixins.RetrieveModelMixin,
             InstanceUser.objects.filter(
                 user=user, instance=self.instance
             ).update(
-                is_active=request.data.pop('is_active')
+                is_active=request.data.get('is_active')
             )
 
         self.perform_update(serializer)
