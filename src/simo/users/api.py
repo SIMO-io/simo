@@ -66,7 +66,7 @@ class UsersViewSet(mixins.RetrieveModelMixin,
         except Exception as e:
             raise ValidationError(e, code=403)
 
-        if set_role_to != user_role and set_role_to.is_superuser \
+        if set_role_to != user.get_role(self.instance) and set_role_to.is_superuser \
         and not user_role.is_superuser:
             raise ValidationError(
                 "You are not allowed to grant superuser roles to others "
