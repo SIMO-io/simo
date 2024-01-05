@@ -150,16 +150,8 @@ class GatewayController(SIMOWebsocketConsumer):
 
         if not self.scope['user'].is_authenticated:
             return self.close()
-
-        def get_is_active():
-            return self.scope['user'].is_active
-
-        is_active = await sync_to_async(
-            get_is_active, thread_sensitive=True
-        )()
-        if not is_active:
+        if not self.scope['user'].is_active:
             return self.close()
-
         if not self.scope['user'].is_superuser:
             return self.close()
 
@@ -226,16 +218,7 @@ class ComponentController(SIMOWebsocketConsumer):
             ))
             return self.close()
 
-        def get_is_active():
-            return self.scope['user'].is_active
-
-        is_active = await sync_to_async(
-            get_is_active, thread_sensitive=True
-        )()
-        if not is_active:
-            self.send(text_data=json.dumps(
-                {'event': 'close', 'reason': 'auth'}
-            ))
+        if not self.scope['user'].is_active:
             return self.close()
 
         self._mqtt_client = mqtt.Client()
