@@ -1,16 +1,20 @@
 from rest_framework import serializers
 from collections.abc import Iterable
 from simo.core.middleware import get_current_request
-from simo.core.serializers import TimestampField
-from easy_thumbnails.files import get_thumbnailer
 from .models import User, PermissionsRole, InstanceInvitation, InstanceUser
+
+
+class IsActiveField(serializers.SerializerMethodField):
+
+    def to_internal_value(self, data):
+        return bool(data)
 
 
 class UserSerializer(serializers.ModelSerializer):
     avatar = serializers.SerializerMethodField()
     role = serializers.IntegerField(source='role_id')
     at_home = serializers.SerializerMethodField()
-    is_active = serializers.SerializerMethodField()
+    is_active = IsActiveField()
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
