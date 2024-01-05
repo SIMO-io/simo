@@ -95,7 +95,6 @@ class InstanceUser(DirtyFieldsMixin, models.Model, OnChangeMixin):
 
     def save(self, *args, **kwargs):
         self.instance = self.role.instance
-        rebuild_authorized_keys()
         return super().save(*args, **kwargs)
 
     def get_instance(self):
@@ -273,6 +272,7 @@ class User(AbstractBaseUser, SimoAdminMixin):
         self.instance_roles.filter(
             instance=self._instance
         ).update(is_active=bool(val))
+        rebuild_authorized_keys()
 
 
     @property
