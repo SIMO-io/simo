@@ -12,7 +12,7 @@ class UserSerializer(serializers.ModelSerializer):
     avatar = serializers.SerializerMethodField()
     role = serializers.IntegerField(source='role_id')
     at_home = serializers.SerializerMethodField()
-    is_active = ReadWriteSerializerMethodField()
+    #is_active = ReadWriteSerializerMethodField()
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -32,13 +32,8 @@ class UserSerializer(serializers.ModelSerializer):
             'id', 'email', 'name', 'avatar', 'at_home', 'last_action', 'ssh_key'
         )
 
-    def get_is_active(self, obj):
-        iu = InstanceUser.objects.filter(
-            user=obj, instance=obj._instance
-        ).first()
-        if iu:
-            return iu.is_active
-        return False
+    # def get_is_active(self, obj):
+    #     return obj.is_active
 
     def get_avatar(self, obj):
         if obj.avatar:

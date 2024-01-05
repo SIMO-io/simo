@@ -255,9 +255,23 @@ class User(AbstractBaseUser, SimoAdminMixin):
 
     @property
     def is_active(self):
+        if self._instance:
+            return bool(
+                self.instance_roles.filter(
+                    instance=self._instance, is_active=True
+                ).first()
+            )
         return bool(
             self.instance_roles.filter(is_active=True).first()
         )
+
+    @is_active.setter
+    def is_active(self, val):
+        if not self._instance:
+            return
+        self.instance_roles.filter(
+            instance=self._instance
+        ).update(is_active=bool(val))
 
 
     @property
