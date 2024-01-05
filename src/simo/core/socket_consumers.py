@@ -58,10 +58,10 @@ class LogConsumer(AsyncWebsocketConsumer):
 
         def get_is_active():
             return self.scope['user'].is_active
-
-        if not await sync_to_async(
+        is_active = await sync_to_async(
             get_is_active, thread_sensitive=True
-        )():
+        )()
+        if not is_active:
             return self.close()
 
         def get_role():
@@ -154,9 +154,10 @@ class GatewayController(SIMOWebsocketConsumer):
         def get_is_active():
             return self.scope['user'].is_active
 
-        if not await sync_to_async(
-                get_is_active, thread_sensitive=True
-        )():
+        is_active = await sync_to_async(
+            get_is_active, thread_sensitive=True
+        )()
+        if not is_active:
             return self.close()
 
         if not self.scope['user'].is_superuser:
@@ -228,9 +229,10 @@ class ComponentController(SIMOWebsocketConsumer):
         def get_is_active():
             return self.scope['user'].is_active
 
-        if not await sync_to_async(
+        is_active = await sync_to_async(
             get_is_active, thread_sensitive=True
-        )():
+        )()
+        if not is_active:
             self.send(text_data=json.dumps(
                 {'event': 'close', 'reason': 'auth'}
             ))
