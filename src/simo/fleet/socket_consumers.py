@@ -140,10 +140,17 @@ class FleetConsumer(AsyncWebsocketConsumer):
                                      port=settings.MQTT_PORT)
             self.mqtt_client.loop_start()
 
-            config = await self.get_config_data()
-            await self.send(json.dumps({
-                'command': 'set_config', 'data': config
-            }))
+            # DO NOT FORCE CONFIG DATA!!!!
+            # as colonels might already have config and want to
+            # send updated values of components, like for example
+            # somebody turned some lights on/off while colonel was
+            # not connected to the main hub.
+            # If we force this, vales get overridden by what is last
+            # known by the hub
+            # config = await self.get_config_data()
+            # await self.send(json.dumps({
+            #     'command': 'set_config', 'data': config
+            # }))
 
         asyncio.create_task(self.watch_connection())
 
