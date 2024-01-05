@@ -1103,13 +1103,15 @@ class AlarmClock(ControllerBase):
 
         remove_ignores = []
         for ignore_alarm_uid, timestamp in current_value.get(
-                'ignore_alarms',{}
+            'ignore_alarms',{}
         ).items():
             # if ignore alarm entry is now past the current time + maximum offset
             # drop it out from ignore_alarms map
             if timestamp < localtime.timestamp():
                 print(
-                    f"remove ignore alarm because {timestamp} < {localtime.timestamp()}")
+                    f"remove ignore alarm because "
+                    f"{timestamp} < {localtime.timestamp()}"
+                )
                 remove_ignores.append(ignore_alarm_uid)
         for ignore_alarm_uid in remove_ignores:
             current_value['ignore_alarms'].pop(ignore_alarm_uid, None)
@@ -1185,7 +1187,8 @@ class AlarmClock(ControllerBase):
                 self._execute_event(event)
                 current_value['events_triggered'].append(event['uid'])
 
-        current_value['in_alarm'] = bool(current_value['events_triggered'])
+        if not current_value['in_alarm']:
+            current_value['in_alarm'] = bool(current_value['events_triggered'])
 
         # If alarm time is in the past and all events executed move to next alarm
         if current_value['in_alarm'] \
