@@ -1,11 +1,24 @@
 # -*- coding: utf-8 -*-
 import threading
 
+# This is only ment for logging component history actions.
+# Do not use this for anything permissions related!
+
+# This technique can only be used with asgi/wsgi runners that
+# are not performing thread swapping for handling simultaneous requests.
+# For example gunicorn does that when configured with more than one worker,
+# which eventually messes up this system.
+
+# We use daphne for asgi, which seems to be working fine for what we have already
+# observed. However, this is a good candidate for reworking it in to something
+# more rboust.
+
+# TODO: rework this in to something more roboust
+
 _thread_locals = threading.local()
 
 
 def get_current_user():
-    #TODO: VERY BAD PRACTICE!!! DROP THIS!
     try:
         return getattr(_thread_locals, 'user')
     except:
