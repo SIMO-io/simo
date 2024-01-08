@@ -255,6 +255,10 @@ class User(AbstractBaseUser, SimoAdminMixin):
 
     @property
     def is_active(self):
+        if self.is_master and not self.instance_roles.all():
+            # Master that has no roles on any instance is in GOD mode!
+            # It can not be disabled by anybody, nor it is seen by anybody. :)
+            return True
         if self._instance:
             return bool(
                 self.instance_roles.filter(
