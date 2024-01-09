@@ -1122,6 +1122,7 @@ class AlarmClock(ControllerBase):
         for ignore_alarm_uid in remove_ignores:
             current_value['ignore_alarms'].pop(ignore_alarm_uid, None)
 
+
         if not current_value['in_alarm'] and alarms:
             next_alarm = None
 
@@ -1186,6 +1187,9 @@ class AlarmClock(ControllerBase):
 
         # At this point there is an alarm that we are looking forward or we are in it already
 
+        if current_value['alarm_uid'] in current_value.get('ignore_alarms', {}):
+            return current_value
+
         for event in current_value['events']:
             if event['fire_timestamp'] <= localtime.timestamp():
                 if not event.get('enabled'):
@@ -1244,7 +1248,7 @@ class AlarmClock(ControllerBase):
             'fire_timestamp']
 
         current_value = {
-            'in_alarm': None,
+            'in_alarm': False,
             'events': [],
             'events_triggered': [],
             'alarm_timestamp': None,
@@ -1279,7 +1283,7 @@ class AlarmClock(ControllerBase):
             'fire_timestamp']
 
         current_value = {
-            'in_alarm': None,
+            'in_alarm': False,
             'events': [],
             'events_triggered': [],
             'alarm_timestamp': None,

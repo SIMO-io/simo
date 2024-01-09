@@ -66,9 +66,9 @@ class FleetConsumer(AsyncWebsocketConsumer):
             get_instance, thread_sensitive=True
         )(instance_uid)
 
-        if not self.instance:
-            print("Wrong instance UID! Headers received: ", headers)
-            return await self.close()
+        # if not self.instance:
+        #     print("Wrong instance UID! Headers received: ", headers)
+        #     return await self.close()
 
         # TODO: enforce this once all colonels are migrated to INstance based architecture
         # if self.instance.fleet_options.secret_key \
@@ -112,15 +112,15 @@ class FleetConsumer(AsyncWebsocketConsumer):
             self.colonel.save()
 
         # TODO: replace this to only allow authorized colonels in!
-        if headers.get('instance-uid') == self.colonel.instance.uid \
-        and headers.get('instance-secret') == self.colonel.instance.fleet_options.secret_key:
-            await sync_to_async(
-                set_colonel_authorized, thread_sensitive=True
-            )(True)
-        else:
-            await sync_to_async(
-                set_colonel_authorized, thread_sensitive=True
-            )(False)
+        # if headers.get('instance-uid') == self.colonel.instance.uid \
+        # and headers.get('instance-secret') == self.colonel.instance.fleet_options.secret_key:
+        #     await sync_to_async(
+        #         set_colonel_authorized, thread_sensitive=True
+        #     )(True)
+        # else:
+        #     await sync_to_async(
+        #         set_colonel_authorized, thread_sensitive=True
+        #     )(False)
 
         self.connected = True
 
