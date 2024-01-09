@@ -242,7 +242,6 @@ class ControllerBase(ABC):
             ]
 
 
-
 class TimerMixin:
 
     def __init__(self, *args, **kwargs):
@@ -416,6 +415,7 @@ class Dimmer(ControllerBase, TimerMixin):
         self.send(self.component.config.get('min', 0.0))
 
     def turn_on(self):
+        self.component.refresh_from_db()
         if not self.component.value:
             if self.component.value_previous:
                 self.send(self.component.value_previous)
@@ -423,6 +423,7 @@ class Dimmer(ControllerBase, TimerMixin):
                 self.send(self.component.config.get('max', 90))
 
     def toggle(self):
+        self.component.refresh_from_db()
         if self.component.value:
             self.turn_off()
         else:
@@ -490,6 +491,7 @@ class DimmerPlus(ControllerBase, TimerMixin):
         )
 
     def turn_on(self):
+        self.component.refresh_from_db()
         if not self.component.value:
             if self.component.value_previous:
                 self.send(self.component.value_previous)
