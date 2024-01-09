@@ -471,9 +471,6 @@ class Gate(ControllerBase, TimerMixin):
             )
         return value
 
-    def _val_to_success(self, value):
-        return value
-
     def _set_on_the_move(self):
         def cancel_move():
             start_value = self.component.value
@@ -609,9 +606,6 @@ class Blinds(ControllerBase, TimerMixin):
 
         return value
 
-    def _val_to_success(self, value):
-        return value
-
     def _send_to_device(self, value):
         ObjectCommand(self.component, **{'set_val': value}).publish()
 
@@ -684,8 +678,6 @@ class Watering(ControllerBase):
                             )
         return value
 
-    def _val_to_success(self, value):
-        return self.component.value
 
     def start(self):
         self.component.refresh_from_db()

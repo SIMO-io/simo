@@ -153,8 +153,6 @@ class PWMOutput(FleeDeviceMixin, BasicOutputMixin, BaseDimmer):
     name = "PWM Output"
     config_form = ColonelPWMOutputConfigForm
 
-    # TODO: bring back min and max!
-
     def _prepare_for_send(self, value):
         conf = self.component.config
         if value >= conf.get('max', 100):
@@ -200,9 +198,6 @@ class PWMOutput(FleeDeviceMixin, BasicOutputMixin, BaseDimmer):
             value = conf.get('max', 100) - value + conf.get('min', 0)
 
         return value
-
-    def _val_to_success(self, value):
-        return self._prepare_for_set(value)
 
 
 class RGBLight(FleeDeviceMixin, BasicOutputMixin, BaseRGBWLight):

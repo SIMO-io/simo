@@ -205,35 +205,22 @@ class ControllerBase(ABC):
     def _prepare_for_set(self, value):
         return value
 
-    def _val_to_success(self, value):
-        """
-        Override this if component receives different value
-        on successful execution.
-
-        For example script component only accepts 'start' and 'stop' values,
-        but once that is in effect component value changes to
-        'running', 'stopped', 'finished' or 'error'
-        """
-        return value
-
     def send(self, value):
         self.component.refresh_from_db()
         value = self.component.translate_before_send(value)
         value = self._validate_val(value, BEFORE_SEND)
-        value = self._prepare_for_send(value)
-        success_value = self._val_to_success(value)
-        if success_value == self.component.value:
-            return
+
         self.component.change_init_by = get_current_user()
         self.component.change_init_date = timezone.now()
-        self.component.change_init_to = success_value
+        self.component.change_init_to = value
         self.component.save(
             update_fields=['change_init_by', 'change_init_date', 'change_init_to']
         )
+        value = self._prepare_for_send(value)
         self._send_to_device(value)
-        if success_value != self.component.value:
+        if value != self.component.value:
             self.component.value_previous = self.component.value
-            self.component.value = success_value
+            self.component.value = value
 
     def history_display(self, values):
         assert type(values) in (list, tuple)
