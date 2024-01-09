@@ -1157,7 +1157,9 @@ class AlarmClock(ControllerBase):
                     alarm['next_timestamp'] = next_alarm_timestamp
                     if not next_alarm or next_alarm['next_timestamp'] > \
                         alarm['next_timestamp']:
-                        if current_value.get('ignore_alarms', {}).get(alarm['uid'], 0) > alarm['next_timestamp']:
+                        if current_value.get(
+                            'ignore_alarms', {}
+                        ).get(alarm['uid'], 0) - 60 > alarm['next_timestamp']:
                             # user already played through or canceled this particular alarm
                             continue
                         next_alarm = alarm
