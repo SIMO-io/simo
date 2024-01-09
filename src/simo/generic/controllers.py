@@ -1113,7 +1113,7 @@ class AlarmClock(ControllerBase):
         ).items():
             # if ignore alarm entry is now past the current time + maximum offset
             # drop it out from ignore_alarms map
-            if timestamp < localtime.timestamp():
+            if timestamp + 60 < localtime.timestamp():
                 print(
                     f"remove ignore alarm because "
                     f"{timestamp} < {localtime.timestamp()}"
