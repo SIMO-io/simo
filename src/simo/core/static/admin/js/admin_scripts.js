@@ -90,7 +90,7 @@
                 controllerSocket.send(JSON.stringify({send_value:true}));
             };
             controllerSocket.onmessage = function(e){
-                knob.value = parseFloat($(e.data).data('value'));
+                knob.value = parseFloat(JSON.parse(e.data).value);
             };
             knob.addEventListener('knobdragend', function(evt) {
               controllerSocket.send(
