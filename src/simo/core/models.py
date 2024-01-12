@@ -23,7 +23,7 @@ from django.contrib.contenttypes.models import ContentType
 from simo.core.utils.mixins import SimoAdminMixin
 from simo.core.storage import OverwriteStorage
 from simo.core.utils.validators import validate_svg
-from .events import ObjectCommand, ObjectManagementEvent, OnChangeMixin
+from .events import ObjectCommand, ObjectChangeEvent, OnChangeMixin
 
 
 User = get_user_model()

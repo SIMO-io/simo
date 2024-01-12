@@ -541,6 +541,64 @@ class Gate(ControllerBase, TimerMixin):
     def call(self):
         self.send('call')
 
+    # TODO: This was in gateway class, however it
+    # needs to be moved here or part of it back to the gateway
+    # as we no longer have Event object.
+    # if msg.topic == Event.TOPIC:
+    # if isinstance(component.controller, Switch):
+    #     value_change = payload['data'].get('value')
+    #     if not value_change:
+    #         return
+    #
+    #     # Handle Gate switches
+    #     for gate in Component.objects.filter(
+    #             controller_uid=Gate.uid, config__action_switch=component.id
+    #     ):
+    #         if gate.config.get('action_method') == 'toggle':
+    #             gate.controller._set_on_the_move()
+    #         else:
+    #             if value_change.get('new') == False:
+    #                 # Button released
+    #                 # set stopped position if it was moving, or set moving if not.
+    #                 if gate.value.endswith('moving'):
+    #                     if gate.config.get('sensor_value'):
+    #                         gate.set('open')
+    #                     else:
+    #                         gate.set('closed')
+    #                 else:
+    #                     gate.controller._set_on_the_move()
+    #
+    #     return
+    #
+    # elif isinstance(component.controller, BinarySensor):
+    #     value_change = payload['data'].get('value')
+    #     if not value_change:
+    #         return
+    #     # Handle Gate binary sensors
+    #     for gate in Component.objects.filter(
+    #             controller_uid=Gate.uid,
+    #             config__open_closed_sensor=component.id
+    #     ):
+    #         gate.config['sensor_value'] = component.value
+    #         gate.save(update_fields=['config'])
+    #         # If sensor goes from False to True, while gate is moving
+    #         # it usually means that gate just started the move and must stay in the move
+    #         # user defined amount of seconds to represent actual gate movement.
+    #         # Open state therefore is reached only after user defined duration.
+    #         # If it was not in the move, then it simply means that it was
+    #         # opened in some other way and we set it to open immediately.
+    #         if component.value:
+    #             if gate.value.endswith('moving'):
+    #                 print("SET OPEN MOVING!")
+    #                 gate.set('open_moving')
+    #             else:
+    #                 gate.set('open')
+    #         # if binary sensor detects gate close event
+    #         # we set gate value to closed immediately as it means that
+    #         # gate is now truly closed and no longer moving.
+    #         else:
+    #             gate.set('closed')
+
 
 class Blinds(ControllerBase, TimerMixin):
     name = _("Blinds")

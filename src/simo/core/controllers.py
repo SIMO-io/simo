@@ -19,7 +19,7 @@ from .forms import (
     QuintupleSwitchConfigForm, DimmerConfigForm, DimmerPlusConfigForm,
     RGBWConfigForm
 )
-from .events import ObjectCommand, ObjectManagementEvent
+from .events import ObjectCommand
 
 BEFORE_SEND = 'before-send'
 BEFORE_SET = 'before-set'

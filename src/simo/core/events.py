@@ -1,7 +1,5 @@
-import json
 import time
 import logging
-import threading
 import sys
 import json
 import traceback
@@ -10,15 +8,20 @@ from django.contrib.contenttypes.models import ContentType
 from django.conf import settings
 import paho.mqtt.client as mqtt
 from django.utils import timezone
-from django.utils.translation import gettext_lazy as _
 import paho.mqtt.publish as mqtt_publish
 
 logger = logging.getLogger(__name__)
 
 
-class BaseMqttAnnouncement:
+class ObjMqttAnnouncement:
     data = None
     TOPIC = None
+
+    def __init__(self, obj):
+        self.data = {
+            'obj_ct_pk': ContentType.objects.get_for_model(obj).pk,
+            'obj_pk': obj.pk,
+        }
 
     def publish(self):
         assert isinstance(self.TOPIC, str)
@@ -30,23 +33,11 @@ class BaseMqttAnnouncement:
         )
 
 
-class ObjMqttAnnouncement(BaseMqttAnnouncement):
+class ObjectChangeEvent(ObjMqttAnnouncement):
+    TOPIC = 'SIMO/internal/change'
 
-    def __init__(self, obj):
-        self.data = {
-            'obj_ct_pk': ContentType.objects.get_for_model(obj).pk,
-            'obj_pk': obj.pk,
-        }
-
-
-class ObjectManagementEvent(ObjMqttAnnouncement):
-    TOPIC = 'SIMO/management_event'
-
-    def __init__(self, obj, event, dirty_fields=None, slave_id=None):
+    def __init__(self, obj, dirty_fields=None, slave_id=None):
         super().__init__(obj)
-        assert isinstance(event, str)
-        assert event in ('added', 'removed', 'changed')
-        self.data['event'] = event
         self.data['dirty_fields'] = dirty_fields if dirty_fields else {}
         for key, val in self.data['dirty_fields'].items():
             if type(val) not in (bool, int, float, str):
@@ -55,17 +46,8 @@ class ObjectManagementEvent(ObjMqttAnnouncement):
             self.data['slave_id'] = slave_id
 
 
-
-class Event(ObjMqttAnnouncement):
-    TOPIC = 'SIMO/event'
-
-    def __init__(self, obj, data=None):
-        super().__init__(obj)
-        self.data['data'] = data
-
-
 class ObjectCommand(ObjMqttAnnouncement):
-    TOPIC = 'SIMO/command'
+    TOPIC = 'SIMO/internal/command'
 
     def __init__(self, obj, **kwargs):
         super().__init__(obj)
@@ -101,42 +83,6 @@ def get_comp_set_val(msg, gateway=None):
 
 
 
-class EventsStream:
-
-    def __init__(self):
-        self.mqtt_client = mqtt.Client()
-        self.mqtt_client.on_connect = self._on_mqtt_connect
-        self.mqtt_client.on_message = self._on_mqtt_message
-        self.mqtt_client.connect(host=settings.MQTT_HOST, port=settings.MQTT_PORT)
-
-    def run(self):
-        last_tick = time.time()
-        while True:
-            if time.time() - last_tick > 1:
-                self.on_tick()
-                last_tick = time.time()
-            self.mqtt_client.loop()
-
-    def _on_mqtt_connect(self, mqtt_client, userdata, flags, rc):
-        mqtt_client.subscribe(Event.TOPIC)
-
-    def _on_mqtt_message(self, client, userdata, msg):
-        if msg.topic != Event.TOPIC:
-            return
-        payload = json.loads(msg.payload)
-        ct = ContentType.objects.get(pk=payload['obj_ct_pk'])
-        obj = ct.get_object_for_this_type(pk=payload['obj_pk'])
-        self.on_event(obj, payload['data'])
-
-    def on_event(self, obj, event_data):
-        """Override me to do something whenever an event occurs!"""
-        pass
-
-    def on_tick(self):
-        """Override me to do something every second"""
-        pass
-
-
 class OnChangeMixin:
 
     on_change_fields = ('value', )
@@ -146,7 +92,7 @@ class OnChangeMixin:
         return self.zone.instance
 
     def on_mqtt_connect(self, mqtt_client, userdata, flags, rc):
-        mqtt_client.subscribe(ObjectManagementEvent.TOPIC)
+        mqtt_client.subscribe(ObjectChangeEvent.TOPIC)
 
     def on_mqtt_message(self, client, userdata, msg):
         payload = json.loads(msg.payload)

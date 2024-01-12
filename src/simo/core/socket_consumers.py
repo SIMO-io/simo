@@ -13,7 +13,7 @@ from django.conf import settings
 from django.utils import timezone
 from django.contrib.contenttypes.models import ContentType
 from channels.generic.websocket import AsyncWebsocketConsumer, WebsocketConsumer
-from simo.core.events import ObjectManagementEvent, get_event_obj
+from simo.core.events import ObjectChangeEvent, get_event_obj
 import paho.mqtt.client as mqtt
 from simo.users.middleware import introduce
 from simo.core.api import get_components_queryset
@@ -163,7 +163,7 @@ class GatewayController(SIMOWebsocketConsumer):
 
     def _on_mqtt_connect(self, mqtt_client, userdata, flags, rc):
         print("Subscribing to Gateway Event's")
-        mqtt_client.subscribe(ObjectManagementEvent.TOPIC)
+        mqtt_client.subscribe(ObjectChangeEvent.TOPIC)
 
     def _on_mqtt_message(self, mqtt_client, userdata, msg):
         payload = json.loads(msg.payload)
@@ -231,7 +231,7 @@ class ComponentController(SIMOWebsocketConsumer):
 
     def _on_mqtt_connect(self, mqtt_client, userdata, flags, rc):
         print("Subscribing to ComponentEvent's")
-        mqtt_client.subscribe(ObjectManagementEvent.TOPIC)
+        mqtt_client.subscribe(ObjectChangeEvent.TOPIC)
 
     def _on_mqtt_message(self, mqtt_client, userdata, msg):
         payload = json.loads(msg.payload)

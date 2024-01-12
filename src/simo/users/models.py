@@ -105,12 +105,12 @@ class InstanceUser(DirtyFieldsMixin, models.Model, OnChangeMixin):
 def post_instance_user_save(sender, instance, created, **kwargs):
     if created:
         return
-    from simo.core.events import ObjectManagementEvent
+    from simo.core.events import ObjectChangeEvent
     dirty_fields = instance.get_dirty_fields()
     if 'at_home' in dirty_fields:
         def post_update():
-            ObjectManagementEvent(
-                instance, 'changed', dirty_fields=dirty_fields
+            ObjectChangeEvent(
+                instance, dirty_fields=dirty_fields
             ).publish()
         transaction.on_commit(post_update)
 
@@ -315,24 +315,6 @@ class User(AbstractBaseUser, SimoAdminMixin):
 
     def has_perms(self, perm_list, obj=None):
         return True
-
-
-@receiver(post_save, sender=User)
-def post_user_save(sender, instance, created, **kwargs):
-    from simo.core.events import ObjectManagementEvent
-    def post_update():
-        if created:
-            ObjectManagementEvent(instance, 'added').publish()
-        else:
-            ObjectManagementEvent(instance, 'changed').publish()
-
-    transaction.on_commit(post_update)
-
-
-@receiver(post_delete, sender=User)
-def post_delete_management_event(sender, instance, *args, **kwargs):
-    from simo.core.events import ObjectManagementEvent
-    ObjectManagementEvent(instance, 'removed').publish()
 
 
 class UserDevice(models.Model, SimoAdminMixin):
