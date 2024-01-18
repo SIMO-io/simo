@@ -280,6 +280,9 @@ class ComponentHistoryViewSet(InstanceMixin, viewsets.ReadOnlyModelViewSet):
 
     def get_aggregated_data(self, component, interval, start_from):
 
+        if not component.controller:
+            return
+
         history_display_example = component.controller.history_display([component.value])
         if not history_display_example:
             return None
