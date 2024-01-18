@@ -8,7 +8,7 @@ easy-thumbnails==2.8
 channels==3.0.4
 asgiref==3.4.1
 django-filter==2.4.0
-celery==4.4.7
+celery==5.3.6
 django-admin-sortable2==1.0.2
 django-bootstrap4==3.0.1
 psycopg2==2.9.2
