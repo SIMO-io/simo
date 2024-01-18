@@ -1,4 +1,3 @@
-import time
 import logging
 import sys
 import json
@@ -17,26 +16,34 @@ class ObjMqttAnnouncement:
     data = None
     TOPIC = None
 
-    def __init__(self, obj):
-        self.data = {
-            'obj_ct_pk': ContentType.objects.get_for_model(obj).pk,
-            'obj_pk': obj.pk,
-        }
+    def __init__(self, obj=None):
+        if obj:
+            self.data = {
+                'obj_ct_pk': ContentType.objects.get_for_model(obj).pk,
+                'obj_pk': obj.pk,
+            }
+        else:
+            self.data = {}
 
     def publish(self):
         assert isinstance(self.TOPIC, str)
         assert self.data is not None
         mqtt_publish.single(
-            self.TOPIC, json.dumps(self.data),
+            self.get_topic(), json.dumps(self.data),
             hostname=settings.MQTT_HOST,
             port=settings.MQTT_PORT
         )
 
+    def get_topic(self):
+        return self.TOPIC
+
 
 class ObjectChangeEvent(ObjMqttAnnouncement):
-    TOPIC = 'SIMO/internal/change'
+    TOPIC = 'SIMO/obj-change'
 
-    def __init__(self, obj, dirty_fields=None, slave_id=None):
+    def __init__(self, instance, obj, dirty_fields=None, slave_id=None):
+        self.instance = instance
+        self.obj = obj
         super().__init__(obj)
         self.data['dirty_fields'] = dirty_fields if dirty_fields else {}
         for key, val in self.data['dirty_fields'].items():
@@ -45,13 +52,25 @@ class ObjectChangeEvent(ObjMqttAnnouncement):
         if slave_id:
             self.data['slave_id'] = slave_id
 
+    def get_topic(self):
+        return f"{self.TOPIC}/{self.instance.id}/" \
+               f"{str(self.obj).lower()}-{self.data['obj_pk']}"
 
-class ObjectCommand(ObjMqttAnnouncement):
-    TOPIC = 'SIMO/internal/command'
 
-    def __init__(self, obj, **kwargs):
+class GatewayObjectCommand(ObjMqttAnnouncement):
+    "Used internally to send commands to corresponding gateway handlers"
+
+    TOPIC = 'SIMO/gw-command'
+
+    def __init__(self, gateway, obj=None, command=None, **kwargs):
+        self.gateway = gateway
         super().__init__(obj)
-        self.data['kwargs'] = kwargs
+        self.data['command'] = command
+        for key, val in kwargs.items():
+            self.data[key] = val
+
+    def get_topic(self):
+        return f'{self.TOPIC}/{self.gateway.id}'
 
 
 def get_event_obj(payload, model_class=None, gateway=None):
@@ -70,19 +89,6 @@ def get_event_obj(payload, model_class=None, gateway=None):
     return obj
 
 
-def get_comp_set_val(msg, gateway=None):
-    from .models import Component
-    payload = json.loads(msg.payload)
-    if 'set_val' not in payload.get("kwargs"):
-        return (None, None)
-    comp = get_event_obj(payload, model_class=Component, gateway=gateway)
-    if not comp:
-        return (None, None)
-    set_val = payload["kwargs"]['set_val']
-    return (comp, set_val)
-
-
-
 class OnChangeMixin:
 
     on_change_fields = ('value', )
@@ -92,7 +98,8 @@ class OnChangeMixin:
         return self.zone.instance
 
     def on_mqtt_connect(self, mqtt_client, userdata, flags, rc):
-        mqtt_client.subscribe(ObjectChangeEvent.TOPIC)
+        event = ObjectChangeEvent(self.get_instance(), self)
+        mqtt_client.subscribe(event.get_topic())
 
     def on_mqtt_message(self, client, userdata, msg):
         payload = json.loads(msg.payload)

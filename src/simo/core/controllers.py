@@ -19,7 +19,7 @@ from .forms import (
     QuintupleSwitchConfigForm, DimmerConfigForm, DimmerPlusConfigForm,
     RGBWConfigForm
 )
-from .events import ObjectCommand
+from .events import GatewayObjectCommand
 
 BEFORE_SEND = 'before-send'
 BEFORE_SET = 'before-set'
@@ -185,7 +185,9 @@ class ControllerBase(ABC):
         self.component.save()
 
     def _send_to_device(self, value):
-        ObjectCommand(self.component, **{'set_val': value}).publish()
+        GatewayObjectCommand(
+            self.component.gateway, self.component, set_val=value
+        ).publish()
 
     def _receive_from_device(self, value, is_alive=True):
         value = self._prepare_for_set(value)

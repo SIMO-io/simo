@@ -12,7 +12,7 @@ from django.utils import timezone
 from simo.core.utils.logs import StreamToLogger
 
 import paho.mqtt.client as mqtt
-from simo.core.events import ObjectCommand, get_event_obj
+from simo.core.events import GatewayObjectCommand, get_event_obj
 from simo.core.models import Gateway
 from simo.core.loggers import get_gw_logger
 
@@ -137,16 +137,16 @@ class GatewaysManager:
         return sys.exit()
 
     def on_mqtt_connect(self, mqtt_client, userdata, flags, rc):
-        mqtt_client.subscribe(ObjectCommand.TOPIC)
+        mqtt_client.subscribe(GatewayObjectCommand.TOPIC)
 
     def on_mqtt_message(self, client, userdata, msg):
         payload = json.loads(msg.payload)
         gateway = get_event_obj(payload, Gateway)
         if not gateway:
             return
-        if payload['kwargs'].get('set_val') == 'start':
+        if payload.get('set_val') == 'start':
             self.start_gateway(gateway)
-        elif payload['kwargs'].get('set_val') == 'stop':
+        elif payload.get('set_val') == 'stop':
             self.stop_gateway(gateway)
 
     def start_gateway(self, gateway):

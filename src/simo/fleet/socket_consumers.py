@@ -13,10 +13,11 @@ from channels.generic.websocket import AsyncWebsocketConsumer
 from asgiref.sync import sync_to_async
 from simo.core.utils.helpers import get_random_string
 from simo.core.utils.model_helpers import get_log_file_path
-from simo.core.events import ObjectCommand, get_event_obj
+from simo.core.events import GatewayObjectCommand, get_event_obj
 from simo.core.utils.helpers import get_self_ip
-from simo.core.models import Instance, Component
+from simo.core.models import Gateway, Instance, Component
 from simo.conf import dynamic_settings
+from .gateways import FleetGatewayHandler
 from .models import Colonel
 
 
@@ -130,7 +131,11 @@ class FleetConsumer(AsyncWebsocketConsumer):
             await self.firmware_update(self.colonel.minor_upgrade_available)
         else:
             def on_mqtt_connect(mqtt_client, userdata, flags, rc):
-                mqtt_client.subscribe(ObjectCommand.TOPIC)
+                for gateway in Gateway.objects.filter(
+                    type=FleetGatewayHandler.uid
+                ):
+                    command = GatewayObjectCommand(gateway)
+                    mqtt_client.subscribe(command.get_topic())
 
             self.mqtt_client = mqtt.Client()
             self.mqtt_client.on_connect = on_mqtt_connect
@@ -229,17 +234,21 @@ class FleetConsumer(AsyncWebsocketConsumer):
         colonel = get_event_obj(payload, Colonel)
         if not colonel or colonel != self.colonel:
             return
-        if payload['kwargs'].get('command') == 'update_firmware':
+        if payload.get('command') == 'update_firmware':
             asyncio.run(self.firmware_update(payload['kwargs'].get('to_version')))
-        elif payload['kwargs'].get('command') == 'update_config':
+        elif payload.get('command') == 'update_config':
             async def send_config():
                 config = await self.get_config_data()
                 await self.send(json.dumps({
                     'command': 'set_config', 'data': config
                 }))
             asyncio.run(send_config())
-        else:
-            asyncio.run(self.send(json.dumps(payload['kwargs'])))
+        elif 'set_val' in payload:
+            asyncio.run(self.send(json.dumps({
+                'command': 'set_val',
+                'id': payload.get('component_id'),
+                'val': payload['set_val']
+            })))
 
     async def receive(self, text_data=None, bytes_data=None):
         if text_data:

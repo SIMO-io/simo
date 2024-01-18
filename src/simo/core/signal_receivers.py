@@ -5,10 +5,8 @@ from django.dispatch import receiver
 from .models import Instance, Gateway, Component
 
 
-@receiver(post_save)
+@receiver(post_save, sender=Component)
 def post_save_change_events(sender, instance, created, **kwargs):
-    if type(instance) not in (Component, Gateway):
-        return
     from .events import ObjectChangeEvent
     dirty_fields = instance.get_dirty_fields()
     for ignore_field in ('change_init_by', 'change_init_date', 'change_init_to'):
@@ -19,20 +17,22 @@ def post_save_change_events(sender, instance, created, **kwargs):
             try:
                 # sometimes crashes with gateway runners.
                 ObjectChangeEvent(
-                    instance, dirty_fields=dirty_fields
+                    instance.component.zone.instance, instance,
+                    dirty_fields=dirty_fields
                 ).publish()
             except:
                 pass
 
-            if isinstance(instance, Component):
-                for master in instance.masters.all():
-                    try:
-                        # sometimes crashes with gateway runners.
-                        ObjectChangeEvent(
-                            master, slave_id=instance.id
-                        ).publish()
-                    except:
-                        pass
+            for master in instance.masters.all():
+                try:
+                    # sometimes crashes with gateway runners.
+                    ObjectChangeEvent(
+                        master.component.zone.instance,
+                        master, slave_id=instance.id
+                    ).publish()
+                except:
+                    pass
+
     transaction.on_commit(post_update)
 
 

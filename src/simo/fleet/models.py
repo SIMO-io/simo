@@ -1,17 +1,15 @@
-import datetime
 import requests
 from django.db import transaction
 from django.db import models
 from django.db.models.signals import post_save, pre_delete, post_delete
 from django.dispatch import receiver
-from django.utils import timezone
 from dirtyfields import DirtyFieldsMixin
-from simo.core.models import Instance, Component
+from simo.core.models import Instance, Gateway, Component
 from simo.core.utils.helpers import get_random_string
-from simo.core.events import ObjectCommand
-from simo.conf import dynamic_settings
+from simo.core.events import GatewayObjectCommand
+from .gateways import FleetGatewayHandler
 from .utils import get_gpio_pins_choices
-from .ble import BLE_DEVICE_TYPE_GOVEE_MULTISENSOR
+
 
 
 legacy_colonel_pins_map = {
@@ -145,17 +143,23 @@ class Colonel(DirtyFieldsMixin, models.Model):
         return resp.json()
 
     def update_firmware(self, to_version):
-        ObjectCommand(
-            self, **{'command': 'update_firmware', 'to_version': to_version}
-        ).publish()
+        for gateway in Gateway.objects.filter(type=FleetGatewayHandler.uid):
+            GatewayObjectCommand(
+                gateway, self,
+                command='update_firmware', to_version=to_version
+            ).publish()
 
     def restart(self):
-        ObjectCommand(self, **{'command': 'restart'}).publish()
+        for gateway in Gateway.objects.filter(type=FleetGatewayHandler.uid):
+            GatewayObjectCommand(
+                gateway, self, command='restart'
+            ).publish()
 
     def update_config(self):
-        ObjectCommand(
-            self, **{'command': 'update_config'}
-        ).publish()
+        for gateway in Gateway.objects.filter(type=FleetGatewayHandler.uid):
+            GatewayObjectCommand(
+                gateway, self, command='update_config'
+            ).publish()
 
     def rebuild_occupied_pins(self):
         self.occupied_pins = {}

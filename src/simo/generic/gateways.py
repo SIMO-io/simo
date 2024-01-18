@@ -16,7 +16,7 @@ from simo.core.models import Component
 from simo.core.gateways import BaseObjectCommandsGatewayHandler
 from simo.core.forms import BaseGatewayForm
 from simo.core.utils.logs import StreamToLogger
-from simo.core.events import ObjectCommand, get_event_obj
+from simo.core.events import GatewayObjectCommand, get_event_obj
 from simo.core.loggers import get_gw_logger, get_component_logger
 
 
@@ -240,7 +240,7 @@ class GenericGatewayHandler(BaseObjectCommandsGatewayHandler):
 
 
     def on_mqtt_connect(self, mqtt_client, userdata, flags, rc):
-        mqtt_client.subscribe(ObjectCommand.TOPIC)
+        mqtt_client.subscribe(GatewayObjectCommand.TOPIC)
 
     def on_mqtt_message(self, client, userdata, msg):
         from simo.core.controllers import Switch, BinarySensor
@@ -250,7 +250,7 @@ class GenericGatewayHandler(BaseObjectCommandsGatewayHandler):
         if not component:
             return
 
-        if msg.topic == ObjectCommand.TOPIC:
+        if msg.topic == GatewayObjectCommand.TOPIC:
             # Handle scripts
             if isinstance(component.controller, Script):
                 if payload['kwargs'].get('set_val') == 'start':

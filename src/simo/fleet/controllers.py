@@ -1,5 +1,5 @@
 from django.core.exceptions import ValidationError
-from simo.core.events import ObjectCommand
+from simo.core.events import GatewayObjectCommand
 from simo.core.controllers import (
     BinarySensor as BaseBinarySensor,
     NumericSensor as BaseNumericSensor,
@@ -27,10 +27,12 @@ from .forms import (
 class FleeDeviceMixin:
 
     def update_options(self, options):
-        ObjectCommand(
+        GatewayObjectCommand(
+            self.component.gateway,
             Colonel(id=self.component.config['colonel']),
-            **{'command': 'update_options', 'id': self.component.id,
-               'options': options}
+            command='update_options',
+            id=self.component.id,
+            options=options
         ).publish()
 
     def disable_controls(self):
@@ -139,9 +141,11 @@ class BasicOutputMixin:
         return pins
 
     def _send_to_device(self, value):
-        ObjectCommand(
+        GatewayObjectCommand(
+            self.component.gateway,
             Colonel(id=self.component.config['colonel']),
-            **{'command': 'set_val', 'id': self.component.id, 'val': value}
+            set_val=value,
+            component_id=self.component.id,
         ).publish()
 
 
@@ -204,7 +208,7 @@ class RGBLight(FleeDeviceMixin, BasicOutputMixin, BaseRGBWLight):
     config_form = ColonelRGBLightConfigForm
 
 
-class DualMotorValve(FleeDeviceMixin, BaseSwitch):
+class DualMotorValve(FleeDeviceMixin, BasicOutputMixin, BaseSwitch):
     gateway_class = FleetGatewayHandler
     config_form = DualMotorValveForm
     name = "Dual Motor Valve"
@@ -216,14 +220,8 @@ class DualMotorValve(FleeDeviceMixin, BaseSwitch):
             self.component.config['close_pin']
         ]
 
-    def _send_to_device(self, value):
-        ObjectCommand(
-            Colonel(id=self.component.config['colonel']),
-            **{'command': 'set_val', 'id': self.component.id, 'val': value}
-        ).publish()
 
-
-class Blinds(FleeDeviceMixin, GenericBlinds):
+class Blinds(FleeDeviceMixin, BasicOutputMixin, GenericBlinds):
     gateway_class = FleetGatewayHandler
     config_form = BlindsConfigForm
 
@@ -235,12 +233,3 @@ class Blinds(FleeDeviceMixin, GenericBlinds):
         for p in self.component.config.get('controls', []):
             pins.append(p['pin'])
         return pins
-
-    def _send_to_device(self, value):
-        ObjectCommand(
-            Colonel(id=self.component.config['colonel']),
-            **{'command': 'set_val', 'id': self.component.id, 'val': value}
-        ).publish()
-
-
-

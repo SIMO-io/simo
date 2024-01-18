@@ -11,7 +11,7 @@ from django.urls import reverse_lazy
 from simo.conf import dynamic_settings
 from simo.users.middleware import get_current_user, introduce
 from simo.users.utils import get_system_user
-from simo.core.events import ObjectCommand
+from simo.core.events import GatewayObjectCommand
 from simo.core.models import RUN_STATUS_CHOICES_MAP, Component
 from simo.core.utils.helpers import get_random_string
 from simo.core.controllers import (
@@ -71,9 +71,9 @@ class Script(ControllerBase, TimerMixin):
                 self.component.refresh_from_db()
                 self.component.config['code'] = new_code
                 self.component.save(update_fields=['config'])
-            ObjectCommand(self.component, **{'set_val': 'start'}).publish()
+            GatewayObjectCommand(self.component, **{'set_val': 'start'}).publish()
         elif value == 'stop':
-            ObjectCommand(self.component, **{'set_val': 'stop'}).publish()
+            GatewayObjectCommand(self.component, **{'set_val': 'stop'}).publish()
 
     def _val_to_success(self, value):
         if value == 'start':
@@ -665,7 +665,7 @@ class Blinds(ControllerBase, TimerMixin):
         return value
 
     def _send_to_device(self, value):
-        ObjectCommand(self.component, **{'set_val': value}).publish()
+        GatewayObjectCommand(self.component, **{'set_val': value}).publish()
 
     def open(self):
         self.send(0)

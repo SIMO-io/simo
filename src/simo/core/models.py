@@ -14,16 +14,14 @@ from django.dispatch import receiver
 from django.utils import timezone
 from timezone_utils.choices import ALL_TIMEZONES_CHOICES
 from location_field.models.plain import PlainLocationField
-import paho.mqtt.client as mqtt
 from model_utils import FieldTracker
 from dirtyfields import DirtyFieldsMixin
 from easy_thumbnails.fields import ThumbnailerImageField
 from taggit.managers import TaggableManager
-from django.contrib.contenttypes.models import ContentType
 from simo.core.utils.mixins import SimoAdminMixin
 from simo.core.storage import OverwriteStorage
 from simo.core.utils.validators import validate_svg
-from .events import ObjectCommand, ObjectChangeEvent, OnChangeMixin
+from .events import GatewayObjectCommand, OnChangeMixin
 
 
 User = get_user_model()
@@ -221,7 +219,7 @@ class Gateway(DirtyFieldsMixin, models.Model, SimoAdminMixin):
                 self.status = None
                 self.save()
             return
-        ObjectCommand(self, **{'set_val': 'start'}).publish()
+        GatewayObjectCommand(self, self, set_val='start').publish()
 
     def stop(self):
         if not hasattr(self, 'run'):
@@ -229,7 +227,7 @@ class Gateway(DirtyFieldsMixin, models.Model, SimoAdminMixin):
                 self.status = None
                 self.save()
             return
-        ObjectCommand(self, **{'set_val': 'stop'}).publish()
+        GatewayObjectCommand(self, self, set_val='stop').publish()
 
     def get_socket_url(self):
         if self.id:

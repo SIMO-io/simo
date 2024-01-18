@@ -1,13 +1,11 @@
 import threading
-import traceback
 import time
-import pytz
-from django.utils import timezone
+import json
 import paho.mqtt.client as mqtt
 from django.conf import settings
 from abc import ABC, abstractmethod
 from simo.core.utils.helpers import classproperty
-from simo.core.events import ObjectCommand, get_comp_set_val
+from simo.core.events import GatewayObjectCommand, get_event_obj
 from simo.core.loggers import get_gw_logger
 
 
@@ -79,15 +77,20 @@ class BaseObjectCommandsGatewayHandler(BaseGatewayHandler):
 
     def _on_mqtt_connect(self, mqtt_client, userdata, flags, rc):
         print("MQTT Connected!")
-        mqtt_client.subscribe(ObjectCommand.TOPIC)
+        command = GatewayObjectCommand(self.gateway_instance)
+        mqtt_client.subscribe(command.get_topic())
 
     def _on_mqtt_message(self, client, userdata, msg):
-        component, set_val = get_comp_set_val(msg, self.gateway_instance)
+        payload = json.loads(msg.payload)
+        if 'set_val' not in payload:
+            return
+        from simo.core.models import Component
+        component = get_event_obj(payload, Component)
         if not component:
             return
-        print("Perform Value Send!")
+        print(f"Perform Value ({str(payload['set_val'])}) Send to {component}")
         try:
-            self.perform_value_send(component, set_val)
+            self.perform_value_send(component, payload['set_val'])
         except Exception as e:
             self.logger.error(e, exc_info=True)
 
