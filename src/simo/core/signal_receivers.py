@@ -12,7 +12,9 @@ def post_save_change_events(sender, instance, created, **kwargs):
     target = instance
     from .events import ObjectChangeEvent
     dirty_fields = target.get_dirty_fields()
-    for ignore_field in ('change_init_by', 'change_init_date', 'change_init_to'):
+    for ignore_field in (
+        'change_init_by', 'change_init_date', 'change_init_to', 'last_update'
+    ):
         dirty_fields.pop(ignore_field, None)
 
     def post_update():
@@ -25,14 +27,27 @@ def post_save_change_events(sender, instance, created, **kwargs):
                 dirty_fields=dirty_fields
             ).publish()
         elif type(target) == Component:
+            data = {}
+            for field_name in (
+                'value', 'last_change', 'arm_status',
+                'battery_level', 'alive', 'meta'
+            ):
+                data[field_name] = getattr(target, field_name, None)
             ObjectChangeEvent(
                 target.zone.instance, target,
-                dirty_fields=dirty_fields
+                dirty_fields=dirty_fields, **data
             ).publish()
             for master in target.masters.all():
+                data = {}
+                for field_name in (
+                    'value', 'last_change', 'arm_status',
+                    'battery_level', 'alive', 'meta'
+                ):
+                    data[field_name] = getattr(master, field_name, None)
                 ObjectChangeEvent(
                     master.zone.instance,
-                    master, slave_id=target.id
+                    master, slave_id=target.id,
+                    **data
                 ).publish()
 
     transaction.on_commit(post_update)

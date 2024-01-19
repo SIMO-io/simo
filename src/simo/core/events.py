@@ -25,7 +25,7 @@ class ObjMqttAnnouncement:
         else:
             self.data = {}
 
-    def publish(self):
+    def publish(self, retain=False):
         assert isinstance(self.TOPIC, str)
         assert self.data is not None
         try:
@@ -33,7 +33,8 @@ class ObjMqttAnnouncement:
                 self.get_topic(), json.dumps(self.data),
                 hostname=settings.MQTT_HOST,
                 port=settings.MQTT_PORT,
-                auth={'username': 'root', 'password': settings.SECRET_KEY}
+                auth={'username': 'root', 'password': settings.SECRET_KEY},
+                retain=retain
             )
         except Exception as e:
             print(e, file=sys.stderr)
@@ -43,7 +44,7 @@ class ObjMqttAnnouncement:
 
 
 class ObjectChangeEvent(ObjMqttAnnouncement):
-    TOPIC = 'SIMO/obj-change-event'
+    TOPIC = 'SIMO/obj-state'
 
     def __init__(self, instance, obj, dirty_fields=None, slave_id=None):
         self.instance = instance
@@ -59,6 +60,9 @@ class ObjectChangeEvent(ObjMqttAnnouncement):
     def get_topic(self):
         return f"{self.TOPIC}/{self.instance.id if self.instance else 'global'}/" \
                f"{type(self.obj).__name__}-{self.data['obj_pk']}"
+
+    def publish(self, retain=False):
+        return super().publish(retain=True)
 
 
 class GatewayObjectCommand(ObjMqttAnnouncement):
