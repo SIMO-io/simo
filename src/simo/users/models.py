@@ -199,7 +199,7 @@ class User(AbstractBaseUser, SimoAdminMixin):
 
         return obj
 
-    def update_mqtt_secret(self):
+    def update_mqtt_secret(self, reload=True):
         print(f"Update mqtt secret of {self}!")
         try:
             subprocess.run(
@@ -211,9 +211,10 @@ class User(AbstractBaseUser, SimoAdminMixin):
         except Exception as e:
             print(e, file=sys.stderr)
 
-        subprocess.run(
-            ['service', 'mosquitto', 'reload'], stdout=subprocess.PIPE
-        )
+        if reload:
+            subprocess.run(
+                ['service', 'mosquitto', 'reload'], stdout=subprocess.PIPE
+            )
 
     def can_ssh(self):
         return self.is_active and self.ssh_key and self.is_master
