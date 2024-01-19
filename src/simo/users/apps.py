@@ -41,7 +41,7 @@ class CoreAppConfig(AppConfig):
         )
 
         for user in User.objects.all():
-            user.update_mqtt_secret(reaload=False)
+            user.update_mqtt_secret(reload=False)
 
         from .utils import update_mqtt_acls
         update_mqtt_acls()
