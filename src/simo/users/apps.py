@@ -34,11 +34,12 @@ class CoreAppConfig(AppConfig):
             os.chown(acls_file, uid, gid)
             os.chmod(acls_file, 0o640)
 
-        subprocess.run(
-            f'yes "{settings.SECRET_KEY}" | head -n 2 | '
-            f'mosquitto_passwd /etc/mosquitto/mosquitto_users root',
-            shell=True, stdout=subprocess.PIPE
+
+        ps = subprocess.Popen(
+            ['mosquitto_passwd /etc/mosquitto/mosquitto_users root'],
+            shell=True, stdin=subprocess.PIPE,stdout=subprocess.PIPE
         )
+        ps.communicate(f"{settings.SECRET_KEY}\n{settings.SECRET_KEY}".encode())
 
         for user in User.objects.all():
             user.update_mqtt_secret(reload=False)
