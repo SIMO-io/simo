@@ -28,12 +28,15 @@ class ObjMqttAnnouncement:
     def publish(self):
         assert isinstance(self.TOPIC, str)
         assert self.data is not None
-        mqtt_publish.single(
-            self.get_topic(), json.dumps(self.data),
-            hostname=settings.MQTT_HOST,
-            port=settings.MQTT_PORT,
-            auth={'username': 'root', 'password': settings.SECRET_KEY}
-        )
+        try:
+            mqtt_publish.single(
+                self.get_topic(), json.dumps(self.data),
+                hostname=settings.MQTT_HOST,
+                port=settings.MQTT_PORT,
+                auth={'username': 'root', 'password': settings.SECRET_KEY}
+            )
+        except Exception as e:
+            print(e, file=sys.stderr)
 
     def get_topic(self):
         return self.TOPIC
@@ -54,7 +57,7 @@ class ObjectChangeEvent(ObjMqttAnnouncement):
             self.data['slave_id'] = slave_id
 
     def get_topic(self):
-        return f"{self.TOPIC}/{self.instance.id}/" \
+        return f"{self.TOPIC}/{self.instance.id if self.instance else 'global'}/" \
                f"{str(self.obj).lower()}-{self.data['obj_pk']}"
 
 

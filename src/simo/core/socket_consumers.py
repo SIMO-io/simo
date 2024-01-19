@@ -164,7 +164,9 @@ class GatewayController(SIMOWebsocketConsumer):
 
     def _on_mqtt_connect(self, mqtt_client, userdata, flags, rc):
         print("Subscribing to Gateway Event's")
-        mqtt_client.subscribe(ObjectChangeEvent.TOPIC)
+        mqtt_client.subscribe(
+            f'{ObjectChangeEvent.TOPIC}/global/gateway-{self.gateway.id}'
+        )
 
     def _on_mqtt_message(self, mqtt_client, userdata, msg):
         payload = json.loads(msg.payload)
@@ -233,7 +235,8 @@ class ComponentController(SIMOWebsocketConsumer):
 
     def _on_mqtt_connect(self, mqtt_client, userdata, flags, rc):
         print("Subscribing to ComponentEvent's")
-        mqtt_client.subscribe(ObjectChangeEvent.TOPIC)
+        event = ObjectChangeEvent(self.component.zone.instance, self.component)
+        mqtt_client.subscribe(event.get_topic())
 
     def _on_mqtt_message(self, mqtt_client, userdata, msg):
         payload = json.loads(msg.payload)

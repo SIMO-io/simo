@@ -7,34 +7,32 @@ from .models import Instance, Gateway, Component
 
 
 @receiver(post_save, sender=Component)
-def post_save_change_events(sender, instance, created, **kwargs):
+@receiver(post_save, sender=Gateway)
+def post_save_change_events(sender, target, created, **kwargs):
     from .events import ObjectChangeEvent
-    dirty_fields = instance.get_dirty_fields()
+    dirty_fields = target.get_dirty_fields()
     for ignore_field in ('change_init_by', 'change_init_date', 'change_init_to'):
         dirty_fields.pop(ignore_field, None)
 
     def post_update():
-        if dirty_fields:
-            try:
-                # sometimes crashes with gateway runners.
-                ObjectChangeEvent(
-                    instance.component.zone.instance, instance,
-                    dirty_fields=dirty_fields
-                ).publish()
-            except Exception as e:
-                print(e, file=sys.stderr)
-                pass
+        if not dirty_fields:
+            return
 
-            for master in instance.masters.all():
-                try:
-                    # sometimes crashes with gateway runners.
-                    ObjectChangeEvent(
-                        master.component.zone.instance,
-                        master, slave_id=instance.id
-                    ).publish()
-                except Exception as e:
-                    print(e, file=sys.stderr)
-                    pass
+        if type(target) == Gateway:
+            ObjectChangeEvent(
+                None, target,
+                dirty_fields=dirty_fields
+            ).publish()
+        elif type(target) == Component:
+            ObjectChangeEvent(
+                target.zone.instance, target,
+                dirty_fields=dirty_fields
+            ).publish()
+            for master in target.masters.all():
+                ObjectChangeEvent(
+                    master.zone.instance,
+                    master, slave_id=target.id
+                ).publish()
 
     transaction.on_commit(post_update)
 
