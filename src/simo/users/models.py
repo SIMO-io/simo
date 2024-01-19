@@ -1,5 +1,7 @@
 import datetime
 import requests
+import subprocess
+import sys
 from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 from django.db import models
@@ -24,6 +26,7 @@ from simo.core.utils.helpers import get_random_string
 from simo.core.events import OnChangeMixin
 from .middleware import get_current_user
 from .utils import rebuild_authorized_keys
+from .tasks import rebuild_mqtt_acls
 
 
 class PermissionsRole(models.Model):
@@ -113,6 +116,9 @@ def post_instance_user_save(sender, instance, created, **kwargs):
                 instance, dirty_fields=dirty_fields
             ).publish()
         transaction.on_commit(post_update)
+    if 'role' or 'is_active' in instance.dirty_fields:
+        rebuild_mqtt_acls.delay()
+
 
 
 class User(AbstractBaseUser, SimoAdminMixin):
@@ -188,7 +194,20 @@ class User(AbstractBaseUser, SimoAdminMixin):
         elif org and org.ssh_key != self.ssh_key:
             rebuild_authorized_keys()
 
+        if not org or org.secret_key != self.secret_key:
+            self.update_mqtt_secret()
+
         return obj
+
+    def update_mqtt_secret(self):
+        try:
+            subprocess.call(
+                f'yes {self.secret_key} | head -n 2 | '
+                f'mosquitto_passwd /etc/mosquitto/mosquitto_users {self.email}',
+                shell=True
+            )
+        except Exception as e:
+            print(e, file=sys.stderr)
 
     def can_ssh(self):
         return self.is_active and self.ssh_key and self.is_master
@@ -316,6 +335,21 @@ class User(AbstractBaseUser, SimoAdminMixin):
     def has_perms(self, perm_list, obj=None):
         return True
 
+    def get_component_permissions(self):
+        components = []
+        for instance in self.instances:
+            for comp in instance.components.all():
+                can_read = comp.can_read(self)
+                can_write = comp.can_write(self)
+                if not any([can_read, can_write]):
+                    continue
+                components.append({
+                    'component': comp,
+                    'can_read': can_read,
+                    'can_write': can_write
+                })
+        return components
+
 
 class UserDevice(models.Model, SimoAdminMixin):
     user = models.ForeignKey(
@@ -415,6 +449,13 @@ class ComponentPermission(models.Model):
         return ''
 
 
+@receiver(post_save, sender=ComponentPermission)
+def rebuild_mqtt_acls(sender, instance, created, **kwargs):
+    if not created:
+        rebuild_mqtt_acls.delay()
+
+
+
 @receiver(post_save, sender='core.Component')
 def create_component_permissions_comp(sender, instance, created, **kwargs):
     if created:
@@ -426,6 +467,7 @@ def create_component_permissions_comp(sender, instance, created, **kwargs):
                     'read': role.is_superuser, 'write': role.is_superuser
                 }
             )
+        rebuild_mqtt_acls.delay()
 
 
 @receiver(post_save, sender=PermissionsRole)

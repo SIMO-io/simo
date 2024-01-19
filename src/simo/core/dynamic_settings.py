@@ -1,5 +1,4 @@
 import os
-from timezone_utils.choices import ALL_TIMEZONES_CHOICES
 from django.conf import settings
 from dynamic_preferences.preferences import Section
 from dynamic_preferences.types import (
@@ -76,4 +75,3 @@ class AutoUpdate(BooleanPreference):
             except:
                 pass
         return
-

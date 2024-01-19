@@ -1,5 +1,11 @@
 import sys
+import os
+import pwd
+import grp
 import traceback
+import subprocess
+from django.template.loader import render_to_string
+from django.conf import settings
 
 
 def get_system_user():
@@ -34,3 +40,12 @@ def rebuild_authorized_keys():
     except:
         print(traceback.format_exc(), file=sys.stderr)
         pass
+
+
+def update_mqtt_acls():
+    from .models import User
+    users = User.objects.all()
+    with open('/etc/mosquitto/acls.conf', 'w') as f:
+        f.write(
+            render_to_string('conf/mosquitto_acls.conf', {'users': users})
+        )

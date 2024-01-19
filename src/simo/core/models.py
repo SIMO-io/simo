@@ -116,6 +116,9 @@ class Instance(DirtyFieldsMixin, models.Model, SimoAdminMixin):
             self.slug = slugify(self.name)
         return super().save(*args, **kwargs)
 
+    @property
+    def components(self):
+        return Component.objects.filter(zone__instance=self)
 
 class Zone(DirtyFieldsMixin, models.Model, SimoAdminMixin):
     instance = models.ForeignKey(Instance, on_delete=models.CASCADE)
@@ -469,7 +472,6 @@ def translate_before_set(self, value):
         '''Perform value translation just before value is set to component.
         Must return a valid value for this component type.'''
         return value
-
 
     def can_read(self, user):
         if user.is_superuser:

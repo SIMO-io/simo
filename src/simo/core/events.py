@@ -31,7 +31,8 @@ class ObjMqttAnnouncement:
         mqtt_publish.single(
             self.get_topic(), json.dumps(self.data),
             hostname=settings.MQTT_HOST,
-            port=settings.MQTT_PORT
+            port=settings.MQTT_PORT,
+            auth={'username': 'root', 'password': settings.SECRET_KEY}
         )
 
     def get_topic(self):
@@ -39,7 +40,7 @@ class ObjMqttAnnouncement:
 
 
 class ObjectChangeEvent(ObjMqttAnnouncement):
-    TOPIC = 'SIMO/obj-change'
+    TOPIC = 'SIMO/obj-change-event'
 
     def __init__(self, instance, obj, dirty_fields=None, slave_id=None):
         self.instance = instance
