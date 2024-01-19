@@ -49,3 +49,6 @@ def update_mqtt_acls():
         f.write(
             render_to_string('conf/mosquitto_acls.conf', {'users': users})
         )
+    subprocess.run(
+        ['service', 'mosquitto', 'reload'], stdout=subprocess.PIPE
+    )

@@ -211,6 +211,10 @@ class User(AbstractBaseUser, SimoAdminMixin):
         except Exception as e:
             print(e, file=sys.stderr)
 
+        subprocess.run(
+            ['service', 'mosquitto', 'reload'], stdout=subprocess.PIPE
+        )
+
     def can_ssh(self):
         return self.is_active and self.ssh_key and self.is_master
 

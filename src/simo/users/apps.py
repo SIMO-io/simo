@@ -41,7 +41,7 @@ class CoreAppConfig(AppConfig):
         )
 
         for user in User.objects.all():
-            user.update_mqtt_secret()
+            user.update_mqtt_secret(reaload=False)
 
         from .utils import update_mqtt_acls
         update_mqtt_acls()
@@ -50,6 +50,6 @@ class CoreAppConfig(AppConfig):
             with open('/etc/mosquitto/conf.d/simo.conf', 'w') as f:
                 f.write(render_to_string('conf/mosquitto.conf'))
 
-            subprocess.run(
-                ['service', 'mosquitto', 'reload'], stdout=subprocess.PIPE
-            )
+        subprocess.run(
+            ['service', 'mosquitto', 'reload'], stdout=subprocess.PIPE
+        )
