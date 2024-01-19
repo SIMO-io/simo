@@ -8,7 +8,8 @@ from .models import Instance, Gateway, Component
 
 @receiver(post_save, sender=Component)
 @receiver(post_save, sender=Gateway)
-def post_save_change_events(sender, target, created, **kwargs):
+def post_save_change_events(sender, instance, created, **kwargs):
+    target = instance
     from .events import ObjectChangeEvent
     dirty_fields = target.get_dirty_fields()
     for ignore_field in ('change_init_by', 'change_init_date', 'change_init_to'):
