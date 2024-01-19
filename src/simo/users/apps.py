@@ -20,13 +20,20 @@ class CoreAppConfig(AppConfig):
             with open(users_file, 'w') as f:
                 f.write('')
 
+            uid = pwd.getpwnam("mosquitto").pw_uid
+            gid = grp.getgrnam("mosquitto").gr_gid
+            os.chown(users_file, uid, gid)
             os.chmod(users_file, 0o640)
 
             acls_file = '/etc/mosquitto/acls.conf'
             with open(acls_file, 'w') as f:
                 f.write('')
 
+            uid = pwd.getpwnam("mosquitto").pw_uid
+            gid = grp.getgrnam("mosquitto").gr_gid
+            os.chown(acls_file, uid, gid)
             os.chmod(acls_file, 0o640)
+
 
         ps = subprocess.Popen(
             ['mosquitto_passwd /etc/mosquitto/mosquitto_users root'],

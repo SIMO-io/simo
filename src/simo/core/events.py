@@ -58,7 +58,7 @@ class ObjectChangeEvent(ObjMqttAnnouncement):
 
     def get_topic(self):
         return f"{self.TOPIC}/{self.instance.id if self.instance else 'global'}/" \
-               f"{type(self.obj).__name__.lower()}-{self.data['obj_pk']}"
+               f"{type(self.obj).__name__}-{self.data['obj_pk']}"
 
 
 class GatewayObjectCommand(ObjMqttAnnouncement):
