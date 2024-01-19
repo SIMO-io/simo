@@ -202,10 +202,11 @@ class User(AbstractBaseUser, SimoAdminMixin):
     def update_mqtt_secret(self):
         print(f"Update mqtt secret of {self}!")
         try:
-            subprocess.check_output(
+            subprocess.run(
                 f'yes {self.secret_key} | head -n 2 | '
-                f'mosquitto_passwd /etc/mosquitto/mosquitto_users {self.email}',
-                shell=True
+                f'mosquitto_passwd /etc/mosquitto/mosquitto_users '
+                f'{self.email}'.split(),
+                stdout=subprocess.PIPE
             )
         except Exception as e:
             print(e, file=sys.stderr)

@@ -34,10 +34,10 @@ class CoreAppConfig(AppConfig):
             os.chown(acls_file, uid, gid)
             os.chmod(acls_file, 0o640)
 
-        subprocess.check_output(
+        subprocess.run(
             f'yes {settings.SECRET_KEY} | head -n 2 | '
-            f'mosquitto_passwd /etc/mosquitto/mosquitto_users root',
-            shell=True
+            f'mosquitto_passwd /etc/mosquitto/mosquitto_users root'.split(),
+            stdout=subprocess.PIPE
         )
 
         for user in User.objects.all():
@@ -50,4 +50,6 @@ class CoreAppConfig(AppConfig):
             with open('/etc/mosquitto/conf.d/simo.conf', 'w') as f:
                 f.write(render_to_string('conf/mosquitto.conf'))
 
-            subprocess.check_output(['service', 'mosquitto', 'reload'])
+            subprocess.run(
+                ['service', 'mosquitto', 'reload'], stdout=subprocess.PIPE
+            )
