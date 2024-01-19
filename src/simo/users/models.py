@@ -203,7 +203,7 @@ class User(AbstractBaseUser, SimoAdminMixin):
         print(f"Update mqtt secret of {self}!")
         try:
             subprocess.run(
-                f'yes {self.secret_key} | head -n 2 | '
+                f'yes "{self.secret_key}" | head -n 2 | '
                 f'mosquitto_passwd /etc/mosquitto/mosquitto_users '
                 f'{self.email}', shell=True,
                 stdout=subprocess.PIPE

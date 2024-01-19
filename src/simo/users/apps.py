@@ -35,7 +35,7 @@ class CoreAppConfig(AppConfig):
             os.chmod(acls_file, 0o640)
 
         subprocess.run(
-            f'yes {settings.SECRET_KEY} | head -n 2 | '
+            f'yes "{settings.SECRET_KEY}" | head -n 2 | '
             f'mosquitto_passwd /etc/mosquitto/mosquitto_users root',
             shell=True, stdout=subprocess.PIPE
         )
