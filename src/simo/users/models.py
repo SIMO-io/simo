@@ -205,7 +205,7 @@ class User(AbstractBaseUser, SimoAdminMixin):
             subprocess.run(
                 f'yes {self.secret_key} | head -n 2 | '
                 f'mosquitto_passwd /etc/mosquitto/mosquitto_users '
-                f'{self.email}'.split(),
+                f'{self.email}', shell=True,
                 stdout=subprocess.PIPE
             )
         except Exception as e:

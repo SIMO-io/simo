@@ -36,8 +36,8 @@ class CoreAppConfig(AppConfig):
 
         subprocess.run(
             f'yes {settings.SECRET_KEY} | head -n 2 | '
-            f'mosquitto_passwd /etc/mosquitto/mosquitto_users root'.split(),
-            stdout=subprocess.PIPE
+            f'mosquitto_passwd /etc/mosquitto/mosquitto_users root',
+            shell=True, stdout=subprocess.PIPE
         )
 
         for user in User.objects.all():
