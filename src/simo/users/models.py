@@ -194,14 +194,15 @@ class User(AbstractBaseUser, SimoAdminMixin):
         elif org and org.ssh_key != self.ssh_key:
             rebuild_authorized_keys()
 
-        if not org or org.secret_key != self.secret_key:
+        if not org or (org.secret_key != self.secret_key):
             self.update_mqtt_secret()
 
         return obj
 
     def update_mqtt_secret(self):
+        print(f"Update mqtt secret of {self}!")
         try:
-            subprocess.call(
+            subprocess.check_output(
                 f'yes {self.secret_key} | head -n 2 | '
                 f'mosquitto_passwd /etc/mosquitto/mosquitto_users {self.email}',
                 shell=True
