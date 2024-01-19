@@ -45,6 +45,14 @@ class BaseObjectCommandsGatewayHandler(BaseGatewayHandler):
 
     exit = None
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.mqtt_client = mqtt.Client()
+        self.mqtt_client.username_pw_set('root', settings.SECRET_KEY)
+        self.mqtt_client.on_connect = self._on_mqtt_connect
+        self.mqtt_client.on_message = self._on_mqtt_message
+
+
     def run(self, exit):
         self.exit = exit
         self.logger = get_gw_logger(self.gateway_instance.id)
@@ -54,17 +62,13 @@ class BaseObjectCommandsGatewayHandler(BaseGatewayHandler):
                 target=self._run_periodic_task, args=(task, period), daemon=True
             ).start()
 
-        mqtt_client = mqtt.Client()
-        mqtt_client.username_pw_set('root', settings.SECRET_KEY)
-        mqtt_client.on_connect = self._on_mqtt_connect
-        mqtt_client.on_message = self._on_mqtt_message
-        mqtt_client.connect(host=settings.MQTT_HOST, port=settings.MQTT_PORT)
-        mqtt_client.loop_start()
+        self.mqtt_client.connect(host=settings.MQTT_HOST, port=settings.MQTT_PORT)
+        self.mqtt_client.loop_start()
 
         while not self.exit.is_set():
             time.sleep(1)
 
-        mqtt_client.loop_stop()
+        self.mqtt_client.loop_stop()
 
     def _run_periodic_task(self, task, period):
         while not self.exit.is_set():
@@ -77,8 +81,9 @@ class BaseObjectCommandsGatewayHandler(BaseGatewayHandler):
 
     def _on_mqtt_connect(self, mqtt_client, userdata, flags, rc):
         print("MQTT Connected!")
+        self.mqtt_client = mqtt_client
         command = GatewayObjectCommand(self.gateway_instance)
-        mqtt_client.subscribe(command.get_topic())
+        self.mqtt_client.subscribe(command.get_topic())
 
     def _on_mqtt_message(self, client, userdata, msg):
         payload = json.loads(msg.payload)
