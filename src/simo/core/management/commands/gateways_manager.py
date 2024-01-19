@@ -118,6 +118,7 @@ class GatewaysManager:
                 self.start_gateway(gateway)
 
         self.mqtt_client = mqtt.Client()
+        self.mqtt_client.username_pw_set('root', settings.SECRET_KEY)
         self.mqtt_client.on_connect = self.on_mqtt_connect
         self.mqtt_client.on_message = self.on_mqtt_message
         self.mqtt_client.connect(

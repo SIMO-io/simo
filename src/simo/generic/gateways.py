@@ -200,6 +200,7 @@ class GenericGatewayHandler(BaseObjectCommandsGatewayHandler):
         from simo.generic.controllers import Script, IPCamera
 
         mqtt_client = mqtt.Client()
+        mqtt_client.username_pw_set('root', settings.SECRET_KEY)
         mqtt_client.on_connect = self.on_mqtt_connect
         mqtt_client.on_message = self.on_mqtt_message
         mqtt_client.connect(host=settings.MQTT_HOST, port=settings.MQTT_PORT)

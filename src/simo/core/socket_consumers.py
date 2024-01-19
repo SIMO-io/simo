@@ -156,6 +156,7 @@ class GatewayController(SIMOWebsocketConsumer):
             return self.close()
 
         self._mqtt_client = mqtt.Client()
+        self._mqtt_client.username_pw_set('root', settings.SECRET_KEY)
         self._mqtt_client.on_connect = self._on_mqtt_connect
         self._mqtt_client.on_message = self._on_mqtt_message
         self._mqtt_client.connect(host=settings.MQTT_HOST, port=settings.MQTT_PORT)
@@ -222,6 +223,7 @@ class ComponentController(SIMOWebsocketConsumer):
             return self.close()
 
         self._mqtt_client = mqtt.Client()
+        self._mqtt_client.username_pw_set('root', settings.SECRET_KEY)
         self._mqtt_client.on_connect = self._on_mqtt_connect
         self._mqtt_client.on_message = self._on_mqtt_message
         self._mqtt_client.connect(host=settings.MQTT_HOST,

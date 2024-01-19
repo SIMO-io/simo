@@ -138,6 +138,7 @@ class FleetConsumer(AsyncWebsocketConsumer):
                     mqtt_client.subscribe(command.get_topic())
 
             self.mqtt_client = mqtt.Client()
+            self.mqtt_client.username_pw_set('root', settings.SECRET_KEY)
             self.mqtt_client.on_connect = on_mqtt_connect
             self.mqtt_client.on_message = self.on_mqtt_message
             self.mqtt_client.connect(host=settings.MQTT_HOST,

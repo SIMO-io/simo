@@ -1,4 +1,5 @@
 import datetime
+import sys
 from django.db import transaction
 from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
@@ -20,7 +21,8 @@ def post_save_change_events(sender, instance, created, **kwargs):
                     instance.component.zone.instance, instance,
                     dirty_fields=dirty_fields
                 ).publish()
-            except:
+            except Exception as e:
+                print(e, file=sys.stderr)
                 pass
 
             for master in instance.masters.all():
@@ -30,7 +32,8 @@ def post_save_change_events(sender, instance, created, **kwargs):
                         master.component.zone.instance,
                         master, slave_id=instance.id
                     ).publish()
-                except:
+                except Exception as e:
+                    print(e, file=sys.stderr)
                     pass
 
     transaction.on_commit(post_update)
