@@ -263,7 +263,9 @@ class User(AbstractBaseUser, SimoAdminMixin):
             self._instances = set(Instance.objects.all())
             return self._instances
 
-        for instance_role in self.instance_roles.filter(is_active=True):
+        for instance_role in self.instance_roles.filter(
+            is_active=True, instance__isnull=False
+        ):
             self._instances.add(instance_role.instance)
         return self._instances
 

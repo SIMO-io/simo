@@ -12,7 +12,7 @@ HUB_DIR = '/etc/SIMO/hub'
 def perform_update():
 
     proc = subprocess.Popen(
-        ['pip' 'install', 'setuptools==65.7.0']
+        ['pip', 'install', 'setuptools==65.7.0']
     )
     out, err = proc.communicate()
     if proc.returncode:

@@ -28,16 +28,13 @@ class ObjMqttAnnouncement:
     def publish(self, retain=False):
         assert isinstance(self.TOPIC, str)
         assert self.data is not None
-        try:
-            mqtt_publish.single(
-                self.get_topic(), json.dumps(self.data),
-                hostname=settings.MQTT_HOST,
-                port=settings.MQTT_PORT,
-                auth={'username': 'root', 'password': settings.SECRET_KEY},
-                retain=retain
-            )
-        except Exception as e:
-            print(e, file=sys.stderr)
+        mqtt_publish.single(
+            self.get_topic(), json.dumps(self.data, default=str),
+            hostname=settings.MQTT_HOST,
+            port=settings.MQTT_PORT,
+            auth={'username': 'root', 'password': settings.SECRET_KEY},
+            retain=retain
+        )
 
     def get_topic(self):
         return self.TOPIC
@@ -46,16 +43,12 @@ class ObjMqttAnnouncement:
 class ObjectChangeEvent(ObjMqttAnnouncement):
     TOPIC = 'SIMO/obj-state'
 
-    def __init__(self, instance, obj, dirty_fields=None, slave_id=None):
+    def __init__(self, instance, obj, **kwargs):
         self.instance = instance
         self.obj = obj
         super().__init__(obj)
-        self.data['dirty_fields'] = dirty_fields if dirty_fields else {}
-        for key, val in self.data['dirty_fields'].items():
-            if type(val) not in (bool, int, float, str):
-                self.data['dirty_fields'][key] = str(val)
-        if slave_id:
-            self.data['slave_id'] = slave_id
+        for key, val in kwargs.items():
+            self.data[key] = val
 
     def get_topic(self):
         return f"{self.TOPIC}/{self.instance.id if self.instance else 'global'}/" \
