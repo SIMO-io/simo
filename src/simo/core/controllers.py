@@ -682,7 +682,7 @@ class Lock(Switch):
                 value = 'locked'
             else:
                 value = 'unlocked'
-        return value
+        return super()._receive_from_device(value, is_alive=is_alive)
 
     def _validate_val(self, value, occasion=None):
         if occasion == BEFORE_SEND:
