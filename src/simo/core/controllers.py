@@ -1,3 +1,4 @@
+import sys
 import time
 import datetime
 import statistics
@@ -149,8 +150,10 @@ class ControllerBase(ABC):
         ]
 
     def _get_actor(self, to_value):
+        if self.component.change_init_fingerprint and self.component.change_init_fingerprint.user:
+            return self.component.change_init_fingerprint.user
         if self.component.change_init_by:
-            if self.component.change_init_date < timezone.now() - datetime.timedelta(seconds=5):
+            if self.component.change_init_date < timezone.now() - datetime.timedelta(seconds=30):
                 self.component.change_init_by = None
                 self.component.change_init_date = None
                 self.component.change_init_to = None
@@ -163,11 +166,11 @@ class ControllerBase(ABC):
                 return self.component.change_init_by
 
     def set(self, value, actor=None):
-        from .models import ComponentHistory
         if not actor:
             actor = self._get_actor(value)
         if not actor:
             actor = get_current_user()
+
         # Introducing user to this thread for changes that might happen to other components
         # in relation to the change of this component
         introduce(actor)
@@ -182,6 +185,7 @@ class ControllerBase(ABC):
         self.component.change_init_by = None
         self.component.change_init_date = None
         self.component.change_init_to = None
+        self.component.change_init_fingerprint = None
         self.component.save()
 
     def _send_to_device(self, value):

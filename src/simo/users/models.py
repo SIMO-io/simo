@@ -120,7 +120,6 @@ def post_instance_user_save(sender, instance, created, **kwargs):
         rebuild_mqtt_acls.delay()
 
 
-
 class User(AbstractBaseUser, SimoAdminMixin):
     name = models.CharField(_('name'), max_length=150)
     email = models.EmailField(_('email address'), unique=True)
@@ -352,6 +351,17 @@ class User(AbstractBaseUser, SimoAdminMixin):
                     'can_write': can_write
                 })
         return components
+
+
+class Fingerprint(models.Model):
+    value = models.CharField(max_length=200, db_index=True, unique=True)
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, null=True, blank=True,
+        related_name='fingerprints'
+    )
+    date_created = models.DateTimeField(auto_now_add=True)
+    name = models.CharField(max_length=100, null=True, blank=True)
+    is_valid = models.BooleanField(default=True, db_index=True)
 
 
 class UserDevice(models.Model, SimoAdminMixin):

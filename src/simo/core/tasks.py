@@ -302,9 +302,21 @@ def update_latest_version_available():
     dynamic_settings['core__latest_version_available'] = latest
 
 
+@celery_app.task
+def drop_fingerprints_learn():
+    Instance.objects.filter(
+        learn_fingerprints__isnull=False,
+        learn_fingerprints_start__lt=timezone.now() - datetime.timedelta(minutes=5)
+    ).uodate(
+        learn_fingerprints=None,
+        learn_fingerprints_start=None
+    )
+
+
 @celery_app.on_after_finalize.connect
 def setup_periodic_tasks(sender, **kwargs):
     sender.add_periodic_task(1, watch_timers.s())
     sender.add_periodic_task(20, sync_with_remote.s())
     sender.add_periodic_task(60 * 60, clear_history.s())
     sender.add_periodic_task(60 * 60 * 6, update_latest_version_available.s())
+    sender.add_periodic_task(60, drop_fingerprints_learn.s())

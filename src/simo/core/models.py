@@ -107,6 +107,10 @@ class Instance(DirtyFieldsMixin, models.Model, SimoAdminMixin):
         help_text="How many days of user device reports log do we keep? "
                   "Use 0 if you do not want to keep these logs at all."
     )
+    learn_fingerprints_start = models.DateTimeField(null=True, blank=True)
+    learn_fingerprints = models.ForeignKey(
+        User, null=True, blank=True, on_delete=models.SET_NULL
+    )
 
     def __str__(self):
         return self.name
@@ -288,6 +292,10 @@ class Component(DirtyFieldsMixin, models.Model, SimoAdminMixin, OnChangeMixin):
     )
     change_init_date = models.DateTimeField(null=True, editable=False)
     change_init_to = models.JSONField(null=True, editable=False)
+    change_init_fingerprint = models.ForeignKey(
+        'users.Fingerprint', null=True, editable=False,
+        on_delete=models.SET_NULL
+    )
     last_change = models.DateTimeField(
         null=True, editable=False, auto_now_add=True
     )
