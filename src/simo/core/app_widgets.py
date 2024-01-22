@@ -89,3 +89,8 @@ class QuintupleSwitchWidget(BaseAppWidget):
     size = [4, 1]
 
 
+class LockWidget(BaseAppWidget):
+    uid = 'lock'
+    name = _("Lock")
+    size = [2, 2]
+

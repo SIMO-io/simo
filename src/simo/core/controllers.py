@@ -668,9 +668,34 @@ class QuintupleSwitch(MultiSwitchBase):
 class Lock(Switch):
     name = _("Lock")
     base_type = 'lock'
+    app_widget = LockWidget
 
     def lock(self):
         self.turn_on()
 
     def unlock(self):
         self.turn_off()
+
+    def _receive_from_device(self, value, is_alive=True):
+        if type(value) in (int, bool):
+            if value:
+                value = 'locked'
+            else:
+                value = 'unlocked'
+        return value
+
+    def _validate_val(self, value, occasion=None):
+        if occasion == BEFORE_SEND:
+            if type(value) != bool:
+                raise ValidationError("Boolean required to lock/unlock.")
+        else:
+            available_values = (
+                'locked', 'unlocked', 'locking', 'unlocking',
+                'operating', 'fault'
+            )
+            if value not in available_values:
+                raise ValidationError(
+                    f"Received value ({value}) that is not "
+                    f"one of available values [{available_values}] for lock."
+                )
+        return value
