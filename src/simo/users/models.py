@@ -568,6 +568,3 @@ class InstanceInvitation(models.Model):
 
     def get_absolute_url(self):
         return reverse('accept_invitation', kwargs={'token': self.token})
-
-
-from .on_ready import *
