@@ -71,9 +71,7 @@ class Script(ControllerBase, TimerMixin):
                 self.component.refresh_from_db()
                 self.component.config['code'] = new_code
                 self.component.save(update_fields=['config'])
-            GatewayObjectCommand(self.component, **{'set_val': 'start'}).publish()
-        elif value == 'stop':
-            GatewayObjectCommand(self.component, **{'set_val': 'stop'}).publish()
+        return super()._send_to_device(value)
 
     def _val_to_success(self, value):
         if value == 'start':
@@ -1238,7 +1236,7 @@ class AlarmClock(ControllerBase):
 
         # At this point there is an alarm that we are looking forward or we are in it already
 
-        if current_value['alarm_uid'] in current_value.get('ignore_alarms', {}):
+        if current_value.get('alarm_uid') in current_value.get('ignore_alarms', {}):
             return current_value
 
         for event in current_value['events']:

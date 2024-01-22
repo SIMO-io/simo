@@ -138,7 +138,7 @@ class GatewaysManager:
         return sys.exit()
 
     def on_mqtt_connect(self, mqtt_client, userdata, flags, rc):
-        mqtt_client.subscribe(GatewayObjectCommand.TOPIC)
+        mqtt_client.subscribe(f'{GatewayObjectCommand.TOPIC}/*')
 
     def on_mqtt_message(self, client, userdata, msg):
         payload = json.loads(msg.payload)

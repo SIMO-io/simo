@@ -239,28 +239,25 @@ class GenericGatewayHandler(BaseObjectCommandsGatewayHandler):
         while len(script_ids):
             time.sleep(0.1)
 
-
     def on_mqtt_connect(self, mqtt_client, userdata, flags, rc):
-        mqtt_client.subscribe(GatewayObjectCommand.TOPIC)
+        command = GatewayObjectCommand(self.gateway_instance)
+        mqtt_client.subscribe(command.get_topic())
 
     def on_mqtt_message(self, client, userdata, msg):
-        from simo.core.controllers import Switch, BinarySensor
-        from simo.generic.controllers import Script, Gate, Blinds
+        from simo.generic.controllers import Script, Blinds
         payload = json.loads(msg.payload)
         component = get_event_obj(payload, Component)
         if not component:
             return
 
-        if msg.topic == GatewayObjectCommand.TOPIC:
-            # Handle scripts
-            if isinstance(component.controller, Script):
-                if payload['kwargs'].get('set_val') == 'start':
-                    self.start_script(component)
-                elif payload['kwargs'].get('set_val') == 'stop':
-                    self.stop_script(component)
-                return
-            elif component.controller_uid == Blinds.uid:
-                self.control_blinds(component, payload['kwargs'].get('set_val'))
+        if isinstance(component.controller, Script):
+            if payload.get('set_val') == 'start':
+                self.start_script(component)
+            elif payload.get('set_val') == 'stop':
+                self.stop_script(component)
+            return
+        elif component.controller_uid == Blinds.uid:
+            self.control_blinds(component, payload.get('set_val'))
 
     def start_script(self, component):
         print("START SCRIPT %s" % str(component))
