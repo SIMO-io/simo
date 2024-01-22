@@ -307,7 +307,7 @@ def drop_fingerprints_learn():
     Instance.objects.filter(
         learn_fingerprints__isnull=False,
         learn_fingerprints_start__lt=timezone.now() - datetime.timedelta(minutes=5)
-    ).uodate(
+    ).update(
         learn_fingerprints=None,
         learn_fingerprints_start=None
     )

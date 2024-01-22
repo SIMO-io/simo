@@ -162,7 +162,7 @@ class ControllerBase(ABC):
                                    'change_init_to', 'alive']
                 )
                 return None
-            if self.component.change_init_to == to_value:
+            else:
                 return self.component.change_init_by
 
     def set(self, value, actor=None):
@@ -178,7 +178,6 @@ class ControllerBase(ABC):
         value = self.component.translate_before_set(value)
         value = self._validate_val(value, BEFORE_SET)
         self.component.refresh_from_db()
-        old_arm_status = self.component.arm_status
         if value != self.component.value:
             self.component.value_previous = self.component.value
         self.component.value = value
@@ -218,9 +217,8 @@ class ControllerBase(ABC):
 
         self.component.change_init_by = get_current_user()
         self.component.change_init_date = timezone.now()
-        self.component.change_init_to = value
         self.component.save(
-            update_fields=['change_init_by', 'change_init_date', 'change_init_to']
+            update_fields=['change_init_by', 'change_init_date']
         )
         value = self._prepare_for_send(value)
         self._send_to_device(value)
