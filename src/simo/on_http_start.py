@@ -10,7 +10,7 @@ def prepare_mosquitto():
     if os.geteuid() != 0:
         return
 
-    from .models import User
+    from simo.users.models import User
 
     users_file = '/etc/mosquitto/mosquitto_users'
     if not os.path.exists(users_file):
@@ -40,7 +40,7 @@ def prepare_mosquitto():
     for user in User.objects.all():
         user.update_mqtt_secret(reload=False)
 
-    from .utils import update_mqtt_acls
+    from simo.users.utils import update_mqtt_acls
 
     update_mqtt_acls()
 
