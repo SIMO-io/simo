@@ -257,6 +257,7 @@ class ComponentController(SIMOWebsocketConsumer):
                 ))
 
     def receive(self, text_data=None, bytes_data=None, **kwargs):
+        introduce(self.scope['user'])
         json_data = json.loads(text_data)
         self.send_value = json_data.pop('send_value', False)
         for method, param in json_data.items():
