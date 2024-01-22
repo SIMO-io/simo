@@ -1,5 +1,5 @@
 <div class="component-controller" data-ws_url="{{ obj.get_socket_url|default_if_none:"" }}">
-  {% if obj.value %}
+  {% if obj.value == 'locked' %}
     <i class="fas fa-toggle-on fa-2x component_switch action"
        data-method="turn_off"
     ></i>

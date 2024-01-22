@@ -669,6 +669,7 @@ class Lock(Switch):
     name = _("Lock")
     base_type = 'lock'
     app_widget = LockWidget
+    admin_widget_template = 'admin/controller_widgets/lock.html'
 
     def lock(self):
         self.turn_on()
