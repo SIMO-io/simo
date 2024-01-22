@@ -110,8 +110,6 @@ class OnChangeMixin:
             return
         if payload['obj_ct_pk'] != self._obj_ct_id:
             return
-        if payload['event'] != 'changed':
-            return
         if 'value' not in payload.get('dirty_fields', {}):
             return
 
