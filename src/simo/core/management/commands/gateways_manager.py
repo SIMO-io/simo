@@ -138,7 +138,7 @@ class GatewaysManager:
         return sys.exit()
 
     def on_mqtt_connect(self, mqtt_client, userdata, flags, rc):
-        mqtt_client.subscribe(f'{GatewayObjectCommand.TOPIC}/*')
+        mqtt_client.subscribe(f'{GatewayObjectCommand.TOPIC}/#')
 
     def on_mqtt_message(self, client, userdata, msg):
         payload = json.loads(msg.payload)
@@ -174,7 +174,7 @@ class GatewaysManager:
             self.running_gateways.pop(gateway.id)
 
     def bury(self, gateway_id):
-        wait_seconds = 4.0
+        wait_seconds = 5
         while wait_seconds >= 0:
             if not self.running_gateways[gateway_id].is_alive():
                 self.running_gateways.pop(gateway_id)
@@ -189,7 +189,6 @@ class GatewaysManager:
         gw.status = 'stopped'
         gw.save()
         self.running_gateways.pop(gateway_id)
-
 
 
 class Command(BaseCommand):

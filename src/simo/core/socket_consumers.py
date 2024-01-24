@@ -163,9 +163,8 @@ class GatewayController(SIMOWebsocketConsumer):
         self._mqtt_client.loop_start()
 
     def _on_mqtt_connect(self, mqtt_client, userdata, flags, rc):
-        print("Subscribing to Gateway Event's")
         mqtt_client.subscribe(
-            f'{ObjectChangeEvent.TOPIC}/global/gateway-{self.gateway.id}'
+            f'{ObjectChangeEvent.TOPIC}/global/Gateway-{self.gateway.id}'
         )
 
     def _on_mqtt_message(self, mqtt_client, userdata, msg):
@@ -179,11 +178,8 @@ class GatewayController(SIMOWebsocketConsumer):
 
     def receive(self, text_data=None, bytes_data=None, **kwargs):
         json_data = json.loads(text_data)
-        for method, param in json_data.items():
-            try:
-                getattr(self.gateway, method)()
-            except:
-                continue
+        for method, params in json_data.items():
+            getattr(self.gateway, method)(**params)
 
     def disconnect(self, console_log):
         if self._mqtt_client:
