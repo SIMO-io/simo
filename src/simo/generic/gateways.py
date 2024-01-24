@@ -263,8 +263,9 @@ class GenericGatewayHandler(BaseObjectCommandsGatewayHandler):
         print("START SCRIPT %s" % str(component))
         if component.id in self.running_scripts:
             if self.running_scripts[component.id].is_alive():
-                return
-            # self.running_scripts[component.id].join()
+                self.running_scripts[component.id].kill()
+                component.value = 'stopped'
+                component.save(update_fields=['value'])
         self.running_scripts[component.id] = ScriptRunHandler(
             component.id, daemon=True
         )
@@ -272,6 +273,9 @@ class GenericGatewayHandler(BaseObjectCommandsGatewayHandler):
 
     def stop_script(self, component):
         if component.id not in self.running_scripts:
+            if component.value == 'running':
+                component.value = 'stopped'
+                component.save(update_fields=['value'])
             return
         if self.running_scripts[component.id].is_alive():
             logger = get_component_logger(component)
