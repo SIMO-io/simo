@@ -1,6 +1,7 @@
 from django.db import transaction
 from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
+from django.utils import timezone
 from .models import Instance, Gateway, Component
 
 
@@ -22,7 +23,8 @@ def post_save_change_events(sender, instance, created, **kwargs):
         if type(target) == Gateway:
             ObjectChangeEvent(
                 None, target,
-                dirty_fields=dirty_fields
+                dirty_fields=dirty_fields,
+                timestamp=timezone.now().timestamp()
             ).publish()
         elif type(target) == Component:
             data = {}
@@ -33,7 +35,9 @@ def post_save_change_events(sender, instance, created, **kwargs):
                 data[field_name] = getattr(target, field_name, None)
             ObjectChangeEvent(
                 target.zone.instance, target,
-                dirty_fields=dirty_fields, **data
+                dirty_fields=dirty_fields,
+                timestamp=timezone.now().timestamp(),
+                **data
             ).publish()
             for master in target.masters.all():
                 data = {}
@@ -45,6 +49,7 @@ def post_save_change_events(sender, instance, created, **kwargs):
                 ObjectChangeEvent(
                     master.zone.instance,
                     master, slave_id=target.id,
+                    timestamp=timezone.now().timestamp(),
                     **data
                 ).publish()
 
