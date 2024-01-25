@@ -1,21 +1,17 @@
 import datetime
 from calendar import monthrange
 import pytz
-import logging
 from django.db.models import Q, Prefetch
 from django.utils.translation import gettext_lazy as _
 from django.utils import timezone
 from django.shortcuts import get_object_or_404
-from easy_thumbnails.files import get_thumbnailer
 from simo.core.utils.helpers import get_self_ip
 from rest_framework.pagination import PageNumberPagination
 from rest_framework import viewsets
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.decorators import action
 from rest_framework.response import Response as RESTResponse
-from django.core.exceptions import ValidationError
 from rest_framework.exceptions import ValidationError as APIValidationError
-from simo.conf import dynamic_settings
 from simo.core.utils.config_values import ConfigException
 from .models import (
     Instance, Category, Zone, Component, Icon, ComponentHistory,
@@ -25,6 +21,7 @@ from .serializers import (
     IconSerializer, CategorySerializer, ZoneSerializer,
     ComponentSerializer, ComponentHistorySerializer
 )
+from .permissions import InstanceSuperuserCanEdit
 
 
 class InstanceMixin:
@@ -54,14 +51,21 @@ class IconViewSet(viewsets.ReadOnlyModelViewSet):
         return queryset
 
 
-class CategoryViewSet(viewsets.ReadOnlyModelViewSet):
+class CategoryViewSet(InstanceMixin, viewsets.ModelViewSet):
     url = 'core/categories'
     basename = 'categories'
-    queryset = Category.objects.all()
     serializer_class = CategorySerializer
 
+    def get_permissions(self):
+        permissions = super().get_permissions()
+        permissions.append(InstanceSuperuserCanEdit())
+        return permissions
 
-class ZoneViewSet(InstanceMixin, viewsets.ReadOnlyModelViewSet):
+    def get_queryset(self):
+        return Category.objects.filter(instance=self.instance)
+
+
+class ZoneViewSet(InstanceMixin, viewsets.ModelViewSet):
     url = 'core/zones'
     basename = 'zones'
     serializer_class = ZoneSerializer
@@ -69,6 +73,10 @@ class ZoneViewSet(InstanceMixin, viewsets.ReadOnlyModelViewSet):
     def get_queryset(self):
         return Zone.objects.filter(instance=self.instance)
 
+    def get_permissions(self):
+        permissions = super().get_permissions()
+        permissions.append(InstanceSuperuserCanEdit())
+        return permissions
 
 def get_components_queryset(instance, user):
     qs = Component.objects.filter(zone__instance=instance)
@@ -102,10 +110,15 @@ def get_components_queryset(instance, user):
     return qs
 
 
-class ComponentViewSet(InstanceMixin, viewsets.ReadOnlyModelViewSet):
+class ComponentViewSet(InstanceMixin, viewsets.ModelViewSet):
     url = 'core/components'
     basename = 'components'
     serializer_class = ComponentSerializer
+
+    def get_permissions(self):
+        permissions = super().get_permissions()
+        permissions.append(InstanceSuperuserCanEdit())
+        return permissions
 
     def get_queryset(self):
         return get_components_queryset(self.instance, self.request.user).filter(

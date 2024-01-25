@@ -1,5 +1,5 @@
-from rest_framework.permissions import BasePermission
-from .models import Instance
+from rest_framework.permissions import BasePermission, SAFE_METHODS
+from .models import Instance, Category, Zone
 
 
 class InstancePermission(BasePermission):
@@ -21,3 +21,20 @@ class InstancePermission(BasePermission):
             return False
 
         return True
+
+
+class InstanceSuperuserCanEdit(BasePermission):
+
+    def has_object_permission(self, request, view, obj):
+
+        # allow deleting only empty categories and zones
+        if type(obj) in (Zone, Category) and request.method == 'DELETE'\
+        and obj.components.all().count():
+            return False
+
+        if request.user.is_master:
+            return True
+        user_role = request.user.get_role(view.instance)
+        if user_role.is_superuser:
+            return True
+        return request.method in SAFE_METHODS

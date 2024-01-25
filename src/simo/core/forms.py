@@ -306,8 +306,6 @@ class ComponentAdminForm(forms.ModelForm):
             self.instance.config = self.controller.default_config
             self.instance.meta = self.controller.default_meta
 
-
-
     @classmethod
     def get_admin_fieldsets(cls, request, obj=None):
         main_fields = (
@@ -405,8 +403,8 @@ class ValueLimitsMixin:
 
 
 class NumericSensorForm(BaseComponentForm):
-    widget = forms.TypedChoiceField(
-        coerce=str, initial='numeric-sensor', choices=(
+    widget = forms.ChoiceField(
+        initial='numeric-sensor', choices=(
             ('numeric-sensor', "Basic Sensor"),
             ('numeric-sensor-graph', "Graph"),
         )
@@ -601,7 +599,3 @@ class RGBWConfigForm(BaseComponentForm):
     has_white = forms.BooleanField(
         label=_("Has WHITE color channel"), required=False,
     )
-
-
-
-

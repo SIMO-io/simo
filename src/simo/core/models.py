@@ -143,6 +143,7 @@ class Zone(DirtyFieldsMixin, models.Model, SimoAdminMixin):
 
 
 class Category(DirtyFieldsMixin, models.Model, SimoAdminMixin):
+    instance = models.ForeignKey(Instance, on_delete=models.CASCADE)
     name = models.CharField(_('name'), max_length=40)
     icon = models.ForeignKey(Icon, on_delete=models.SET_NULL, null=True)
     header_image = ThumbnailerImageField(
@@ -160,12 +161,10 @@ class Category(DirtyFieldsMixin, models.Model, SimoAdminMixin):
         default=0, blank=False, null=False, db_index=True
     )
 
-
     class Meta:
         verbose_name = _("category")
         verbose_name_plural = _("categories")
         ordering = ('order', 'id')
-
 
     def __str__(self):
         return self.name
@@ -175,7 +174,9 @@ class Category(DirtyFieldsMixin, models.Model, SimoAdminMixin):
         dirty_fields = self.get_dirty_fields()
         if 'all' in dirty_fields:
             if self.all:
-                Category.objects.all().update(all=False)
+                Category.objects.filter(
+                    instance=self.instance
+                ).update(all=False)
         if 'header_image' in dirty_fields:
             self.header_image_last_change = timezone.now()
         return super().save(*args, **kwargs)

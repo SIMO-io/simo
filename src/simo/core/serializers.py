@@ -1,9 +1,10 @@
 import inspect
+import datetime
 from easy_thumbnails.files import get_thumbnailer
 from simo.core.middleware import get_current_request
 from rest_framework import serializers
+from django.utils import timezone
 from .models import Category, Zone, Component, Icon, ComponentHistory
-from .utils.type_constants import APP_WIDGETS
 
 
 class TimestampField(serializers.Field):
@@ -12,6 +13,9 @@ class TimestampField(serializers.Field):
         if value:
             return value.timestamp()
         return value
+
+    def to_internal_value(self, data):
+        return datetime.fromtimestamp(data)
 
 
 class IconSerializer(serializers.ModelSerializer):
@@ -23,13 +27,15 @@ class IconSerializer(serializers.ModelSerializer):
 
 
 class CategorySerializer(serializers.ModelSerializer):
-    header_image = serializers.SerializerMethodField()
+    header_image_thumb = serializers.SerializerMethodField()
 
     class Meta:
         model = Category
-        fields = 'id', 'name', 'all', 'icon', 'header_image'
+        fields = (
+            'id', 'name', 'all', 'icon', 'header_image', 'header_image_thumb'
+        )
 
-    def get_header_image(self, obj):
+    def get_header_image_thumb(self, obj):
         if obj.header_image:
             url = get_thumbnailer(obj.header_image).get_thumbnail(
                 {'size': (830, 430), 'crop': True}
@@ -44,7 +50,13 @@ class CategorySerializer(serializers.ModelSerializer):
         return
 
 
-class ComponentSerializer(serializers.ModelSerializer):
+from django import forms
+from drf_braces.serializers.form_serializer import FormSerializer
+from .forms import ComponentAdminForm
+from taggit.forms import TagField
+
+
+class ComponentSerializer(FormSerializer):
     controller_methods = serializers.SerializerMethodField()
     last_change = TimestampField()
     read_only = serializers.SerializerMethodField()
@@ -52,7 +64,8 @@ class ComponentSerializer(serializers.ModelSerializer):
     subcomponents = serializers.SerializerMethodField()
 
     class Meta:
-        model = Component
+        #model = Component
+        form = ComponentAdminForm
         fields = [
             'id', 'name', 'icon', 'zone',
             'base_type', 'app_widget',
@@ -63,6 +76,17 @@ class ComponentSerializer(serializers.ModelSerializer):
             'read_only', 'show_in_app', 'battery_level',
             'subcomponents'
         ]
+        field_mapping = {
+            forms.ModelChoiceField: serializers.ModelField,
+            TagField: serializers.CharField,
+            forms.TypedChoiceField: serializers.ChoiceField,
+        }
+
+    def _get_field_kwargs(self, form_field, serializer_field_class):
+        attrs = super()._get_field_kwargs(form_field, serializer_field_class)
+        if isinstance(form_field, forms.ModelChoiceField):
+            attrs['model_field'] = form_field.to_field_name
+        return attrs
 
     def get_controller_methods(self, obj):
         c_methods = [m[0] for m in inspect.getmembers(
@@ -99,6 +123,7 @@ class ComponentSerializer(serializers.ModelSerializer):
                 'user': get_system_user()
             }
         ).data
+
 
 
 class ZoneSerializer(serializers.ModelSerializer):

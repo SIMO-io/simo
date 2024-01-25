@@ -1,5 +1,6 @@
 import importlib
 import inspect
+import sys
 from django.urls import path, include
 from django.conf.urls.static import static
 from django.conf import settings
@@ -25,7 +26,7 @@ registered_classes = []
 for name, app in apps.app_configs.items():
     try:
         apis = importlib.import_module('%s.api' % app.name)
-    except ModuleNotFoundError:
+    except ModuleNotFoundError as e:
         continue
     for cls_name, cls in apis.__dict__.items():
         cls_id = '%s.%s' % (app.name, cls_name)
