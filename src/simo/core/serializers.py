@@ -72,14 +72,7 @@ class ObjectSerializerMethodField(serializers.SerializerMethodField):
         return getattr(value, self.field_name)
 
 
-class PKField(ObjectSerializerMethodField):
-
-    def to_internal_value(self, data):
-        return data
-
-
-class ComponentSerializer(FormSerializer):
-    pk = PKField()
+class ComponentSerializer(FormSerializer, serializers.ModelSerializer):
     controller_methods = serializers.SerializerMethodField()
     last_change = TimestampField()
     read_only = serializers.SerializerMethodField()
@@ -95,25 +88,27 @@ class ComponentSerializer(FormSerializer):
     battery_level = ObjectSerializerMethodField()
 
     class Meta:
+        model = Component
         form = ComponentAdminForm
         field_mapping = {
             forms.ModelChoiceField: MyModelField,
             forms.TypedChoiceField: serializers.ChoiceField,
         }
 
+    def get_form(self, data=None, **kwargs):
+        form_cls = ComponentAdminForm
+        form = form_cls(data=data, **kwargs)
+        return form
+
     def validate(self, data):
-
-        print("DATA TO VALIDATE: ", data)
-        self.form_instance = form = self.get_form(data=data)
-
+        self.form_instance = form = self.get_form(
+            data=data, instance=self.instance
+        )
         if not form.is_valid():
             _cleaned_data = getattr(form, 'cleaned_data', None) or {}
-            self.capture_failed_fields(data, form.errors)
-            cleaned_data = {k: v for k, v in data.items() if k not in form.errors}
-            cleaned_data.update(_cleaned_data)
+            raise serializers.ValidationError(form.errors)
         else:
             cleaned_data = form.cleaned_data
-
         return cleaned_data
 
     def get_controller_methods(self, obj):
