@@ -21,11 +21,7 @@ from simo.conf import dynamic_settings
 class ScriptConfigForm(BaseComponentForm):
     autostart = forms.BooleanField(
         initial=True, required=False,
-        help_text="Auto start my script on system boot."
-    )
-    autorestart = forms.BooleanField(
-        initial=True, required=False,
-        help_text="Wake my script up automatically if it encounters error."
+        help_text="Wake up every 60 s if not running."
     )
     code = forms.CharField(widget=PythonCode)
     log = forms.CharField(
@@ -49,7 +45,7 @@ class ScriptConfigForm(BaseComponentForm):
     def get_admin_fieldsets(cls, request, obj=None):
         base_fields = (
             'id', 'gateway', 'base_type', 'name', 'icon', 'zone', 'category',
-            'tags', 'show_in_app', 'autostart', 'autorestart',
+            'tags', 'show_in_app', 'autostart',
             'code', 'control', 'log'
         )
 

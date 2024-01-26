@@ -1,16 +1,14 @@
 import sys
-import cv2
 import logging
-import base64
 import pytz
-from logging.handlers import RotatingFileHandler
 import json
 import time
 import multiprocessing
 import threading
 from django.conf import settings
 from django.utils import timezone
-from django.db import close_old_connections, connection as db_connection
+from django.db import connection as db_connection
+from django.db.models import Q
 import paho.mqtt.client as mqtt
 from simo.core.models import Component
 from simo.core.gateways import BaseObjectCommandsGatewayHandler
@@ -18,9 +16,6 @@ from simo.core.forms import BaseGatewayForm
 from simo.core.utils.logs import StreamToLogger
 from simo.core.events import GatewayObjectCommand, get_event_obj
 from simo.core.loggers import get_gw_logger, get_component_logger
-
-
-
 
 
 
@@ -168,7 +163,9 @@ class GenericGatewayHandler(BaseObjectCommandsGatewayHandler):
     blinds_runners = {}
     periodic_tasks = (
         ('watch_thermostats', 60),
-        ('watch_alarm_clocks', 30)
+        ('watch_alarm_clocks', 30),
+        ('watch_scripts', 60),
+        ('watch_watering', 60)
     )
 
     def watch_thermostats(self):
@@ -188,6 +185,26 @@ class GenericGatewayHandler(BaseObjectCommandsGatewayHandler):
             tz = pytz.timezone(alarm_clock.zone.instance.timezone)
             timezone.activate(tz)
             alarm_clock.tick()
+
+    def watch_scripts(self):
+        from simo.generic.controllers import Script
+        for script in Component.objects.filter(
+            controller_uid=Script.uid,
+            config__autostart=True
+        ).exclude(value='running'):
+            self.start_script(script)
+
+    def watch_watering(self):
+        from .controllers import Watering
+        for watering in Component.objects.filter(controller_uid=Watering.uid):
+            tz = pytz.timezone(watering.zone.instance.timezone)
+            timezone.activate(tz)
+            if watering.value['status'] == 'running_program':
+                watering.set_program_progress(
+                    watering.value['program_progress'] + 1
+                )
+            else:
+                watering.controller._perform_schedule()
 
     def run(self, exit):
         self.exit = exit
