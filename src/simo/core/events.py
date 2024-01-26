@@ -110,7 +110,16 @@ class OnChangeMixin:
             return
         if payload['obj_ct_pk'] != self._obj_ct_id:
             return
-        if 'value' not in payload.get('dirty_fields', {}):
+
+        has_changed = False
+        for key, val in payload.get('dirty_fields', {}).items():
+            if key in self.on_change_fields:
+                has_changed = True
+
+        if not has_changed:
+            return
+
+        if payload.get('timestamp', 0) < timezone.now().timestamp() - 10:
             return
 
         tz = pytz.timezone(self.get_instance().timezone)
