@@ -1,5 +1,6 @@
 import inspect
 import datetime
+from collections import OrderedDict
 from easy_thumbnails.files import get_thumbnailer
 from simo.core.middleware import get_current_request
 from rest_framework import serializers
@@ -15,7 +16,7 @@ class TimestampField(serializers.Field):
         return value
 
     def to_internal_value(self, data):
-        return datetime.fromtimestamp(data)
+        return datetime.datetime.fromtimestamp(data)
 
 
 class IconSerializer(serializers.ModelSerializer):
@@ -53,40 +54,67 @@ class CategorySerializer(serializers.ModelSerializer):
 from django import forms
 from drf_braces.serializers.form_serializer import FormSerializer
 from .forms import ComponentAdminForm
-from taggit.forms import TagField
+
+
+class MyModelField(serializers.CharField):
+
+    def to_representation(self, value):
+        return value.pk
+
+
+class ObjectSerializerMethodField(serializers.SerializerMethodField):
+
+    def bind(self, field_name, parent):
+        self.field_name = field_name
+        super().bind(field_name, parent)
+
+    def to_representation(self, value):
+        return getattr(value, self.field_name)
+
+
+class PKField(ObjectSerializerMethodField):
+
+    def to_internal_value(self, data):
+        return data
 
 
 class ComponentSerializer(FormSerializer):
+    pk = PKField()
     controller_methods = serializers.SerializerMethodField()
     last_change = TimestampField()
     read_only = serializers.SerializerMethodField()
     app_widget = serializers.SerializerMethodField()
     subcomponents = serializers.SerializerMethodField()
+    base_type = ObjectSerializerMethodField()
+    alive = ObjectSerializerMethodField()
+    value = ObjectSerializerMethodField()
+    value_units = ObjectSerializerMethodField()
+    config = ObjectSerializerMethodField()
+    meta = ObjectSerializerMethodField()
+    arm_status = ObjectSerializerMethodField()
+    battery_level = ObjectSerializerMethodField()
 
     class Meta:
-        #model = Component
         form = ComponentAdminForm
-        fields = [
-            'id', 'name', 'icon', 'zone',
-            'base_type', 'app_widget',
-            'category', 'alive',
-            'value', 'value_units',
-            'config', 'meta', 'controller_methods',
-            'alarm_category', 'arm_status', 'last_change',
-            'read_only', 'show_in_app', 'battery_level',
-            'subcomponents'
-        ]
         field_mapping = {
-            forms.ModelChoiceField: serializers.ModelField,
-            TagField: serializers.CharField,
+            forms.ModelChoiceField: MyModelField,
             forms.TypedChoiceField: serializers.ChoiceField,
         }
 
-    def _get_field_kwargs(self, form_field, serializer_field_class):
-        attrs = super()._get_field_kwargs(form_field, serializer_field_class)
-        if isinstance(form_field, forms.ModelChoiceField):
-            attrs['model_field'] = form_field.to_field_name
-        return attrs
+    def validate(self, data):
+
+        print("DATA TO VALIDATE: ", data)
+        self.form_instance = form = self.get_form(data=data)
+
+        if not form.is_valid():
+            _cleaned_data = getattr(form, 'cleaned_data', None) or {}
+            self.capture_failed_fields(data, form.errors)
+            cleaned_data = {k: v for k, v in data.items() if k not in form.errors}
+            cleaned_data.update(_cleaned_data)
+        else:
+            cleaned_data = form.cleaned_data
+
+        return cleaned_data
 
     def get_controller_methods(self, obj):
         c_methods = [m[0] for m in inspect.getmembers(
@@ -123,7 +151,6 @@ class ComponentSerializer(FormSerializer):
                 'user': get_system_user()
             }
         ).data
-
 
 
 class ZoneSerializer(serializers.ModelSerializer):

@@ -309,7 +309,7 @@ class ComponentAdminForm(forms.ModelForm):
     @classmethod
     def get_admin_fieldsets(cls, request, obj=None):
         main_fields = (
-            'name', 'icon', 'zone', 'category', 'tags',
+            'name', 'icon', 'zone', 'category',
             'show_in_app', 'battery_level',
             'instance_methods', 'value_units',
             'alarm_category', 'arm_status',

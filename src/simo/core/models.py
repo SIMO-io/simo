@@ -259,19 +259,12 @@ class Component(DirtyFieldsMixin, models.Model, SimoAdminMixin, OnChangeMixin):
         Category, related_name='components', on_delete=models.CASCADE,
         null=True, blank=True
     )
-    tags = TaggableManager(blank=True)
-    # TODO: Remove gateway instance from component.
-    # There can't be two instances of same type gateway, therefore its
-    # instance is only required to deliver configuration and
-    # background service responsible for components management.
-    # Convert this to CharField for components filtering.
     gateway = models.ForeignKey(
         Gateway, on_delete=models.CASCADE, related_name='components'
     )
     base_type = models.CharField(
         _("base type"), max_length=200, db_index=True#, choices=BASE_TYPE_CHOICES
     )
-    # Rename to controller_uid
     controller_uid = models.CharField(
         _("type"), max_length=200, choices=(), db_index=True,
     )
@@ -360,7 +353,6 @@ def translate_before_set(self, value):
         verbose_name_plural = _("Components")
         ordering = 'zone', 'base_type', 'name'
 
-
     def __init__(self, *args, **kwargs):
         from .utils.type_constants import (
             get_controller_types_map,
@@ -412,7 +404,6 @@ def translate_before_set(self, value):
         if self.zone:
             return '%s | %s' % (self.zone.name, self.name)
         return self.name
-
 
     def get_socket_url(self):
         return reverse_lazy(

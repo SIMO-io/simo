@@ -271,7 +271,7 @@ class ComponentAdmin(admin.ModelAdmin):
         'control', 'value', 'arm_status', 'history', 'meta'
     )
     list_filter = (
-        'gateway', 'base_type', 'tags', ('zone', ZonesFilter), 'category', 'alive',
+        'gateway', 'base_type', ('zone', ZonesFilter), 'category', 'alive',
         'alarm_category', 'arm_status'
     )
 

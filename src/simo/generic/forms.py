@@ -49,7 +49,7 @@ class ScriptConfigForm(BaseComponentForm):
     def get_admin_fieldsets(cls, request, obj=None):
         base_fields = (
             'id', 'gateway', 'base_type', 'name', 'icon', 'zone', 'category',
-            'tags', 'show_in_app', 'autostart', 'autorestart',
+            'show_in_app', 'autostart', 'autorestart',
             'code', 'control', 'log'
         )
 
