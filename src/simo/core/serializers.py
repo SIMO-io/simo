@@ -1,13 +1,18 @@
 import inspect
 import datetime
-import six
-from collections import OrderedDict
+from django import forms
 from collections.abc import Iterable
 from easy_thumbnails.files import get_thumbnailer
 from simo.core.middleware import get_current_request
 from rest_framework import serializers
-from django.utils import timezone
-from .models import Category, Zone, Component, Icon, ComponentHistory
+from simo.core.forms import FormsetField
+from rest_framework.relations import PrimaryKeyRelatedField
+from drf_braces.serializers.form_serializer import (
+    FormSerializer, FormSerializerBase, reduce_attr_dict_from_instance,
+    FORM_SERIALIZER_FIELD_MAPPING
+)
+from .forms import ComponentAdminForm
+from .models import Category, Zone, Icon, ComponentHistory
 
 
 class TimestampField(serializers.Field):
@@ -52,24 +57,6 @@ class CategorySerializer(serializers.ModelSerializer):
             }
         return
 
-
-from django import forms
-from simo.core.forms import FormsetField
-from rest_framework.relations import PrimaryKeyRelatedField
-from drf_braces.serializers.form_serializer import (
-    FormSerializer, FormSerializerBase, reduce_attr_dict_from_instance,
-    FORM_SERIALIZER_FIELD_MAPPING
-)
-
-
-
-from .forms import ComponentAdminForm, DimmerConfigForm
-
-
-class MyModelField(serializers.CharField):
-
-    def to_representation(self, value):
-        return value.pk
 
 
 class ObjectSerializerMethodField(serializers.SerializerMethodField):
@@ -116,11 +103,6 @@ class ComponentFormsetField(FormSerializer):
 
     def to_representation(self, instance):
         return super(FormSerializerBase, self).to_representation(instance)
-
-
-    # def get_attribute(self, instance):
-    #     return instance.config.get(self.source_attrs[0], [])
-
 
 
 class ComponentSerializer(FormSerializer):
