@@ -157,14 +157,10 @@ class ComponentSerializer(FormSerializer):
             FORM_SERIALIZER_FIELD_MAPPING
         )
 
-        if not self.instance:
+        if not self.instance or isinstance(self.instance, Iterable):
             form = self.Meta.form()
         else:
-            if type(self.instance) == list:
-                instance = self.instance[0]
-            else:
-                instance = self.instance
-            form = self.Meta.form(instance=instance)
+            form = self.Meta.form(instance=self.instance)
         for field_name in form.fields:
             # if field is specified as excluded field
             if field_name in getattr(self.Meta, 'exclude', []):
