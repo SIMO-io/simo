@@ -114,6 +114,9 @@ class ComponentFormsetField(FormSerializer):
             kwargs['queryset'] = form_field.queryset
         return kwargs
 
+    def to_representation(self, instance):
+        return super(FormSerializerBase, self).to_representation(instance)
+
 
     # def get_attribute(self, instance):
     #     return instance.config.get(self.source_attrs[0], [])
@@ -143,7 +146,7 @@ class ComponentSerializer(FormSerializer):
             forms.ModelChoiceField: ComponentPrimaryKeyRelatedField,
             forms.TypedChoiceField: serializers.ChoiceField,
             forms.FloatField: serializers.FloatField,
-            FormsetField: serializers.CharField,
+            FormsetField: ComponentFormsetField,
         }
 
     def get_fields(self):
@@ -200,6 +203,7 @@ class ComponentSerializer(FormSerializer):
             kwargs['queryset'] = form_field.queryset
         if serializer_field_class == ComponentFormsetField:
             kwargs['formset_field'] = form_field
+            kwargs['many'] = True
         return kwargs
 
     def set_form_cls(self):
