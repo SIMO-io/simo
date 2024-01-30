@@ -50,6 +50,14 @@ class IconViewSet(viewsets.ReadOnlyModelViewSet):
             queryset = queryset.filter(slug__in=self.request.GET['slugs'].split(','))
         return queryset
 
+    def get_view_name(self):
+        singular = "Icon"
+        plural = "Icons"
+        suffix = getattr(self, 'suffix', None)
+        if suffix and suffix.lower() == 'list':
+            return plural
+        return singular
+
 
 class CategoryViewSet(InstanceMixin, viewsets.ModelViewSet):
     url = 'core/categories'
@@ -64,6 +72,13 @@ class CategoryViewSet(InstanceMixin, viewsets.ModelViewSet):
     def get_queryset(self):
         return Category.objects.filter(instance=self.instance)
 
+    def get_view_name(self):
+        singular = "Category"
+        plural = "Categories"
+        suffix = getattr(self, 'suffix', None)
+        if suffix and suffix.lower() == 'list':
+            return plural
+        return singular
 
 class ZoneViewSet(InstanceMixin, viewsets.ModelViewSet):
     url = 'core/zones'
@@ -77,6 +92,14 @@ class ZoneViewSet(InstanceMixin, viewsets.ModelViewSet):
         permissions = super().get_permissions()
         permissions.append(InstanceSuperuserCanEdit())
         return permissions
+
+    def get_view_name(self):
+        singular = "Zone"
+        plural = "Zones"
+        suffix = getattr(self, 'suffix', None)
+        if suffix and suffix.lower() == 'list':
+            return plural
+        return singular
 
 
 def get_components_queryset(instance, user):
@@ -125,6 +148,14 @@ class ComponentViewSet(InstanceMixin, viewsets.ModelViewSet):
         return get_components_queryset(self.instance, self.request.user).filter(
             zone__instance=self.instance
         )
+
+    def get_view_name(self):
+        singular = "Component"
+        plural = "Components"
+        suffix = getattr(self, 'suffix', None)
+        if suffix and suffix.lower() == 'list':
+            return plural
+        return singular
 
     def perform_controller_method(self, json_data, component):
         for method_name, param in json_data.items():
@@ -477,7 +508,6 @@ class InfoViewSet(InstanceMixin, viewsets.GenericViewSet):
     permission_classes = []
 
     def list(self, request, format=None, *args, **kwargs):
-        from simo.conf import dynamic_settings
         resp = RESTResponse({'uid': self.instance.uid})
         resp["Access-Control-Allow-Origin"] = "*"
         return resp

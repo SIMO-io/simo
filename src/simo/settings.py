@@ -185,7 +185,8 @@ REST_FRAMEWORK = {
     'DEFAULT_FILTER_BACKENDS': ['django_filters.rest_framework.DjangoFilterBackend'],
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 1000,
-    'DATETIME_FORMAT': '%s.%f'
+    'DATETIME_FORMAT': '%s.%f',
+    'DEFAULT_METADATA_CLASS': 'simo.core.api_meta.SIMOAPIMetadata'
 }
 
 REDIS_DB = {

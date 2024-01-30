@@ -61,7 +61,7 @@ from drf_braces.serializers.form_serializer import (
     FORM_SERIALIZER_FIELD_MAPPING
 )
 
-from rest_framework.metadata import SimpleMetadata
+
 
 from .forms import ComponentAdminForm, DimmerConfigForm
 
@@ -99,7 +99,7 @@ class ComponentFormsetField(FormSerializer):
         form = ComponentAdminForm
         exclude = ('instance_methods', )
         field_mapping = {
-            forms.ModelChoiceField: ComponentPrimaryKeyRelatedField,
+            forms.ModelChoiceField: PrimaryKeyRelatedField,
             forms.TypedChoiceField: serializers.ChoiceField,
             forms.FloatField: serializers.FloatField,
         }
