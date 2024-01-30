@@ -267,6 +267,9 @@ class ComponentSerializer(FormSerializer):
             cleaned_data = form.cleaned_data
         return cleaned_data
 
+    def to_representation(self, instance):
+        return super(FormSerializerBase, self).to_representation(instance)
+
     def update(self, instance, validated_data):
         form = self.get_form(instance=instance, data=validated_data)
         data = self.accomodate_formsets(form, validated_data)
