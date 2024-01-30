@@ -2,6 +2,7 @@ import inspect
 import datetime
 import six
 from collections import OrderedDict
+from collections.abc import Iterable
 from easy_thumbnails.files import get_thumbnailer
 from simo.core.middleware import get_current_request
 from rest_framework import serializers
@@ -206,7 +207,7 @@ class ComponentSerializer(FormSerializer):
         return kwargs
 
     def set_form_cls(self):
-        if type(self.instance) != list:
+        if not isinstance(self.instance, Iterable):
             from .utils.type_constants import get_controller_types_map
             controllers_map = get_controller_types_map()
             if not self.instance:
