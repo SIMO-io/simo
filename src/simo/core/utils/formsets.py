@@ -115,7 +115,6 @@ class FormsetWidget(forms.Widget):
         return formset_data
 
 
-
 class FormsetField(forms.Field):
     widget = FormsetWidget
     formset_cls = None
@@ -126,7 +125,6 @@ class FormsetField(forms.Field):
         self.formset_cls = formset_cls
         self.widget.formset_cls = formset_cls
         self.widget.prefix = self.prefix
-
 
     def clean(self, formset_data):
 
@@ -149,7 +147,6 @@ class FormsetField(forms.Field):
                 continue
             form_data = {}
             for field_name, field in self.formset_cls().form.declared_fields.items():
-                print(field)
                 form_data[field_name] = formset_data.get(
                     '%s-%d-%s' % (prefix, i, field_name)
                 )
@@ -174,7 +171,6 @@ class FormsetField(forms.Field):
             for i in range(len(cleaned_value)):
                 cleaned_value[i].pop('order')
 
-        print("CLEANED VALUE: ", cleaned_value)
         return cleaned_value
 
 

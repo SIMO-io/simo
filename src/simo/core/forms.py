@@ -164,21 +164,22 @@ class ConfigFieldsMixin:
             self.config_fields.append(field_name)
         if self.instance.pk:
             for field_name in self.config_fields:
-                if self.instance.config.get(field_name) != None:
-                    if hasattr(self.fields[field_name], 'queryset'):
-                        if isinstance(self.instance.config[field_name], list):
-                            self.fields[field_name].initial = \
-                                self.fields[field_name].queryset.filter(
-                                    pk__in=self.instance.config[field_name]
-                                )
-                        else:
-                            self.fields[field_name].initial = \
-                                self.fields[field_name].queryset.filter(
-                                    pk=self.instance.config[field_name]
-                                ).first()
+                if field_name not in self.instance.config:
+                    continue
+                if hasattr(self.fields[field_name], 'queryset'):
+                    if isinstance(self.instance.config[field_name], list):
+                        self.fields[field_name].initial = \
+                            self.fields[field_name].queryset.filter(
+                                pk__in=self.instance.config[field_name]
+                            )
                     else:
                         self.fields[field_name].initial = \
-                            self.instance.config[field_name]
+                            self.fields[field_name].queryset.filter(
+                                pk=self.instance.config[field_name]
+                            ).first()
+                else:
+                    self.fields[field_name].initial = \
+                        self.instance.config[field_name]
 
     def save(self, commit=True):
         for field_name in self.config_fields:
@@ -272,7 +273,7 @@ class ComponentAdminForm(forms.ModelForm):
         fields = '__all__'
         exclude = (
             'gateway', 'controller_uid', 'base_type',
-            'alive', 'value_type', 'value'
+            'alive', 'value_type', 'value', 'arm_status'
         )
         widgets = {
             'icon': autocomplete.ModelSelect2(
@@ -289,22 +290,25 @@ class ComponentAdminForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         self.request = kwargs.pop('request', None)
-        if 'gateway' in kwargs:
-            self.gateway = kwargs.pop('gateway')
-            self.controller_cls = kwargs.pop('controller_cls')
+        self.controller_uid = kwargs.pop('controller_uid', '')
         super().__init__(*args, **kwargs)
         if self.instance.pk:
             self.gateway = self.instance.gateway
             self.controller = self.instance.controller
         else:
-            self.controller = self.controller_cls(self.instance)
-            self.instance.gateway = self.gateway
-            self.instance.controller_uid = self.controller_cls.uid
-            self.instance.base_type = self.controller.base_type
-            self.instance.value = self.controller.default_value
-            self.instance.value_previous = self.controller.default_value
-            self.instance.config = self.controller.default_config
-            self.instance.meta = self.controller.default_meta
+            from .utils.type_constants import get_controller_types_map
+            ControllerClass = get_controller_types_map().get(self.controller_uid)
+            if ControllerClass:
+                self.controller = ControllerClass(self.instance)
+                self.instance.gateway = Gateway.objects.filter(
+                    type=ControllerClass.gateway_class.uid
+                ).first()
+                self.instance.controller_uid = ControllerClass.uid
+                self.instance.base_type = self.controller.base_type
+                self.instance.value = self.controller.default_value
+                self.instance.value_previous = self.controller.default_value
+                self.instance.config = self.controller.default_config
+                self.instance.meta = self.controller.default_meta
 
     @classmethod
     def get_admin_fieldsets(cls, request, obj=None):
@@ -380,6 +384,8 @@ class ComponentAdminForm(forms.ModelForm):
             error = error.replace('\n', '<br>').replace(' ', '&nbsp;')
             raise forms.ValidationError(mark_safe(error))
         return self.cleaned_data['instance_methods']
+
+
 
 
 class BaseComponentForm(ConfigFieldsMixin, ComponentAdminForm):

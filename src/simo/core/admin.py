@@ -359,8 +359,7 @@ class ComponentAdmin(admin.ModelAdmin):
                 if request.method == 'POST':
                     ctx['form'] = add_form(
                         request=request,
-                        gateway=gateway,
-                        controller_cls=controller_cls,
+                        controller_uid=controller_cls.uid,
                         data=request.POST, files=request.FILES,
                         initial=request.session.get('c_add_init'),
                     )
@@ -373,8 +372,7 @@ class ComponentAdmin(admin.ModelAdmin):
                 else:
                     ctx['form'] = add_form(
                         request=request,
-                        gateway=gateway,
-                        controller_cls=controller_cls,
+                        controller_uid=controller_cls.uid,
                         initial=request.session.get('c_add_init'),
                     )
                     pop_fields_from_form(ctx['form'])

@@ -23,6 +23,15 @@ class InstancePermission(BasePermission):
         return True
 
 
+class IsInstanceSuperuser(BasePermission):
+
+    def has_permission(self, request, view):
+        if request.user.is_master:
+            return True
+        user_role = request.user.get_role(view.instance)
+        return user_role.is_superuser
+
+
 class InstanceSuperuserCanEdit(BasePermission):
 
     def has_object_permission(self, request, view, obj):

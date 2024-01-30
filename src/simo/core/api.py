@@ -21,7 +21,7 @@ from .serializers import (
     IconSerializer, CategorySerializer, ZoneSerializer,
     ComponentSerializer, ComponentHistorySerializer
 )
-from .permissions import InstanceSuperuserCanEdit
+from .permissions import IsInstanceSuperuser, InstanceSuperuserCanEdit
 
 
 class InstanceMixin:
@@ -515,3 +515,24 @@ class StatesViewSet(InstanceMixin, viewsets.GenericViewSet):
                 }
             ).data
         })
+
+
+class ControllerTypes(InstanceMixin, viewsets.GenericViewSet):
+    url = 'core/controller-types'
+    basename = 'controller-types'
+
+    def get_permissions(self):
+        permissions = super().get_permissions()
+        permissions.append(IsInstanceSuperuser())
+        return permissions
+
+    def list(self, request, *args, **kwargs):
+        from .utils.type_constants import get_controller_types_map
+        data = {}
+
+        for uid, cls in get_controller_types_map().items():
+            if cls.gateway_class.name not in data:
+                data[cls.gateway_class.name] = []
+            data[cls.gateway_class.name].append([uid, cls.name])
+
+        return RESTResponse(data)

@@ -40,7 +40,7 @@ def get_controller_types_choices(gateway=None):
     return choices
 
 
-# ALL_CONTROLLER_TYPES = get_controller_types_map()
+#ALL_CONTROLLER_TYPES = get_controller_types_map()
 # CONTROLLER_TYPE_CHOICES = [
 #     (slug, cls.name) for slug, cls in ALL_CONTROLLER_TYPES.items()
 # ]

@@ -527,7 +527,7 @@ class ColonelSwitchConfigForm(ColonelComponentForm):
             )
             return self.cleaned_data
 
-        if 'controls' not in self.cleaned_data:
+        if not self.cleaned_data.get('controls'):
             return self.cleaned_data
 
         # TODO: Formset factory should return proper field value types instead of str type
@@ -548,12 +548,13 @@ class ColonelSwitchConfigForm(ColonelComponentForm):
                 selected=selected
             )
             if control['pin'] not in free_pins:
+                print("ADDING ERROR!!!!!")
                 self.add_error(
                     'controls',
                     "Sorry, but GPIO%d pin is occupied."
                     % control['pin']
                 )
-                return
+                return self.cleaned_data
 
         return self.cleaned_data
 

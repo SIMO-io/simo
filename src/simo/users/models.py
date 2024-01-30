@@ -463,7 +463,7 @@ class ComponentPermission(models.Model):
 
 
 @receiver(post_save, sender=ComponentPermission)
-def rebuild_mqtt_acls(sender, instance, created, **kwargs):
+def rebuild_mqtt_acls_on_create(sender, instance, created, **kwargs):
     if not created:
         rebuild_mqtt_acls.delay()
 
