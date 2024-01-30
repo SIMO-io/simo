@@ -54,7 +54,6 @@ class CategorySerializer(serializers.ModelSerializer):
 
 from django import forms
 from simo.core.forms import FormsetField
-from simo.fleet.forms import ColonelSwitchConfigForm
 from rest_framework.relations import PrimaryKeyRelatedField
 from drf_braces.serializers.form_serializer import (
     FormSerializer, FormSerializerBase, reduce_attr_dict_from_instance,
@@ -93,10 +92,31 @@ class ComponentPrimaryKeyRelatedField(PrimaryKeyRelatedField):
         return obj
 
 
-class ComponentFormsetField(serializers.ListField):
+class ComponentFormsetField(FormSerializer):
 
-    def get_attribute(self, instance):
-        return instance.config.get(self.source_attrs[0], [])
+    class Meta:
+        form = ComponentAdminForm
+        exclude = ('instance_methods', )
+        field_mapping = {
+            forms.ModelChoiceField: ComponentPrimaryKeyRelatedField,
+            forms.TypedChoiceField: serializers.ChoiceField,
+            forms.FloatField: serializers.FloatField,
+        }
+
+    def __init__(self, formset_field, *args, **kwargs):
+        self.Meta.form = formset_field.formset_cls.form
+        super().__init__(*args, **kwargs)
+
+    def _get_field_kwargs(self, form_field, serializer_field_class):
+        kwargs = super()._get_field_kwargs(form_field, serializer_field_class)
+        if serializer_field_class == ComponentPrimaryKeyRelatedField:
+            kwargs['queryset'] = form_field.queryset
+        return kwargs
+
+
+    # def get_attribute(self, instance):
+    #     return instance.config.get(self.source_attrs[0], [])
+
 
 
 class ComponentSerializer(FormSerializer):
@@ -122,7 +142,7 @@ class ComponentSerializer(FormSerializer):
             forms.ModelChoiceField: ComponentPrimaryKeyRelatedField,
             forms.TypedChoiceField: serializers.ChoiceField,
             forms.FloatField: serializers.FloatField,
-            FormsetField: ComponentFormsetField,
+            FormsetField: serializers.CharField,
         }
 
     def get_fields(self):
@@ -181,8 +201,8 @@ class ComponentSerializer(FormSerializer):
         kwargs = super()._get_field_kwargs(form_field, serializer_field_class)
         if serializer_field_class == ComponentPrimaryKeyRelatedField:
             kwargs['queryset'] = form_field.queryset
-        # if serializer_field_class == ComponentFormsetField:
-        #     kwargs['child'] =
+        if serializer_field_class == ComponentFormsetField:
+            kwargs['formset_field'] = form_field
         return kwargs
 
     def set_form_cls(self):

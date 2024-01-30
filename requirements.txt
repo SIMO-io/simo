@@ -32,3 +32,4 @@ django-location-field==2.1.0
 slugify==0.0.1
 django-countries==7.5.1
 librosa==0.10.1
+django-rest-framework-braces==0.3.4

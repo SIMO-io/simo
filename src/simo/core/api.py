@@ -78,6 +78,7 @@ class ZoneViewSet(InstanceMixin, viewsets.ModelViewSet):
         permissions.append(InstanceSuperuserCanEdit())
         return permissions
 
+
 def get_components_queryset(instance, user):
     qs = Component.objects.filter(zone__instance=instance)
     if user.is_superuser:
