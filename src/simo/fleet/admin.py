@@ -19,12 +19,12 @@ class ColonelAdmin(admin.ModelAdmin):
     form = ColonelAdminForm
     list_display = (
         '__str__', 'instance', 'type', 'connected', 'last_seen', 'firmware_version',
-        'newer_firmware_available', 'is_authorized'
+        'newer_firmware_available',
     )
     readonly_fields = (
         'type', 'uid', 'connected', 'last_seen',
         'firmware_version', 'newer_firmware_available', 'occupied_pins',
-        'components_display', 'is_authorized'
+        'components_display',
     )
     # inlines = ColonelComponentInline, ColonelBLEDeviceInline
     fields = (
@@ -32,7 +32,7 @@ class ColonelAdmin(admin.ModelAdmin):
     ) + readonly_fields + ('pwm_frequency', 'logs_stream', 'log', )
 
     actions = (
-        'update_firmware', 'check_for_upgrade', 'update_config', 'restart',
+        'check_for_upgrade', 'update_firmware', 'update_config', 'restart',
         FormAction(MoveColonelForm, 'move_colonel_to', "Move to other Colonel")
     )
 

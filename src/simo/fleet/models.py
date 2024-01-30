@@ -49,10 +49,9 @@ class Colonel(DirtyFieldsMixin, models.Model):
     )
     name = models.CharField(max_length=100, blank=True)
     type = models.CharField(
-        max_length=20, default='wESP32',
+        max_length=20, default='ample-wall',
         choices=(
-            ('wESP32', 'wESP32'), ('4-relays', '4 Relays'),
-            ('ample-wall', "Ample Wall")
+            ('ample-wall', "Ample Wall"),
         )
     )
     firmware_version = models.CharField(
@@ -81,11 +80,9 @@ class Colonel(DirtyFieldsMixin, models.Model):
         default=False, help_text="Might cause unnecessary overhead. "
                                  "Better to leave this off if things are running smoothly."
     )
-    pwm_frequency = models.IntegerField(default=0, choices=(
+    pwm_frequency = models.IntegerField(default=1, choices=(
         (0, "3kHz"), (1, "22kHz")
     ), help_text="Affects Ample Wall dimmer PWM output (dimmer) frequency")
-
-    is_authorized = models.BooleanField(default=False, help_text="Temporrary field")
 
     def __str__(self):
         return self.name if self.name else self.uid

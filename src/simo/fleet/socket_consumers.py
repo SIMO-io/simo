@@ -106,19 +106,9 @@ class FleetConsumer(AsyncWebsocketConsumer):
                 save_colonel_name, thread_sensitive=True
             )(headers['colonel-name'])
 
-        def set_colonel_authorized(val):
-            self.colonel.is_authorized = val
-            self.colonel.save()
 
-        if headers.get('instance-uid') == self.colonel.instance.uid \
-        and headers.get('instance-secret') == self.colonel.instance.fleet_options.secret_key:
-            await sync_to_async(
-                set_colonel_authorized, thread_sensitive=True
-            )(True)
-        else:
-            await sync_to_async(
-                set_colonel_authorized, thread_sensitive=True
-            )(False)
+        if headers.get('instance-uid') != self.colonel.instance.uid \
+        or headers.get('instance-secret') != self.colonel.instance.fleet_options.secret_key:
             print("NOT authorized!")
             return await self.close()
 
