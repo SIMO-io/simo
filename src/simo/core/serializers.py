@@ -177,6 +177,7 @@ class ComponentSerializer(FormSerializer):
                 )
                 ret[field_name].initial = form_field.initial
 
+
         return ret
 
     def _get_field_kwargs(self, form_field, serializer_field_class):
@@ -189,6 +190,7 @@ class ComponentSerializer(FormSerializer):
         return kwargs
 
     def set_form_cls(self):
+        self.Meta.form = ComponentAdminForm
         if not isinstance(self.instance, Iterable):
             from .utils.type_constants import get_controller_types_map
             controllers_map = get_controller_types_map()
@@ -204,6 +206,7 @@ class ComponentSerializer(FormSerializer):
                 )
                 if controller:
                     self.Meta.form = controller.config_form
+
 
     def get_form(self, data=None, **kwargs):
         self.set_form_cls()

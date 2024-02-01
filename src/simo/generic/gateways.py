@@ -211,7 +211,7 @@ class GenericGatewayHandler(BaseObjectCommandsGatewayHandler):
         self.logger = get_gw_logger(self.gateway_instance.id)
         for task, period in self.periodic_tasks:
             threading.Thread(
-                target=self._run_periodic_task, args=(task, period), daemon=True
+                target=self._run_periodic_task, args=(exit, task, period), daemon=True
             ).start()
 
         from simo.generic.controllers import Script, IPCamera

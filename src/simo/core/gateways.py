@@ -59,7 +59,7 @@ class BaseObjectCommandsGatewayHandler(BaseGatewayHandler):
 
         for task, period in self.periodic_tasks:
             threading.Thread(
-                target=self._run_periodic_task, args=(task, period), daemon=True
+                target=self._run_periodic_task, args=(self.exit, task, period), daemon=True
             ).start()
 
         self.mqtt_client.connect(host=settings.MQTT_HOST, port=settings.MQTT_PORT)
@@ -70,8 +70,8 @@ class BaseObjectCommandsGatewayHandler(BaseGatewayHandler):
 
         self.mqtt_client.loop_stop()
 
-    def _run_periodic_task(self, task, period):
-        while not self.exit.is_set():
+    def _run_periodic_task(self, exit, task, period):
+        while not exit.is_set():
             try:
                 print(f"Run periodic task {task}!")
                 getattr(self, task)()
