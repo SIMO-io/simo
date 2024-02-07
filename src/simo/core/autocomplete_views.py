@@ -119,6 +119,9 @@ class ComponentAutocomplete(autocomplete.Select2QuerySetView):
         if 'base_type' in self.forwarded:
             qs = qs.filter(base_type__in=self.forwarded['base_type'])
 
+        if 'controller_uid' in self.forwarded:
+            qs = qs.filter(controller_uid__in=self.forwarded['controller_uid'])
+
         if 'alarm_category' in self.forwarded:
             qs = qs.filter(
                 Q(base_type='alarm-group') |

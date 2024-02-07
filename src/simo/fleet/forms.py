@@ -5,6 +5,7 @@ from django.urls.base import get_script_prefix
 from django.contrib.contenttypes.models import ContentType
 from dal import autocomplete
 from dal import forward
+from simo.core.models import Component
 from simo.core.forms import BaseComponentForm, ValueLimitForm, NumericSensorForm
 from simo.core.utils.formsets import FormsetField
 from simo.core.widgets import LogOutputWidget
@@ -498,6 +499,28 @@ class ColonelSwitchConfigForm(ColonelComponentForm):
     inverse = forms.BooleanField(
         label=_("Inverse switch value"), required=False
     )
+    slaves = forms.ModelMultipleChoiceField(
+        required=False,
+        queryset=Component.objects.filter(
+            controller_uid__in=(
+                'simo.fleet.controllers.PWMOutput',
+                'simo.fleet.controllers.Switch',
+                'simo.fleet.controllers.DualMotorValve',
+                'simo.fleet.controllers.Blinds',
+            )
+        ),
+        widget=autocomplete.ModelSelect2Multiple(
+            url='autocomplete-component', attrs={'data-html': True},
+            forward=(forward.Const(
+                [
+                    'simo.fleet.controllers.PWMOutput',
+                    'simo.fleet.controllers.Switch',
+                    'simo.fleet.controllers.DualMotorValve',
+                    'simo.fleet.controllers.Blinds',
+                ], 'controller_uid'),
+            )
+        )
+    )
 
     controls = FormsetField(
         formset_factory(
@@ -613,6 +636,22 @@ class ColonelPWMOutputConfigForm(ColonelComponentForm):
     on_value = forms.FloatField(
         required=True, initial=100,
         help_text="Component ON value when used with toggle switch"
+    )
+    slaves = forms.ModelMultipleChoiceField(
+        required=False,
+        queryset=Component.objects.filter(
+            controller_uid__in=(
+                'simo.fleet.controllers.PWMOutput',
+            )
+        ),
+        widget=autocomplete.ModelSelect2Multiple(
+            url='autocomplete-component', attrs={'data-html': True},
+            forward=(forward.Const(
+                [
+                    'simo.fleet.controllers.PWMOutput',
+                ], 'controller_uid'),
+            )
+        )
     )
     controls = FormsetField(
         formset_factory(

@@ -276,8 +276,8 @@ class Component(DirtyFieldsMixin, models.Model, SimoAdminMixin, OnChangeMixin):
     value_previous = models.JSONField(null=True, blank=True, editable=False)
     value_units = models.CharField(max_length=100, null=True, blank=True)
 
-    subcomponents = models.ManyToManyField(
-        'Component', null=True, blank=True, editable=False,
+    slaves = models.ManyToManyField(
+        'Component', null=True, blank=True,
         related_name='masters'
     )
 

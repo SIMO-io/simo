@@ -273,7 +273,7 @@ class ComponentAdminForm(forms.ModelForm):
         fields = '__all__'
         exclude = (
             'gateway', 'controller_uid', 'base_type',
-            'alive', 'value_type', 'value', 'arm_status'
+            'alive', 'value_type', 'value', 'arm_status', 'slaves'
         )
         widgets = {
             'icon': autocomplete.ModelSelect2(

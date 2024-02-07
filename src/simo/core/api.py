@@ -197,7 +197,7 @@ class ComponentViewSet(InstanceMixin, viewsets.ModelViewSet):
         json_data = request.data
         subcomponent_id = json_data.pop('id', -1)
         try:
-            subcomponent = component.subcomponents.get(pk=subcomponent_id)
+            subcomponent = component.slaves.get(pk=subcomponent_id)
         except Component.DoesNotExist:
             raise APIValidationError(
                 _('Subcomponent with id %d does not exist!' % str(subcomponent_id)),

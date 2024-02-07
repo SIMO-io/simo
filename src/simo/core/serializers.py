@@ -111,7 +111,7 @@ class ComponentSerializer(FormSerializer):
     last_change = TimestampField(read_only=True)
     read_only = serializers.SerializerMethodField()
     app_widget = serializers.SerializerMethodField()
-    subcomponents = serializers.SerializerMethodField()
+    slaves = serializers.SerializerMethodField()
     base_type = ObjectSerializerMethodField()
     controller_uid = ObjectSerializerMethodField()
     alive = ObjectSerializerMethodField()
@@ -176,7 +176,6 @@ class ComponentSerializer(FormSerializer):
                     form_field.field, serializer_field_class
                 )
                 ret[field_name].initial = form_field.initial
-
 
         return ret
 
@@ -292,10 +291,10 @@ class ComponentSerializer(FormSerializer):
             return {}
         return {'type': app_widget.uid, 'size': app_widget.size}
 
-    def get_subcomponents(self, obj):
+    def get_slaves(self, obj):
         from simo.users.utils import get_system_user
         return ComponentSerializer(
-            obj.subcomponents.all(), many=True, context={
+            obj.slaves.all(), many=True, context={
                 'user': get_system_user()
             }
         ).data

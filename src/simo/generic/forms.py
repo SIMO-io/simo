@@ -440,9 +440,9 @@ class WateringConfigForm(BaseComponentForm):
         )
         obj = super().save(commit=commit)
         if commit:
-            obj.subcomponents.clear()
+            obj.slaves.clear()
             for contour in self.cleaned_data['contours']:
-                obj.subcomponents.add(
+                obj.slaves.add(
                     Component.objects.get(pk=contour['switch'])
                 )
         return obj
@@ -528,9 +528,9 @@ class AlarmClockConfigForm(BaseComponentForm):
     def save(self, commit=True):
         obj = super().save(commit=commit)
         if commit:
-            obj.subcomponents.clear()
+            obj.slaves.clear()
             for comp in self.cleaned_data['default_events']:
-                obj.subcomponents.add(
+                obj.slaves.add(
                     Component.objects.get(pk=comp['component'])
                 )
         return obj
