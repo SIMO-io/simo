@@ -222,24 +222,28 @@ class FleetConsumer(AsyncWebsocketConsumer):
 
     def on_mqtt_message(self, client, userdata, msg):
         payload = json.loads(msg.payload)
-        colonel = get_event_obj(payload, Colonel)
-        if not colonel or colonel != self.colonel:
+        obj = get_event_obj(payload)
+        if not obj:
             return
-        if payload.get('command') == 'update_firmware':
-            asyncio.run(self.firmware_update(payload['kwargs'].get('to_version')))
-        elif payload.get('command') == 'update_config':
-            async def send_config():
-                config = await self.get_config_data()
-                await self.send(json.dumps({
-                    'command': 'set_config', 'data': config
-                }))
-            asyncio.run(send_config())
-        elif 'set_val' in payload:
-            asyncio.run(self.send(json.dumps({
-                'command': 'set_val',
-                'id': payload.get('component_id'),
-                'val': payload['set_val']
-            })))
+        if obj == self.colonel:
+            if payload.get('command') == 'update_firmware':
+                asyncio.run(self.firmware_update(payload['kwargs'].get('to_version')))
+            elif payload.get('command') == 'update_config':
+                async def send_config():
+                    config = await self.get_config_data()
+                    await self.send(json.dumps({
+                        'command': 'set_config', 'data': config
+                    }))
+                asyncio.run(send_config())
+        if isinstance(obj, Component):
+            if str(obj.config.get('colonel')) != str(self.colonel):
+                return
+            if 'set_val' in payload:
+                asyncio.run(self.send(json.dumps({
+                    'command': 'set_val',
+                    'id': payload.get('component_id'),
+                    'val': payload['set_val']
+                })))
 
     async def receive(self, text_data=None, bytes_data=None):
         if text_data:

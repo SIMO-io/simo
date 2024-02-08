@@ -21,6 +21,7 @@ from taggit.managers import TaggableManager
 from simo.core.utils.mixins import SimoAdminMixin
 from simo.core.storage import OverwriteStorage
 from simo.core.utils.validators import validate_svg
+from .managers import ComponentsManager
 from .events import GatewayObjectCommand, OnChangeMixin
 
 
@@ -336,6 +337,8 @@ def translate_before_set(self, value):
             ('armed', _("Armed")), ('breached', _("Breached"))
         )
     )
+
+    objects = ComponentsManager()
 
     tracker = FieldTracker(fields=('value', 'arm_status'))
     # change this to False before saving to not record changes to history

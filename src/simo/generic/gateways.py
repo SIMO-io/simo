@@ -261,7 +261,7 @@ class GenericGatewayHandler(BaseObjectCommandsGatewayHandler):
         mqtt_client.subscribe(command.get_topic())
 
     def on_mqtt_message(self, client, userdata, msg):
-        from simo.generic.controllers import Script, Blinds
+        from simo.generic.controllers import Script, Blinds, AlarmGroup, Gate
         payload = json.loads(msg.payload)
         component = get_event_obj(payload, Component)
         if not component:
@@ -275,6 +275,10 @@ class GenericGatewayHandler(BaseObjectCommandsGatewayHandler):
             return
         elif component.controller_uid == Blinds.uid:
             self.control_blinds(component, payload.get('set_val'))
+        elif component.controller_uid == AlarmGroup.uid:
+            self.control_alarm_group(component, payload.get('set_val'))
+        elif component.controller_uid == Gate:
+            self.control_gate(component, payload.get('set_val'))
 
     def start_script(self, component):
         print("START SCRIPT %s" % str(component))
@@ -357,9 +361,69 @@ class GenericGatewayHandler(BaseObjectCommandsGatewayHandler):
 
                 self.blinds_runners[blinds.id].start()
 
+    def control_alarm_group(self, alarm_group, value):
+        from simo.generic.controllers import AlarmGroup
+
+        other_alarm_groups = {}
+        stats = {
+            'disarmed': 0, 'pending-arm': 0, 'armed': 0, 'breached': 0
+        }
+
+        for c_id in alarm_group.config['components']:
+            slave = Component.objects.filter(pk=c_id).first()
+            if not slave:
+                continue
+            if value == 'armed':
+                if not slave.is_in_alarm():
+                    slave.arm_status = 'armed'
+                    stats['armed'] += 1
+                else:
+                    slave.arm_status = 'pending-arm'
+                    stats['pending-arm'] += 1
+            elif value == 'disarmed':
+                stats['disarmed'] += 1
+                slave.arm_status = 'disarmed'
+
+            slave.do_not_update_alarm_group = True
+            slave.save(update_fields=['arm_status'])
+
+            for other_group in Component.objects.filter(
+                controller_uid=AlarmGroup.uid,
+                config__components__contains=slave.id
+            ).exclude(pk=alarm_group.pk):
+                other_alarm_groups[other_group.pk] = other_group
+
+        alarm_group.value = value
+        if stats['pending-arm']:
+            alarm_group.value = 'pending-arm'
+        alarm_group.config['stats'] = stats
+        alarm_group.save()
+
+        for pk, other_group in other_alarm_groups.items():
+            other_group.refresh_status()
+
+    def control_gate(self, gate, value):
+        switch = Component.objects.filter(
+            pk=gate.config.get('action_switch')
+        ).first()
+        if not switch:
+            return
+
+        if gate.config.get('action_method') == 'click':
+            switch.click()
+        else:
+            if value == 'open':
+                switch.turn_on()
+            else:
+                switch.turn_off()
 
 
 
 class DummyGatewayHandler(BaseObjectCommandsGatewayHandler):
     name = "Dummy"
     config_form = BaseGatewayForm
+
+    def perform_value_send(self, component, value):
+        component.set(value)
+
+

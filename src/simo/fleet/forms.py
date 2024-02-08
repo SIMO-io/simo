@@ -10,6 +10,7 @@ from simo.core.forms import BaseComponentForm, ValueLimitForm, NumericSensorForm
 from simo.core.utils.formsets import FormsetField
 from simo.core.widgets import LogOutputWidget
 from simo.core.utils.easing import EASING_CHOICES
+from simo.core.utils.validators import validate_slaves
 from .models import Colonel, I2CInterface, i2c_interface_no_choices
 from .utils import get_gpio_pins_choices, get_available_gpio_pins
 
@@ -502,22 +503,14 @@ class ColonelSwitchConfigForm(ColonelComponentForm):
     slaves = forms.ModelMultipleChoiceField(
         required=False,
         queryset=Component.objects.filter(
-            controller_uid__in=(
-                'simo.fleet.controllers.PWMOutput',
-                'simo.fleet.controllers.Switch',
-                'simo.fleet.controllers.DualMotorValve',
-                'simo.fleet.controllers.Blinds',
+            base_type__in=(
+                'dimmer', 'switch', 'blinds', 'script'
             )
         ),
         widget=autocomplete.ModelSelect2Multiple(
             url='autocomplete-component', attrs={'data-html': True},
             forward=(forward.Const(
-                [
-                    'simo.fleet.controllers.PWMOutput',
-                    'simo.fleet.controllers.Switch',
-                    'simo.fleet.controllers.DualMotorValve',
-                    'simo.fleet.controllers.Blinds',
-                ], 'controller_uid'),
+                ['dimmer', 'switch', 'blinds', 'script'], 'base_type'),
             )
         )
     )
@@ -527,6 +520,12 @@ class ColonelSwitchConfigForm(ColonelComponentForm):
             ControlPinForm, can_delete=True, can_order=True, extra=0, max_num=1
         )
     )
+
+    def clean_slaves(self):
+        if not self.cleaned_data['slaves'] or not self.instance:
+            return self.cleaned_data['slaves']
+        return validate_slaves(self.cleaned_data['slaves'], self.instance)
+
 
     def clean(self):
         super().clean()
@@ -640,17 +639,11 @@ class ColonelPWMOutputConfigForm(ColonelComponentForm):
     slaves = forms.ModelMultipleChoiceField(
         required=False,
         queryset=Component.objects.filter(
-            controller_uid__in=(
-                'simo.fleet.controllers.PWMOutput',
-            )
+            base_type__in='dimmer',
         ),
         widget=autocomplete.ModelSelect2Multiple(
             url='autocomplete-component', attrs={'data-html': True},
-            forward=(forward.Const(
-                [
-                    'simo.fleet.controllers.PWMOutput',
-                ], 'controller_uid'),
-            )
+            forward=(forward.Const(['dimmer',], 'base_type'),)
         )
     )
     controls = FormsetField(
@@ -658,6 +651,11 @@ class ColonelPWMOutputConfigForm(ColonelComponentForm):
             ControlPinForm, can_delete=True, can_order=True, extra=0, max_num=1
         )
     )
+
+    def clean_slaves(self):
+        if not self.cleaned_data['slaves'] or not self.instance:
+            return self.cleaned_data['slaves']
+        return validate_slaves(self.cleaned_data['slaves'], self.instance)
 
     def clean(self):
         super().clean()

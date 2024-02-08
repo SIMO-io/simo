@@ -1,6 +1,7 @@
 import os
 import traceback
 import requests
+from dal import forward
 from django import forms
 from django.contrib.admin.forms import AdminAuthenticationForm as OrgAdminAuthenticationForm
 from django.db import models
@@ -22,6 +23,7 @@ from .widgets import SVGFileWidget, PythonCode, LogOutputWidget
 from .widgets import ImageWidget
 from .utils.helpers import get_random_string
 from .utils.formsets import FormsetField
+from .utils.validators import validate_slaves
 
 
 class HubConfigForm(forms.Form):
@@ -474,6 +476,28 @@ class MultiSensorConfigForm(BaseComponentForm):
     has_icon = False
 
 
+class SwitchForm(BaseComponentForm):
+    slaves = forms.ModelMultipleChoiceField(
+        required=False,
+        queryset=Component.objects.filter(
+            base_type__in=(
+                'dimmer', 'switch', 'blinds', 'script'
+            )
+        ),
+        widget=autocomplete.ModelSelect2Multiple(
+            url='autocomplete-component', attrs={'data-html': True},
+            forward=(forward.Const(
+                ['dimmer', 'switch', 'blinds', 'script'], 'base_type'),
+            )
+        )
+    )
+
+    def clean_slaves(self):
+        if not self.cleaned_data['slaves'] or not self.instance:
+            return self.cleaned_data['slaves']
+        return validate_slaves(self.cleaned_data['slaves'], self.instance)
+
+
 class DoubleSwitchConfigForm(BaseComponentForm):
     icon_1 = forms.ModelChoiceField(
         queryset=Icon.objects.all(),
@@ -584,6 +608,21 @@ class DimmerConfigForm(BaseComponentForm):
     inverse = forms.BooleanField(
         label=_("Inverse dimmer signal"), required=False
     )
+    slaves = forms.ModelMultipleChoiceField(
+        required=False,
+        queryset=Component.objects.filter(
+            base_type__in='dimmer',
+        ),
+        widget=autocomplete.ModelSelect2Multiple(
+            url='autocomplete-component', attrs={'data-html': True},
+            forward=(forward.Const(['dimmer', ], 'base_type'),)
+        )
+    )
+
+    def clean_slaves(self):
+        if not self.cleaned_data['slaves'] or not self.instance:
+            return self.cleaned_data['slaves']
+        return validate_slaves(self.cleaned_data['slaves'], self.instance)
 
 
 class DimmerPlusConfigForm(BaseComponentForm):

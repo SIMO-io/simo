@@ -15,7 +15,8 @@ from .gateways import BaseGatewayHandler
 from .app_widgets import *
 from .forms import (
     BaseComponentForm, NumericSensorForm,
-    MultiSensorConfigForm, DoubleSwitchConfigForm,
+    MultiSensorConfigForm,
+    SwitchForm, DoubleSwitchConfigForm,
     TrippleSwitchConfigForm, QuadrupleSwitchConfigForm,
     QuintupleSwitchConfigForm, DimmerConfigForm, DimmerPlusConfigForm,
     RGBWConfigForm
@@ -187,10 +188,6 @@ class ControllerBase(ABC):
         self.component.change_init_fingerprint = None
         self.component.save()
 
-    def _send_to_device(self, value):
-        GatewayObjectCommand(
-            self.component.gateway, self.component, set_val=value
-        ).publish()
 
     def _receive_from_device(self, value, is_alive=True):
         value = self._prepare_for_set(value)
@@ -221,10 +218,13 @@ class ControllerBase(ABC):
             update_fields=['change_init_by', 'change_init_date']
         )
         value = self._prepare_for_send(value)
-        self._send_to_device(value)
+        GatewayObjectCommand(
+            self.component.gateway, self.component, set_val=value
+        ).publish()
         if value != self.component.value:
             self.component.value_previous = self.component.value
             self.component.value = value
+
 
     def history_display(self, values):
         assert type(values) in (list, tuple)
@@ -602,6 +602,7 @@ class Switch(MultiSwitchBase, TimerMixin):
     name = _("Switch")
     base_type = 'switch'
     app_widget = SingleSwitchWidget
+    config_form = SwitchForm
     admin_widget_template = 'admin/controller_widgets/switch.html'
     default_value = False
 

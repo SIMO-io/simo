@@ -63,7 +63,7 @@ class Script(ControllerBase, TimerMixin):
                 )
         return value
 
-    def _send_to_device(self, value):
+    def _prepare_for_send(self, value):
         if value == 'start':
             new_code = getattr(self.component, 'new_code', None)
             if new_code:
@@ -71,7 +71,7 @@ class Script(ControllerBase, TimerMixin):
                 self.component.refresh_from_db()
                 self.component.config['code'] = new_code
                 self.component.save(update_fields=['config'])
-        return super()._send_to_device(value)
+        return value
 
     def _val_to_success(self, value):
         if value == 'start':
@@ -322,47 +322,6 @@ class AlarmGroup(ControllerBase):
                 )
         return value
 
-    def _send_to_device(self, value):
-        assert value in ('armed', 'disarmed')
-
-        other_alarm_groups = {}
-        stats = {
-            'disarmed': 0, 'pending-arm': 0, 'armed': 0, 'breached': 0
-        }
-
-        for c_id in self.component.config['components']:
-            slave = Component.objects.filter(pk=c_id).first()
-            if not slave:
-                continue
-            if value == 'armed':
-                if not slave.is_in_alarm():
-                    slave.arm_status = 'armed'
-                    stats['armed'] += 1
-                else:
-                    slave.arm_status = 'pending-arm'
-                    stats['pending-arm'] += 1
-            elif value == 'disarmed':
-                stats['disarmed'] += 1
-                slave.arm_status = 'disarmed'
-
-            slave.do_not_update_alarm_group = True
-            slave.save(update_fields=['arm_status'])
-
-            for other_group in Component.objects.filter(
-                controller_uid=AlarmGroup.uid,
-                config__components__contains=slave.id
-            ).exclude(pk=self.component.pk):
-                other_alarm_groups[other_group.pk] = other_group
-
-        self.component.value = value
-        if stats['pending-arm']:
-            self.component.value = 'pending-arm'
-        self.component.config['stats'] = stats
-        self.component.save()
-
-        for pk, other_group in other_alarm_groups.items():
-            other_group.refresh_status()
-
     def arm(self):
         self.send('armed')
 
@@ -375,7 +334,6 @@ class AlarmGroup(ControllerBase):
         )
 
     def refresh_status(self):
-
         stats = {
             'disarmed': 0, 'pending-arm': 0, 'armed': 0, 'breached': 0
         }
@@ -515,21 +473,6 @@ class Gate(ControllerBase, TimerMixin):
             self.component.set(self.component.value + '_moving')
         threading.Thread(target=cancel_move, daemon=True).start()
 
-    def _send_to_device(self, value):
-        switch = Component.objects.filter(
-            pk=self.component.config.get('action_switch')
-        ).first()
-        if not switch:
-            return
-
-        if self.component.config.get('action_method') == 'click':
-            switch.click()
-        else:
-            if value == 'open':
-                switch.turn_on()
-            else:
-                switch.turn_off()
-
     def open(self):
         self.send('open')
 
@@ -661,9 +604,6 @@ class Blinds(ControllerBase, TimerMixin):
                 value['position'] = self.component.value.get('position')
 
         return value
-
-    def _send_to_device(self, value):
-        GatewayObjectCommand(self.component, **{'set_val': value}).publish()
 
     def open(self):
         self.send(0)
@@ -1370,7 +1310,8 @@ class AlarmClock(ControllerBase):
         return current_value
 
 
-    # ----------- Dummy controllers -----------------------------
+# ----------- Dummy controllers -----------------------------
+
 class StateSelect(ControllerBase):
     gateway_class = DummyGatewayHandler
     name = _("State select")
@@ -1386,9 +1327,6 @@ class StateSelect(ControllerBase):
         if value not in available_options:
             raise ValidationError("Unsupported value!")
         return value
-
-    def _send_to_device(self, value):
-        self.component.set(value)
 
 
 class DummyBinarySensor(BinarySensor):
@@ -1406,56 +1344,35 @@ class DummyMultiSensor(MultiSensor):
 class DummySwitch(Switch):
     gateway_class = DummyGatewayHandler
 
-    def _send_to_device(self, value):
-        self.component.set(value)
-
 
 class DummyDoubleSwitch(DoubleSwitch):
     gateway_class = DummyGatewayHandler
-
-    def _send_to_device(self, value):
-        self.component.set(value)
 
 
 class DummyTripleSwitch(TripleSwitch):
     gateway_class = DummyGatewayHandler
 
-    def _send_to_device(self, value):
-        self.component.set(value)
-
 
 class DummyQuadrupleSwitch(QuadrupleSwitch):
     gateway_class = DummyGatewayHandler
-
-    def _send_to_device(self, value):
-        self.component.set(value)
 
 
 class DummyQuintupleSwitch(QuintupleSwitch):
     gateway_class = DummyGatewayHandler
 
-    def _send_to_device(self, value):
-        self.component.set(value)
-
 
 class DummyDimmer(Dimmer):
     gateway_class = DummyGatewayHandler
 
-    def _send_to_device(self, value):
+    def _prepare_for_send(self, value):
         if self.component.config.get('inverse'):
             value = self.component.config.get('max') - value
-        self.component.set(value)
+        return value
 
 
 class DummyDimmerPlus(DimmerPlus):
     gateway_class = DummyGatewayHandler
 
-    def _send_to_device(self, value):
-        self.component.set(value)
-
 
 class DummyRGBWLight(RGBWLight):
     gateway_class = DummyGatewayHandler
-
-    def _send_to_device(self, value):
-        self.component.set(value)
