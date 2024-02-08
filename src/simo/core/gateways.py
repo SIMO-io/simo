@@ -86,19 +86,35 @@ class BaseObjectCommandsGatewayHandler(BaseGatewayHandler):
         self.mqtt_client.subscribe(command.get_topic())
 
     def _on_mqtt_message(self, client, userdata, msg):
-        payload = json.loads(msg.payload)
-        if 'set_val' not in payload:
-            return
         from simo.core.models import Component
-        component = get_event_obj(payload, Component)
-        if not component:
-            return
-        print(f"Perform Value ({str(payload['set_val'])}) Send to {component}")
-        try:
-            self.perform_value_send(component, payload['set_val'])
-        except Exception as e:
-            self.logger.error(e, exc_info=True)
+        payload = json.loads(msg.payload)
+        if 'set_val' in payload:
+            component = get_event_obj(payload, Component)
+            if not component:
+                return
+            print(f"Perform Value ({str(payload['set_val'])}) Send to {component}")
+            try:
+                self.perform_value_send(component, payload['set_val'])
+            except Exception as e:
+                self.logger.error(e, exc_info=True)
+
+        if 'bulk_send' in payload:
+            self.perform_bulk_send(payload['bulk_send'])
 
     def perform_value_send(self, component, value):
         raise NotImplemented()
+
+    def perform_bulk_send(self, data):
+        from simo.core.models import Component
+        for comp_id, val in data.items():
+            component = Component.objects.filter(
+                pk=comp_id, gateway=self.gateway_instance
+            )
+            if not component:
+                continue
+            try:
+                self.perform_value_send(component, val)
+            except Exception as e:
+                self.logger.error(e, exc_info=True)
+
 

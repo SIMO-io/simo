@@ -222,9 +222,26 @@ class FleetConsumer(AsyncWebsocketConsumer):
 
     def on_mqtt_message(self, client, userdata, msg):
         payload = json.loads(msg.payload)
-        obj = get_event_obj(payload)
-        if not obj:
+        if 'bulk_send' in payload:
+            colonel_components = Component.objects.filter(
+                config__colonel=self.colonel.id,
+                gateway=Gateway.objects.filter(type=FleetGatewayHandler.uid),
+                id__in=[int(id) for id in payload['bulk_send'].keys()]
+            ).values('id')
+            bulk_send_data = []
+            for comp_id, value in payload['bulk_send'].items():
+                if int(comp_id) not in colonel_components:
+                    continue
+                bulk_send_data.append({'id': int(comp_id), 'val': value})
+            if bulk_send_data:
+                asyncio.run(self.send(json.dumps({
+                    'command': 'bulk_set',
+                    'values': bulk_send_data
+                })))
             return
+
+        obj = get_event_obj(payload)
+
         if obj == self.colonel:
             if payload.get('command') == 'update_firmware':
                 asyncio.run(self.firmware_update(payload['kwargs'].get('to_version')))
@@ -235,8 +252,9 @@ class FleetConsumer(AsyncWebsocketConsumer):
                         'command': 'set_config', 'data': config
                     }))
                 asyncio.run(send_config())
-        if isinstance(obj, Component):
-            if str(obj.config.get('colonel')) != str(self.colonel):
+
+        elif isinstance(obj, Component):
+            if int(obj.config.get('colonel')) != self.colonel.id:
                 return
             if 'set_val' in payload:
                 asyncio.run(self.send(json.dumps({
@@ -244,6 +262,8 @@ class FleetConsumer(AsyncWebsocketConsumer):
                     'id': payload.get('component_id'),
                     'val': payload['set_val']
                 })))
+
+
 
     async def receive(self, text_data=None, bytes_data=None):
         if text_data:
