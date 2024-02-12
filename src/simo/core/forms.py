@@ -158,7 +158,9 @@ class ConfigFieldsMixin:
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.model_fields = [f.name for f in Component._meta.fields]
+        self.model_fields = [
+            f.name for f in Component._meta.fields
+        ] + ['slaves', ]
         self.config_fields = []
         for field_name, field in self.fields.items():
             if field_name in self.model_fields:
@@ -275,7 +277,7 @@ class ComponentAdminForm(forms.ModelForm):
         fields = '__all__'
         exclude = (
             'gateway', 'controller_uid', 'base_type',
-            'alive', 'value_type', 'value', 'arm_status', 'slaves'
+            'alive', 'value_type', 'value', 'arm_status',
         )
         widgets = {
             'icon': autocomplete.ModelSelect2(
@@ -327,7 +329,7 @@ class ComponentAdminForm(forms.ModelForm):
         base_fields.append('zone')
         base_fields.append('category')
 
-        for field_name in cls.base_fields:
+        for field_name in cls.declared_fields:
             if field_name not in main_fields:
                 base_fields.append(field_name)
 
