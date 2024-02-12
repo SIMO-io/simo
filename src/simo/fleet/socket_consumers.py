@@ -266,7 +266,6 @@ class FleetConsumer(AsyncWebsocketConsumer):
                 })))
 
 
-
     async def receive(self, text_data=None, bytes_data=None):
         if text_data:
             print("[%s]" % str(self.colonel), text_data)

@@ -845,6 +845,7 @@ class Watering(ControllerBase):
                 switch = Component.objects.get(pk=contour_data['switch'])
             except Component.DoesNotExist:
                 continue
+            switch.prepare_controller()
             if switch.timer_engaged():
                 switch.stop_timer()
             switch.turn_off()
@@ -1076,6 +1077,7 @@ class AlarmClock(ControllerBase):
             print(f"Reverse event {event['uid']}!")
         comp = Component.objects.filter(id=event['component']).first()
         if comp:
+            comp.prepare_controller()
             if forward:
                 action_name = 'play_action'
             else:

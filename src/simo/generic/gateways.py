@@ -175,6 +175,7 @@ class GenericGatewayHandler(BaseObjectCommandsGatewayHandler):
         ):
             tz = pytz.timezone(thermostat.zone.instance.timezone)
             timezone.activate(tz)
+            thermostat.prepare_controller()
             thermostat.evaluate()
 
     def watch_alarm_clocks(self):
@@ -184,6 +185,7 @@ class GenericGatewayHandler(BaseObjectCommandsGatewayHandler):
         ):
             tz = pytz.timezone(alarm_clock.zone.instance.timezone)
             timezone.activate(tz)
+            alarm_clock.prepare_controller()
             alarm_clock.tick()
 
     def watch_scripts(self):
@@ -192,6 +194,7 @@ class GenericGatewayHandler(BaseObjectCommandsGatewayHandler):
             controller_uid=Script.uid,
             config__autostart=True
         ).exclude(value='running'):
+            script.prepare_controller()
             self.start_script(script)
 
     def watch_watering(self):
@@ -199,6 +202,7 @@ class GenericGatewayHandler(BaseObjectCommandsGatewayHandler):
         for watering in Component.objects.filter(controller_uid=Watering.uid):
             tz = pytz.timezone(watering.zone.instance.timezone)
             timezone.activate(tz)
+            watering.prepare_controller()
             if watering.value['status'] == 'running_program':
                 watering.set_program_progress(
                     watering.value['program_progress'] + 1
@@ -402,7 +406,9 @@ class GenericGatewayHandler(BaseObjectCommandsGatewayHandler):
         alarm_group.save()
 
         for pk, other_group in other_alarm_groups.items():
+            other_group.prepare_controller()
             other_group.refresh_status()
+
 
     def control_gate(self, gate, value):
         switch = Component.objects.filter(

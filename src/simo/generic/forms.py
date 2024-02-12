@@ -220,6 +220,7 @@ class AlarmGroupConfigForm(BaseComponentForm):
                 c.save(update_fields=('config',))
         if obj.id:
             comp = Component.objects.get(id=obj.id)
+            comp.prepare_controller()
             comp.refresh_status()
         return obj
 
