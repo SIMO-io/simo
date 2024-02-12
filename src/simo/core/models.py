@@ -279,8 +279,7 @@ class Component(DirtyFieldsMixin, models.Model, SimoAdminMixin, OnChangeMixin):
     value_units = models.CharField(max_length=100, null=True, blank=True)
 
     slaves = models.ManyToManyField(
-        'Component', null=True, blank=True,
-        related_name='masters'
+        'Component', null=True, blank=True, related_name='masters'
     )
 
     change_init_by = models.ForeignKey(

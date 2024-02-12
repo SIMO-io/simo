@@ -639,11 +639,11 @@ class ColonelPWMOutputConfigForm(ColonelComponentForm):
     slaves = forms.ModelMultipleChoiceField(
         required=False,
         queryset=Component.objects.filter(
-            base_type__in='dimmer',
+            base_type__in=('dimmer', ),
         ),
         widget=autocomplete.ModelSelect2Multiple(
             url='autocomplete-component', attrs={'data-html': True},
-            forward=(forward.Const(['dimmer',], 'base_type'),)
+            forward=(forward.Const(['dimmer', ], 'base_type'),)
         )
     )
     controls = FormsetField(
