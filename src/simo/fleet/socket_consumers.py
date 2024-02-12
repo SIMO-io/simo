@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 import pytz
+import traceback
 import time
 import sys
 from logging.handlers import RotatingFileHandler
@@ -219,7 +220,7 @@ class FleetConsumer(AsyncWebsocketConsumer):
             if 'bulk_send' in payload:
                 colonel_component_ids = [c['id'] for c in Component.objects.filter(
                     config__colonel=self.colonel.id,
-                    gateway=Gateway.objects.filter(type=FleetGatewayHandler.uid),
+                    gateway__in=Gateway.objects.filter(type=FleetGatewayHandler.uid),
                     id__in=[int(id) for id in payload['bulk_send'].keys()]
                 ).values('id')]
                 bulk_send_data = []
@@ -258,7 +259,7 @@ class FleetConsumer(AsyncWebsocketConsumer):
                     })))
 
         except Exception as e:
-            print(e, file=sys.stderr)
+            print(traceback.format_exc(), file=sys.stderr)
 
 
     async def receive(self, text_data=None, bytes_data=None):
@@ -293,7 +294,7 @@ class FleetConsumer(AsyncWebsocketConsumer):
                         )(data['options'])
 
                 except Exception as e:
-                    print(e, file=sys.stderr)
+                    print(traceback.format_exc(), file=sys.stderr)
 
         elif bytes_data:
             if not self.colonel_logger:
