@@ -222,6 +222,8 @@ class FleetConsumer(AsyncWebsocketConsumer):
 
     def on_mqtt_message(self, client, userdata, msg):
         payload = json.loads(msg.payload)
+
+        print("PAYLOAD TO EXECUTE: ", payload)
         if 'bulk_send' in payload:
             colonel_components = Component.objects.filter(
                 config__colonel=self.colonel.id,
@@ -254,7 +256,9 @@ class FleetConsumer(AsyncWebsocketConsumer):
                 asyncio.run(send_config())
 
         elif isinstance(obj, Component):
+            print("I's a COMPONENT!")
             if int(obj.config.get('colonel')) != self.colonel.id:
+                print("Wring colonel!")
                 return
             if 'set_val' in payload:
                 asyncio.run(self.send(json.dumps({

@@ -421,12 +421,10 @@ class GenericGatewayHandler(BaseObjectCommandsGatewayHandler):
                 switch.turn_off()
 
 
-
 class DummyGatewayHandler(BaseObjectCommandsGatewayHandler):
     name = "Dummy"
     config_form = BaseGatewayForm
 
     def perform_value_send(self, component, value):
-        component.set(value)
-
+        component.controller.set(value)
 
