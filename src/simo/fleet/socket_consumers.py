@@ -45,7 +45,7 @@ class FleetConsumer(AsyncWebsocketConsumer):
 
         print("Fleet socket connect! Headers: ", self.scope['headers'])
         headers = {
-            item[0].decode(): item[1].decode() for item in self.scope['headers']
+            item[0].decode().lower(): item[1].decode() for item in self.scope['headers']
         }
 
         instance_uid = headers.get('instance-uid')
@@ -85,6 +85,7 @@ class FleetConsumer(AsyncWebsocketConsumer):
             Colonel.objects.update_or_create, thread_sensitive=True)(
             uid=headers['colonel-uid'], defaults={
                 'instance': self.instance,
+                'name': headers.get('colonel-name'),
                 'type': headers['colonel-type'],
                 'firmware_version': headers['firmware-version'],
                 'last_seen': timezone.now()
@@ -96,16 +97,6 @@ class FleetConsumer(AsyncWebsocketConsumer):
             print("Colonel %s drop, it's not enabled!" % str(self.colonel))
             await self.accept()
             return await self.close()
-
-        if not self.colonel.name and headers.get('colonel-name'):
-            def save_colonel_name(name):
-                self.colonel.name = name
-                self.colonel.save()
-
-            await sync_to_async(
-                save_colonel_name, thread_sensitive=True
-            )(headers['colonel-name'])
-
 
         if headers.get('instance-uid') != self.colonel.instance.uid \
         or headers.get('instance-secret') != self.colonel.instance.fleet_options.secret_key:
