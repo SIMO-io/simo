@@ -329,9 +329,11 @@ class GenericGatewayHandler(BaseObjectCommandsGatewayHandler):
             open_switch = Component.objects.get(
                 pk=blinds.config['open_switch']
             )
+            open_switch.prepare_controller()
             close_switch = Component.objects.get(
                 pk=blinds.config['close_switch']
             )
+            close_switch.prepare_controller()
         except:
             return
 
@@ -408,6 +410,7 @@ class GenericGatewayHandler(BaseObjectCommandsGatewayHandler):
         ).first()
         if not switch:
             return
+        switch.prepare_controller()
 
         if gate.config.get('action_method') == 'click':
             switch.click()

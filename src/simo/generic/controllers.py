@@ -208,9 +208,13 @@ class Thermostat(ControllerBase):
         heater = Component.objects.filter(
             pk=self.component.config.get('heater')
         ).first()
+        if heater:
+            heater.prepare_controller()
         cooler = Component.objects.filter(
             pk=self.component.config.get('cooler')
         ).first()
+        if cooler:
+            cooler.prepare_controller()
 
         if not temperature_sensor or not temperature_sensor.alive:
             print(f"No temperature sensor on {self.component}!")
@@ -716,6 +720,7 @@ class Watering(ControllerBase):
                 switch = Component.objects.get(pk=contour_data['switch'])
             except Component.DoesNotExist:
                 continue
+            switch.prepare_controller()
             if run:
                 if switch.timer_engaged():
                     switch.stop_timer()

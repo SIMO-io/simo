@@ -1,11 +1,11 @@
 from django.utils.translation import gettext_lazy as _
 from django.core.exceptions import ValidationError
 from simo.core.controllers import BEFORE_SEND, BEFORE_SET
-from simo.core.controllers import ControllerBase, TimerMixin
+from simo.core.controllers import Switch, TimerMixin
 from .app_widgets import AudioPlayerWidget, VideoPlayerWidget
 
 
-class BasePlayer(ControllerBase, TimerMixin):
+class BasePlayer(Switch):
     default_config = {
         'has_volume_control': True,
     }
@@ -21,6 +21,13 @@ class BasePlayer(ControllerBase, TimerMixin):
         'library': []
     }
     default_value = 'stopped'
+
+    def _prepare_for_send(self, value):
+        if isinstance(value, bool):
+            if value:
+                return 'play'
+            return 'pause'
+        return value
 
     def _validate_val(self, value, occasion=None):
         return value
@@ -58,12 +65,6 @@ class BasePlayer(ControllerBase, TimerMixin):
 
     def play_library_item(self, val):
         self.send({'play_from_library': val})
-
-    def turn_on(self):
-        self.play()
-
-    def turn_off(self):
-        self.pause()
 
     def toggle(self):
         if self.component.value == 'playing':

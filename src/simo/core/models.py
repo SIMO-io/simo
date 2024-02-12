@@ -4,6 +4,7 @@ import inspect
 
 from django.utils.text import slugify
 from django.core.cache import cache
+from django.utils.functional import cached_property
 from django.urls import reverse_lazy
 from django.utils.translation import gettext_lazy as _
 from django.db import models
@@ -313,15 +314,6 @@ class Component(DirtyFieldsMixin, models.Model, SimoAdminMixin, OnChangeMixin):
 def is_in_alarm(self):
     return bool(self.value)
 
-def translate_before_send(self, value):
-    '''Perform value translation just before sending it to device.'''
-    return value
-
-def translate_before_set(self, value):
-    '''Perform value translation just before value is set to component.
-    Must return a valid value for this component type.'''
-    return value
-
 """)
 
     alarm_category = models.CharField(
@@ -345,7 +337,6 @@ def translate_before_set(self, value):
     track_history = True
 
     controller_cls = None
-    controller = None
 
     _mqtt_client = None
     _on_change_function = None
@@ -357,39 +348,7 @@ def translate_before_set(self, value):
         ordering = 'zone', 'base_type', 'name'
 
     def __init__(self, *args, **kwargs):
-        from .utils.type_constants import (
-            get_controller_types_map,
-            get_controller_types_choices
-        )
-        self._meta.get_field('controller_uid').choices = \
-            get_controller_types_choices()
         super().__init__(*args, **kwargs)
-        if self.controller_uid and not self.controller:
-            if self.id and not 'test' in sys.argv:
-                try:
-                    self.controller_cls = cache.get('c_%d_contr_cls' % self.id)
-                except:
-                    pass
-            if not self.controller_cls:
-                self.controller_cls = get_controller_types_map(
-                    self.gateway
-                ).get(self.controller_uid)
-                if self.controller_cls and self.id and not 'test' in sys.argv:
-                    cache.set(
-                        'c_%d_contr_cls' % self.id,
-                        self.controller_cls, None
-                    )
-
-            if self.controller_cls:
-                self.controller = self.controller_cls(self)
-                controller_methods = [m for m in inspect.getmembers(
-                    self.controller, predicate=inspect.ismethod
-                ) if not m[0].startswith('_')]
-                for method in controller_methods:
-                    setattr(self, method[0], method[1])
-                if not self.id:
-                    self.value = self.controller.default_value
-
         # Goes in zero seconds!
         if self.instance_methods:
             custom_methods = {}
@@ -407,6 +366,44 @@ def translate_before_set(self, value):
         if self.zone:
             return '%s | %s' % (self.zone.name, self.name)
         return self.name
+
+    @cached_property
+    def controller(self):
+        from .utils.type_constants import (
+            get_controller_types_map,
+            get_controller_types_choices
+        )
+        self._meta.get_field('controller_uid').choices = \
+            get_controller_types_choices()
+        if self.controller_uid:
+            controller_cls = None
+            if self.id and not 'test' in sys.argv:
+                try:
+                    controller_cls = cache.get('c_%d_contr_cls' % self.id)
+                except:
+                    pass
+            if not controller_cls:
+                controller_cls = get_controller_types_map(
+                    self.gateway
+                ).get(self.controller_uid)
+                if controller_cls and self.id and not 'test' in sys.argv:
+                    cache.set(
+                        'c_%d_contr_cls' % self.id,
+                        controller_cls, None
+                    )
+            if controller_cls:
+                return controller_cls(self)
+
+    def prepare_controller(self):
+        if not self.controller:
+            return
+        controller_methods = [m for m in inspect.getmembers(
+            self.controller, predicate=inspect.ismethod
+        ) if not m[0].startswith('_')]
+        for method in controller_methods:
+            setattr(self, method[0], method[1])
+        if not self.id:
+            self.value = self.controller.default_value
 
     def get_socket_url(self):
         return reverse_lazy(
@@ -466,15 +463,6 @@ def translate_before_set(self, value):
 
     def is_in_alarm(self):
         return bool(self.value)
-
-    def translate_before_send(self, value):
-        '''Perform value translation just before sending it to device.'''
-        return value
-
-    def translate_before_set(self, value):
-        '''Perform value translation just before value is set to component.
-        Must return a valid value for this component type.'''
-        return value
 
     def can_read(self, user):
         if user.is_superuser:

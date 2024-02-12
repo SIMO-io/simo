@@ -20,7 +20,6 @@ class ComponentsManager(models.Manager):
 
         gateway_components = {}
         for comp, value in data.items():
-            value = comp.translate_before_send(value)
             value = comp.controller._validate_val(value, BEFORE_SEND)
 
             comp.change_init_by = get_current_user()

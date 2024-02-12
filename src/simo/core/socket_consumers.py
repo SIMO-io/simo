@@ -228,7 +228,6 @@ class ComponentController(SIMOWebsocketConsumer):
                                  port=settings.MQTT_PORT)
         self._mqtt_client.loop_start()
 
-
     def _on_mqtt_connect(self, mqtt_client, userdata, flags, rc):
         print("Subscribing to ComponentEvent's")
         event = ObjectChangeEvent(self.component.zone.instance, self.component)

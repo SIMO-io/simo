@@ -166,50 +166,20 @@ class ControllerBase(ABC):
             else:
                 return self.component.change_init_by
 
-    def set(self, value, actor=None):
-        if not actor:
-            actor = self._get_actor(value)
-        if not actor:
-            actor = get_current_user()
-
-        # Introducing user to this thread for changes that might happen to other components
-        # in relation to the change of this component
-        introduce(actor)
-
-        value = self.component.translate_before_set(value)
-        value = self._validate_val(value, BEFORE_SET)
-        self.component.refresh_from_db()
-        if value != self.component.value:
-            self.component.value_previous = self.component.value
-        self.component.value = value
-        self.component.change_init_by = None
-        self.component.change_init_date = None
-        self.component.change_init_to = None
-        self.component.change_init_fingerprint = None
-        self.component.save()
-
-
-    def _receive_from_device(self, value, is_alive=True):
-        value = self._prepare_for_set(value)
-        actor = self._get_actor(value)
-        if not actor:
-            actor = get_device_user()
-        # Introducing user to this thread for changes that might happen to other components
-        # in relation to the change of this component
-        introduce(actor)
-        self.component.alive = is_alive
-        self.component.save(update_fields=['alive'])
-        self.set(value, actor)
-
-    def _prepare_for_send(self, value):
-        return value
-
-    def _prepare_for_set(self, value):
-        return value
-
     def send(self, value):
         self.component.refresh_from_db()
-        value = self.component.translate_before_send(value)
+
+        # Bulk send if it is a switch or dimmer and has slaves
+        if self.component.base_type in ('switch', 'dimmer') \
+        and self.component.slaves.count():
+            bulk_send_map = {self.component: value}
+            for slave in self.component.slaves.all():
+                bulk_send_map[slave] = value
+            from .models import Component
+            Component.objects.bulk_send(bulk_send_map)
+            return
+
+        # Regular send
         value = self._validate_val(value, BEFORE_SEND)
 
         self.component.change_init_by = get_current_user()
@@ -225,6 +195,48 @@ class ControllerBase(ABC):
             self.component.value_previous = self.component.value
             self.component.value = value
 
+    def set(self, value, actor=None):
+        value = self._validate_val(value, BEFORE_SET)
+
+        if not actor:
+            actor = self._get_actor(value)
+        if not actor:
+            actor = get_current_user()
+
+        # Introducing user to this thread for changes that might happen to other components
+        # in relation to the change of this component
+        introduce(actor)
+
+        self.component.refresh_from_db()
+        if value != self.component.value:
+            self.component.value_previous = self.component.value
+        self.component.value = value
+        self.component.change_init_by = None
+        self.component.change_init_date = None
+        self.component.change_init_to = None
+        self.component.change_init_fingerprint = None
+        self.component.save()
+
+    def _receive_from_device(self, value, is_alive=True):
+        value = self._prepare_for_set(value)
+        actor = self._get_actor(value)
+
+        init_by_device = False
+        if not actor:
+            init_by_device = True
+            actor = get_device_user()
+
+        # Introducing user to this thread for changes that might happen to other components
+        # in relation to the change of this component
+        introduce(actor)
+        self.component.alive = is_alive
+        self.component.save(update_fields=['alive'])
+        self.set(value, actor)
+
+        if init_by_device and self.component.slaves.count():
+            bulk_send_map = {s: value for s in self.component.slaves.all()}
+            from .models import Component
+            Component.objects.bulk_send(bulk_send_map)
 
     def history_display(self, values):
         assert type(values) in (list, tuple)
@@ -244,6 +256,12 @@ class ControllerBase(ABC):
                 {'name': self.component.name, 'type': 'icon',
                  'val': icon if any(values) else None}
             ]
+
+    def _prepare_for_send(self, value):
+        return value
+
+    def _prepare_for_set(self, value):
+        return value
 
 
 class TimerMixin:
@@ -408,8 +426,22 @@ class Dimmer(ControllerBase, TimerMixin):
     default_config = {'min': 0.0, 'max': 100.0, 'inverse': False}
     default_value = 0
 
+    def _prepare_for_send(self, value):
+        if isinstance(value, bool):
+            if value:
+                self.component.refresh_from_db()
+                if self.component.value:
+                    return self.component.value
+                else:
+                    if self.component.value_previous:
+                        return self.component.value_previous
+                    return self.component.config.get('max', 100.0)
+            else:
+                return 0
+        return value
+
     def _validate_val(self, value, occasion=None):
-        if value > self.component.config.get('max', 1.0):
+        if value > self.component.config.get('max', 100.0):
             raise ValidationError("Value to big.")
         elif value < self.component.config.get('min', 0.0):
             raise ValidationError("Value to small.")
@@ -508,7 +540,7 @@ class DimmerPlus(ControllerBase, TimerMixin):
                 })
 
     def toggle(self):
-        if self.component.value:
+        if self.component.value.get('main'):
             self.turn_off()
         else:
             self.turn_on()
@@ -643,6 +675,11 @@ class DoubleSwitch(MultiSwitchBase):
     config_form = DoubleSwitchConfigForm
     default_value = [False, False]
 
+    def _prepare_for_send(self, value):
+        if isinstance(value, bool):
+            return [value, value]
+        return value
+
 
 class TripleSwitch(MultiSwitchBase):
     name = _("Triple Switch")
@@ -650,6 +687,11 @@ class TripleSwitch(MultiSwitchBase):
     app_widget = TripleSwitchWidget
     config_form = TrippleSwitchConfigForm
     default_value = [False, False, False]
+
+    def _prepare_for_send(self, value):
+        if isinstance(value, bool):
+            return [value, value, value]
+        return value
 
 
 class QuadrupleSwitch(MultiSwitchBase):
@@ -659,6 +701,11 @@ class QuadrupleSwitch(MultiSwitchBase):
     config_form = QuadrupleSwitchConfigForm
     default_value = [False, False, False, False]
 
+    def _prepare_for_send(self, value):
+        if isinstance(value, bool):
+            return [value, value, value, value]
+        return value
+
 
 class QuintupleSwitch(MultiSwitchBase):
     name = _("Quintuple Switch")
@@ -666,6 +713,11 @@ class QuintupleSwitch(MultiSwitchBase):
     app_widget = QuintupleSwitchWidget
     config_form = QuintupleSwitchConfigForm
     default_value = [False, False, False, False, False]
+
+    def _prepare_for_send(self, value):
+        if isinstance(value, bool):
+            return [value, value, value, value, value]
+        return value
 
 
 class Lock(Switch):
