@@ -256,14 +256,12 @@ class FleetConsumer(AsyncWebsocketConsumer):
                 asyncio.run(send_config())
 
         elif isinstance(obj, Component):
-            print("I's a COMPONENT!")
             if int(obj.config.get('colonel')) != self.colonel.id:
-                print("Wring colonel!")
                 return
             if 'set_val' in payload:
                 asyncio.run(self.send(json.dumps({
                     'command': 'set_val',
-                    'id': payload.get('component_id'),
+                    'id': obj.id,
                     'val': payload['set_val']
                 })))
 
