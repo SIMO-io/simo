@@ -198,7 +198,7 @@ class FleetConsumer(AsyncWebsocketConsumer):
             }
         components = await sync_to_async(
             list, thread_sensitive=True
-        )(self.colonel.components.all())
+        )(self.colonel.components.all().prefetch_related('slaves'))
         for component in components:
             try:
                 config_data['devices'][str(component.id)] = {
@@ -206,9 +206,8 @@ class FleetConsumer(AsyncWebsocketConsumer):
                     'config': component.config,
                     'options': component.meta.get('options', {}),
                     'slaves': [
-                        s['id'] for s in component.slaves.filter(
-                            config__colonel=self.colonel.id
-                        ).values('id')
+                        s.id for s in component.slaves.all()
+                        if s.config.get('colonel') == self.colonel.id
                     ],
                     'val': component.controller._prepare_for_send(component.value)
                 }
