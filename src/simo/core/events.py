@@ -54,8 +54,8 @@ class ObjectChangeEvent(ObjMqttAnnouncement):
         return f"{self.TOPIC}/{self.instance.id if self.instance else 'global'}/" \
                f"{type(self.obj).__name__}-{self.data['obj_pk']}"
 
-    def publish(self, retain=False):
-        return super().publish(retain=True)
+    def publish(self, retain=True):
+        return super().publish(retain=retain)
 
 
 class GatewayObjectCommand(ObjMqttAnnouncement):

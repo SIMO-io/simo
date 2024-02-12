@@ -33,4 +33,6 @@ class ComponentsManager(models.Manager):
             gateway_components[comp.gateway][comp.id] = value
 
         for gateway, send_vals in gateway_components.items():
-            GatewayObjectCommand(gateway, bulk_send=send_vals).publish()
+            GatewayObjectCommand(gateway, bulk_send=send_vals).publish(
+                retain=False
+            )
