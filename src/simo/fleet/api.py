@@ -1,5 +1,8 @@
+from django.db.models import Count
+from django.utils.translation import gettext_lazy as _
 from rest_framework import viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError as APIValidationError
 from simo.core.api import InstanceMixin
 from simo.core.permissions import IsInstanceSuperuser
 from .models import InstanceOptions, Colonel
@@ -50,3 +53,17 @@ class ColonelsViewSet(InstanceMixin, viewsets.ModelViewSet):
     def update_config(self, request, pk=None, *args, **kwargs):
         colonel = self.get_object()
         colonel.update_config()
+
+
+    @action(detail=True, methods=['post'])
+    def move_to(self, request, pk, *args, **kwargs):
+        target = Colonel.objects.annotate(
+            components_count=Count('components')
+        ).filter(
+            pk=request.POST.get('target'),
+            components_count=0
+        )
+        if not target:
+            raise APIValidationError(_('Invalid target.'), code=400)
+        colonel = self.get_object()
+        colonel.move_to(target)
