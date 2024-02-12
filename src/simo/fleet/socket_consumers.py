@@ -205,6 +205,11 @@ class FleetConsumer(AsyncWebsocketConsumer):
                     'type': component.controller.uid.split('.')[-1],
                     'config': component.config,
                     'options': component.meta.get('options', {}),
+                    'slaves': [
+                        s['id'] for s in component.slaves.filter(
+                            config__colonel=self.colonel.id
+                        ).values('id')
+                    ],
                     'val': component.controller._prepare_for_send(component.value)
                 }
             except:
