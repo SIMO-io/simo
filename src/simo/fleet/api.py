@@ -57,13 +57,13 @@ class ColonelsViewSet(InstanceMixin, viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def move_to(self, request, pk, *args, **kwargs):
+        colonel = self.get_object()
         target = Colonel.objects.annotate(
             components_count=Count('components')
         ).filter(
             pk=request.POST.get('target'),
-            components_count=0
+            components_count=0, type=colonel.type
         )
         if not target:
             raise APIValidationError(_('Invalid target.'), code=400)
-        colonel = self.get_object()
         colonel.move_to(target)
