@@ -212,54 +212,57 @@ class FleetConsumer(AsyncWebsocketConsumer):
         return config_data
 
     def on_mqtt_message(self, client, userdata, msg):
-        payload = json.loads(msg.payload)
+        try:
+            payload = json.loads(msg.payload)
 
-        print("PAYLOAD TO EXECUTE: ", payload)
-        if 'bulk_send' in payload:
-            colonel_components = Component.objects.filter(
-                config__colonel=self.colonel.id,
-                gateway=Gateway.objects.filter(type=FleetGatewayHandler.uid),
-                id__in=[int(id) for id in payload['bulk_send'].keys()]
-            ).values('id')
-            bulk_send_data = []
-            for comp_id, value in payload['bulk_send'].items():
-                if int(comp_id) not in colonel_components:
-                    continue
-                bulk_send_data.append({'id': int(comp_id), 'val': value})
-            if bulk_send_data:
-                asyncio.run(self.send(json.dumps({
-                    'command': 'bulk_set',
-                    'values': bulk_send_data
-                })))
-            return
-
-        obj = get_event_obj(payload)
-
-        if obj == self.colonel:
-            if payload.get('command') == 'update_firmware':
-                asyncio.run(self.firmware_update(payload['kwargs'].get('to_version')))
-            elif payload.get('command') == 'update_config':
-                async def send_config():
-                    config = await self.get_config_data()
-                    await self.send(json.dumps({
-                        'command': 'set_config', 'data': config
-                    }))
-                asyncio.run(send_config())
-
-        elif isinstance(obj, Component):
-            if int(obj.config.get('colonel')) != self.colonel.id:
+            print("PAYLOAD TO EXECUTE: ", payload)
+            if 'bulk_send' in payload:
+                colonel_component_ids = [c['id'] for c in Component.objects.filter(
+                    config__colonel=self.colonel.id,
+                    gateway=Gateway.objects.filter(type=FleetGatewayHandler.uid),
+                    id__in=[int(id) for id in payload['bulk_send'].keys()]
+                ).values('id')]
+                bulk_send_data = []
+                for comp_id, value in payload['bulk_send'].items():
+                    if int(comp_id) not in colonel_component_ids:
+                        continue
+                    bulk_send_data.append({'id': int(comp_id), 'val': value})
+                if bulk_send_data:
+                    asyncio.run(self.send(json.dumps({
+                        'command': 'bulk_set',
+                        'values': bulk_send_data
+                    })))
                 return
-            if 'set_val' in payload:
-                asyncio.run(self.send(json.dumps({
-                    'command': 'set_val',
-                    'id': obj.id,
-                    'val': payload['set_val']
-                })))
+
+            obj = get_event_obj(payload)
+
+            if obj == self.colonel:
+                if payload.get('command') == 'update_firmware':
+                    asyncio.run(self.firmware_update(payload['kwargs'].get('to_version')))
+                elif payload.get('command') == 'update_config':
+                    async def send_config():
+                        config = await self.get_config_data()
+                        await self.send(json.dumps({
+                            'command': 'set_config', 'data': config
+                        }))
+                    asyncio.run(send_config())
+
+            elif isinstance(obj, Component):
+                if int(obj.config.get('colonel')) != self.colonel.id:
+                    return
+                if 'set_val' in payload:
+                    asyncio.run(self.send(json.dumps({
+                        'command': 'set_val',
+                        'id': obj.id,
+                        'val': payload['set_val']
+                    })))
+
+        except Exception as e:
+            print(e, file=sys.stderr)
 
 
     async def receive(self, text_data=None, bytes_data=None):
         if text_data:
-            print("[%s]" % str(self.colonel), text_data)
             data = json.loads(text_data)
             if 'get_config' in data:
                 config = await self.get_config_data()
@@ -282,7 +285,6 @@ class FleetConsumer(AsyncWebsocketConsumer):
                         )(data['val'])
 
                     if 'options' in data:
-                        print("Received options update")
                         def receive_options(val):
                             component.meta['options'] = val
                             component.save()
@@ -291,7 +293,7 @@ class FleetConsumer(AsyncWebsocketConsumer):
                         )(data['options'])
 
                 except Exception as e:
-                    print(e)
+                    print(e, file=sys.stderr)
 
         elif bytes_data:
             if not self.colonel_logger:
