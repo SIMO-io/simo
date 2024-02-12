@@ -30,10 +30,10 @@ class ObjMqttAnnouncement:
         assert self.data is not None
         mqtt_publish.single(
             self.get_topic(), json.dumps(self.data, default=str),
+            retain=retain,
             hostname=settings.MQTT_HOST,
             port=settings.MQTT_PORT,
             auth={'username': 'root', 'password': settings.SECRET_KEY},
-            retain=retain
         )
 
     def get_topic(self):

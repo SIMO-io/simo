@@ -234,7 +234,14 @@ class ControllerBase(ABC):
         self.set(value, actor)
 
         if init_by_device and self.component.slaves.count():
-            bulk_send_map = {s: value for s in self.component.slaves.all()}
+            slaves_qs = self.component.slaves.all()
+            # slaves are being controlled by colonels internally
+            if self.component.controller_uid.startswitn('simo.fleet.') \
+            and self.component.config.get('colonel'):
+                slaves_qs = slaves_qs.exclude(
+                    config__colonel=self.component.config['colonel']
+                )
+            bulk_send_map = {s: value for s in slaves_qs}
             from .models import Component
             Component.objects.bulk_send(bulk_send_map)
 
