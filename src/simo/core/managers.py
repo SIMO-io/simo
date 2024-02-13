@@ -1,3 +1,5 @@
+import sys
+import traceback
 from django.utils import timezone
 from django.db import models
 
@@ -20,18 +22,28 @@ class ComponentsManager(models.Manager):
 
         gateway_components = {}
         for comp, value in data.items():
-            value = comp.controller._validate_val(value, BEFORE_SEND)
+            try:
+                value = comp.controller._validate_val(value, BEFORE_SEND)
+            except:
+                print(traceback.format_exc(), file=sys.stderr)
+                continue
 
             comp.change_init_by = get_current_user()
             comp.change_init_date = timezone.now()
             comp.save(
                 update_fields=['change_init_by', 'change_init_date']
             )
-            value = comp.controller._prepare_for_send(value)
+            try:
+                value = comp.controller._prepare_for_send(value)
+            except:
+                print(traceback.format_exc(), file=sys.stderr)
+                continue
+
             if comp.gateway not in gateway_components:
                 gateway_components[comp.gateway] = {}
             gateway_components[comp.gateway][comp.id] = value
 
+        print("BULK SEND: ", gateway_components)
         for gateway, send_vals in gateway_components.items():
             GatewayObjectCommand(gateway, bulk_send=send_vals).publish(
                 retain=False

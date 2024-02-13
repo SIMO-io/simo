@@ -3,6 +3,7 @@ import time
 import json
 import paho.mqtt.client as mqtt
 from django.conf import settings
+from django.db import close_old_connections
 from abc import ABC, abstractmethod
 from simo.core.utils.helpers import classproperty
 from simo.core.events import GatewayObjectCommand, get_event_obj
@@ -109,7 +110,7 @@ class BaseObjectCommandsGatewayHandler(BaseGatewayHandler):
         for comp_id, val in data.items():
             component = Component.objects.filter(
                 pk=comp_id, gateway=self.gateway_instance
-            )
+            ).first()
             if not component:
                 continue
             try:
