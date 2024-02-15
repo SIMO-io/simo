@@ -5,7 +5,7 @@ from django.db.models import Q, Prefetch
 from django.utils.translation import gettext_lazy as _
 from django.utils import timezone
 from django.shortcuts import get_object_or_404
-from simo.core.utils.helpers import get_self_ip
+from simo.core.utils.helpers import get_self_ip, search_queryset
 from rest_framework.pagination import PageNumberPagination
 from rest_framework import viewsets
 from django_filters.rest_framework import DjangoFilterBackend
@@ -13,6 +13,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response as RESTResponse
 from rest_framework.exceptions import ValidationError as APIValidationError
 from simo.core.utils.config_values import ConfigException
+from simo.core.utils.
 from .models import (
     Instance, Category, Zone, Component, Icon, ComponentHistory,
     HistoryAggregate
@@ -47,7 +48,13 @@ class IconViewSet(viewsets.ReadOnlyModelViewSet):
     def get_queryset(self):
         queryset = super().get_queryset()
         if 'slugs' in self.request.GET:
-            queryset = queryset.filter(slug__in=self.request.GET['slugs'].split(','))
+            queryset = queryset.filter(
+                __in=self.request.GET['slugs'].split(',')
+            )
+        if 'q' in self.request.GET:
+            queryset = search_queryset(
+                queryset, self.request.GET['q'], ['slug', 'keywords']
+            )
         return queryset
 
     def get_view_name(self):
