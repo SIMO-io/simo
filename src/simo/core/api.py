@@ -13,7 +13,6 @@ from rest_framework.decorators import action
 from rest_framework.response import Response as RESTResponse
 from rest_framework.exceptions import ValidationError as APIValidationError
 from simo.core.utils.config_values import ConfigException
-from simo.core.utils.
 from .models import (
     Instance, Category, Zone, Component, Icon, ComponentHistory,
     HistoryAggregate
@@ -54,7 +53,7 @@ class IconViewSet(viewsets.ReadOnlyModelViewSet):
         if 'q' in self.request.GET:
             queryset = search_queryset(
                 queryset, self.request.GET['q'], ['slug', 'keywords']
-            )
+            )[:10]
         return queryset
 
     def get_view_name(self):
