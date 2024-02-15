@@ -48,7 +48,7 @@ class IconViewSet(viewsets.ReadOnlyModelViewSet):
         queryset = super().get_queryset()
         if 'slugs' in self.request.GET:
             queryset = queryset.filter(
-                __in=self.request.GET['slugs'].split(',')
+                slugs__in=self.request.GET['slugs'].split(',')
             )
         if 'q' in self.request.GET:
             queryset = search_queryset(
