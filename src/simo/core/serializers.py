@@ -190,12 +190,13 @@ class ComponentSerializer(FormSerializer):
 
     def set_form_cls(self):
         self.Meta.form = ComponentAdminForm
+        print("SET FORM CLS for: ", self.instance)
         if not isinstance(self.instance, Iterable):
             from .utils.type_constants import get_controller_types_map
             controllers_map = get_controller_types_map()
             if not self.instance:
                 controller = controllers_map.get(
-                    self.context['request'].META.get('CONTROLLER')
+                    self.context['request'].META.get('HTTP_CONTROLLER')
                 )
                 if controller:
                     self.Meta.form = controller.add_form
@@ -206,12 +207,14 @@ class ComponentSerializer(FormSerializer):
                 if controller:
                     self.Meta.form = controller.config_form
 
+        print('FORM: ', self.Meta.form)
+
 
     def get_form(self, data=None, **kwargs):
         self.set_form_cls()
         controller_uid = None
         if not self.instance:
-            controller_uid = self.context['request'].META.get('CONTROLLER')
+            controller_uid = self.context['request'].META.get('HTTP_CONTROLLER')
         form = self.Meta.form(
             data=data, request=self.context['request'],
             controller_uid=controller_uid,
@@ -292,12 +295,7 @@ class ComponentSerializer(FormSerializer):
         return {'type': app_widget.uid, 'size': app_widget.size}
 
     def get_slaves(self, obj):
-        from simo.users.utils import get_system_user
-        return ComponentSerializer(
-            obj.slaves.all(), many=True, context={
-                'user': get_system_user()
-            }
-        ).data
+        return [c['id'] for c in obj.slaves.all().values('id')]
 
 
 class ZoneSerializer(serializers.ModelSerializer):
