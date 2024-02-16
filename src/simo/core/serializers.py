@@ -1,5 +1,6 @@
 import inspect
 import datetime
+import json
 from django import forms
 from collections.abc import Iterable
 from easy_thumbnails.files import get_thumbnailer
@@ -9,7 +10,7 @@ from simo.core.forms import FormsetField
 from rest_framework.relations import PrimaryKeyRelatedField
 from drf_braces.serializers.form_serializer import (
     FormSerializer, FormSerializerBase, reduce_attr_dict_from_instance,
-    FORM_SERIALIZER_FIELD_MAPPING
+    FORM_SERIALIZER_FIELD_MAPPING, set_form_partial_validation
 )
 from .forms import ComponentAdminForm
 from .models import Category, Zone, Icon, ComponentHistory
@@ -80,12 +81,15 @@ class FormsetPrimaryKeyRelatedField(PrimaryKeyRelatedField):
 class ComponentFormsetField(FormSerializer):
 
     class Meta:
-        form = ComponentAdminForm
+        # fake form, but it is necessary for FormSerializer
+        # we set it to proper formset form on __init__
+        form = forms.Form
         exclude = ('instance_methods', )
         field_mapping = {
             forms.ModelChoiceField: FormsetPrimaryKeyRelatedField,
             forms.TypedChoiceField: serializers.ChoiceField,
             forms.FloatField: serializers.FloatField,
+            forms.SlugField: serializers.CharField
         }
 
     def __init__(self, formset_field, *args, **kwargs):
@@ -101,6 +105,10 @@ class ComponentFormsetField(FormSerializer):
     def to_representation(self, instance):
         return super(FormSerializerBase, self).to_representation(instance)
 
+    def get_form(self, data=None, **kwargs):
+        form = super().get_form(data=data, **kwargs)
+        form.prefix = ''
+        return form
 
 
 class ComponentPrimaryKeyRelatedField(PrimaryKeyRelatedField):
@@ -137,6 +145,7 @@ class ComponentSerializer(FormSerializer):
             forms.TypedChoiceField: serializers.ChoiceField,
             forms.FloatField: serializers.FloatField,
             FormsetField: ComponentFormsetField,
+            forms.SlugField: serializers.CharField
         }
 
     def get_fields(self):

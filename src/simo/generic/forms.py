@@ -14,7 +14,7 @@ from dal import autocomplete, forward
 from simo.core.utils.config_values import config_to_dict
 from simo.core.utils.formsets import FormsetField
 from simo.core.utils.helpers import get_random_string
-from simo.core.utils.form_fields import AutocompleteSelect2
+from simo.core.utils.form_fields import ListSelect2Widget
 from simo.conf import dynamic_settings
 
 
@@ -450,11 +450,19 @@ class WateringConfigForm(BaseComponentForm):
 
 
 class StateForm(forms.Form):
-    icon = AutocompleteSelect2(url='autocomplete-icon')
+    icon = forms.CharField(
+        widget=ListSelect2Widget(
+            url='autocomplete-icon', attrs={'data-html': True}
+        )
+    )
     slug = forms.SlugField(required=True)
     name = forms.CharField(required=True)
     help_text = forms.CharField(required=False, widget=forms.Textarea(attrs={'rows': 3}))
     prefix = 'states'
+
+    def clean(self):
+        print("Let's clean the data! ", self.cleaned_data)
+        return self.cleaned_data
 
 
 class StateSelectForm(BaseComponentForm):
