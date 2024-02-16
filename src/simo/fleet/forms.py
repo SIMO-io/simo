@@ -441,7 +441,7 @@ class ColonelTouchSensorConfigForm(ColonelComponentForm):
                   "1000 offers good starting point."
 
     )
-    inverse = forms.ChoiceField(choices=(('no', "No"), ('yes', "Yes")))
+    inverse = forms.ChoiceField(choices=((0, "No"), (1, "Yes")))
 
     def clean(self):
         super().clean()

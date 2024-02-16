@@ -171,19 +171,19 @@ class ConfigFieldsMixin:
                 if field_name not in self.instance.config:
                     continue
                 if hasattr(self.fields[field_name], 'queryset'):
-                    if isinstance(self.instance.config[field_name], list):
+                    if isinstance(self.instance.config.get(field_name), list):
                         self.fields[field_name].initial = \
                             self.fields[field_name].queryset.filter(
-                                pk__in=self.instance.config[field_name]
+                                pk__in=self.instance.config.get(field_name)
                             )
                     else:
                         self.fields[field_name].initial = \
                             self.fields[field_name].queryset.filter(
-                                pk=self.instance.config[field_name]
+                                pk=self.instance.config.get(field_name)
                             ).first()
                 else:
                     self.fields[field_name].initial = \
-                        self.instance.config[field_name]
+                        self.instance.config.get(field_name)
 
     def save(self, commit=True):
         for field_name in self.config_fields:
