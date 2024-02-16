@@ -69,13 +69,11 @@ class ObjectSerializerMethodField(serializers.SerializerMethodField):
         return getattr(value, self.field_name)
 
 
-class ComponentPrimaryKeyRelatedField(PrimaryKeyRelatedField):
+class FormsetPrimaryKeyRelatedField(PrimaryKeyRelatedField):
 
     def get_attribute(self, instance):
-        if self.queryset.model in (Icon, Zone, Category):
-            return super().get_attribute(instance)
         return self.queryset.model.objects.filter(
-            pk=instance.config.get(self.source_attrs[0])
+            pk=instance.get(self.source_attrs[0], -1)
         ).first()
 
 
@@ -85,7 +83,7 @@ class ComponentFormsetField(FormSerializer):
         form = ComponentAdminForm
         exclude = ('instance_methods', )
         field_mapping = {
-            forms.ModelChoiceField: PrimaryKeyRelatedField,
+            forms.ModelChoiceField: FormsetPrimaryKeyRelatedField,
             forms.TypedChoiceField: serializers.ChoiceField,
             forms.FloatField: serializers.FloatField,
         }
@@ -96,12 +94,23 @@ class ComponentFormsetField(FormSerializer):
 
     def _get_field_kwargs(self, form_field, serializer_field_class):
         kwargs = super()._get_field_kwargs(form_field, serializer_field_class)
-        if serializer_field_class == ComponentPrimaryKeyRelatedField:
+        if serializer_field_class == FormsetPrimaryKeyRelatedField:
             kwargs['queryset'] = form_field.queryset
         return kwargs
 
     def to_representation(self, instance):
         return super(FormSerializerBase, self).to_representation(instance)
+
+
+
+class ComponentPrimaryKeyRelatedField(PrimaryKeyRelatedField):
+
+    def get_attribute(self, instance):
+        if self.queryset.model in (Icon, Zone, Category):
+            return super().get_attribute(instance)
+        return self.queryset.model.objects.filter(
+            pk=instance.config.get(self.source_attrs[0])
+        ).first()
 
 
 class ComponentSerializer(FormSerializer):
