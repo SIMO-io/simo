@@ -72,6 +72,7 @@ class ObjectSerializerMethodField(serializers.SerializerMethodField):
 
 class FormsetPrimaryKeyRelatedField(PrimaryKeyRelatedField):
 
+
     def get_attribute(self, instance):
         return self.queryset.model.objects.filter(
             pk=instance.get(self.source_attrs[0], -1)
@@ -86,7 +87,7 @@ class ComponentFormsetField(FormSerializer):
         form = forms.Form
         exclude = ('instance_methods', )
         field_mapping = {
-            forms.ModelChoiceField: FormsetPrimaryKeyRelatedField,
+            forms.ModelChoiceField: PrimaryKeyRelatedField,
             forms.TypedChoiceField: serializers.ChoiceField,
             forms.FloatField: serializers.FloatField,
             forms.SlugField: serializers.CharField
