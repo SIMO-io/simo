@@ -99,7 +99,7 @@ class ComponentFormsetField(FormSerializer):
 
     def _get_field_kwargs(self, form_field, serializer_field_class):
         kwargs = super()._get_field_kwargs(form_field, serializer_field_class)
-        if serializer_field_class == FormsetPrimaryKeyRelatedField:
+        if serializer_field_class == PrimaryKeyRelatedField:
             kwargs['queryset'] = form_field.queryset
         return kwargs
 
