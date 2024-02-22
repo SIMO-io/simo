@@ -292,6 +292,7 @@ class ComponentAdmin(admin.ModelAdmin):
         if not request.user.is_master:
             for section, fields_map in fieldsets:
                 fields_map.pop('instance_methods', None)
+        print("FIELDSETS: ", fieldsets)
         return fieldsets
 
     def add_view(self, request, *args, **kwargs):
@@ -350,6 +351,8 @@ class ComponentAdmin(admin.ModelAdmin):
                     ):
                         if field_neme in form.fields:
                             form.fields.pop(field_neme)
+                    if 'slaves' not in form.declared_fields:
+                        form.fields.pop('slaves')
 
                 ctx['is_last'] = True
                 ctx['current_step'] = 3

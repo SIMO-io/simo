@@ -151,7 +151,10 @@ class FormsetField(forms.Field):
                     '%s-%d-%s' % (prefix, i, field_name)
                 )
                 if isinstance(field, forms.models.ModelChoiceField):
-                    form_data[field_name] = int(form_data[field_name])
+                    if isinstance(form_data[field_name], models.Model):
+                        form_data[field_name] = form_data[field_name].pk
+                    else:
+                        form_data[field_name] = int(form_data[field_name])
                 elif isinstance(field, forms.models.ModelMultipleChoiceField):
                     form_data[field_name] = [
                         obj.pk for obj in form_data[field_name]
