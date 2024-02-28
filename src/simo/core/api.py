@@ -86,6 +86,7 @@ class CategoryViewSet(InstanceMixin, viewsets.ModelViewSet):
             return plural
         return singular
 
+
 class ZoneViewSet(InstanceMixin, viewsets.ModelViewSet):
     url = 'core/zones'
     basename = 'zones'
@@ -106,6 +107,10 @@ class ZoneViewSet(InstanceMixin, viewsets.ModelViewSet):
         if suffix and suffix.lower() == 'list':
             return plural
         return singular
+
+    def perform_create(self, serializer):
+        serializer.validated_data['instance'] = self.instance
+        serializer.save()
 
 
 def get_components_queryset(instance, user):

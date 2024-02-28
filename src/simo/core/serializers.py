@@ -78,6 +78,9 @@ class FormsetPrimaryKeyRelatedField(PrimaryKeyRelatedField):
         ).first()
 
 
+# TODO: if form field has initial value and is required, it is serialized as not required field, howerver when trying to submit it fails with a message, that field is required.
+# TODO: provide initial values to options.
+
 class ComponentFormsetField(FormSerializer):
 
     class Meta:
