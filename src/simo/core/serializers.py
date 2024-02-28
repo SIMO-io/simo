@@ -284,6 +284,14 @@ class ComponentSerializer(FormSerializer):
             instance = form.save(commit=True)
         return instance
 
+    def create(self, validated_data):
+        form = self.get_form(data=validated_data)
+        data = self.accomodate_formsets(form, validated_data)
+        form = self.get_form(data=data)
+        if form.is_valid():
+            instance = form.save(commit=True)
+            return instance
+
     def get_controller_methods(self, obj):
         c_methods = [m[0] for m in inspect.getmembers(
             obj.controller, predicate=inspect.ismethod
