@@ -86,6 +86,10 @@ class CategoryViewSet(InstanceMixin, viewsets.ModelViewSet):
             return plural
         return singular
 
+    def perform_create(self, serializer):
+        serializer.validated_data['instance'] = self.instance
+        serializer.save()
+
 
 class ZoneViewSet(InstanceMixin, viewsets.ModelViewSet):
     url = 'core/zones'
