@@ -259,6 +259,13 @@ class ComponentSerializer(FormSerializer):
         return new_data
 
     def validate(self, data):
+        if not self.instance:
+            try:
+                controller_uid = self.context['request'].META['HTTP_CONTROLLER']
+            except:
+                raise serializers.ValidationError(
+                    ["Controller header is not supplied!"]
+                )
         self.form_instance = form = self.get_form(
             data=data, instance=self.instance
         )

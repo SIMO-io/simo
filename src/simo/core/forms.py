@@ -304,9 +304,10 @@ class ComponentAdminForm(forms.ModelForm):
             ControllerClass = get_controller_types_map().get(self.controller_uid)
             if ControllerClass:
                 self.controller = ControllerClass(self.instance)
-                self.instance.gateway = Gateway.objects.filter(
+                self.gateway = Gateway.objects.filter(
                     type=ControllerClass.gateway_class.uid
                 ).first()
+                self.instance.gateway = self.gateway
                 self.instance.controller_uid = ControllerClass.uid
                 self.instance.base_type = self.controller.base_type
                 self.instance.value = self.controller.default_value
