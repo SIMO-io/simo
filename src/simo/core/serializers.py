@@ -7,7 +7,7 @@ from easy_thumbnails.files import get_thumbnailer
 from simo.core.middleware import get_current_request
 from rest_framework import serializers
 from simo.core.forms import FormsetField
-from rest_framework.relations import PrimaryKeyRelatedField
+from rest_framework.relations import PrimaryKeyRelatedField, ManyRelatedField
 from drf_braces.serializers.form_serializer import (
     FormSerializer, FormSerializerBase, reduce_attr_dict_from_instance,
     FORM_SERIALIZER_FIELD_MAPPING, set_form_partial_validation
@@ -124,6 +124,24 @@ class ComponentPrimaryKeyRelatedField(PrimaryKeyRelatedField):
         ).first()
 
 
+class ComponentManyToManyRelatedField(serializers.Field):
+
+    def __init__(self, *args, **kwargs):
+        self.queryset = kwargs.pop('queryset')
+        self.choices = {obj.pk: str(obj) for obj in self.queryset}
+        self.allow_blank = kwargs.pop('allow_blank', False)
+        super().__init__(*args, **kwargs)
+
+    def to_representation(self, value):
+        return [obj.pk for obj in value]
+
+    def to_internal_value(self, data):
+        if data == [] and self.allow_blank:
+            return []
+        return self.queryset.filter(pk__in=data)
+
+
+
 class ComponentSerializer(FormSerializer):
     id = ObjectSerializerMethodField()
     controller_methods = serializers.SerializerMethodField()
@@ -145,6 +163,7 @@ class ComponentSerializer(FormSerializer):
         exclude = ('instance_methods', )
         field_mapping = {
             forms.ModelChoiceField: ComponentPrimaryKeyRelatedField,
+            forms.ModelMultipleChoiceField: ComponentManyToManyRelatedField,
             forms.TypedChoiceField: serializers.ChoiceField,
             forms.FloatField: serializers.FloatField,
             FormsetField: ComponentFormsetField,
@@ -204,9 +223,12 @@ class ComponentSerializer(FormSerializer):
         kwargs = super()._get_field_kwargs(form_field, serializer_field_class)
         if serializer_field_class == ComponentPrimaryKeyRelatedField:
             kwargs['queryset'] = form_field.queryset
-        if serializer_field_class == ComponentFormsetField:
+        elif serializer_field_class == ComponentManyToManyRelatedField:
+            kwargs['queryset'] = form_field.queryset
+        elif serializer_field_class == ComponentFormsetField:
             kwargs['formset_field'] = form_field
             kwargs['many'] = True
+
         return kwargs
 
     def set_form_cls(self):
@@ -230,9 +252,10 @@ class ComponentSerializer(FormSerializer):
 
     def get_form(self, data=None, **kwargs):
         self.set_form_cls()
-        controller_uid = None
         if not self.instance:
             controller_uid = self.context['request'].META.get('HTTP_CONTROLLER')
+        else:
+            controller_uid = self.instance.controller_uid
         form = self.Meta.form(
             data=data, request=self.context['request'],
             controller_uid=controller_uid,
