@@ -236,6 +236,7 @@ class Blinds(FleeDeviceMixin, BasicOutputMixin, GenericBlinds):
 
 
 class TTLock(FleeDeviceMixin, Lock):
+    gateway_class = FleetGatewayHandler
     config_form = TTLockConfigForm
 
     def _send_to_device(self, value):
