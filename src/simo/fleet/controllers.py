@@ -8,8 +8,7 @@ from simo.core.controllers import (
 )
 from simo.conf import dynamic_settings
 from simo.core.app_widgets import NumericSensorWidget
-from simo.core.controllers import BEFORE_SEND, BEFORE_SET, ControllerBase
-from simo.core.utils import easing
+from simo.core.controllers import Lock
 from simo.core.utils.helpers import heat_index
 from simo.generic.controllers import Blinds as GenericBlinds
 from .models import Colonel
@@ -20,7 +19,8 @@ from .forms import (
     ColonelNumericSensorConfigForm, ColonelRGBLightConfigForm,
     ColonelDHTSensorConfigForm, DS18B20SensorConfigForm,
     BME680SensorConfigForm,
-    DualMotorValveForm, BlindsConfigForm, BurglarSmokeDetectorConfigForm
+    DualMotorValveForm, BlindsConfigForm, BurglarSmokeDetectorConfigForm,
+    TTLockConfigForm
 )
 
 
@@ -233,3 +233,25 @@ class Blinds(FleeDeviceMixin, BasicOutputMixin, GenericBlinds):
         for p in self.component.config.get('controls', []):
             pins.append(p['pin'])
         return pins
+
+
+class TTLock(FleeDeviceMixin, Lock):
+    config_form = TTLockConfigForm
+
+    def _send_to_device(self, value):
+        GatewayObjectCommand(
+            self.component.gateway,
+            Colonel(id=self.component.config['colonel']),
+            set_val=value,
+            component_id=self.component.id,
+        ).publish()
+
+
+    def init_discovery(self, form_cleaned_data):
+        from simo.core.models import Gateway
+        GatewayObjectCommand(
+            Gateway.objects.filter(type=self.gateway_class.uid),
+            Colonel(id=form_cleaned_data['colonel']),
+            discover_ttlock=1,
+        ).publish()
+

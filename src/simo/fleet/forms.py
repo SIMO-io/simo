@@ -1167,40 +1167,19 @@ class BurglarSmokeDetectorConfigForm(ColonelComponentForm):
         return self.cleaned_data
 
 
+class TTLockConfigForm(ColonelComponentForm):
+    pass
 
-#
-# class ColonelBLEClimateSensorConfigForm(
-#     ColonelComponentMixin, BaseComponentForm
-# ):
-#     colonel = forms.ModelChoiceField(queryset=Colonel.objects.all())
-#     ble_device = forms.ModelChoiceField(
-#         queryset=BLEDevice.objects.filter(
-#             type=BLE_DEVICE_TYPE_GOVEE_MULTISENSOR
-#         )
-#     )
-#     additional_fields = ('colonel', 'ble_device')
-#
-#     def __init__(self, *args, **kwargs):
-#         super().__init__(*args, **kwargs)
-#         qs = self.fields['ble_device'].queryset
-#         if self.instance.pk:
-#             self.fields['ble_device'].queryset = qs.filter(
-#                 Q(component__isnull=True) | Q(component=self.instance)
-#             )
-#         else:
-#             self.fields['ble_device'].queryset = qs.filter(component__isnull=True)
-#
-#     def clean(self):
-#         colonel_ble_devices = self.cleaned_data['colonel'].ble_devices.all()
-#         if self.cleaned_data['ble_device'] not in colonel_ble_devices:
-#             available_colonels = self.cleaned_data['ble_device'].colonels.all()
-#             self.add_error(
-#                 'ble_device',
-#                 _("This BLE device is available only on colonel%s: %s" %
-#                   (
-#                       's' if len(available_colonels) > 1 else '',
-#                       ', '.join([str(c) for c in available_colonels])
-#                   )
-#                 )
-#             )
-#         return self.cleaned_data
+    def clean(self):
+        if not self.instance or not self.instance.pk:
+            from .controllers import TTLock
+            other_lock = self.cleaned_data['colonel'].components.filter(
+                controller_uid=TTLock.uid
+            ).first()
+            if other_lock:
+                raise forms.ValidationError(
+                    f"Single Colonel can support single TTLock only.\n"
+                    f"You already have {other_lock} on this Colonel."
+                )
+        return self.cleaned_data
+
