@@ -87,7 +87,7 @@ MIDDLEWARE = [
 ]
 
 ROOT_URLCONF = 'urls'
-WSGI_APPLICATION = 'wsgi.application'
+WSGI_APPLICATION = 'simo.wsgi.application'
 
 CHANNELS_URLCONF = 'simo.asgi'
 ASGI_APPLICATION = "asgi.application"

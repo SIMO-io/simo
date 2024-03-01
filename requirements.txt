@@ -4,7 +4,7 @@ djangorestframework==3.14.0
 django-dynamic-preferences==1.11.0
 django-formtools==2.3
 easy-thumbnails==2.8.5
-channels==3.0.4
+channels-4.0.0
 asgiref==3.7.2
 django-filter==2.4.0
 celery==5.3.6
