@@ -110,7 +110,7 @@ class FleetConsumer(AsyncWebsocketConsumer):
 
 
         def get_gateway():
-            Gateway.objects.filter(
+            return Gateway.objects.filter(
                 type=FleetGatewayHandler.uid
             ).first()
 
