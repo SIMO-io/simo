@@ -10,16 +10,10 @@ from django.apps import apps
 from django.contrib.auth.views import LogoutView
 from rest_framework import routers
 from rest_framework.viewsets import GenericViewSet
-from filebrowser.sites import FileBrowserSite
 from django.contrib.admin import site as admin_site
 from simo.users.views import protected_static
 
 
-filebrowser_site = FileBrowserSite(
-    name='filebrowser', storage=FileSystemStorage(
-        settings.VAR_DIR, settings.VAR_DIR_URL
-    )
-)
 
 rest_router = routers.DefaultRouter()
 registered_classes = []
@@ -41,7 +35,7 @@ urlpatterns = [
     path('', RedirectView.as_view(pattern_name='admin:index')),
     path('login/', include('simo.users.sso_urls')),
 
-    # path('admin/filebrowser/', filebrowser_site.urls),
+
     path('admin/login/',
          RedirectView.as_view(
              pattern_name='login', query_string=True

@@ -162,7 +162,7 @@ class GenericGatewayHandler(BaseObjectCommandsGatewayHandler):
     running_scripts = {}
     blinds_runners = {}
     periodic_tasks = (
-        ('watch_thermostats', 5),
+        ('watch_thermostats', 60),
         ('watch_alarm_clocks', 30),
         ('watch_scripts', 60),
         ('watch_watering', 60)
