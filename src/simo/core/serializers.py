@@ -113,6 +113,9 @@ class ComponentFormsetField(FormSerializer):
         form.prefix = ''
         return form
 
+    def create(self, validated_data):
+        return validated_data
+
 
 class ComponentPrimaryKeyRelatedField(PrimaryKeyRelatedField):
 
