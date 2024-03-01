@@ -108,9 +108,15 @@ class FleetConsumer(AsyncWebsocketConsumer):
 
         await self.accept()
 
-        self.gateway = Gateway.objects.filter(
-            type=FleetGatewayHandler.uid
-        ).first()
+
+        def get_gateway():
+            Gateway.objects.filter(
+                type=FleetGatewayHandler.uid
+            ).first()
+
+        self.gateway = await sync_to_async(
+            get_gateway, thread_sensitive=True
+        )(instance_uid)
 
         if self.colonel.firmware_auto_update \
             and self.colonel.minor_upgrade_available:
