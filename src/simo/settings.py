@@ -120,7 +120,8 @@ DATABASES = {
     'default': {
         'ENGINE': 'simo.core.db_backend',
         'NAME': 'SIMO',
-        'ATOMIC_REQUESTS': False
+        'ATOMIC_REQUESTS': False,
+        'CONN_HEALTH_CHECKS': True,
     }
 }
 

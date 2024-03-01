@@ -31,12 +31,6 @@ class GatewayRunHandler(multiprocessing.Process):
         self.exit_event = multiprocessing.Event()
         self.logger = get_gw_logger(self.gateway_id)
 
-    def periodic_connections_cleanup(self, exit):
-        while not exit.is_set():
-            time.sleep(60 * 60)
-            print("Hourly old connections close up!")
-            close_old_connections()
-
     def run(self):
         db_connection.connect()
         try:
@@ -58,10 +52,6 @@ class GatewayRunHandler(multiprocessing.Process):
             self.gateway.save(update_fields=['status'])
             return
         print("------START-------")
-        threading.Thread(
-            target=self.periodic_connections_cleanup, args=(self.exit_event, ),
-            daemon=True
-        ).start()
         try:
             self.gateway.handler.run(exit=self.exit_event)
         except:
