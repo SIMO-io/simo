@@ -27,20 +27,22 @@ class FormsetWidget(forms.Widget):
     use_cached = False
 
     class Media:
-        css = {
-            'all': ['adminsortable2/css/sortable.css']
-        }
-        js = (
-            'admin/js/inlines.js',
-            'adminsortable2/js/plugins/admincompat.js',
-            'adminsortable2/js/libs/jquery.ui.core-1.11.4.js',
-            'adminsortable2/js/libs/jquery.ui.widget-1.11.4.js',
-            'adminsortable2/js/libs/jquery.ui.mouse-1.11.4.js',
-            'adminsortable2/js/libs/jquery.ui.touch-punch-0.2.3.js',
-            'adminsortable2/js/libs/jquery.ui.sortable-1.11.4.js',
-            'adminsortable2/js/inline-tabular.js',
-            'adminsortable2/js/inline-sortable.js',
-        )
+        pass
+        # No longer works with adminsortable2-2
+        # css = {
+        #     'all': ['adminsortable2/css/sortable.css']
+        # }
+        # js = (
+        #     'admin/js/inlines.js',
+        #     'adminsortable2/js/plugins/admincompat.js',
+        #     'adminsortable2/js/libs/jquery.ui.core-1.11.4.js',
+        #     'adminsortable2/js/libs/jquery.ui.widget-1.11.4.js',
+        #     'adminsortable2/js/libs/jquery.ui.mouse-1.11.4.js',
+        #     'adminsortable2/js/libs/jquery.ui.touch-punch-0.2.3.js',
+        #     'adminsortable2/js/libs/jquery.ui.sortable-1.11.4.js',
+        #     'adminsortable2/js/inline-tabular.js',
+        #     'adminsortable2/js/inline-sortable.js',
+        # )
 
     def render(self, name, value, attrs=None, renderer=None):
         prefix = name

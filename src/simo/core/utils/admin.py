@@ -1,7 +1,6 @@
 from django.contrib import admin
 from django.shortcuts import render, redirect
 from django.contrib.admin.helpers import Fieldset
-from adminsortable2.admin import SortableAdminMixin
 
 
 
