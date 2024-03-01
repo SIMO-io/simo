@@ -583,7 +583,17 @@ class ControllerTypes(InstanceMixin, viewsets.GenericViewSet):
             data[cls.gateway_class.name].append({
                 'uid': uid,
                 'name': cls.name,
-                'discoverable': hasattr(cls, 'init_discovery')
+                'is_discoverable': cls.is_discoverable
             })
 
         return RESTResponse(data)
+
+
+class Gateways(InstanceMixin, viewsets.GenericViewSet):
+    url = 'core/gateways'
+    basename = 'gateways'
+
+    def get_permissions(self):
+        permissions = super().get_permissions()
+        permissions.append(IsInstanceSuperuser())
+        return permissions

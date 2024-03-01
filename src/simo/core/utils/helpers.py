@@ -14,6 +14,7 @@ class classproperty(property):
     def __get__(self, cls, owner):
         return self.fget.__get__(None, owner)()
 
+
 def get_random_string(
     size=20, chars=string.ascii_uppercase + string.ascii_lowercase + string.digits
 ):

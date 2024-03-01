@@ -8,7 +8,7 @@ from simo.core.middleware import get_current_request
 from rest_framework import serializers
 from simo.core.forms import FormsetField
 from rest_framework.relations import PrimaryKeyRelatedField, ManyRelatedField
-from drf_braces.serializers.form_serializer import (
+from .drf_braces.serializers.form_serializer import (
     FormSerializer, FormSerializerBase, reduce_attr_dict_from_instance,
     FORM_SERIALIZER_FIELD_MAPPING, set_form_partial_validation
 )

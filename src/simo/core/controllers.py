@@ -11,6 +11,7 @@ from django.utils.translation import gettext_lazy as _
 from simo.users.middleware import introduce, get_current_user
 from simo.users.utils import get_device_user
 from .utils.helpers import is_hex_color, classproperty
+# from django.utils.functional import classproperty
 from .gateways import BaseGatewayHandler
 from .app_widgets import *
 from .forms import (
@@ -98,6 +99,15 @@ class ControllerBase(ABC):
         Override this if something different is needed for add form.
         """
         return cls.config_form
+
+    @classproperty
+    @classmethod
+    def is_discoverable(cls):
+        return hasattr(
+            cls, '_init_discovery'
+        ) and hasattr(
+            cls, '_process_discovery'
+        )
 
     def _aggregate_values(self, values):
         if type(values[0]) in (float, int):

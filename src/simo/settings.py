@@ -41,7 +41,6 @@ EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
 INSTALLED_APPS = [
     'channels',
-    'filebrowser',
     'dal',
     'dal_select2',
     'django.forms',
@@ -121,7 +120,6 @@ DATABASES = {
         'ENGINE': 'simo.core.db_backend',
         'NAME': 'SIMO',
         'ATOMIC_REQUESTS': False,
-        'CONN_HEALTH_CHECKS': True,
     }
 }
 
@@ -187,7 +185,7 @@ REST_FRAMEWORK = {
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 1000,
     'DATETIME_FORMAT': '%s.%f',
-    'DEFAULT_METADATA_CLASS': 'simo.core.api_meta.SIMOAPIMetadata'
+    #'DEFAULT_METADATA_CLASS': 'simo.core.api_meta.SIMOAPIMetadata'
 }
 
 REDIS_DB = {

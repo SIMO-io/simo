@@ -40,7 +40,8 @@ for name, app in apps.app_configs.items():
 urlpatterns = [
     path('', RedirectView.as_view(pattern_name='admin:index')),
     path('login/', include('simo.users.sso_urls')),
-    path('admin/filebrowser/', filebrowser_site.urls),
+
+    # path('admin/filebrowser/', filebrowser_site.urls),
     path('admin/login/',
          RedirectView.as_view(
              pattern_name='login', query_string=True

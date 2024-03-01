@@ -1,4 +1,4 @@
-from django.core.exceptions import ValidationError
+from django.core import serializers
 from simo.core.events import GatewayObjectCommand
 from simo.core.controllers import (
     BinarySensor as BaseBinarySensor,
@@ -238,6 +238,7 @@ class Blinds(FleeDeviceMixin, BasicOutputMixin, GenericBlinds):
 class TTLock(FleeDeviceMixin, Lock):
     gateway_class = FleetGatewayHandler
     config_form = TTLockConfigForm
+    name = 'TTLock'
 
     def _send_to_device(self, value):
         GatewayObjectCommand(
@@ -247,12 +248,37 @@ class TTLock(FleeDeviceMixin, Lock):
             component_id=self.component.id,
         ).publish()
 
-
-    def init_discovery(self, form_cleaned_data):
+    @classmethod
+    def _init_discovery(self, form_cleaned_data):
         from simo.core.models import Gateway
+        gateway = Gateway.objects.filter(type=self.gateway_class.uid)
+        gateway.start_discovery(
+            self.uid, serializers.serialize('json', form_cleaned_data),
+            timeout=60
+        )
         GatewayObjectCommand(
-            Gateway.objects.filter(type=self.gateway_class.uid),
-            Colonel(id=form_cleaned_data['colonel']),
-            discover_ttlock=1,
+            gateway, form_cleaned_data['colonel'],
+            command='discover-ttlock',
         ).publish()
+
+    @classmethod
+    def _process_discovery(cls, started_with, data):
+        if data['discover-ttlock'] != 'success':
+            print("TTLock discovery failed!")
+            print(data)
+            return
+        started_with = serializers.deserialize('json', started_with)
+        form = TTLockConfigForm(controller_uid=cls.uid, data=started_with)
+        if form.is_valid():
+            new_component = form.save()
+            new_component.config.update(data.get('result', {}))
+            new_component.save()
+            return [new_component]
+
+        # Literally impossible, but just in case...
+        print("INVALID INITIAL DISCOVERY FORM!")
+        print("Started with: ", started_with)
+
+
+
 

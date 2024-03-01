@@ -1,5 +1,4 @@
-from django.conf.urls import include, url
-from django.urls import path
+from django.urls import path, re_path
 from django.views.generic import TemplateView
 from .views import (
     colonels_ping,
@@ -8,7 +7,7 @@ from .views import (
 )
 
 urlpatterns = [
-    url(
+    re_path(
         r"^colonels-ping/$", colonels_ping, name='colonels-ping'
     ),
     path(

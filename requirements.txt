@@ -1,12 +1,11 @@
-Django==3.2.9
-django-filebrowser-no-grappelli==3.8.0
-django-autocomplete-light==3.8.2
-djangorestframework==3.12.4
+Django==4.2.10
+django-autocomplete-light==3.11.0
+djangorestframework==3.14.0
 django-dynamic-preferences==1.11.0
 django-formtools==2.3
 easy-thumbnails==2.8
 channels==3.0.4
-asgiref==3.4.1
+asgiref==3.7.2
 django-filter==2.4.0
 celery==5.3.6
 django-admin-sortable2==1.0.2
@@ -32,4 +31,3 @@ django-location-field==2.1.0
 slugify==0.0.1
 django-countries==7.5.1
 librosa==0.10.1
-django-rest-framework-braces==0.3.4

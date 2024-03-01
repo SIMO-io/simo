@@ -313,6 +313,18 @@ def drop_fingerprints_learn():
     )
 
 
+@celery_app.task
+def time_out_discoveries():
+    from .models import Gateway
+    for gw in Gateway.objects.filter(
+        discovery__has_key='start'
+    ).exclude(
+        discovery__has_key='finished'
+    ):
+        if time.time() - gw.discovery['start'] > gw.discovery['timeout']:
+            gw.finish_discovery()
+
+
 @celery_app.on_after_finalize.connect
 def setup_periodic_tasks(sender, **kwargs):
     sender.add_periodic_task(1, watch_timers.s())

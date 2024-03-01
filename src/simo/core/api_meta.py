@@ -5,6 +5,7 @@ from rest_framework.metadata import SimpleMetadata
 from rest_framework.utils.field_mapping import ClassLookupDict
 from .serializers import ComponentManyToManyRelatedField
 
+
 class SIMOAPIMetadata(SimpleMetadata):
 
     label_lookup = ClassLookupDict({

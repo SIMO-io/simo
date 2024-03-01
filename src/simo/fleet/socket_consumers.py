@@ -108,16 +108,17 @@ class FleetConsumer(AsyncWebsocketConsumer):
 
         await self.accept()
 
+        self.gateway = Gateway.objects.filter(
+            type=FleetGatewayHandler.uid
+        ).first()
+
         if self.colonel.firmware_auto_update \
             and self.colonel.minor_upgrade_available:
             await self.firmware_update(self.colonel.minor_upgrade_available)
         else:
             def on_mqtt_connect(mqtt_client, userdata, flags, rc):
-                for gateway in Gateway.objects.filter(
-                    type=FleetGatewayHandler.uid
-                ):
-                    command = GatewayObjectCommand(gateway)
-                    mqtt_client.subscribe(command.get_topic())
+                command = GatewayObjectCommand(self.gateway)
+                mqtt_client.subscribe(command.get_topic())
 
             self.mqtt_client = mqtt.Client()
             self.mqtt_client.username_pw_set('root', settings.SECRET_KEY)
@@ -216,7 +217,7 @@ class FleetConsumer(AsyncWebsocketConsumer):
 
         return config_data
 
-    def on_mqtt_message(self, client, userdata, msg):
+    async def on_mqtt_message(self, client, userdata, msg):
         try:
             payload = json.loads(msg.payload)
 
@@ -251,6 +252,10 @@ class FleetConsumer(AsyncWebsocketConsumer):
                             'command': 'set_config', 'data': config
                         }))
                     asyncio.run(send_config())
+                elif payload.get('command') == 'discover-ttlock':
+                    await self.send(json.dumps({
+                        'command': 'discover-ttlock'
+                    }))
 
             elif isinstance(obj, Component):
                 if int(obj.config.get('colonel')) != self.colonel.id:
@@ -299,6 +304,11 @@ class FleetConsumer(AsyncWebsocketConsumer):
 
                 except Exception as e:
                     print(traceback.format_exc(), file=sys.stderr)
+
+            elif 'discover-ttlock' in data:
+                self.gateway.refresh_from_db()
+                self.gateway.process_discovery(data)
+                self.gateway.finish_discovery()
 
         elif bytes_data:
             if not self.colonel_logger:

@@ -1,7 +1,8 @@
 import os
 import sys
 import inspect
-
+import time
+from collections.abc import Iterable
 from django.utils.text import slugify
 from django.core.cache import cache
 from django.utils.functional import cached_property
@@ -114,6 +115,7 @@ class Instance(DirtyFieldsMixin, models.Model, SimoAdminMixin):
         User, null=True, blank=True, on_delete=models.SET_NULL
     )
 
+
     def __str__(self):
         return self.name
 
@@ -200,6 +202,11 @@ class Gateway(DirtyFieldsMixin, models.Model, SimoAdminMixin):
             (key, val) for key, val in RUN_STATUS_CHOICES_MAP.items()
         ),
     )
+    discovery = models.JSONField(
+        null=True, blank=True, editable=False
+    )
+
+
     handler = None
 
     def __str__(self):
@@ -245,6 +252,45 @@ class Gateway(DirtyFieldsMixin, models.Model, SimoAdminMixin):
                 'ws-gateway-controller', kwargs={'gateway_id': self.id},
                 urlconf=settings.CHANNELS_URLCONF
             )
+
+    def start_discovery(self, controller_uid, init_data, timeout=None):
+        self.discovery = {
+            'start': time.time(),
+            'timeout': timeout if timeout else 60,
+            'controller_uid': controller_uid,
+            'init_data': init_data,
+            'result': []
+        }
+        self.save()
+
+    def process_discovery(self, data):
+        from .utils.type_constants import get_controller_types_map
+        ControllerClass = get_controller_types_map().get(
+            self.discovery['controller_uid']
+        )
+        if ControllerClass and hasattr(
+            ControllerClass, '_complete_discovery'
+        ):
+            result = ControllerClass._complete_discovery(data)
+            if result:
+                if isinstance(result, Iterable):
+                    for res in result:
+                        if isinstance(res, models.Model):
+                            self.discovery['result'].append(res.pk)
+                        else:
+                            self.discovery['result'].append(res)
+                else:
+                    if isinstance(result, models.Model):
+                        self.discovery['result'].append(result.pk)
+                    else:
+                        self.discovery['result'].append(result)
+
+        self.save(update_fields=['discovery'])
+
+    def finish_discovery(self):
+        self.discovery.pop('start', None)
+        self.discovery['finished'] = timezone.now()
+        self.save(update_fields=['discovery'])
 
 
 class Component(DirtyFieldsMixin, models.Model, SimoAdminMixin, OnChangeMixin):
