@@ -339,7 +339,6 @@ class ComponentAdmin(admin.ModelAdmin):
                     )[request.session['add_comp_type']]
                 except:
                     request.session.pop('add_comp_type')
-                    print("No such controller type!")
                     return redirect(request.path)
 
                 add_form = controller_cls.add_form
@@ -368,6 +367,13 @@ class ComponentAdmin(admin.ModelAdmin):
                     )
                     pop_fields_from_form(ctx['form'])
                     if ctx['form'].is_valid():
+                        if ctx['form'].controller.is_discoverable:
+                            ctx['form'].controller.init_discovery(
+                                ctx['form'].cleaned_data
+                            )
+                            return render(
+                                request, 'admin/wizard/discovery.html', ctx
+                            )
                         new_comp = ctx['form'].save()
                         request.session.pop('add_comp_gateway')
                         request.session.pop('add_comp_type')

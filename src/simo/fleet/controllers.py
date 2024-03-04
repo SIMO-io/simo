@@ -249,9 +249,9 @@ class TTLock(FleeDeviceMixin, Lock):
         ).publish()
 
     @classmethod
-    def _init_discovery(self, form_cleaned_data):
+    def init_discovery(self, form_cleaned_data):
         from simo.core.models import Gateway
-        gateway = Gateway.objects.filter(type=self.gateway_class.uid)
+        gateway = Gateway.objects.filter(type=self.gateway_class.uid).first()
         gateway.start_discovery(
             self.uid, serializers.serialize('json', form_cleaned_data),
             timeout=60
