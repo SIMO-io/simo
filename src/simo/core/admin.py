@@ -1,5 +1,6 @@
 from django.utils.translation import gettext_lazy as _
 from django.contrib import admin
+from django.urls import reverse
 from easy_thumbnails.fields import ThumbnailerField
 from adminsortable2.admin import SortableAdminMixin
 from django.template.loader import render_to_string
@@ -370,6 +371,16 @@ class ComponentAdmin(admin.ModelAdmin):
                         if ctx['form'].controller.is_discoverable:
                             ctx['form'].controller.init_discovery(
                                 ctx['form'].cleaned_data
+                            )
+                            ctx['discovery_msg'] = ctx['form'].controller.discovery_msg
+                            instance = ctx['form'].cleaned_data['zone'].instance
+                            ctx['api_check_url'] = reverse(
+                                'discoveries-list',
+                                kwargs={'instance_slug': instance.slug}
+                            ) + f"?controller_uid={ctx['form'].controller.uid}"
+                            ctx['api_components_url'] = reverse(
+                                'components-list',
+                                kwargs={'instance_slug': instance.slug}
                             )
                             return render(
                                 request, 'admin/wizard/discovery.html', ctx

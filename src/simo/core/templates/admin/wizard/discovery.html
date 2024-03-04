@@ -62,7 +62,23 @@
       </div>
     {% endif %}
     
-
+    <p style="margin: 30px 15px">
+      <i class="fas fa-spinner fa-spin fa-lg" style="margin-right: 10px"></i> DISCOVERY MODE ACTIVATED! <br>
+      Your new components will appear down bellow once discovered.
+    </p>
+    {% if discovery_msg %}
+      <p style="margin: 30px 15px">{{ discovery_msg }}</p>
+    {% endif %}
+    <style>
+      .discovered-component{
+        padding: 10px 30px;
+        margin-bottom: 30px;
+        font-weight: bold;
+      }
+    </style>
+    <div id="components-discovered">
+    
+    </div>
     
 
   </fieldset>
@@ -75,14 +91,9 @@
 
     <div class="submit-row" style="text-align: left;">
 
-    <button class="button" name="prev" style="padding: 10px 15px" type="submit" value="1" {% if is_first %}disabled{% endif %}>{% trans "< Prev" %}</button>
-    <div style="display:inline-block; margin-left: 15px;">
-      <a href="{% url 'admin:core_component_changelist' %}" class="cancel-link" style="padding:9px 15px">
-        <i class="fa fa-times"></i> Cancel
-      </a>
-    </div>
-
-    <input type="submit" value="{% if is_last %}Finish!{% else %}Next >{% endif %}" class="default" name="_save">
+    <a href="{% url 'admin:core_component_changelist' %}" class="cancel-link" style="display: block; padding:9px 15px">
+      <i class="fa fa-check"></i> Done
+    </a>
 
     </div>
 
@@ -101,6 +112,41 @@
 {# JavaScript for prepopulated fields #}
 {% prepopulated_fields_js %}
 
+<script>
+  (function() {
+    var api_check_url = '{{ api_check_url }}';
+    var api_components_url = '{{ api_components_url }}';
+    console.log("API CHECK URL: ", api_check_url);
+    
+    function checkDiscoveryStatus(){
+      $.ajax({
+        url: api_check_url,
+        success: function(response){
+          for (var i=0; i<response.length; i++) {
+            var discovery = response[i];
+            for (var j=0; j<discovery.result.length; j++){
+              var comp_id = discovery.result[j];
+              if ($('#discovered-component-' + comp_id).length < 1){
+                $.ajax({
+                  url: api_components_url + comp_id + '/',
+                  success: function(component){
+                    $('#components-discovered').append(
+                      '<p class="discovered-component" id="discovered-component-' + comp_id +'"><a href="/admin/core/component/' + comp_id + '">' +
+                      component.name + '</a></p>'
+                    );
+                  }
+                })
+              }
+            }
+          }
+        }
+      });
+    }
+    setInterval(checkDiscoveryStatus, 1000);
+  })();
+</script>
+
 </div>
 </form></div>
+
 {% endblock %}

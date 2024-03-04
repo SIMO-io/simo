@@ -1,4 +1,4 @@
-from django.core import serializers
+from django.utils.translation import gettext_lazy as _
 from simo.core.events import GatewayObjectCommand
 from simo.core.controllers import (
     BinarySensor as BaseBinarySensor,
@@ -10,6 +10,9 @@ from simo.conf import dynamic_settings
 from simo.core.app_widgets import NumericSensorWidget
 from simo.core.controllers import Lock
 from simo.core.utils.helpers import heat_index
+from simo.core.utils.serialization import (
+    serialize_form_data, deserialize_form_data
+)
 from simo.generic.controllers import Blinds as GenericBlinds
 from .models import Colonel
 from .gateways import FleetGatewayHandler
@@ -239,6 +242,7 @@ class TTLock(FleeDeviceMixin, Lock):
     gateway_class = FleetGatewayHandler
     config_form = TTLockConfigForm
     name = 'TTLock'
+    discovery_msg = _("Please activate your TTLock so it can be discovered.")
 
     def _send_to_device(self, value):
         GatewayObjectCommand(
@@ -251,9 +255,10 @@ class TTLock(FleeDeviceMixin, Lock):
     @classmethod
     def init_discovery(self, form_cleaned_data):
         from simo.core.models import Gateway
+        print("Serialized form: ", serialize_form_data(form_cleaned_data))
         gateway = Gateway.objects.filter(type=self.gateway_class.uid).first()
         gateway.start_discovery(
-            self.uid, serializers.serialize('json', form_cleaned_data),
+            self.uid, serialize_form_data(form_cleaned_data),
             timeout=60
         )
         GatewayObjectCommand(
@@ -267,7 +272,7 @@ class TTLock(FleeDeviceMixin, Lock):
             print("TTLock discovery failed!")
             print(data)
             return
-        started_with = serializers.deserialize('json', started_with)
+        started_with = deserialize_form_data(started_with)
         form = TTLockConfigForm(controller_uid=cls.uid, data=started_with)
         if form.is_valid():
             new_component = form.save()

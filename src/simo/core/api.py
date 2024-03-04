@@ -1,6 +1,7 @@
 import datetime
 from calendar import monthrange
 import pytz
+import time
 from django.db.models import Q, Prefetch
 from django.utils.translation import gettext_lazy as _
 from django.utils import timezone
@@ -15,7 +16,7 @@ from rest_framework.exceptions import ValidationError as APIValidationError
 from simo.core.utils.config_values import ConfigException
 from .models import (
     Instance, Category, Zone, Component, Icon, ComponentHistory,
-    HistoryAggregate
+    HistoryAggregate, Gateway
 )
 from .serializers import (
     IconSerializer, CategorySerializer, ZoneSerializer,
@@ -567,6 +568,7 @@ class StatesViewSet(InstanceMixin, viewsets.GenericViewSet):
 class ControllerTypes(InstanceMixin, viewsets.GenericViewSet):
     url = 'core/controller-types'
     basename = 'controller-types'
+    queryset = []
 
     def get_permissions(self):
         permissions = super().get_permissions()
@@ -589,11 +591,30 @@ class ControllerTypes(InstanceMixin, viewsets.GenericViewSet):
         return RESTResponse(data)
 
 
-class Gateways(InstanceMixin, viewsets.GenericViewSet):
-    url = 'core/gateways'
-    basename = 'gateways'
+class RunningDiscoveries(InstanceMixin, viewsets.GenericViewSet):
+    url = 'core/discoveries'
+    basename = 'discoveries'
+    queryset = []
 
     def get_permissions(self):
         permissions = super().get_permissions()
         permissions.append(IsInstanceSuperuser())
         return permissions
+
+    def list(self, request, *args, **kwargs):
+        data = []
+        gateways = Gateway.objects.filter(
+            discovery__start__gt=time.time() - 60 * 60 # no more than an hour
+        )
+        if 'controller_uid' in request.GET:
+            gateways = gateways.filter(
+                discovery__controller_uid=request.GET['controller_uid']
+            )
+        for gateway in gateways:
+            data.append({
+                'start': gateway.discovery['start'],
+                'controller_uid': gateway.discovery['controller_uid'],
+                'result': gateway.discovery['result'],
+                'finished': gateway.discovery.get('finished'),
+            })
+        return RESTResponse(data)

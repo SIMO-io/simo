@@ -33,6 +33,7 @@ class ControllerBase(ABC):
     admin_widget_template = 'admin/controller_widgets/generic.html'
     default_config = {}
     default_meta = {}
+    discovery_msg = None
 
     @property
     @abstractmethod
