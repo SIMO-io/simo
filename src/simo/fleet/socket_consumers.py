@@ -280,6 +280,7 @@ class FleetConsumer(AsyncWebsocketConsumer):
     async def receive(self, text_data=None, bytes_data=None):
         if text_data:
             data = json.loads(text_data)
+            print("DATA RECEIVED: ", text_data)
             if 'get_config' in data:
                 config = await self.get_config_data()
                 await self.send(json.dumps({
