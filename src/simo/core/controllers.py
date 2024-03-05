@@ -86,7 +86,7 @@ class ControllerBase(ABC):
         assert issubclass(self.config_form, BaseComponentForm)
         assert issubclass(self.app_widget, BaseAppWidget)
         assert self.base_type in ALL_BASE_TYPES, \
-            "base_type must be defined in BASE_TYPES"
+            f"{self.base_type} must be defined in BASE_TYPES!"
 
     @classproperty
     @classmethod
