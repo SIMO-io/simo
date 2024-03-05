@@ -146,6 +146,8 @@ class FleetConsumer(AsyncWebsocketConsumer):
             #     'command': 'set_config', 'data': config
             # }))
 
+            await self.send(json.dumps({'command': 'hello'}))
+
         asyncio.create_task(self.watch_connection())
 
     async def watch_connection(self):
