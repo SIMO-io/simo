@@ -195,7 +195,7 @@ class ColonelBinarySensorConfigForm(ColonelComponentForm):
 
     def clean(self):
         super().clean()
-        if 'colonel' not in self.cleaned_data:
+        if not self.cleaned_data.get('colonel'):
             return self.cleaned_data
         if 'pin' not in self.cleaned_data:
             return self.cleaned_data
@@ -284,7 +284,7 @@ class ColonelNumericSensorConfigForm(ColonelComponentForm, NumericSensorForm):
 
     def clean(self):
         super().clean()
-        if 'colonel' not in self.cleaned_data:
+        if not self.cleaned_data.get('colonel'):
             return self.cleaned_data
         if 'pin' not in self.cleaned_data:
             return self.cleaned_data
@@ -327,7 +327,7 @@ class DS18B20SensorConfigForm(ColonelComponentForm):
 
     def clean(self):
         super().clean()
-        if 'colonel' not in self.cleaned_data:
+        if not self.cleaned_data.get('colonel'):
             return self.cleaned_data
         if 'pin' not in self.cleaned_data:
             return self.cleaned_data
@@ -378,7 +378,7 @@ class ColonelDHTSensorConfigForm(ColonelComponentForm):
 
     def clean(self):
         super().clean()
-        if 'colonel' not in self.cleaned_data:
+        if not self.cleaned_data.get('colonel'):
             return self.cleaned_data
         if 'pin' not in self.cleaned_data:
             return self.cleaned_data
@@ -445,7 +445,7 @@ class ColonelTouchSensorConfigForm(ColonelComponentForm):
 
     def clean(self):
         super().clean()
-        if 'colonel' not in self.cleaned_data:
+        if not self.cleaned_data.get('colonel'):
             return self.cleaned_data
         if 'pin' not in self.cleaned_data:
             return self.cleaned_data
@@ -529,7 +529,7 @@ class ColonelSwitchConfigForm(ColonelComponentForm):
 
     def clean(self):
         super().clean()
-        if 'colonel' not in self.cleaned_data:
+        if not self.cleaned_data.get('colonel'):
             return self.cleaned_data
         if not self.cleaned_data.get('output_pin'):
             return self.cleaned_data
@@ -659,7 +659,7 @@ class ColonelPWMOutputConfigForm(ColonelComponentForm):
 
     def clean(self):
         super().clean()
-        if 'colonel' not in self.cleaned_data:
+        if not self.cleaned_data.get('colonel'):
             return self.cleaned_data
         if not self.cleaned_data.get('output_pin'):
             return self.cleaned_data
@@ -752,7 +752,7 @@ class ColonelRGBLightConfigForm(ColonelComponentForm):
 
     def clean(self):
         super().clean()
-        if 'colonel' not in self.cleaned_data:
+        if not self.cleaned_data.get('colonel'):
             return self.cleaned_data
         if not self.cleaned_data.get('output_pin'):
             return self.cleaned_data
@@ -845,7 +845,7 @@ class DualMotorValveForm(ColonelComponentForm):
 
     def clean(self):
         super().clean()
-        if 'colonel' not in self.cleaned_data:
+        if not self.cleaned_data.get('colonel'):
             return self.cleaned_data
         if not self.cleaned_data.get('open_pin'):
             return self.cleaned_data
@@ -960,7 +960,7 @@ class BlindsConfigForm(ColonelComponentForm):
 
     def clean(self):
         super().clean()
-        if 'colonel' not in self.cleaned_data:
+        if not self.cleaned_data.get('colonel'):
             return self.cleaned_data
         if not self.cleaned_data.get('open_pin'):
             return self.cleaned_data
@@ -1091,7 +1091,7 @@ class BurglarSmokeDetectorConfigForm(ColonelComponentForm):
 
     def clean(self):
         super().clean()
-        if 'colonel' not in self.cleaned_data:
+        if not self.cleaned_data.get('colonel'):
             return self.cleaned_data
         if 'sensor_pin' not in self.cleaned_data:
             return self.cleaned_data

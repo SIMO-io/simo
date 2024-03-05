@@ -117,13 +117,16 @@ for no, data in BASE_ESP32_GPIO_PINS.items():
 
 def get_available_gpio_pins(colonel=None, filters=None, selected=None):
     if not colonel:
-        return {no: GPIO_PIN_DEFAULTS for no in range(200)}
+        raw_pins = {no: GPIO_PIN_DEFAULTS for no in range(200)}
+    else:
+        raw_pins = GPIO_PINS.get(colonel.type, {})
     if not filters:
         filters = {}
+
     pins = {}
     allow_occupied = filters.pop('allow_occupied', None)
-    for key, data in GPIO_PINS.get(colonel.type, {}).items():
-        if str(key) in colonel.occupied_pins and not allow_occupied:
+    for key, data in raw_pins.items():
+        if colonel and str(key) in colonel.occupied_pins and not allow_occupied:
             if selected:
                 if int(key) != int(selected):
                     continue
@@ -135,6 +138,13 @@ def get_available_gpio_pins(colonel=None, filters=None, selected=None):
                 skip = True
         if skip:
             continue
+        if key < 100:
+            name = 'GPIO%d' % key
+        else:
+            name = 'E-%d' % (key - 100)
+        if data.get('note'):
+            name += ' | %s' % data['note']
+        data['name'] = name
         pins[key] = data
     return pins
 
@@ -144,11 +154,5 @@ def get_gpio_pins_choices(colonel=None, filters=None, selected=None):
     for key, data in get_available_gpio_pins(
         colonel, filters, selected
     ).items():
-        if key < 100:
-            name = 'GPIO%d' % key
-        else:
-            name = 'E-%d' % (key - 100)
-        if data.get('note'):
-            name += ' | %s' % data['note']
-        choices.append((key, name))
+        choices.append((key, data['name']))
     return choices
