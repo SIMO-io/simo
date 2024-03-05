@@ -196,6 +196,7 @@ class AlarmGroupConfigForm(BaseComponentForm):
                     "Can not cover self. Please remove - [%s]" % str(check_cmp)
                 )
             if comp.base_type == 'alarm-group':
+                comp.prepare_controller()
                 self.recurse_check_alarm_groups(
                     comp.get_children(), check_cmp
                 )

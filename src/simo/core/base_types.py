@@ -9,6 +9,7 @@ BASE_TYPES = {
     'multi-sensor': _("Multi sensor"),
     'binary-sensor': _("Binary sensor"),
     'dimmer': _("Dimmer"),
+    'dimmer-plus': _("Dimmer Plus"),
     'rgbw-light': _('RGB(W) light'),
     'switch': _("Switch"),
     'switch-double': _("Switch Double"),

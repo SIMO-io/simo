@@ -63,9 +63,9 @@ def handle_alarm_groups(sender, instance, *args, **kwargs):
         alarm_group.set(alarm_group_value)
 
 
-@receiver(pre_save, sender=Component)
-def set_initial_alarm_group_stats(sender, instance, *args, **kwargs):
-    if instance.pk:
+@receiver(post_save, sender=Component)
+def set_initial_alarm_group_stats(sender, instance, created, *args, **kwargs):
+    if not created:
         return
     if instance.controller_uid != AlarmGroup.uid:
         return
