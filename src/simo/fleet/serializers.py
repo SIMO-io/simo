@@ -17,7 +17,7 @@ class ColonelPinSerializer(serializers.ModelSerializer):
     occupied = serializers.SerializerMethodField()
 
     class Meta:
-        models = ColonelPin
+        model = ColonelPin
         fields = 'id', 'label', 'occupied'
         read_only_fields = fields
 
