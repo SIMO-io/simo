@@ -86,6 +86,9 @@ MIDDLEWARE = [
     'simo.core.middleware.instance_middleware'
 ]
 
+
+FILE_UPLOAD_MAX_MEMORY_SIZE = 20971520 # 20Mb
+
 ROOT_URLCONF = 'urls'
 WSGI_APPLICATION = 'simo.wsgi.application'
 
