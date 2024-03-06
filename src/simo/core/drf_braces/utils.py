@@ -10,12 +10,16 @@ def find_function_args(func):
     """
     Get the list of parameter names which function accepts.
     """
+    func_args = []
     try:
         spec = inspect.getfullargspec(func) if hasattr(inspect, 'getfullargspec') else inspect.getargspec(func)
-        return [i for i in spec[0] if i not in IGNORE_ARGS]
     except TypeError:
         return []
 
+    func_args.extend([i for i in spec[0] if i not in IGNORE_ARGS])
+    func_args.extend([i for i in spec.kwonlyargs])
+
+    return func_args
 
 def find_class_args(klass):
     """
@@ -23,7 +27,7 @@ def find_class_args(klass):
     """
     args = set()
 
-    for i in klass.mro():
+    for i in klass.__mro__:
         if i is object or not hasattr(i, '__init__'):
             continue
         args |= set(find_function_args(i.__init__))
