@@ -51,7 +51,7 @@ BASE_ESP32_GPIO_PINS = {
     39: {'output': False, 'adc': True},
 }
 
-GPIO_PINS = {'generic': {}, 'wESP32': {}, '4-relays': {}, 'ample-wall': {}}
+GPIO_PINS = {'generic': {}, '4-relays': {}, 'ample-wall': {}}
 
 for no, data in BASE_ESP32_GPIO_PINS.items():
     GPIO_PINS['generic'][no] = GPIO_PIN_DEFAULTS.copy()
@@ -65,9 +65,6 @@ for no, data in BASE_ESP32_GPIO_PINS.items():
     if no == 2:
         # onboard LED
         continue
-
-    GPIO_PINS['wESP32'][no] = GPIO_PIN_DEFAULTS.copy()
-    GPIO_PINS['wESP32'][no].update(data)
 
     GPIO_PINS['ample-wall'][no] = GPIO_PIN_DEFAULTS.copy()
     GPIO_PINS['ample-wall'][no].update(data)

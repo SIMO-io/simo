@@ -51,36 +51,72 @@ def forwards_func(apps, schema_editor):
             continue
         if 'pin' in comp.config:
             comp.config['pin_no'] = comp.config.pop('pin')
+
+            if comp.config['pin_no'] not in new_pins[colonel.id]:
+                print("BAD COMPONENT CONFIG!")
+                comp.delete()
+                continue
+
             pin = new_pins[colonel.id][comp.config['pin_no']]
             comp.config['pin'] = pin.pk
             pin.occupied_by = comp
             pin.save()
         if 'power_pin' in comp.config:
             comp.config['power_pin_no'] = comp.config.pop('power_pin')
+
+            if comp.config['power_pin_no'] not in new_pins[colonel.id]:
+                print("BAD COMPONENT CONFIG!")
+                comp.delete()
+                continue
+
             pin = new_pins[colonel.id][comp.config['power_pin_no']]
             comp.config['power_pin'] = pin.pk
             pin.occupied_by = comp
             pin.save()
         if 'sensor_pin' in comp.config:
             comp.config['sensor_pin_no'] = comp.config.pop('sensor_pin')
+
+            if comp.config['sensor_pin_no'] not in new_pins[colonel.id]:
+                print("BAD COMPONENT CONFIG!")
+                comp.delete()
+                continue
+
             pin = new_pins[colonel.id][comp.config['sensor_pin_no']]
             comp.config['sensor_pin'] = pin.pk
             pin.occupied_by = comp
             pin.save()
         if 'output_pin' in comp.config:
             comp.config['output_pin_no'] = comp.config.pop('output_pin')
+
+            if comp.config['output_pin_no'] not in new_pins[colonel.id]:
+                print("BAD COMPONENT CONFIG!")
+                comp.delete()
+                continue
+
             pin = new_pins[colonel.id][comp.config['output_pin_no']]
             comp.config['output_pin'] = pin.pk
             pin.occupied_by = comp
             pin.save()
         if 'open_pin' in comp.config:
             comp.config['open_pin_no'] = comp.config.pop('open_pin')
+
+            if comp.config['open_pin_no'] not in new_pins[colonel.id]:
+                print("BAD COMPONENT CONFIG!")
+                comp.delete()
+                continue
+
             pin = new_pins[colonel.id][comp.config['open_pin_no']]
             comp.config['open_pin'] = pin.pk
             pin.occupied_by = comp
             pin.save()
         if 'close_pin' in comp.config:
             comp.config['close_pin_no'] = comp.config.pop('close_pin')
+
+            if comp.config['close_pin_no'] not in new_pins[colonel.id]:
+                print("BAD COMPONENT CONFIG!")
+                comp.delete()
+                continue
+
             pin = new_pins[colonel.id][comp.config['close_pin_no']]
             comp.config['close_pin'] = pin.pk
             pin.occupied_by = comp
@@ -88,15 +124,18 @@ def forwards_func(apps, schema_editor):
         if 'controlls' in comp.config:
             for control in comp.config['controlls']:
                 control['pin_no'] = control.pop('pin')
+
+                if control['pin_no'] not in new_pins[colonel.id]:
+                    print("BAD COMPONENT CONFIG!")
+                    comp.delete()
+                    continue
+
                 pin = new_pins[colonel.id][control['pin_no']]
                 control['pin'] = pin.pk
                 pin.occupied_by = comp
                 pin.save()
 
         comp.save()
-
-
-
 
 
 def reverse_func(apps, schema_editor):
