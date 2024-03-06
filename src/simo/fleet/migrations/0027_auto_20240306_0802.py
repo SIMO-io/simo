@@ -39,6 +39,8 @@ def forwards_func(apps, schema_editor):
             i2c.sda_pin = sda_pin
             i2c.sda_pin.save()
 
+    print("NEW pins: ", new_pins)
+
     for comp in Component.objects.filter(
         controller_uid__startswith='simo.fleet.'
     ):
