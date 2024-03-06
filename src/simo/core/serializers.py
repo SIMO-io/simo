@@ -125,6 +125,7 @@ class ComponentFormsetField(FormSerializer):
             try:
                 serializer_field_class = field_mapping[cls]
             except KeyError:
+                print(f"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! KEY ERROR FOR: {cls}")
                 cls = form_field.field.__class__.__bases__[0]
                 try:
                     serializer_field_class = field_mapping[cls]
@@ -210,12 +211,12 @@ class ComponentSerializer(FormSerializer):
         form = ComponentAdminForm
         exclude = ('instance_methods', )
         field_mapping = {
-            forms.ModelChoiceField: ComponentPrimaryKeyRelatedField,
-            forms.ModelMultipleChoiceField: ComponentManyToManyRelatedField,
             forms.TypedChoiceField: serializers.ChoiceField,
             forms.FloatField: serializers.FloatField,
+            forms.SlugField: serializers.CharField,
+            forms.ModelChoiceField: ComponentPrimaryKeyRelatedField,
+            forms.ModelMultipleChoiceField: ComponentManyToManyRelatedField,
             FormsetField: ComponentFormsetField,
-            forms.SlugField: serializers.CharField
         }
 
     def get_fields(self):
