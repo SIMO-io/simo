@@ -337,7 +337,11 @@ class I2CInterface(models.Model):
 @receiver(post_save, sender=I2CInterface)
 def post_i2c_interface_delete(sender, instance, *args, **kwargs):
     with transaction.atomic():
-        for pin in ColonelPin.objects.filter(occupied_by=instance):
+        ct = ContentType.objects.get_for_model(instance)
+        for pin in ColonelPin.objects.filter(
+            occupied_by_content_type=ct,
+            occupied_by_id=instance.id
+        ):
             pin.occupied_by_content_type = None
             pin.occupied_by_content_id = None
             pin.save()
