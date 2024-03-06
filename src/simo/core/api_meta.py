@@ -74,7 +74,7 @@ class SIMOAPIMetadata(SimpleMetadata):
         if not field_info.get('read_only') and hasattr(field, 'choices'):
             add_choices = True
             queryset = getattr(field, 'queryset', None)
-            if queryset and queryset.count() > 250:
+            if queryset and queryset.count() > 1000:
                 add_choices = False
             if add_choices:
                 field_info['choices'] = [
