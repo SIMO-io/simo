@@ -56,18 +56,11 @@ GPIO_PINS = {'generic': {}, '4-relays': {}, 'ample-wall': {}}
 for no, data in BASE_ESP32_GPIO_PINS.items():
     GPIO_PINS['generic'][no] = GPIO_PIN_DEFAULTS.copy()
 
-#wESP32 & ample-wall
+# ample-wall
 for no, data in BASE_ESP32_GPIO_PINS.items():
-    if no in (16, 17, 19, 21, 22, 23, 25, 26, 27):
-        # occupied by LAN
-        continue
-
-    if no == 2:
-        # onboard LED
-        continue
-
-    GPIO_PINS['ample-wall'][no] = GPIO_PIN_DEFAULTS.copy()
-    GPIO_PINS['ample-wall'][no].update(data)
+    if no in (4, 12, 13, 14, 15, 23, 32, 33, 34, 36, 39):
+        GPIO_PINS['ample-wall'][no] = GPIO_PIN_DEFAULTS.copy()
+        GPIO_PINS['ample-wall'][no].update(data)
 
 
 for no in range(101, 126):
