@@ -14,6 +14,13 @@ from simo.core.utils.validators import validate_slaves
 from .models import Colonel, ColonelPin, I2CInterface, i2c_interface_no_choices
 
 
+class ColonelPinChoiceField(forms.ModelChoiceField):
+    '''
+    Required for API, so that SIMO app could properly handle
+    fleet components configuration.
+    '''
+    filter_by = 'colonel'
+
 
 class ColonelAdminForm(forms.ModelForm):
     log = forms.CharField(
@@ -45,7 +52,7 @@ class MoveColonelForm(forms.Form):
 
 
 class I2CInterfaceAdminForm(forms.ModelForm):
-    scl_pin = forms.ModelChoiceField(
+    scl_pin = ColonelPinChoiceField(
         queryset=ColonelPin.objects.filter(output=True, native=True),
         widget=autocomplete.ListSelect2(
             url='autocomplete-colonel-pins',
@@ -56,7 +63,7 @@ class I2CInterfaceAdminForm(forms.ModelForm):
             ]
         )
     )
-    sda_pin = forms.ModelChoiceField(
+    sda_pin = ColonelPinChoiceField(
         queryset=ColonelPin.objects.filter(output=True, native=True),
         widget=autocomplete.ListSelect2(
             url='autocomplete-colonel-pins',
@@ -153,7 +160,7 @@ class ColonelComponentForm(BaseComponentForm):
 
 
 class ControlPinForm(forms.Form):
-    pin = forms.ModelChoiceField(
+    pin = ColonelPinChoiceField(
         queryset=ColonelPin.objects.filter(input=True),
         widget=autocomplete.ListSelect2(
             url='autocomplete-colonel-pins',
@@ -185,7 +192,7 @@ class ControlPinForm(forms.Form):
 
 
 class ColonelBinarySensorConfigForm(ColonelComponentForm):
-    pin = forms.ModelChoiceField(
+    pin = ColonelPinChoiceField(
         queryset=ColonelPin.objects.filter(input=True),
         widget=autocomplete.ListSelect2(
             url='autocomplete-colonel-pins',
@@ -265,7 +272,7 @@ class ColonelBinarySensorConfigForm(ColonelComponentForm):
 
 
 class ColonelNumericSensorConfigForm(ColonelComponentForm, NumericSensorForm):
-    pin = forms.ModelChoiceField(
+    pin = ColonelPinChoiceField(
         queryset=ColonelPin.objects.filter(adc=True, input=True, native=True),
         widget=autocomplete.ListSelect2(
             url='autocomplete-colonel-pins',
@@ -316,7 +323,7 @@ class ColonelNumericSensorConfigForm(ColonelComponentForm, NumericSensorForm):
 
 
 class DS18B20SensorConfigForm(ColonelComponentForm):
-    pin = forms.ModelChoiceField(
+    pin = ColonelPinChoiceField(
         queryset=ColonelPin.objects.filter(input=True, native=True),
         widget=autocomplete.ListSelect2(
             url='autocomplete-colonel-pins',
@@ -354,7 +361,7 @@ class DS18B20SensorConfigForm(ColonelComponentForm):
 
 
 class ColonelDHTSensorConfigForm(ColonelComponentForm):
-    pin = forms.ModelChoiceField(
+    pin = ColonelPinChoiceField(
         queryset=ColonelPin.objects.filter(input=True, native=True),
         widget=autocomplete.ListSelect2(
             url='autocomplete-colonel-pins',
@@ -421,7 +428,7 @@ class BME680SensorConfigForm(ColonelComponentForm):
 
 
 class ColonelTouchSensorConfigForm(ColonelComponentForm):
-    pin = forms.ModelChoiceField(
+    pin = ColonelPinChoiceField(
         queryset=ColonelPin.objects.filter(input=True, capacitive=True),
         widget=autocomplete.ListSelect2(
             url='autocomplete-colonel-pins',
@@ -459,7 +466,7 @@ class ColonelTouchSensorConfigForm(ColonelComponentForm):
 
 
 class ColonelSwitchConfigForm(ColonelComponentForm):
-    output_pin = forms.ModelChoiceField(
+    output_pin = ColonelPinChoiceField(
         queryset=ColonelPin.objects.filter(output=True),
         widget=autocomplete.ListSelect2(
             url='autocomplete-colonel-pins',
@@ -531,7 +538,7 @@ class ColonelSwitchConfigForm(ColonelComponentForm):
 
 
 class ColonelPWMOutputConfigForm(ColonelComponentForm):
-    output_pin = forms.ModelChoiceField(
+    output_pin = ColonelPinChoiceField(
         queryset=ColonelPin.objects.filter(output=True),
         widget=autocomplete.ListSelect2(
             url='autocomplete-colonel-pins',
@@ -629,7 +636,7 @@ class ColonelPWMOutputConfigForm(ColonelComponentForm):
 
 
 class ColonelRGBLightConfigForm(ColonelComponentForm):
-    output_pin = forms.ModelChoiceField(
+    output_pin = ColonelPinChoiceField(
         queryset=ColonelPin.objects.filter(output=True, native=True),
         widget=autocomplete.ListSelect2(
             url='autocomplete-colonel-pins',
@@ -686,7 +693,7 @@ class ColonelRGBLightConfigForm(ColonelComponentForm):
 
 
 class DualMotorValveForm(ColonelComponentForm):
-    open_pin = forms.ModelChoiceField(
+    open_pin = ColonelPinChoiceField(
         queryset=ColonelPin.objects.filter(output=True),
         widget=autocomplete.ListSelect2(
             url='autocomplete-colonel-pins',
@@ -704,7 +711,7 @@ class DualMotorValveForm(ColonelComponentForm):
         required=True, min_value=0.01, max_value=1000000000,
         help_text="Time in seconds to open."
     )
-    close_pin = forms.ModelChoiceField(
+    close_pin = ColonelPinChoiceField(
         queryset=ColonelPin.objects.filter(output=True),
         widget=autocomplete.ListSelect2(
             url='autocomplete-colonel-pins',
@@ -745,7 +752,7 @@ class DualMotorValveForm(ColonelComponentForm):
 
 
 class BlindsConfigForm(ColonelComponentForm):
-    open_pin = forms.ModelChoiceField(
+    open_pin = ColonelPinChoiceField(
         queryset=ColonelPin.objects.filter(output=True),
         widget=autocomplete.ListSelect2(
             url='autocomplete-colonel-pins',
@@ -759,7 +766,7 @@ class BlindsConfigForm(ColonelComponentForm):
     open_action = forms.ChoiceField(
         choices=(('HIGH', "HIGH"), ('LOW', "LOW")),
     )
-    close_pin = forms.ModelChoiceField(
+    close_pin = ColonelPinChoiceField(
         queryset=ColonelPin.objects.filter(output=True),
         widget=autocomplete.ListSelect2(
             url='autocomplete-colonel-pins',
@@ -856,7 +863,7 @@ class BlindsConfigForm(ColonelComponentForm):
 
 
 class BurglarSmokeDetectorConfigForm(ColonelComponentForm):
-    power_pin = forms.ModelChoiceField(
+    power_pin = ColonelPinChoiceField(
         queryset=ColonelPin.objects.filter(output=True),
         widget=autocomplete.ListSelect2(
             url='autocomplete-colonel-pins',
@@ -870,7 +877,7 @@ class BurglarSmokeDetectorConfigForm(ColonelComponentForm):
     power_action = forms.ChoiceField(
         choices=(('HIGH', "HIGH"), ('LOW', "LOW")),
     )
-    sensor_pin = forms.ModelChoiceField(
+    sensor_pin = ColonelPinChoiceField(
         queryset=ColonelPin.objects.filter(input=True),
         widget=autocomplete.ListSelect2(
             url='autocomplete-colonel-pins',
@@ -938,7 +945,6 @@ class BurglarSmokeDetectorConfigForm(ColonelComponentForm):
                 )
 
         return self.cleaned_data
-
 
     def save(self, commit=True):
         self.instance.config['sensor_pin_no'] = not self.cleaned_data['sensor_pin_pin']

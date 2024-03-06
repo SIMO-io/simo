@@ -44,6 +44,16 @@ class SIMOAPIMetadata(SimpleMetadata):
         field_info['type'] = self.label_lookup[field]
         field_info['required'] = getattr(field, 'required', False)
 
+        form_field = field.style.get('form_field')
+        if form_field:
+            if hasattr(form_field, 'queryset'):
+                model = form_field.queryset.model
+                field_info['related_object'] = ".".join(
+                    [model.__module__, model.__name__]
+                )
+            if hasattr(form_field, 'filter_by'):
+                field_info['filter_by'] = form_field.filter_by
+
         attrs = [
             'read_only', 'label', 'help_text',
             'min_length', 'max_length',

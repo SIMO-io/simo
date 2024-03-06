@@ -224,6 +224,7 @@ class ComponentSerializer(FormSerializer):
 
     def _get_field_kwargs(self, form_field, serializer_field_class):
         kwargs = super()._get_field_kwargs(form_field, serializer_field_class)
+        kwargs['style'] = {'form_field': form_field}
         if serializer_field_class == ComponentPrimaryKeyRelatedField:
             kwargs['queryset'] = form_field.queryset
         elif serializer_field_class == ComponentManyToManyRelatedField:
