@@ -1,5 +1,5 @@
-import os
-from django.http import FileResponse, HttpResponse, Http404
+from django.contrib.contenttypes.models import ContentType
+from django.http import HttpResponse, Http404
 from django.db.models import Q
 from dal import autocomplete
 from simo.core.utils.helpers import search_queryset
@@ -26,8 +26,12 @@ class PinsSelectAutocomplete(autocomplete.Select2QuerySetView):
         qs = ColonelPin.objects.filter(colonel=colonel)
 
         if self.forwarded.get('self'):
+            ct = ContentType.objects.get_for_model(self.forwarded['self'])
             qs = qs.filter(
-                Q(occupied_by_id=None) | Q(occupied_by=self.forwarded['self'])
+                Q(occupied_by_id=None) | Q(
+                    occupied_by_content_type=ct,
+                    occupied_by_id=self.forwarded['self'].id
+                )
             )
         else:
             qs = qs.filter(occupied_by_id=None)
