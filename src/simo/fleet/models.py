@@ -53,6 +53,7 @@ class Colonel(DirtyFieldsMixin, models.Model):
     type = models.CharField(
         max_length=20, default='ample-wall',
         choices=(
+            ('4-relays', "4 Relay"),
             ('ample-wall', "Ample Wall"),
         )
     )
@@ -261,7 +262,7 @@ class ColonelPin(models.Model):
 
 
 @receiver(post_save, sender=Colonel)
-def create_pins(sender, instance, created, *args, **kwargs):
+def create_interfaces(sender, instance, created, *args, **kwargs):
     if not created:
         return
     for no, data in GPIO_PINS.get(instance.type).items():
@@ -270,6 +271,12 @@ def create_pins(sender, instance, created, *args, **kwargs):
             input=data.get('input'), output=data.get('output'),
             capacitive=data.get('capacitive'), adc=data.get('adc'),
             native=data.get('native'), note=data.get('note')
+        )
+    if instance.type in ('ample-wall', ):
+        I2CInterface.objects.create(
+            colonel=instance, name='Main', no=0,
+            scl_pin=ColonelPin.objects.get(colonel=instance, no=4),
+            sda_pin=ColonelPin.objects.get(colonel=instance, no=15),
         )
 
 
