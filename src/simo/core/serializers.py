@@ -100,63 +100,7 @@ class ComponentFormsetField(FormSerializer):
         super().__init__(*args, **kwargs)
 
 
-    # def get_fields(self):
-    #     ret = super(FormSerializerBase, self).get_fields()
-    #
-    #     field_mapping = reduce_attr_dict_from_instance(
-    #         self,
-    #         lambda i: getattr(getattr(i, 'Meta', None), 'field_mapping', {}),
-    #         FORM_SERIALIZER_FIELD_MAPPING
-    #     )
-    #
-    #     # Iterate over the form fields, creating an
-    #     # instance of serializer field for each.
-    #     form = self.Meta.form
-    #     for field_name, form_field in getattr(form, 'all_base_fields', form.base_fields).items():
-    #         # if field is specified as excluded field
-    #         if field_name in getattr(self.Meta, 'exclude', []):
-    #             continue
-    #
-    #         # if field is already defined via declared fields
-    #         # skip mapping it from forms which then honors
-    #         # the custom validation defined on the DRF declared field
-    #         if field_name in ret:
-    #             continue
-    #
-    #         cls = form_field.field.__class__
-    #         try:
-    #             serializer_field_class = field_mapping[cls]
-    #         except KeyError:
-    #             cls = form_field.field.__class__.__bases__[0]
-    #             try:
-    #                 serializer_field_class = field_mapping[cls]
-    #             except KeyError:
-    #                 raise TypeError(
-    #                     "{field} is not mapped to a serializer field. "
-    #                     "Please add {field} to {serializer}.Meta.field_mapping. "
-    #                     "Currently mapped fields: {mapped}".format(
-    #                         field=form_field.field.__class__.__name__,
-    #                         serializer=self.__class__.__name__,
-    #                         mapped=', '.join(sorted(
-    #                             [i.__name__ for i in field_mapping.keys()]))
-    #                     )
-    #                 )
-    #
-    #         ret[field_name] = self._get_field(
-    #             form_field.field, serializer_field_class
-    #         )
-    #         ret[field_name].initial = form_field.initial
-    #         ret[field_name].default = form_field.initial
-    #
-    #     return ret
-
-
     def get_fields(self):
-        """
-        Return all the fields that should be serialized for the form.
-        This is a hook provided by parent class.
-        :return: dict of {'field_name': serializer_field_instance}
-        """
         ret = super(FormSerializerBase, self).get_fields()
 
         field_mapping = reduce_attr_dict_from_instance(
@@ -165,8 +109,6 @@ class ComponentFormsetField(FormSerializer):
             FORM_SERIALIZER_FIELD_MAPPING
         )
 
-        # Iterate over the form fields, creating an
-        # instance of serializer field for each.
         form = self.Meta.form
         for field_name, form_field in getattr(form, 'all_base_fields', form.base_fields).items():
             # if field is specified as excluded field
@@ -179,20 +121,25 @@ class ComponentFormsetField(FormSerializer):
             if field_name in ret:
                 continue
 
+            cls = form_field.field.__class__
             try:
-                serializer_field_class = field_mapping[form_field.__class__]
+                serializer_field_class = field_mapping[cls]
             except KeyError:
-                raise TypeError(
-                    "{field} is not mapped to a serializer field. "
-                    "Please add {field} to {serializer}.Meta.field_mapping. "
-                    "Currently mapped fields: {mapped}".format(
-                        field=form_field.__class__.__name__,
-                        serializer=self.__class__.__name__,
-                        mapped=', '.join(sorted([i.__name__ for i in field_mapping.keys()]))
+                cls = form_field.field.__class__.__bases__[0]
+                try:
+                    serializer_field_class = field_mapping[cls]
+                except KeyError:
+                    raise TypeError(
+                        "{field} is not mapped to a serializer field. "
+                        "Please add {field} to {serializer}.Meta.field_mapping. "
+                        "Currently mapped fields: {mapped}".format(
+                            field=form_field.__class__.__name__,
+                            serializer=self.__class__.__name__,
+                            mapped=', '.join(sorted([i.__name__ for i in field_mapping.keys()]))
+                        )
                     )
-                )
-            else:
-                ret[field_name] = self._get_field(form_field, serializer_field_class)
+
+            ret[field_name] = self._get_field(form_field, serializer_field_class)
 
         return ret
 
