@@ -165,7 +165,8 @@ class Colonel(DirtyFieldsMixin, models.Model):
     def rebuild_occupied_pins(self):
         for pin in ColonelPin.objects.filter(colonel=self):
             if isinstance(pin.occupied_by, Component):
-                pin.occupied_by = None
+                pin.occupied_by_content_type = None
+                pin.occupied_by_id = None
                 pin.save()
 
         for component in self.components.all():
@@ -337,7 +338,8 @@ class I2CInterface(models.Model):
 def post_i2c_interface_delete(sender, instance, *args, **kwargs):
     with transaction.atomic():
         for pin in ColonelPin.objects.filter(occupied_by=instance):
-            pin.occupied_by = None
+            pin.occupied_by_content_type = None
+            pin.occupied_by_content_id = None
             pin.save()
         instance.scl_pin.occupied_by = instance
         instance.scl_pin.save()
