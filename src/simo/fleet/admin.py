@@ -17,7 +17,7 @@ class I2CInterfaceInline(admin.TabularInline):
 class ColonelPinsInline(admin.TabularInline):
     model = ColonelPin
     extra = 0
-    fields = '__str__', 'occupied_by_display'
+    fields = 'label', 'occupied_by_display'
     readonly_fields = fields
 
     def occupied_by_display(self, obj):
@@ -27,9 +27,10 @@ class ColonelPinsInline(admin.TabularInline):
             admin_url = obj.occupied_by.get_admin_url()
         except:
             admin_url = None
+        txt = f'{obj.occupied_by_content_type}: {obj.occupied_by}'
         if admin_url:
-            return mark_safe(f'<a href="{admin_url}">{obj.occupied_by}</a>')
-        return str(obj.occupied_by)
+            return mark_safe(f'<a href="{admin_url}">{txt}</a>')
+        return txt
 
     occupied_by_display.short_description = "Occupied By"
 
