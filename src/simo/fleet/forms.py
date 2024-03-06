@@ -57,7 +57,7 @@ class I2CInterfaceAdminForm(forms.ModelForm):
         )
     )
     sda_pin = forms.ModelChoiceField(
-        queryset=ColonelPin.objects.filter(output=True, occuped_by=None),
+        queryset=ColonelPin.objects.filter(output=True, native=True),
         widget=autocomplete.ListSelect2(
             url='autocomplete-colonel-pins',
             forward=[
