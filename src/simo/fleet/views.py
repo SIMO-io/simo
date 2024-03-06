@@ -26,7 +26,6 @@ class PinsSelectAutocomplete(autocomplete.Select2QuerySetView):
         qs = ColonelPin.objects.filter(colonel=colonel)
 
         if self.forwarded.get('self'):
-            ct = ContentType.objects.get_for_model(self.forwarded['self'])
             qs = qs.filter(
                 Q(occupied_by_id=None) | Q(
                     id=int(self.forwarded['self'])
