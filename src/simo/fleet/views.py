@@ -2,6 +2,7 @@ import os
 from django.http import FileResponse, HttpResponse, Http404
 from django.db.models import Q
 from dal import autocomplete
+from simo.core.utils.helpers import search_queryset
 from .models import Colonel, ColonelPin, I2CInterface
 
 
@@ -26,13 +27,16 @@ class PinsSelectAutocomplete(autocomplete.Select2QuerySetView):
 
         if self.forwarded.get('self'):
             qs = qs.filter(
-                Q(occupied_by=None) | Q(occupied_by=self.forwarded['self'])
+                Q(occupied_by_id=None) | Q(occupied_by=self.forwarded['self'])
             )
         else:
-            qs = qs.filter(occupied_by=None)
+            qs = qs.filter(occupied_by_id=None)
 
         if self.forwarded.get('filters'):
             qs = qs.filter(**self.forwarded.get('filters'))
+
+        if self.q:
+            qs = search_queryset(qs, self.q, ('label', ))
 
         return qs
 

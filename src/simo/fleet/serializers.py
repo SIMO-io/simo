@@ -14,7 +14,6 @@ class InstanceOptionsSerializer(serializers.ModelSerializer):
 
 
 class ColonelPinSerializer(serializers.ModelSerializer):
-    label = serializers.SerializerMethodField()
     occupied = serializers.SerializerMethodField()
 
     class Meta:
@@ -24,9 +23,6 @@ class ColonelPinSerializer(serializers.ModelSerializer):
 
     def get_occupied(self, obj):
         return bool(obj.occupied_by)
-
-    def ge_label(self, obj):
-        return str(obj)
 
 
 class ColonelSerializer(serializers.ModelSerializer):

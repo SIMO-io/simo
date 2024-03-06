@@ -60,7 +60,8 @@ class ColonelAdmin(admin.ModelAdmin):
 
     actions = (
         'check_for_upgrade', 'update_firmware', 'update_config', 'restart',
-        FormAction(MoveColonelForm, 'move_colonel_to', "Move to other Colonel")
+        FormAction(MoveColonelForm, 'move_colonel_to', "Move to other Colonel"),
+        'rebuild_occupied_pins'
     )
 
     inlines = I2CInterfaceInline, ColonelPinsInline

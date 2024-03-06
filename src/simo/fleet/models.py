@@ -217,6 +217,7 @@ class ColonelPin(models.Model):
         Colonel, related_name='pins', on_delete=models.CASCADE
     )
     no = models.PositiveIntegerField()
+    label = models.CharField(db_index=True, max_length=200)
     input = models.BooleanField(default=False, db_index=True)
     output = models.BooleanField(default=False, db_index=True)
     capacitive = models.BooleanField(default=False, db_index=True)
@@ -242,15 +243,21 @@ class ColonelPin(models.Model):
                 fields=["occupied_by_content_type", "occupied_by_id"]
             ),
         ]
-
     def __str__(self):
+        if not self.label:
+            # Might be created via migration...
+            self.save()
+        return self.label
+
+    def save(self, *args, **kwargs):
         if self.native:
-            name = f'GPIO{self.no}'
+            self.label = f'GPIO{self.no}'
         else:
-            name = f'IO{self.no}'
+            no = self.no - 100
+            self.label = f'IO{no}'
         if self.note:
-            name += ' | %s' % self.note
-        return name
+            self.label += ' | %s' % self.note
+        return super().save(*args, **kwargs)
 
 
 @receiver(post_save, sender=Colonel)
