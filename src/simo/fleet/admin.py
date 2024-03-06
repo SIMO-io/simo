@@ -4,7 +4,7 @@ from django.template.loader import render_to_string
 from django.templatetags.static import static
 from simo.core.models import Component
 from simo.core.utils.admin import FormAction
-from .models import Colonel, I2CInterface
+from .models import Colonel, I2CInterface, ColonelPin
 from .forms import ColonelAdminForm, MoveColonelForm, I2CInterfaceAdminForm
 
 
@@ -12,6 +12,35 @@ class I2CInterfaceInline(admin.TabularInline):
     model = I2CInterface
     extra = 0
     form = I2CInterfaceAdminForm
+
+
+class ColonelPinsInline(admin.TabularInline):
+    model = ColonelPin
+    extra = 0
+    fields = '__str__', 'occupied_by_display'
+    readonly_fields = fields
+
+    def occupied_by_display(self, obj):
+        if not obj.occupied_by:
+            return
+        try:
+            admin_url = obj.occupied_by.get_admin_url()
+        except:
+            admin_url = None
+        if admin_url:
+            return mark_safe(f'<a href="{admin_url}">{obj.occupied_by}</a>')
+        return str(obj.occupied_by)
+
+    occupied_by_display.short_description = "Occupied By"
+
+    def has_add_permission(self, request, obj):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
 
 
 @admin.register(Colonel)
@@ -23,10 +52,8 @@ class ColonelAdmin(admin.ModelAdmin):
     )
     readonly_fields = (
         'type', 'uid', 'connected', 'last_seen',
-        'firmware_version', 'newer_firmware_available', 'occupied_pins',
-        'components_display',
+        'firmware_version', 'newer_firmware_available',
     )
-    # inlines = ColonelComponentInline, ColonelBLEDeviceInline
     fields = (
         'name', 'instance', 'enabled', 'firmware_auto_update'
     ) + readonly_fields + ('pwm_frequency', 'logs_stream', 'log', )
@@ -36,27 +63,13 @@ class ColonelAdmin(admin.ModelAdmin):
         FormAction(MoveColonelForm, 'move_colonel_to', "Move to other Colonel")
     )
 
-    inlines = I2CInterfaceInline,
+    inlines = I2CInterfaceInline, ColonelPinsInline
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
         if request.user.is_master:
             return qs
         return qs.filter(instance__in=request.user.instances)
-
-
-    def components_display(self, obj=None):
-        resp = ''
-        for pin_no, item in obj.occupied_pins.items():
-            try:
-                component = Component.objects.get(pk=item)
-            except:
-                continue
-            resp += '<a href="%s" target=_blank>%s</a><br>' % (
-                component.get_admin_url(), str(component)
-            )
-        return mark_safe(resp)
-    components_display.short_description = 'Components'
 
     def has_add_permission(self, request):
         return False
@@ -96,7 +109,6 @@ class ColonelAdmin(admin.ModelAdmin):
                 request, "%d colonels were moved." % moved
             )
 
-
     def restart(self, request, queryset):
         restarted = 0
         for colonel in queryset:
@@ -126,6 +138,16 @@ class ColonelAdmin(admin.ModelAdmin):
             colonel.check_for_upgrade()
         self.message_user(
             request, "%d colonels checked." % queryset.count()
+        )
+
+    def rebuild_occupied_pins(self, request, queryset):
+        affected = 0
+        for obj in queryset:
+            affected += 1
+            obj.rebuild_occupied_pins()
+
+        self.message_user(
+            request, f"Occupied pins where rebuilt on {affected} colonels."
         )
 
     def connected(self, obj):

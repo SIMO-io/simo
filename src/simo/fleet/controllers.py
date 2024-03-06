@@ -55,7 +55,7 @@ class BasicSensorMixin:
     gateway_class = FleetGatewayHandler
 
     def _get_occupied_pins(self):
-        return [self.component.config['pin']]
+        return [self.component.config['pin_no']]
 
 
 class BinarySensor(FleeDeviceMixin, BasicSensorMixin, BaseBinarySensor):
@@ -68,8 +68,8 @@ class BurglarSmokeDetector(BinarySensor):
 
     def _get_occupied_pins(self):
         return [
-            self.component.config['power_pin'],
-            self.component.config['sensor_pin']
+            self.component.config['power_pin_no'],
+            self.component.config['sensor_pin_no']
         ]
 
 
@@ -138,9 +138,9 @@ class BasicOutputMixin:
     gateway_class = FleetGatewayHandler
 
     def _get_occupied_pins(self):
-        pins = [self.component.config['output_pin']]
+        pins = [self.component.config['output_pin_no']]
         for control_unit in self.component.config.get('controls', []):
-            pins.append(control_unit['pin'])
+            pins.append(control_unit['pin_no'])
         return pins
 
     def _send_to_device(self, value):
@@ -219,8 +219,8 @@ class DualMotorValve(FleeDeviceMixin, BasicOutputMixin, BaseSwitch):
 
     def _get_occupied_pins(self):
         return [
-            self.component.config['open_pin'],
-            self.component.config['close_pin']
+            self.component.config['open_pin_no'],
+            self.component.config['close_pin_no']
         ]
 
 
@@ -230,8 +230,8 @@ class Blinds(FleeDeviceMixin, BasicOutputMixin, GenericBlinds):
 
     def _get_occupied_pins(self):
         pins = [
-            self.component.config['open_pin'],
-            self.component.config['close_pin']
+            self.component.config['open_pin_no'],
+            self.component.config['close_pin_no']
         ]
         for p in self.component.config.get('controls', []):
             pins.append(p['pin'])

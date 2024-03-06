@@ -1,32 +1,40 @@
 import os
 from django.http import FileResponse, HttpResponse, Http404
-from django.shortcuts import get_object_or_404
+from django.db.models import Q
 from dal import autocomplete
-from .models import Colonel, I2CInterface
-from .utils import get_gpio_pins_choices
+from .models import Colonel, ColonelPin, I2CInterface
 
 
 def colonels_ping(request):
     return HttpResponse('pong')
 
 
-class PinsSelectAutocomplete(autocomplete.Select2ListView):
+class PinsSelectAutocomplete(autocomplete.Select2QuerySetView):
 
-    def get_list(self):
+    def get_queryset(self):
         if not self.request.user.is_staff:
-            return []
+            return ColonelPin.objects.none()
 
         try:
-            esp_device = Colonel.objects.get(
+            colonel = Colonel.objects.get(
                 pk=self.forwarded.get("colonel")
             )
         except:
-            return []
+            return ColonelPin.objects.none()
 
-        return get_gpio_pins_choices(
-            esp_device, self.forwarded.get('filters'),
-            self.forwarded.get('self')
-        )
+        qs = ColonelPin.objects.filter(colonel=colonel)
+
+        if self.forwarded.get('self'):
+            qs = qs.filter(
+                Q(occupied_by=None) | Q(occupied_by=self.forwarded['self'])
+            )
+        else:
+            qs = qs.filter(occupied_by=None)
+
+        if self.forwarded.get('filters'):
+            qs = qs.filter(**self.forwarded.get('filters'))
+
+        return qs
 
 
 class I2CInterfaceSelectAutocomplete(autocomplete.Select2ListView):

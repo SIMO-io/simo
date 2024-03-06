@@ -11,8 +11,8 @@ from simo.core.utils.formsets import FormsetField
 from simo.core.widgets import LogOutputWidget
 from simo.core.utils.easing import EASING_CHOICES
 from simo.core.utils.validators import validate_slaves
-from .models import Colonel, I2CInterface, i2c_interface_no_choices
-from .utils import get_gpio_pins_choices, get_available_gpio_pins
+from .models import Colonel, ColonelPin, I2CInterface, i2c_interface_no_choices
+
 
 
 class ColonelAdminForm(forms.ModelForm):
@@ -45,25 +45,25 @@ class MoveColonelForm(forms.Form):
 
 
 class I2CInterfaceAdminForm(forms.ModelForm):
-    scl_pin = forms.TypedChoiceField(
-        coerce=int, choices=get_gpio_pins_choices,
+    scl_pin = forms.ModelChoiceField(
+        queryset=ColonelPin.objects.filter(output=True, native=True),
         widget=autocomplete.ListSelect2(
             url='autocomplete-colonel-pins',
             forward=[
                 forward.Self(),
                 forward.Field('colonel'),
-                forward.Const({'output': True}, 'filters')
+                forward.Const({'output': True, 'native': True}, 'filters')
             ]
         )
     )
-    sda_pin = forms.TypedChoiceField(
-        coerce=int, choices=get_gpio_pins_choices,
+    sda_pin = forms.ModelChoiceField(
+        queryset=ColonelPin.objects.filter(output=True, occuped_by=None),
         widget=autocomplete.ListSelect2(
             url='autocomplete-colonel-pins',
             forward=[
                 forward.Self(),
                 forward.Field('colonel'),
-                forward.Const({'output': True}, 'filters')
+                forward.Const({'output': True, 'native': True}, 'filters')
             ]
         )
     )
@@ -73,31 +73,21 @@ class I2CInterfaceAdminForm(forms.ModelForm):
         fields = '__all__'
 
     def clean_scl_pin(self):
-        initial = None
-        if self.instance.pk:
-            initial = self.instance.scl_pin
-        available_pins = get_available_gpio_pins(
-            self.cleaned_data['colonel'], filters={'output': True},
-            selected=initial
-        )
-        if self.cleaned_data['scl_pin'] not in available_pins:
-            raise forms.ValidationError("Pin is unavailable.")
+        if self.cleaned_data['scl_pin'].occupied_by \
+        and self.cleaned_data['scl_pin'].occupied_by  != self.instance:
+            raise forms.ValidationError(
+                f"This pin is already occupied by "
+                f"{self.cleaned_data['scl_pin'].occupied_by}!"
+            )
         return self.cleaned_data['scl_pin']
 
     def clean_sda_pin(self):
-        initial = None
-        if self.instance.pk:
-            initial = self.instance.sda_pin
-        available_pins = get_available_gpio_pins(
-            self.cleaned_data['colonel'], filters={'output': True},
-            selected=initial
-        )
-        if self.cleaned_data['sda_pin'] not in available_pins:
-            raise forms.ValidationError("Pin is unavailable.")
-
-        if self.cleaned_data.get('scl_pin') == self.cleaned_data['sda_pin']:
-            raise forms.ValidationError("Can not be the same as SCL pin!")
-
+        if self.cleaned_data['sda_pin'].occupied_by \
+                and self.cleaned_data['sda_pin'].occupied_by != self.instance:
+            raise forms.ValidationError(
+                f"This pin is already occupied by "
+                f"{self.cleaned_data['sda_pin'].occupied_by}!"
+            )
         return self.cleaned_data['sda_pin']
 
 
@@ -107,14 +97,50 @@ class ColonelComponentForm(BaseComponentForm):
         help_text="ATENTION! Changing Colonel after component creation is not recommended!"
     )
 
-    # def clean_colonel(self):
-    #     org = self.instance.config.get('colonel')
-    #     if org and org != self.cleaned_data['colonel'].id:
-    #         raise forms.ValidationError(
-    #             "Changing colonel after component is created "
-    #             "it is not allowed."
-    #         )
-    #     return self.cleaned_data['colonel']
+    def clean_colonel(self):
+        org = self.instance.config.get('colonel')
+        if org and org != self.cleaned_data['colonel'].id:
+            raise forms.ValidationError(
+                "Changing colonel after component is created "
+                "it is not allowed!"
+            )
+        return self.cleaned_data['colonel']
+
+    def _clean_pin(self, field_name):
+        if self.cleaned_data[field_name].colonel != self.cleaned_data['colonel']:
+            self.add_error(
+                field_name, "Pin must be from the same Colonel!"
+            )
+            return
+        if self.cleaned_data[field_name].occupied_by \
+        and self.cleaned_data[field_name].occupied_by != self.instance:
+            self.add_error(
+                field_name,
+                f"Pin is already occupied by {self.cleaned_data[field_name].occupied_by}!"
+            )
+
+    def _clean_controls(self):
+        # TODO: Formset factory should return proper field value types instead of str type
+        for i, control in enumerate(self.cleaned_data['controls']):
+            for key, val in control.items():
+                if key == 'pin':
+                    self.cleaned_data['controls'][i]['pin_no'] = \
+                        self.cleaned_data['controls'][i]['pin'].no
+                elif key == 'touch_threshold':
+                    self.cleaned_data['controls'][i][key] = int(val)
+
+        for i, control in enumerate(self.cleaned_data['controls']):
+            if control['pin'].colonel != self.cleaned_data['colonel']:
+                self.add_error(
+                    'controls',
+                    f"{control['pin']} must be from the same Colonel!"
+                )
+            if control['pin'].occupied_by \
+                    and control['pin'].occupied_by != self.instance:
+                self.add_error(
+                    'controls',
+                    f"{control['pin']} is already occupied by {control['pin'].occupied_by}!"
+                )
 
     def save(self, commit=True):
         obj = super().save(commit)
@@ -127,9 +153,8 @@ class ColonelComponentForm(BaseComponentForm):
 
 
 class ControlPinForm(forms.Form):
-    pin = forms.TypedChoiceField(
-        coerce=int, required=True, choices=get_gpio_pins_choices,
-        help_text="Use this if you also want to wire up a wall switch",
+    pin = forms.ModelChoiceField(
+        queryset=ColonelPin.objects.filter(input=True),
         widget=autocomplete.ListSelect2(
             url='autocomplete-colonel-pins',
             forward=[
@@ -160,8 +185,8 @@ class ControlPinForm(forms.Form):
 
 
 class ColonelBinarySensorConfigForm(ColonelComponentForm):
-    pin = forms.TypedChoiceField(
-        coerce=int, choices=get_gpio_pins_choices,
+    pin = forms.ModelChoiceField(
+        queryset=ColonelPin.objects.filter(input=True),
         widget=autocomplete.ListSelect2(
             url='autocomplete-colonel-pins',
             forward=[
@@ -199,22 +224,10 @@ class ColonelBinarySensorConfigForm(ColonelComponentForm):
             return self.cleaned_data
         if 'pin' not in self.cleaned_data:
             return self.cleaned_data
-        if self.instance.pk:
-            selected = self.instance.config.get('pin')
-        else:
-            selected = None
-        input_pins = get_available_gpio_pins(
-            self.cleaned_data['colonel'], filters={'input': True},
-            selected=selected
-        )
-        if self.cleaned_data['pin'] not in input_pins:
-            self.add_error(
-                'pin',
-                "Sorry, but GPIO%d pin can not be used as input pin "
-                % self.cleaned_data['pin']
-            )
-            return
-        if self.cleaned_data['pin'] > 100:
+
+        self._clean_pin('pin')
+
+        if self.cleaned_data['pin'].no > 100:
             if self.cleaned_data['pin'] < 126:
                 if self.cleaned_data.get('pull') == 'HIGH':
                     self.add_error(
@@ -235,30 +248,33 @@ class ColonelBinarySensorConfigForm(ColonelComponentForm):
                     )
 
         elif self.cleaned_data.get('pull') != 'FLOATING':
-            pins_available_for_pull = get_available_gpio_pins(
-                self.cleaned_data['colonel'], filters={'output': True},
-                selected=selected
-            )
-            if self.cleaned_data['pin'] not in pins_available_for_pull:
+            if not self.cleaned_data['pin'].output:
                 self.add_error(
                     'pin',
-                    "Sorry, but GPIO%d pin does not have internal pull HIGH/LOW"
-                    " resistance capability" % self.cleaned_data['pin']
+                    f"Sorry, but {self.cleaned_data['pin']} "
+                    f"does not have internal pull HIGH/LOW"
+                    " resistance capability"
                 )
-                return
 
         return self.cleaned_data
 
 
+    def save(self, commit=True):
+        self.instance.config['pin_no'] = not self.cleaned_data['pin']
+        return super().save(commit=commit)
+
+
 class ColonelNumericSensorConfigForm(ColonelComponentForm, NumericSensorForm):
-    pin = forms.TypedChoiceField(
-        coerce=int, choices=get_gpio_pins_choices,
+    pin = forms.ModelChoiceField(
+        queryset=ColonelPin.objects.filter(adc=True, input=True, native=True),
         widget=autocomplete.ListSelect2(
             url='autocomplete-colonel-pins',
             forward=[
                 forward.Self(),
                 forward.Field('colonel'),
-                forward.Const({'adc': True}, 'filters')
+                forward.Const(
+                    {'adc': True, 'native': True, 'input': True}, 'filters'
+                )
             ]
         )
     )
@@ -288,33 +304,28 @@ class ColonelNumericSensorConfigForm(ColonelComponentForm, NumericSensorForm):
             return self.cleaned_data
         if 'pin' not in self.cleaned_data:
             return self.cleaned_data
-        if self.instance.pk:
-            selected = self.instance.config.get('pin')
-        else:
-            selected = None
-        input_pins = get_available_gpio_pins(
-            self.cleaned_data['colonel'], filters={'adc': True},
-            selected=selected
-        )
-        if self.cleaned_data['pin'] not in input_pins:
-            self.add_error(
-                'pin',
-                "Sorry, but GPIO%d pin can not be used as ADC input pin "
-                % self.cleaned_data['pin']
-            )
-            return
+
+        self._clean_pin('pin')
+
         return self.cleaned_data
 
 
+    def save(self, commit=True):
+        self.instance.config['pin_no'] = not self.cleaned_data['pin']
+        return super().save(commit=commit)
+
+
 class DS18B20SensorConfigForm(ColonelComponentForm):
-    pin = forms.TypedChoiceField(
-        coerce=int, choices=get_gpio_pins_choices,
+    pin = forms.ModelChoiceField(
+        queryset=ColonelPin.objects.filter(input=True, native=True),
         widget=autocomplete.ListSelect2(
             url='autocomplete-colonel-pins',
             forward=[
                 forward.Self(),
                 forward.Field('colonel'),
-                forward.Const({'input': True, 'native': True}, 'filters')
+                forward.Const(
+                    {'native': True, 'input': True}, 'filters'
+                )
             ]
         )
     )
@@ -331,33 +342,28 @@ class DS18B20SensorConfigForm(ColonelComponentForm):
             return self.cleaned_data
         if 'pin' not in self.cleaned_data:
             return self.cleaned_data
-        if self.instance.pk:
-            selected = self.instance.config.get('pin')
-        else:
-            selected = None
-        input_pins = get_available_gpio_pins(
-            self.cleaned_data['colonel'], filters={'adc': True},
-            selected=selected
-        )
-        if self.cleaned_data['pin'] not in input_pins:
-            self.add_error(
-                'pin',
-                "Sorry, but GPIO%d pin can not be used"
-                % self.cleaned_data['pin']
-            )
-            return
+
+        self._clean_pin('pin')
+
         return self.cleaned_data
+
+    def save(self, commit=True):
+        self.instance.config['pin_no'] = not self.cleaned_data['pin']
+        return super().save(commit=commit)
+
 
 
 class ColonelDHTSensorConfigForm(ColonelComponentForm):
-    pin = forms.TypedChoiceField(
-        coerce=int, choices=get_gpio_pins_choices,
+    pin = forms.ModelChoiceField(
+        queryset=ColonelPin.objects.filter(input=True, native=True),
         widget=autocomplete.ListSelect2(
             url='autocomplete-colonel-pins',
             forward=[
                 forward.Self(),
                 forward.Field('colonel'),
-                forward.Const({'input': True, 'native': True}, 'filters')
+                forward.Const(
+                    {'native': True, 'input': True}, 'filters'
+                )
             ]
         )
     )
@@ -382,22 +388,14 @@ class ColonelDHTSensorConfigForm(ColonelComponentForm):
             return self.cleaned_data
         if 'pin' not in self.cleaned_data:
             return self.cleaned_data
-        if self.instance.pk:
-            selected = self.instance.config.get('pin')
-        else:
-            selected = None
-        input_pins = get_available_gpio_pins(
-            self.cleaned_data['colonel'], filters={'adc': True},
-            selected=selected
-        )
-        if self.cleaned_data['pin'] not in input_pins:
-            self.add_error(
-                'pin',
-                "Sorry, but GPIO%d pin can not be used"
-                % self.cleaned_data['pin']
-            )
-            return
+
+        self._clean_pin('pin')
+
         return self.cleaned_data
+
+    def save(self, commit=True):
+        self.instance.config['pin_no'] = not self.cleaned_data['pin']
+        return super().save(commit=commit)
 
 
 class BME680SensorConfigForm(ColonelComponentForm):
@@ -423,14 +421,14 @@ class BME680SensorConfigForm(ColonelComponentForm):
 
 
 class ColonelTouchSensorConfigForm(ColonelComponentForm):
-    pin = forms.TypedChoiceField(
-        coerce=int, choices=get_gpio_pins_choices,
+    pin = forms.ModelChoiceField(
+        queryset=ColonelPin.objects.filter(input=True, capacitive=True),
         widget=autocomplete.ListSelect2(
             url='autocomplete-colonel-pins',
             forward=[
                 forward.Self(),
                 forward.Field('colonel'),
-                forward.Const({'capacitive': True}, 'filters')
+                forward.Const({'input': True, 'capacitive': True}, 'filters')
             ]
         )
     )
@@ -449,37 +447,20 @@ class ColonelTouchSensorConfigForm(ColonelComponentForm):
             return self.cleaned_data
         if 'pin' not in self.cleaned_data:
             return self.cleaned_data
-        if self.instance.pk:
-            selected = self.instance.config.get('pin')
-        else:
-            selected = None
-        free_pins = get_available_gpio_pins(
-            self.cleaned_data['colonel'], selected=selected
-        )
-        if self.cleaned_data['pin'] not in free_pins:
-            self.add_error(
-                'pin',
-                "Sorry, but GPIO%d pin is occupied."
-                % self.cleaned_data['pin']
-            )
-            return
-        touch_pins = get_available_gpio_pins(
-            self.cleaned_data['colonel'], filters={'capacitive': True},
-            selected=selected
-        )
-        if self.cleaned_data['pin'] not in touch_pins:
-            self.add_error(
-                'pin',
-                "Sorry, but GPIO%d pin can not be used as input pin "
-                % self.cleaned_data['pin']
-            )
-            return
+
+        self._clean_pin('pin')
+
         return self.cleaned_data
 
 
+    def save(self, commit=True):
+        self.instance.config['pin_no'] = not self.cleaned_data['pin']
+        return super().save(commit=commit)
+
+
 class ColonelSwitchConfigForm(ColonelComponentForm):
-    output_pin = forms.TypedChoiceField(
-        coerce=int, choices=get_gpio_pins_choices,
+    output_pin = forms.ModelChoiceField(
+        queryset=ColonelPin.objects.filter(output=True),
         widget=autocomplete.ListSelect2(
             url='autocomplete-colonel-pins',
             forward=[
@@ -533,57 +514,25 @@ class ColonelSwitchConfigForm(ColonelComponentForm):
             return self.cleaned_data
         if not self.cleaned_data.get('output_pin'):
             return self.cleaned_data
-        if self.instance.pk:
-            selected = self.instance.config.get('output_pin')
-        else:
-            selected = None
-        output_pins = get_available_gpio_pins(
-            self.cleaned_data['colonel'], filters={'output': True},
-            selected=selected
-        )
-        if self.cleaned_data['output_pin'] not in output_pins:
-            self.add_error(
-                'output_pin',
-                "Sorry, but GPIO%d pin can not be used as output pin "
-                % self.cleaned_data['output_pin']
-            )
-            return self.cleaned_data
+
+        self._clean_pin('output_pin')
 
         if not self.cleaned_data.get('controls'):
             return self.cleaned_data
 
-        # TODO: Formset factory should return proper field value types instead of str type
-        for i, control in enumerate(self.cleaned_data['controls']):
-            for key, val in control.items():
-                if key in ('pin', 'touch_threshold'):
-                    self.cleaned_data['controls'][i][key] = int(val)
-                else:
-                    self.cleaned_data['controls'][i][key] = val
-
-        for i, control in enumerate(self.cleaned_data['controls']):
-            try:
-                selected = self.instance.config['controls'][i]['pin']
-            except:
-                selected = None
-            free_pins = get_available_gpio_pins(
-                self.cleaned_data['colonel'], filters={'input': True},
-                selected=selected
-            )
-            if control['pin'] not in free_pins:
-                print("ADDING ERROR!!!!!")
-                self.add_error(
-                    'controls',
-                    "Sorry, but GPIO%d pin is occupied."
-                    % control['pin']
-                )
-                return self.cleaned_data
+        self._clean_controls()
 
         return self.cleaned_data
 
 
+    def save(self, commit=True):
+        self.instance.config['output_pin_no'] = not self.cleaned_data['output_pin']
+        return super().save(commit=commit)
+
+
 class ColonelPWMOutputConfigForm(ColonelComponentForm):
-    output_pin = forms.TypedChoiceField(
-        coerce=int, choices=get_gpio_pins_choices,
+    output_pin = forms.ModelChoiceField(
+        queryset=ColonelPin.objects.filter(output=True),
         widget=autocomplete.ListSelect2(
             url='autocomplete-colonel-pins',
             forward=[
@@ -663,58 +612,25 @@ class ColonelPWMOutputConfigForm(ColonelComponentForm):
             return self.cleaned_data
         if not self.cleaned_data.get('output_pin'):
             return self.cleaned_data
-        if self.instance.pk:
-            selected = self.instance.config.get('output_pin')
-        else:
-            self.cleaned_data['value_units'] = '%'
-            selected = None
-        output_pins = get_available_gpio_pins(
-            self.cleaned_data['colonel'], filters={'output': True},
-            selected=selected
-        )
-        if self.cleaned_data['output_pin'] not in output_pins:
-            self.add_error(
-                'output_pin',
-                "Sorry, but GPIO%d pin can not be used as output pin "
-                % self.cleaned_data['output_pin']
-            )
+
+        self._clean_pin('output_pin')
+
+        if not self.cleaned_data.get('controls'):
             return self.cleaned_data
 
-        if 'controls' not in self.cleaned_data:
-            return self.cleaned_data
-
-
-        # TODO: Formset factory should return proper field value types instead of str type
-        for i, control in enumerate(self.cleaned_data['controls']):
-            for key, val in control.items():
-                if key in ('pin', 'touch_threshold'):
-                    self.cleaned_data['controls'][i][key] = int(val)
-                else:
-                    self.cleaned_data['controls'][i][key] = val
-
-        for i, control in enumerate(self.cleaned_data['controls']):
-            try:
-                selected = self.instance.config['controls'][i]['pin']
-            except:
-                selected = None
-            free_pins = get_available_gpio_pins(
-                self.cleaned_data['colonel'], filters={'input': True},
-                selected=selected
-            )
-            if control['pin'] not in free_pins:
-                self.add_error(
-                    'controls',
-                    "Sorry, but GPIO%d pin is occupied."
-                    % control['pin']
-                )
-                return
+        self._clean_controls()
 
         return self.cleaned_data
 
 
+    def save(self, commit=True):
+        self.instance.config['output_pin_no'] = not self.cleaned_data['output_pin']
+        return super().save(commit=commit)
+
+
 class ColonelRGBLightConfigForm(ColonelComponentForm):
-    output_pin = forms.TypedChoiceField(
-        coerce=int, choices=get_gpio_pins_choices,
+    output_pin = forms.ModelChoiceField(
+        queryset=ColonelPin.objects.filter(output=True, native=True),
         widget=autocomplete.ListSelect2(
             url='autocomplete-colonel-pins',
             forward=[
@@ -743,6 +659,7 @@ class ColonelRGBLightConfigForm(ColonelComponentForm):
     )
 
     def save(self, commit=True):
+        self.instance.config['output_pin_no'] = not self.cleaned_data['output_pin']
         if len(self.cleaned_data['order']) > 3:
             self.instance.config['has_white'] = True
         else:
@@ -756,58 +673,21 @@ class ColonelRGBLightConfigForm(ColonelComponentForm):
             return self.cleaned_data
         if not self.cleaned_data.get('output_pin'):
             return self.cleaned_data
-        if self.instance.pk:
-            selected = self.instance.config.get('output_pin')
-        else:
-            self.cleaned_data['value_units'] = '%'
-            selected = None
-        output_pins = get_available_gpio_pins(
-            self.cleaned_data['colonel'], filters={'output': True, 'native': True},
-            selected=selected
-        )
-        if self.cleaned_data['output_pin'] not in output_pins:
-            self.add_error(
-                'output_pin',
-                "Sorry, but GPIO%d pin can not be used as output pin "
-                % self.cleaned_data['output_pin']
-            )
+
+        self._clean_pin('output_pin')
+
+        if not self.cleaned_data.get('controls'):
             return self.cleaned_data
 
-        if 'controls' not in self.cleaned_data:
-            return self.cleaned_data
-
-
-        # TODO: Formset factory should return proper field value types instead of str type
-        for i, control in enumerate(self.cleaned_data['controls']):
-            for key, val in control.items():
-                if key in ('pin', 'touch_threshold'):
-                    self.cleaned_data['controls'][i][key] = int(val)
-                else:
-                    self.cleaned_data['controls'][i][key] = val
-
-        for i, control in enumerate(self.cleaned_data['controls']):
-            try:
-                selected = self.instance.config['controls'][i]['pin']
-            except:
-                selected = None
-            free_pins = get_available_gpio_pins(
-                self.cleaned_data['colonel'], filters={'input': True},
-                selected=selected
-            )
-            if control['pin'] not in free_pins:
-                self.add_error(
-                    'controls',
-                    "Sorry, but GPIO%d pin is occupied."
-                    % control['pin']
-                )
-                return
+        self._clean_controls()
 
         return self.cleaned_data
 
 
+
 class DualMotorValveForm(ColonelComponentForm):
-    open_pin = forms.TypedChoiceField(
-        coerce=int, choices=get_gpio_pins_choices,
+    open_pin = forms.ModelChoiceField(
+        queryset=ColonelPin.objects.filter(output=True),
         widget=autocomplete.ListSelect2(
             url='autocomplete-colonel-pins',
             forward=[
@@ -824,8 +704,8 @@ class DualMotorValveForm(ColonelComponentForm):
         required=True, min_value=0.01, max_value=1000000000,
         help_text="Time in seconds to open."
     )
-    close_pin = forms.TypedChoiceField(
-        coerce=int, choices=get_gpio_pins_choices,
+    close_pin = forms.ModelChoiceField(
+        queryset=ColonelPin.objects.filter(output=True),
         widget=autocomplete.ListSelect2(
             url='autocomplete-colonel-pins',
             forward=[
@@ -843,6 +723,7 @@ class DualMotorValveForm(ColonelComponentForm):
         help_text="Time in seconds to close."
     )
 
+
     def clean(self):
         super().clean()
         if not self.cleaned_data.get('colonel'):
@@ -852,43 +733,20 @@ class DualMotorValveForm(ColonelComponentForm):
         if not self.cleaned_data.get('close_pin'):
             return self.cleaned_data
 
-        if self.instance.pk:
-            selected = self.instance.config.get('open_pin')
-        else:
-            selected = None
-        output_pins = get_available_gpio_pins(
-            self.cleaned_data['colonel'], filters={'output': True},
-            selected=selected
-        )
-        if self.cleaned_data['open_pin'] not in output_pins:
-            self.add_error(
-                'open_pin',
-                "Sorry, but GPIO%d pin can not be used as output pin "
-                % self.cleaned_data['open_pin']
-            )
-            return
+        self._clean_pin('open_pin')
+        self._clean_pin('close_pin')
 
-        if self.instance.pk:
-            selected = self.instance.config.get('close_pin')
-        else:
-            selected = None
-        output_pins = get_available_gpio_pins(
-            self.cleaned_data['colonel'], filters={'output': True},
-            selected=selected
-        )
-        if self.cleaned_data['close_pin'] not in output_pins:
-            self.add_error(
-                'close_pin',
-                "Sorry, but GPIO%d pin can not be used as output pin "
-                % self.cleaned_data['close_pin']
-            )
-            return
         return self.cleaned_data
+
+    def save(self, commit=True):
+        self.instance.config['open_pin_no'] = not self.cleaned_data['open_pin']
+        self.instance.config['close_pin_no'] = not self.cleaned_data['close_pin']
+        return super().save(commit=commit)
 
 
 class BlindsConfigForm(ColonelComponentForm):
-    open_pin = forms.TypedChoiceField(
-        coerce=int, choices=get_gpio_pins_choices,
+    open_pin = forms.ModelChoiceField(
+        queryset=ColonelPin.objects.filter(output=True),
         widget=autocomplete.ListSelect2(
             url='autocomplete-colonel-pins',
             forward=[
@@ -901,8 +759,8 @@ class BlindsConfigForm(ColonelComponentForm):
     open_action = forms.ChoiceField(
         choices=(('HIGH', "HIGH"), ('LOW', "LOW")),
     )
-    close_pin = forms.TypedChoiceField(
-        coerce=int, choices=get_gpio_pins_choices,
+    close_pin = forms.ModelChoiceField(
+        queryset=ColonelPin.objects.filter(output=True),
         widget=autocomplete.ListSelect2(
             url='autocomplete-colonel-pins',
             forward=[
@@ -967,40 +825,8 @@ class BlindsConfigForm(ColonelComponentForm):
         if not self.cleaned_data.get('close_pin'):
             return self.cleaned_data
 
-        if self.instance.pk:
-            selected = self.instance.config.get('open_pin')
-        else:
-            selected = None
-        output_pins = get_available_gpio_pins(
-            self.cleaned_data['colonel'],
-            filters={'output': True},
-            selected=selected
-        )
-        if self.cleaned_data['open_pin'] not in output_pins:
-            self.add_error(
-                'open_pin',
-                "Sorry, but GPIO%d pin can not be used as output pin "
-                % self.cleaned_data['open_pin']
-            )
-            return
-
-        if self.instance.pk:
-            selected = self.instance.config.get('close_pin')
-        else:
-            selected = None
-        output_pins = get_available_gpio_pins(
-            self.cleaned_data['colonel'],
-            filters={'output': True},
-            selected=selected
-        )
-        if self.cleaned_data['close_pin'] not in output_pins:
-            self.add_error(
-                'close_pin',
-                "Sorry, but GPIO%d pin can not be used as output pin "
-                % self.cleaned_data['close_pin']
-            )
-            return
-
+        self._clean_pin('open_pin')
+        self._clean_pin('close_pin')
 
         if 'controls' not in self.cleaned_data:
             return self.cleaned_data
@@ -1019,38 +845,19 @@ class BlindsConfigForm(ColonelComponentForm):
                         self.add_error('controls', "Both must use the same control method.")
                         return self.cleaned_data
 
-
-        # TODO: Formset factory should return proper field value types instead of str type
-        for i, control in enumerate(self.cleaned_data['controls']):
-            for key, val in control.items():
-                if key in ('pin', 'touch_threshold'):
-                    self.cleaned_data['controls'][i][key] = int(val)
-                else:
-                    self.cleaned_data['controls'][i][key] = val
-
-        for i, control in enumerate(self.cleaned_data['controls']):
-            try:
-                selected = self.instance.config['controls'][i]['pin']
-            except:
-                selected = None
-            free_pins = get_available_gpio_pins(
-                self.cleaned_data['colonel'], filters={'input': True},
-                selected=selected
-            )
-            if control['pin'] not in free_pins:
-                self.add_error(
-                    'controls',
-                    "Sorry, but GPIO%d pin is occupied."
-                    % control['pin']
-                )
-                return
+        self._clean_controls()
 
         return self.cleaned_data
 
+    def save(self, commit=True):
+        self.instance.config['open_pin_no'] = not self.cleaned_data['open_pin']
+        self.instance.config['close_pin_no'] = not self.cleaned_data['close_pin']
+        return super().save(commit=commit)
+
 
 class BurglarSmokeDetectorConfigForm(ColonelComponentForm):
-    power_pin = forms.TypedChoiceField(
-        coerce=int, choices=get_gpio_pins_choices,
+    power_pin = forms.ModelChoiceField(
+        queryset=ColonelPin.objects.filter(output=True),
         widget=autocomplete.ListSelect2(
             url='autocomplete-colonel-pins',
             forward=[
@@ -1063,8 +870,8 @@ class BurglarSmokeDetectorConfigForm(ColonelComponentForm):
     power_action = forms.ChoiceField(
         choices=(('HIGH', "HIGH"), ('LOW', "LOW")),
     )
-    sensor_pin = forms.TypedChoiceField(
-        coerce=int, choices=get_gpio_pins_choices,
+    sensor_pin = forms.ModelChoiceField(
+        queryset=ColonelPin.objects.filter(input=True),
         widget=autocomplete.ListSelect2(
             url='autocomplete-colonel-pins',
             forward=[
@@ -1098,42 +905,12 @@ class BurglarSmokeDetectorConfigForm(ColonelComponentForm):
         if 'power_pin' not in self.cleaned_data:
             return self.cleaned_data
 
-
-        if self.instance.pk:
-            selected = self.instance.config.get('power_pin')
-        else:
-            selected = None
-        output_pins = get_available_gpio_pins(
-            self.cleaned_data['colonel'], filters={'output': True},
-            selected=selected
-        )
-        if self.cleaned_data['power_pin'] not in output_pins:
-            self.add_error(
-                'output_pin',
-                "Sorry, but GPIO%d pin can not be used as output pin "
-                % self.cleaned_data['power_pin']
-            )
-            return self.cleaned_data
+        self._clean_pin('sensor_pin')
+        self._clean_pin('power_pin')
 
 
-
-        if self.instance.pk:
-            selected = self.instance.config.get('sensor_pin')
-        else:
-            selected = None
-        input_pins = get_available_gpio_pins(
-            self.cleaned_data['colonel'], filters={'input': True},
-            selected=selected
-        )
-        if self.cleaned_data['sensor_pin'] not in input_pins:
-            self.add_error(
-                'pin',
-                "Sorry, but GPIO%d pin can not be used as input pin "
-                % self.cleaned_data['pin']
-            )
-            return
-        if self.cleaned_data['sensor_pin'] > 100:
-            if self.cleaned_data['sensor_pin'] < 126:
+        if self.cleaned_data['sensor_pin'].no > 100:
+            if self.cleaned_data['sensor_pin'].no < 126:
                 if self.cleaned_data.get('sensor_pull') == 'HIGH':
                     self.add_error(
                         'sensor_pull',
@@ -1152,19 +929,21 @@ class BurglarSmokeDetectorConfigForm(ColonelComponentForm):
                         "if that's what you want to do."
                     )
         elif self.cleaned_data.get('sensor_pull') != 'FLOATING':
-            pins_available_for_pull = get_available_gpio_pins(
-                self.cleaned_data['colonel'], filters={'output': True},
-                selected=selected
-            )
-            if self.cleaned_data['sensor_pin'] not in pins_available_for_pull:
+            if not self.cleaned_data['sensor_pin'].output:
                 self.add_error(
-                    'pin',
-                    "Sorry, but GPIO%d pin does not have internal pull HIGH/LOW"
-                    " resistance capability" % self.cleaned_data['sensor_pin']
+                    'sensor_pin',
+                    f"Sorry, but {self.cleaned_data['sensor_pin']} "
+                    f"does not have internal pull HIGH/LOW"
+                    " resistance capability"
                 )
-                return
 
         return self.cleaned_data
+
+
+    def save(self, commit=True):
+        self.instance.config['sensor_pin_no'] = not self.cleaned_data['sensor_pin_pin']
+        self.instance.config['power_pin_no'] = not self.cleaned_data['power_pin']
+        return super().save(commit=commit)
 
 
 class TTLockConfigForm(ColonelComponentForm):

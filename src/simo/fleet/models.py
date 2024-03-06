@@ -3,12 +3,14 @@ from django.db import transaction
 from django.db import models
 from django.db.models.signals import post_save, pre_delete, post_delete
 from django.dispatch import receiver
+from django.contrib.contenttypes.models import ContentType
+from django.contrib.contenttypes.fields import GenericForeignKey
 from dirtyfields import DirtyFieldsMixin
 from simo.core.models import Instance, Gateway, Component
 from simo.core.utils.helpers import get_random_string
 from simo.core.events import GatewayObjectCommand
 from .gateways import FleetGatewayHandler
-from .utils import get_gpio_pins_choices
+from .utils import GPIO_PINS
 
 
 
@@ -158,20 +160,25 @@ class Colonel(DirtyFieldsMixin, models.Model):
                 gateway, self, command='update_config'
             ).publish()
 
+    @transaction.atomic
     def rebuild_occupied_pins(self):
-        self.occupied_pins = {}
+        for pin in ColonelPin.objects.filter(colonel=self):
+            if isinstance(pin.occupied_by, Component):
+                pin.occupied_by = None
+                pin.save()
+
         for component in self.components.all():
             try:
                 pins = component.controller._get_occupied_pins()
             except:
                 pins = []
-            for pin in pins:
-                self.occupied_pins[pin] = component.id
+            for no in pins:
+                pin, new = ColonelPin.objects.get_or_create(colonel=self, no=no)
+                pin.occupied_by = component
+                pin.save()
 
-        for i2c_interface in self.i2c_interfaces.all():
-            self.occupied_pins[i2c_interface.scl_pin] = 'scl_%d' % i2c_interface.no
-            self.occupied_pins[i2c_interface.sda_pin] = 'sda_%d' % i2c_interface.no
 
+    @transaction.atomic()
     def move_to(self, other_colonel):
         other_colonel.refresh_from_db()
         assert list(other_colonel.components.all()) == [], \
@@ -183,18 +190,80 @@ class Colonel(DirtyFieldsMixin, models.Model):
             self.components.remove(component)
             other_colonel.add(component)
 
-        other_colonel.i2c_interfaces.all().delete()
-        self.i2c_interfaces.all().update(colonel=other_colonel)
-
         self.rebuild_occupied_pins()
-        self.save()
-
         other_colonel.rebuild_occupied_pins()
-        other_colonel.save()
+
+        other_colonel.i2c_interfaces.all().delete()
+        for i2c_interface in self.i2c_interfaces.all():
+            I2CInterface.objects.create(
+                colonel=other_colonel, name=i2c_interface.name,
+                freq=i2c_interface.freq,
+                scl_pin=ColonelPin.objects.get(
+                    colonel=self, no=i2c_interface.scl_pin.no,
+                    occupied_by=None
+                ),
+                sda_pin=ColonelPin.objects.get(
+                    colonel=self, no=i2c_interface.sda_pin.no,
+                    occupied_by=None
+                ),
+            )
 
         self.update_config()
         other_colonel.update_config()
 
+
+class ColonelPin(models.Model):
+    colonel = models.ForeignKey(
+        Colonel, related_name='pins', on_delete=models.CASCADE
+    )
+    no = models.PositiveIntegerField()
+    input = models.BooleanField(default=False, db_index=True)
+    output = models.BooleanField(default=False, db_index=True)
+    capacitive = models.BooleanField(default=False, db_index=True)
+    adc = models.BooleanField(default=False)
+    native = models.BooleanField(default=True, db_index=True)
+    default_pull = models.CharField(
+        max_length=50, db_index=True, null=True, blank=True,
+        choices=(('LOW', "LOW"), ("HIGH", "HIGH"))
+    )
+    note = models.CharField(max_length=100)
+    occupied_by_content_type = models.ForeignKey(
+        ContentType, on_delete=models.CASCADE, null=True
+    )
+    occupied_by_id = models.PositiveIntegerField(null=True)
+    occupied_by = GenericForeignKey(
+        "occupied_by_content_type", "occupied_by_id"
+    )
+
+    class Meta:
+        unique_together = 'colonel', 'no'
+        indexes = [
+            models.Index(
+                fields=["occupied_by_content_type", "occupied_by_id"]
+            ),
+        ]
+
+    def __str__(self):
+        if self.native:
+            name = f'GPIO{self.no}'
+        else:
+            name = f'IO{self.no}'
+        if self.note:
+            name += ' | %s' % self.note
+        return name
+
+
+@receiver(post_save, sender=Colonel)
+def create_pins(sender, instance, created, *args, **kwargs):
+    if not created:
+        return
+    for no, data in GPIO_PINS.get(instance.type).items():
+        ColonelPin.objects.get_or_create(
+            colonel=instance, no=no,
+            input=data.get('input'), output=data.get('output'),
+            capacitive=data.get('capacitive'), adc=data.get('adc'),
+            native=data.get('native'), note=data.get('note')
+        )
 
 
 @receiver(pre_delete, sender=Component)
@@ -208,7 +277,6 @@ def post_component_delete(sender, instance, *args, **kwargs):
         for colonel in affected_colonels:
             print("Rebuild occupied pins for :", colonel)
             colonel.rebuild_occupied_pins()
-            colonel.save()
             colonel.restart()
 
     transaction.on_commit(update_colonel)
@@ -228,8 +296,18 @@ class I2CInterface(models.Model):
     no = models.IntegerField(
         default=0, choices=i2c_interface_no_choices
     )
-    scl_pin = models.IntegerField(default=4, choices=get_gpio_pins_choices())
-    sda_pin = models.IntegerField(default=15, choices=get_gpio_pins_choices())
+    scl_pin = models.ForeignKey(
+        ColonelPin, on_delete=models.CASCADE, limit_choices_to={
+            'native': True, 'output': True,
+        },
+        null=True, related_name='i2c_scl'
+    )
+    sda_pin = models.ForeignKey(
+        ColonelPin, on_delete=models.CASCADE, limit_choices_to={
+            'native': True, 'output': True,
+        },
+        null=True, related_name='i2c_sda'
+    )
     freq = models.IntegerField(
         default=100000, help_text="100000 - is a good middle point!"
     )
@@ -241,56 +319,13 @@ class I2CInterface(models.Model):
         return self.name
 
 
-@receiver(post_delete, sender=I2CInterface)
-def post_i2c_interface_delete(sender, instance, *args, **kwargs):
-
-    def update_colonel():
-        try:
-            instance.colonel.rebuild_occupied_pins()
-            instance.colonel.save()
-        except Colonel.DoesNotExist: # deleting colonel
-            pass
-    transaction.on_commit(update_colonel)
-
-
 @receiver(post_save, sender=I2CInterface)
 def post_i2c_interface_delete(sender, instance, *args, **kwargs):
-
-    def update_colonel():
-        instance.colonel.rebuild_occupied_pins()
-        instance.colonel.save()
-    transaction.on_commit(update_colonel)
-
-
-# class BLEDevice(models.Model):
-#     mac = models.CharField(max_length=50, unique=True)
-#     name = models.CharField(max_length=50)
-#     addr = models.BinaryField(max_length=50)
-#     type = models.PositiveIntegerField(default=0, choices=(
-#         (0, "Unknown"),
-#         (BLE_DEVICE_TYPE_GOVEE_MULTISENSOR, "GOVEE Climate sensor")
-#     ))
-#     last_seen = models.DateTimeField(auto_now_add=True)
-#     component = models.ForeignKey(
-#         Component, null=True, blank=True, on_delete=models.SET_NULL,
-#         help_text='Only for tracking if it is already used as a component'
-#     )
-#     colonels = models.ManyToManyField(
-#         Colonel, through='ColonelBLEDevice', related_name='ble_devices'
-#     )
-#
-#     def __str__(self):
-#         return '%s (%s)' % (self.name, self.mac)
-#
-#
-# class ColonelBLEDevice(models.Model):
-#     colonel = models.ForeignKey(Colonel, on_delete=models.CASCADE)
-#     device = models.ForeignKey(BLEDevice, on_delete=models.CASCADE)
-#     last_seen = models.DateTimeField(auto_now_add=True)
-#     data = JSONField(default={})
-#
-#     def save(self, *args, **kwargs):
-#         obj = super().save(*args, **kwargs)
-#         self.device.last_seen = self.last_seen
-#         self.device.save()
-#         return obj
+    with transaction.atomic():
+        for pin in ColonelPin.objects.filter(occupied_by=instance):
+            pin.occupied_by = None
+            pin.save()
+        instance.scl_pin.occupied_by = instance
+        instance.scl_pin.save()
+        instance.sda_pin.occupied_by = instance
+        instance.sda_pin.save()

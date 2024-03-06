@@ -1,6 +1,5 @@
 from rest_framework import serializers
-from .models import InstanceOptions, Colonel
-from .utils import get_available_gpio_pins
+from .models import InstanceOptions, Colonel, ColonelPin
 
 
 class InstanceOptionsSerializer(serializers.ModelSerializer):
@@ -14,20 +13,39 @@ class InstanceOptionsSerializer(serializers.ModelSerializer):
         return obj.instance.uid
 
 
+class ColonelPinSerializer(serializers.ModelSerializer):
+    label = serializers.SerializerMethodField()
+    occupied = serializers.SerializerMethodField()
+
+    class Meta:
+        models = ColonelPin
+        fields = 'id', 'label', 'occupied'
+        read_only_fields = fields
+
+    def get_occupied(self, obj):
+        return bool(obj.occupied_by)
+
+    def ge_label(self, obj):
+        return str(obj)
+
+
 class ColonelSerializer(serializers.ModelSerializer):
-    free_pins = serializers.SerializerMethodField()
+    pins = serializers.SerializerMethodField()
 
     class Meta:
         model = Colonel
         fields = (
             'id', 'uid', 'name', 'type', 'firmware_version', 'firmware_auto_update',
             'socket_connected', 'last_seen', 'enabled', 'pwm_frequency',
-            'logs_stream', 'free_pins'
+            'logs_stream', 'pins'
         )
         read_only_fields = [
             'uid', 'type', 'firmware_version', 'socket_connected',
-            'last_seen', 'free_pins'
+            'last_seen', 'pins'
         ]
 
-    def get_free_pins(self, obj):
-        return get_available_gpio_pins(obj)
+    def get_pins(self, obj):
+        result = []
+        for pin in obj.pins.all():
+            result.append(ColonelPinSerializer(pin).data)
+        return result
