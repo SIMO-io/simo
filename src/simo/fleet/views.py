@@ -29,8 +29,7 @@ class PinsSelectAutocomplete(autocomplete.Select2QuerySetView):
             ct = ContentType.objects.get_for_model(self.forwarded['self'])
             qs = qs.filter(
                 Q(occupied_by_id=None) | Q(
-                    occupied_by_content_type=ct,
-                    occupied_by_id=self.forwarded['self'].id
+                    id=int(self.forwarded['self'])
                 )
             )
         else:
