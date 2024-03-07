@@ -131,8 +131,10 @@ class ColonelComponentForm(BaseComponentForm):
         for i, control in enumerate(self.cleaned_data['controls']):
             for key, val in control.items():
                 if key == 'pin':
-                    self.cleaned_data['controls'][i]['pin_no'] = \
-                        self.cleaned_data['controls'][i]['pin'].no
+                    pin = ColonelPin.objects.get(
+                        id=self.cleaned_data['controls'][i]['pin']
+                    )
+                    self.cleaned_data['controls'][i]['pin_no'] = pin.no
                 elif key == 'touch_threshold':
                     self.cleaned_data['controls'][i][key] = int(val)
 
