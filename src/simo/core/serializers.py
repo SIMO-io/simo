@@ -78,8 +78,11 @@ class FormsetPrimaryKeyRelatedField(PrimaryKeyRelatedField):
         ).first()
 
 
+
+
 # TODO: if form field has initial value and is required, it is serialized as not required field, howerver when trying to submit it fails with a message, that field is required.
 # TODO: provide initial values to options.
+
 
 class ComponentFormsetField(FormSerializer):
 
@@ -87,7 +90,6 @@ class ComponentFormsetField(FormSerializer):
         # fake form, but it is necessary for FormSerializer
         # we set it to proper formset form on __init__
         form = forms.Form
-        exclude = ('instance_methods', )
         field_mapping = {
             forms.ModelChoiceField: FormsetPrimaryKeyRelatedField,
             forms.TypedChoiceField: serializers.ChoiceField,
@@ -98,7 +100,6 @@ class ComponentFormsetField(FormSerializer):
     def __init__(self, formset_field, *args, **kwargs):
         self.Meta.form = formset_field.formset_cls.form
         super().__init__(*args, **kwargs)
-
 
     def get_fields(self):
         ret = super(FormSerializerBase, self).get_fields()
@@ -111,30 +112,33 @@ class ComponentFormsetField(FormSerializer):
 
         form = self.Meta.form
         for field_name, form_field in getattr(form, 'all_base_fields', form.base_fields).items():
-            # if field is specified as excluded field
+
             if field_name in getattr(self.Meta, 'exclude', []):
                 continue
 
             if field_name in ret:
                 continue
 
+            cls_type = form_field.__class__
             try:
-                serializer_field_class = field_mapping[form_field.__class__]
+                serializer_field_class = field_mapping[cls_type]
             except KeyError:
-                raise TypeError(
-                    "{field} is not mapped to a serializer field. "
-                    "Please add {field} to {serializer}.Meta.field_mapping. "
-                    "Currently mapped fields: {mapped}".format(
-                        field=form_field.__class__.__name__,
-                        serializer=self.__class__.__name__,
-                        mapped=', '.join(sorted([i.__name__ for i in field_mapping.keys()]))
+                try:
+                    serializer_field_class = field_mapping[cls_type.__bases__[0]]
+                except KeyError:
+                    raise TypeError(
+                        "{field} is not mapped to a serializer field. "
+                        "Please add {field} to {serializer}.Meta.field_mapping. "
+                        "Currently mapped fields: {mapped}".format(
+                            field=form_field.__class__.__name__,
+                            serializer=self.__class__.__name__,
+                            mapped=', '.join(sorted([i.__name__ for i in field_mapping.keys()]))
+                        )
                     )
-                )
-            else:
-                ret[field_name] = self._get_field(form_field, serializer_field_class)
+
+            ret[field_name] = self._get_field(form_field, serializer_field_class)
 
         return ret
-
 
     def _get_field_kwargs(self, form_field, serializer_field_class):
         kwargs = super()._get_field_kwargs(form_field, serializer_field_class)
@@ -284,7 +288,8 @@ class ComponentSerializer(FormSerializer):
             controllers_map = get_controller_types_map()
             if not self.instance:
                 controller = controllers_map.get(
-                    self.context['request'].META.get('HTTP_CONTROLLER')
+                    'simo.generic.controllers.AlarmClock'
+                    #self.context['request'].META.get('HTTP_CONTROLLER')
                 )
                 if controller:
                     self.Meta.form = controller.add_form
@@ -299,7 +304,8 @@ class ComponentSerializer(FormSerializer):
     def get_form(self, data=None, **kwargs):
         self.set_form_cls()
         if not self.instance:
-            controller_uid = self.context['request'].META.get('HTTP_CONTROLLER')
+            controller_uid = 'simo.generic.controllers.AlarmClock'
+            #controller_uid = self.context['request'].META.get('HTTP_CONTROLLER')
         else:
             controller_uid = self.instance.controller_uid
         form = self.Meta.form(
