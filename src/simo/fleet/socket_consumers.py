@@ -198,7 +198,7 @@ class FleetConsumer(AsyncWebsocketConsumer):
         )
         for i2c_interface in i2c_interfaces:
             config_data['interfaces']['i2c-%d' % i2c_interface.no] = {
-                'scl': i2c_interface.scl_pin, 'sda': i2c_interface.sda_pin,
+                'scl': i2c_interface.scl_pin.no, 'sda': i2c_interface.sda_pin.no,
                 'freq': i2c_interface.freq
             }
         components = await sync_to_async(
