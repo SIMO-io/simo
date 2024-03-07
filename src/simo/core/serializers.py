@@ -100,6 +100,42 @@ class ComponentFormsetField(FormSerializer):
         super().__init__(*args, **kwargs)
 
 
+    def get_fields(self):
+        ret = super(FormSerializerBase, self).get_fields()
+
+        field_mapping = reduce_attr_dict_from_instance(
+            self,
+            lambda i: getattr(getattr(i, 'Meta', None), 'field_mapping', {}),
+            FORM_SERIALIZER_FIELD_MAPPING
+        )
+
+        form = self.Meta.form
+        for field_name, form_field in getattr(form, 'all_base_fields', form.base_fields).items():
+            # if field is specified as excluded field
+            if field_name in getattr(self.Meta, 'exclude', []):
+                continue
+
+            if field_name in ret:
+                continue
+
+            try:
+                serializer_field_class = field_mapping[form_field.__class__]
+            except KeyError:
+                raise TypeError(
+                    "{field} is not mapped to a serializer field. "
+                    "Please add {field} to {serializer}.Meta.field_mapping. "
+                    "Currently mapped fields: {mapped}".format(
+                        field=form_field.__class__.__name__,
+                        serializer=self.__class__.__name__,
+                        mapped=', '.join(sorted([i.__name__ for i in field_mapping.keys()]))
+                    )
+                )
+            else:
+                ret[field_name] = self._get_field(form_field, serializer_field_class)
+
+        return ret
+
+
     def _get_field_kwargs(self, form_field, serializer_field_class):
         kwargs = super()._get_field_kwargs(form_field, serializer_field_class)
         if serializer_field_class == FormsetPrimaryKeyRelatedField:
