@@ -129,14 +129,17 @@ class ColonelComponentForm(BaseComponentForm):
     def _clean_controls(self):
         # TODO: Formset factory should return proper field value types instead of str type
         for i, control in enumerate(self.cleaned_data['controls']):
+            updated_vals = {}
             for key, val in control.items():
+                updated_vals[key] = val
                 if key == 'pin':
                     pin = ColonelPin.objects.get(
                         id=self.cleaned_data['controls'][i]['pin']
                     )
-                    self.cleaned_data['controls'][i]['pin_no'] = pin.no
+                    updated_vals['pin_no'] = pin.no
                 elif key == 'touch_threshold':
-                    self.cleaned_data['controls'][i][key] = int(val)
+                    updated_vals[key] = int(val)
+            self.cleaned_data['controls'][i] = updated_vals
 
         for i, control in enumerate(self.cleaned_data['controls']):
             if control['pin'].colonel != self.cleaned_data['colonel']:
