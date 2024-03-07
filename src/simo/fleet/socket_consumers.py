@@ -138,11 +138,11 @@ class FleetConsumer(AsyncWebsocketConsumer):
             # If we force this, vales get overridden by what is last
             # known by the hub
             # config = await self.get_config_data()
-            # await self.send(json.dumps({
+            # await self.send_data(
             #     'command': 'set_config', 'data': config
-            # }))
+            # })
 
-            await self.send(json.dumps({'command': 'hello'}))
+            await self.send_data({'command': 'hello'})
 
         asyncio.create_task(self.watch_connection())
 
@@ -161,11 +161,11 @@ class FleetConsumer(AsyncWebsocketConsumer):
             await asyncio.sleep(10)
             # Default pinging system sometimes get's lost somewhere,
             # therefore we use our own to ensure connection
-            await self.send(json.dumps({'command': 'ping'}))
+            await self.send_data({'command': 'ping'})
 
     async def firmware_update(self, to_version):
         print("Firmware update: ", str(self.colonel))
-        await self.send(json.dumps({'command': 'ota_update', 'version': to_version}))
+        await self.send_data('command': 'ota_update', 'version': to_version})
 
     async def get_config_data(self):
         self.colonel = await sync_to_async(
@@ -240,10 +240,10 @@ class FleetConsumer(AsyncWebsocketConsumer):
                         continue
                     bulk_send_data.append({'id': int(comp_id), 'val': value})
                 if bulk_send_data:
-                    asyncio.run(self.send(json.dumps({
+                    asyncio.run(self.send_data({
                         'command': 'bulk_set',
                         'values': bulk_send_data
-                    })))
+                    }))
                 return
 
             obj = get_event_obj(payload)
@@ -254,24 +254,24 @@ class FleetConsumer(AsyncWebsocketConsumer):
                 elif payload.get('command') == 'update_config':
                     async def send_config():
                         config = await self.get_config_data()
-                        await self.send(json.dumps({
+                        await self.send_data({
                             'command': 'set_config', 'data': config
-                        }))
+                        })
                     asyncio.run(send_config())
                 elif payload.get('command') == 'discover-ttlock':
-                    await self.send(json.dumps({
+                    await self.send_data({
                         'command': 'discover-ttlock'
-                    }))
+                    })
 
             elif isinstance(obj, Component):
                 if int(obj.config.get('colonel')) != self.colonel.id:
                     return
                 if 'set_val' in payload:
-                    asyncio.run(self.send(json.dumps({
+                    asyncio.run(self.send_data({
                         'command': 'set_val',
                         'id': obj.id,
                         'val': payload['set_val']
-                    })))
+                    }))
 
         except Exception as e:
             print(traceback.format_exc(), file=sys.stderr)
@@ -285,9 +285,9 @@ class FleetConsumer(AsyncWebsocketConsumer):
             if 'get_config' in data:
                 config = await self.get_config_data()
                 print("Send config: ", config)
-                await self.send(json.dumps({
+                await self.send_data({
                     'command': 'set_config', 'data': config
-                }))
+                })
             elif 'comp' in data:
                 try:
                     component = await sync_to_async(
@@ -334,6 +334,16 @@ class FleetConsumer(AsyncWebsocketConsumer):
             ])
 
         await sync_to_async(save_last_seen, thread_sensitive=True)()
+
+
+    async def send_data(self, data):
+        chunk_size = 1000
+        data_str = json.dumps(data)
+        for i in range(0, len(data_str), chunk_size):
+            chunk = data_str[i: i + chunk_size]
+            if i + chunk_size < len(data_str):
+                chunk += '<br>'
+            await self.send(chunk)
 
 
     async def start_logger(self):
