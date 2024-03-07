@@ -3,19 +3,15 @@ import json
 import logging
 import pytz
 import traceback
-import time
 import sys
 from logging.handlers import RotatingFileHandler
-from django.urls import reverse
 from django.utils import timezone
 from django.conf import settings
 import paho.mqtt.client as mqtt
 from channels.generic.websocket import AsyncWebsocketConsumer
 from asgiref.sync import sync_to_async
-from simo.core.utils.helpers import get_random_string
 from simo.core.utils.model_helpers import get_log_file_path
 from simo.core.events import GatewayObjectCommand, get_event_obj
-from simo.core.utils.helpers import get_self_ip
 from simo.core.models import Gateway, Instance, Component
 from simo.conf import dynamic_settings
 from .gateways import FleetGatewayHandler

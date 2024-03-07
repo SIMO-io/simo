@@ -22,6 +22,7 @@ from .forms import (
 )
 from .filters import ZonesFilter
 from .widgets import AdminImageWidget
+from .middleware import get_current_instance
 from simo.conf import dynamic_settings
 
 csrf_protect_m = method_decorator(csrf_protect)
@@ -79,12 +80,6 @@ class ZoneAdmin(SortableAdminMixin, admin.ModelAdmin):
     list_display = 'name', 'instance'
     search_fields = 'name',
     list_filter = 'instance',
-
-    def get_queryset(self, request):
-        qs = super().get_queryset(request)
-        if request.user.is_master:
-            return qs
-        return qs.filter(instance__in=request.user.instances)
 
     def get_fields(self, request, obj=None):
         if request.user.is_master:
@@ -280,12 +275,6 @@ class ComponentAdmin(admin.ModelAdmin):
     list_per_page = 100
     change_list_template = 'admin/component_change_list.html'
     inlines = ComponentPermissionInline,
-
-    def get_queryset(self, request):
-        qs = super().get_queryset(request)
-        if request.user.is_master:
-            return qs
-        return qs.filter(zone__instance__in=request.user.instances)
 
     def get_fieldsets(self, request, obj=None):
         form = self._get_form_for_get_fields(request, obj)

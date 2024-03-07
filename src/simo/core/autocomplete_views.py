@@ -55,6 +55,7 @@ class CategoryAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self):
         qs = Category.objects.all()
 
+
         if not self.request.user.is_staff:
             return qs.none()
 

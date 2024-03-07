@@ -10,6 +10,7 @@ from simo.core.models import Instance, Gateway, Component
 from simo.core.utils.helpers import get_random_string
 from simo.core.events import GatewayObjectCommand
 from .gateways import FleetGatewayHandler
+from .managers import ColonelsManager, ColonelPinsManager, I2CInterfacesManager
 from .utils import GPIO_PINS
 
 
@@ -86,6 +87,8 @@ class Colonel(DirtyFieldsMixin, models.Model):
     pwm_frequency = models.IntegerField(default=1, choices=(
         (0, "3kHz"), (1, "22kHz")
     ), help_text="Affects Ample Wall dimmer PWM output (dimmer) frequency")
+
+    objects = ColonelsManager()
 
     def __str__(self):
         return self.name if self.name else self.uid
@@ -238,6 +241,8 @@ class ColonelPin(models.Model):
         "occupied_by_content_type", "occupied_by_id"
     )
 
+    objects = ColonelPinsManager()
+
     class Meta:
         unique_together = 'colonel', 'no'
         indexes = [
@@ -326,6 +331,8 @@ class I2CInterface(models.Model):
     freq = models.IntegerField(
         default=100000, help_text="100000 - is a good middle point!"
     )
+
+    objects = I2CInterfacesManager()
 
     class Meta:
         unique_together = 'colonel', 'no'

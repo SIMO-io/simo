@@ -6,6 +6,7 @@ from django.apps import apps
 from simo.core.models import Instance
 from simo.conf import dynamic_settings
 from simo.core.utils.helpers import is_update_available
+from simo.core.middleware import get_current_instance
 
 
 def additional_templates_context(request):
@@ -14,7 +15,8 @@ def additional_templates_context(request):
         'dynamic_settings': dynamic_settings,
         'current_version': pkg_resources.get_distribution('simo').version,
         'update_available': is_update_available(True),
-        'instances': Instance.objects.all()
+        'instances': Instance.objects.all(),
+        'current_instance': get_current_instance()
     }
 
     if request.path.endswith('/admin/'):

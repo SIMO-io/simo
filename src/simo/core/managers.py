@@ -1,10 +1,38 @@
 import sys
 import traceback
+from .middleware import get_current_instance
 from django.utils import timezone
 from django.db import models
 
 
+class ZonesManager(models.Manager):
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        instance = get_current_instance()
+        if instance:
+            qs = qs.filter(instance=instance)
+        return qs
+
+
+class CategoriesManager(models.Manager):
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        instance = get_current_instance()
+        if instance:
+            qs = qs.filter(instance=instance)
+        return qs
+
+
 class ComponentsManager(models.Manager):
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        instance = get_current_instance()
+        if instance:
+            qs = qs.filter(zone__instance=instance)
+        return qs
 
     def bulk_send(self, data):
         """
@@ -48,3 +76,6 @@ class ComponentsManager(models.Manager):
             GatewayObjectCommand(gateway, bulk_send=send_vals).publish(
                 retain=False
             )
+
+
+

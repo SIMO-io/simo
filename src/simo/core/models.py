@@ -23,7 +23,7 @@ from taggit.managers import TaggableManager
 from simo.core.utils.mixins import SimoAdminMixin
 from simo.core.storage import OverwriteStorage
 from simo.core.utils.validators import validate_svg
-from .managers import ComponentsManager
+from .managers import ZonesManager, CategoriesManager, ComponentsManager
 from .events import GatewayObjectCommand, OnChangeMixin
 
 
@@ -134,6 +134,7 @@ class Zone(DirtyFieldsMixin, models.Model, SimoAdminMixin):
     order = models.PositiveIntegerField(
         default=0, blank=False, null=False, db_index=True
     )
+    objects = ZonesManager()
 
     # TODO: Admin ordering not working via remote!
 
@@ -164,6 +165,7 @@ class Category(DirtyFieldsMixin, models.Model, SimoAdminMixin):
     order = models.PositiveIntegerField(
         default=0, blank=False, null=False, db_index=True
     )
+    objects = CategoriesManager()
 
     class Meta:
         verbose_name = _("category")

@@ -9,10 +9,12 @@ from django.contrib.gis.geos import Point
 from django.contrib import messages
 from simo.users.models import User
 from simo.conf import dynamic_settings
+from .models import Instance
 from .tasks import update as update_task, supervisor_restart
 from .forms import (
     HubConfigForm, CoordinatesForm, TermsAndConditionsForm
 )
+from .middleware import introduce_instance
 
 
 def get_timestamp(request):
@@ -136,6 +138,17 @@ def reboot(request):
         subprocess.run(['reboot'])
 
     threading.Thread(target=hardware_reboot).start()
+    if request.META.get('HTTP_REFERER'):
+        return redirect(request.META.get('HTTP_REFERER'))
+    return redirect(reverse('admin:index'))
+
+
+@login_required
+def set_instance(request, instance_slug):
+    instance = Instance.objects.filter(slug=instance_slug).first()
+    if instance:
+        introduce_instance(instance, request)
+        
     if request.META.get('HTTP_REFERER'):
         return redirect(request.META.get('HTTP_REFERER'))
     return redirect(reverse('admin:index'))

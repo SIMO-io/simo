@@ -1,29 +1,17 @@
 import json
-import time
-import pytz
 import asyncio
-import os
-import logging
 from ansi2html import Ansi2HTMLConverter
 from asgiref.sync import sync_to_async
-from django.urls import set_script_prefix
-from django.core.exceptions import ValidationError
 from django.template.loader import render_to_string
 from django.conf import settings
-from django.utils import timezone
 from django.contrib.contenttypes.models import ContentType
 from channels.generic.websocket import AsyncWebsocketConsumer, WebsocketConsumer
 from simo.core.events import ObjectChangeEvent, get_event_obj
 import paho.mqtt.client as mqtt
 from simo.users.middleware import introduce
-from simo.core.api import get_components_queryset
 from simo.core.models import Component, Gateway
-from simo.core.serializers import ComponentSerializer
-from simo.conf import dynamic_settings
-from simo.users.models import User, PermissionsRole
-from simo.users.serializers import UserSerializer
-from simo.users.api import UsersViewSet
 from simo.core.utils.model_helpers import get_log_file_path
+from simo.core.middleware import introduce_instance
 
 
 class SIMOWebsocketConsumer(WebsocketConsumer):
@@ -220,6 +208,8 @@ class ComponentController(SIMOWebsocketConsumer):
         if not self.scope['user'].is_active:
             return self.close()
 
+        introduce_instance(self.component.zone.instance)
+
         self._mqtt_client = mqtt.Client()
         self._mqtt_client.username_pw_set('root', settings.SECRET_KEY)
         self._mqtt_client.on_connect = self._on_mqtt_connect
@@ -237,6 +227,7 @@ class ComponentController(SIMOWebsocketConsumer):
         payload = json.loads(msg.payload)
         component = get_event_obj(payload, Component)
         if component == self.component:
+            introduce_instance(self.component.zone.instance)
             # print("Object changed [%s], %s" % (str(component), payload))
             self.component = component
             if self.send_value:
@@ -253,6 +244,7 @@ class ComponentController(SIMOWebsocketConsumer):
 
     def receive(self, text_data=None, bytes_data=None, **kwargs):
         introduce(self.scope['user'])
+        introduce_instance(self.component.zone.instance)
         json_data = json.loads(text_data)
         self.send_value = json_data.pop('send_value', False)
         for method, param in json_data.items():
