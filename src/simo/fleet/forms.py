@@ -128,6 +128,8 @@ class ColonelComponentForm(BaseComponentForm):
 
     def _clean_controls(self):
         # TODO: Formset factory should return proper field value types instead of str type
+
+        pin_instances = {}
         for i, control in enumerate(self.cleaned_data['controls']):
             updated_vals = {}
             for key, val in control.items():
@@ -136,22 +138,23 @@ class ColonelComponentForm(BaseComponentForm):
                     pin = ColonelPin.objects.get(
                         id=self.cleaned_data['controls'][i]['pin']
                     )
+                    pin_instances[i] = pin
                     updated_vals['pin_no'] = pin.no
                 elif key == 'touch_threshold':
                     updated_vals[key] = int(val)
             self.cleaned_data['controls'][i] = updated_vals
 
         for i, control in enumerate(self.cleaned_data['controls']):
-            if control['pin'].colonel != self.cleaned_data['colonel']:
+            if pin_instances[i].colonel != self.cleaned_data['colonel']:
                 self.add_error(
                     'controls',
-                    f"{control['pin']} must be from the same Colonel!"
+                    f"{pin_instances[i]} must be from the same Colonel!"
                 )
-            if control['pin'].occupied_by \
-                    and control['pin'].occupied_by != self.instance:
+            if pin_instances[i].occupied_by \
+            and pin_instances[i].occupied_by != self.instance:
                 self.add_error(
                     'controls',
-                    f"{control['pin']} is already occupied by {control['pin'].occupied_by}!"
+                    f"{pin_instances[i]} is already occupied by {pin_instances[i].occupied_by}!"
                 )
 
     def save(self, commit=True):
