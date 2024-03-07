@@ -288,8 +288,8 @@ class ComponentSerializer(FormSerializer):
             controllers_map = get_controller_types_map()
             if not self.instance:
                 controller = controllers_map.get(
-                    'simo.generic.controllers.AlarmClock'
-                    #self.context['request'].META.get('HTTP_CONTROLLER')
+                    #'simo.generic.controllers.AlarmClock'
+                    self.context['request'].META.get('HTTP_CONTROLLER')
                 )
                 if controller:
                     self.Meta.form = controller.add_form
@@ -304,8 +304,8 @@ class ComponentSerializer(FormSerializer):
     def get_form(self, data=None, **kwargs):
         self.set_form_cls()
         if not self.instance:
-            controller_uid = 'simo.generic.controllers.AlarmClock'
-            #controller_uid = self.context['request'].META.get('HTTP_CONTROLLER')
+            #controller_uid = 'simo.generic.controllers.AlarmClock'
+            controller_uid = self.context['request'].META.get('HTTP_CONTROLLER')
         else:
             controller_uid = self.instance.controller_uid
         form = self.Meta.form(
