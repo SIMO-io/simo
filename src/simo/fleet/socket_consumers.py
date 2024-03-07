@@ -165,7 +165,7 @@ class FleetConsumer(AsyncWebsocketConsumer):
 
     async def firmware_update(self, to_version):
         print("Firmware update: ", str(self.colonel))
-        await self.send_data('command': 'ota_update', 'version': to_version})
+        await self.send_data({'command': 'ota_update', 'version': to_version})
 
     async def get_config_data(self):
         self.colonel = await sync_to_async(
