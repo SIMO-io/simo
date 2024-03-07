@@ -540,7 +540,7 @@ class AlarmClockConfigForm(BaseComponentForm):
         if commit:
             obj.slaves.clear()
             for comp in self.cleaned_data['default_events']:
-                obj.slaves.add(
-                    Component.objects.get(pk=comp['component'])
-                )
+                c = Component.objects.filter(pk=comp['component']).first()
+                if c:
+                    obj.slaves.add(c)
         return obj

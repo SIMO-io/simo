@@ -144,18 +144,25 @@ class ColonelComponentForm(BaseComponentForm):
                     updated_vals[key] = int(val)
             self.cleaned_data['controls'][i] = updated_vals
 
+        formset_errors = {}
         for i, control in enumerate(self.cleaned_data['controls']):
             if pin_instances[i].colonel != self.cleaned_data['colonel']:
-                self.add_error(
-                    'controls',
-                    f"{pin_instances[i]} must be from the same Colonel!"
-                )
-            if pin_instances[i].occupied_by \
+                formset_errors[i] = {
+                    'pin': f"{pin_instances[i]} must be from the same Colonel!"
+                }
+            elif pin_instances[i].occupied_by \
             and pin_instances[i].occupied_by != self.instance:
-                self.add_error(
-                    'controls',
-                    f"{pin_instances[i]} is already occupied by {pin_instances[i].occupied_by}!"
-                )
+                formset_errors[i] = {
+                    'pin': f"{pin_instances[i]} is already occupied by {pin_instances[i].occupied_by}!"
+                }
+
+        errors_list = []
+        if formset_errors:
+            for i, control in enumerate(self.cleaned_data['controls']):
+                errors_list.append(formset_errors.get(i, {}))
+        self._errors['controls'] = errors_list
+        if 'controls' in self.cleaned_data:
+            del self.cleaned_data['controls']
 
     def save(self, commit=True):
         obj = super().save(commit)
