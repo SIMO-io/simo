@@ -57,7 +57,7 @@ class FleeDeviceMixin:
         for key, val in self.component.config.items():
             if key == 'colonel':
                 continue
-            if not val:
+            if val in ({}, [], None):
                 continue
             if key not in declared_fields:
                 continue
