@@ -266,6 +266,7 @@ class FleetConsumer(AsyncWebsocketConsumer):
                         })
                     asyncio.run(send_config())
                 elif payload.get('command') == 'discover-ttlock':
+                    print("SEND discover-ttlock command!")
                     await self.send_data({
                         'command': 'discover-ttlock'
                     })
