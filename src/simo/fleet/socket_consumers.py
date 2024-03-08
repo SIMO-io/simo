@@ -208,16 +208,23 @@ class FleetConsumer(AsyncWebsocketConsumer):
         )(self.colonel.components.all().prefetch_related('slaves'))
         for component in components:
             try:
-                config_data['devices'][str(component.id)] = {
+                config_data = {
                     'type': component.controller.uid.split('.')[-1],
-                    'config': component.config,
-                    'options': component.meta.get('options', {}),
-                    'slaves': [
-                        s.id for s in component.slaves.all()
-                        if s.config.get('colonel') == self.colonel.id
-                    ],
-                    'val': component.controller._prepare_for_send(component.value)
+                    'val': component.controller._prepare_for_send(
+                        component.value
+                    ),
+                    'config': component.controller._get_colonel_config()
                 }
+                slaves = [
+                    s.id for s in component.slaves.all()
+                    if s.config.get('colonel') == self.colonel.id
+                ]
+                if slaves:
+                    config_data['slaves'] = slaves
+                if component.meta.get('options'):
+                    config_data['options'] = component.meta['options']
+
+                config_data['devices'][str(component.id)] = config_data
             except:
                 continue
 

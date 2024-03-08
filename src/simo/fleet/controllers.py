@@ -50,12 +50,19 @@ class FleeDeviceMixin:
             options['controls_enabled'] = True
             self.update_options(options)
 
+    def _get_colonel_config(self):
+        declared_fields = self.config_form.declared_fields
+        config = {}
+        for key, val in self.component.config.items():
+            if key == 'colonel':
+                continue
+            if key in declared_fields and val:
+                config[key] = val
+        return config
+
 
 class BasicSensorMixin:
     gateway_class = FleetGatewayHandler
-
-    def _get_occupied_pins(self):
-        return [self.component.config['pin_no']]
 
 
 class BinarySensor(FleeDeviceMixin, BasicSensorMixin, BaseBinarySensor):
