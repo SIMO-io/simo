@@ -208,7 +208,7 @@ class FleetConsumer(AsyncWebsocketConsumer):
         )(self.colonel.components.all().prefetch_related('slaves'))
         for component in components:
             try:
-                config_data = {
+                comp_config = {
                     'type': component.controller.uid.split('.')[-1],
                     'val': component.controller._prepare_for_send(
                         component.value
@@ -220,11 +220,11 @@ class FleetConsumer(AsyncWebsocketConsumer):
                     if s.config.get('colonel') == self.colonel.id
                 ]
                 if slaves:
-                    config_data['slaves'] = slaves
+                    comp_config['slaves'] = slaves
                 if component.meta.get('options'):
-                    config_data['options'] = component.meta['options']
+                    comp_config['options'] = component.meta['options']
 
-                config_data['devices'][str(component.id)] = config_data
+                config_data['devices'][str(component.id)] = comp_config
             except:
                 continue
 
