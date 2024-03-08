@@ -120,7 +120,9 @@ class FleetConsumer(AsyncWebsocketConsumer):
         else:
             def on_mqtt_connect(mqtt_client, userdata, flags, rc):
                 command = GatewayObjectCommand(self.gateway)
-                mqtt_client.subscribe(command.get_topic())
+                TOPIC = command.get_topic()
+                print("SUBSCRIBE TO TOPIC: ", TOPIC)
+                mqtt_client.subscribe(TOPIC)
 
             self.mqtt_client = mqtt.Client()
             self.mqtt_client.username_pw_set('root', settings.SECRET_KEY)
@@ -230,7 +232,7 @@ class FleetConsumer(AsyncWebsocketConsumer):
 
         return config_data
 
-    async def on_mqtt_message(self, client, userdata, msg):
+    def on_mqtt_message(self, client, userdata, msg):
         try:
             payload = json.loads(msg.payload)
 
@@ -261,15 +263,15 @@ class FleetConsumer(AsyncWebsocketConsumer):
                 elif payload.get('command') == 'update_config':
                     async def send_config():
                         config = await self.get_config_data()
-                        await self.send_data({
+                        asyncio.run(self.send_data({
                             'command': 'set_config', 'data': config
-                        })
+                        }))
                     asyncio.run(send_config())
                 elif payload.get('command') == 'discover-ttlock':
                     print("SEND discover-ttlock command!")
-                    await self.send_data({
+                    asyncio.run(self.send_data({
                         'command': 'discover-ttlock'
-                    })
+                    }))
 
             elif isinstance(obj, Component):
                 if int(obj.config.get('colonel')) != self.colonel.id:
