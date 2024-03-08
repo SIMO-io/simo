@@ -17,6 +17,7 @@ from simo.generic.controllers import Blinds as GenericBlinds
 from .models import Colonel
 from .gateways import FleetGatewayHandler
 from .forms import (
+    ColonelPinChoiceField,
     ColonelBinarySensorConfigForm, ColonelTouchSensorConfigForm,
     ColonelSwitchConfigForm, ColonelPWMOutputConfigForm,
     ColonelNumericSensorConfigForm, ColonelRGBLightConfigForm,
@@ -56,7 +57,13 @@ class FleeDeviceMixin:
         for key, val in self.component.config.items():
             if key == 'colonel':
                 continue
-            if key in declared_fields and val:
+            if not val:
+                continue
+            if key not in declared_fields:
+                continue
+            if isinstance(declared_fields[key], ColonelPinChoiceField):
+                config[f'{key}_no'] = self.component.config[f'{key}_no']
+            else:
                 config[key] = val
         return config
 
