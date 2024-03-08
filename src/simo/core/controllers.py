@@ -247,7 +247,7 @@ class ControllerBase(ABC):
         if init_by_device and self.component.slaves.count():
             slaves_qs = self.component.slaves.all()
             # slaves are being controlled by colonels internally
-            if self.component.controller_uid.startswitn('simo.fleet.') \
+            if self.component.controller_uid.startswith('simo.fleet.') \
             and self.component.config.get('colonel'):
                 slaves_qs = slaves_qs.exclude(
                     config__colonel=self.component.config['colonel']
