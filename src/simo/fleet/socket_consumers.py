@@ -349,7 +349,7 @@ class FleetConsumer(AsyncWebsocketConsumer):
 
     async def send_data(self, data):
         data = zlib.compress(json.dumps(data).encode())
-        await self.send(data)
+        await self.send(bytes_data=data)
 
 
     async def start_logger(self):
