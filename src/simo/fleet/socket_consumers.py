@@ -4,6 +4,7 @@ import logging
 import pytz
 import traceback
 import sys
+import zlib
 from logging.handlers import RotatingFileHandler
 from django.utils import timezone
 from django.conf import settings
@@ -347,13 +348,8 @@ class FleetConsumer(AsyncWebsocketConsumer):
 
 
     async def send_data(self, data):
-        chunk_size = 1000
-        data_str = json.dumps(data)
-        for i in range(0, len(data_str), chunk_size):
-            chunk = data_str[i: i + chunk_size]
-            if i + chunk_size < len(data_str):
-                chunk += '<br>'
-            await self.send(chunk)
+        data = zlib.compress(json.dumps(data).encode())
+        await self.send(data)
 
 
     async def start_logger(self):

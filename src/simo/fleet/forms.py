@@ -192,16 +192,7 @@ class ControlPinForm(forms.Form):
     method = forms.ChoiceField(
         required=True, choices=(
             ('momentary', "Momentary"), ('toggle', "Toggle"),
-            ('touch', "Touch")
         ),
-    )
-    touch_threshold = forms.IntegerField(
-        min_value=0, max_value=999999999, required=False, initial=1000,
-        help_text="Used to detect touch events. "
-                  "Smaller value means a higher sensitivity. "
-                  "1000 offers good starting point. <br> "
-                  "Used only when controll method is set to Touch."
-
     )
     prefix = 'controls'
 
