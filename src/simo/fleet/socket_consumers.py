@@ -266,7 +266,7 @@ class FleetConsumer(AsyncWebsocketConsumer):
                         config = await self.get_config_data()
                         asyncio.run(self.send_data({
                             'command': 'set_config', 'data': config
-                        }))
+                        }, compress=True))
                     asyncio.run(send_config())
                 elif payload.get('command') == 'discover-ttlock':
                     print("SEND discover-ttlock command!")
@@ -298,7 +298,7 @@ class FleetConsumer(AsyncWebsocketConsumer):
                 print("Send config: ", config)
                 await self.send_data({
                     'command': 'set_config', 'data': config
-                })
+                }, compress=True)
             elif 'comp' in data:
                 try:
                     component = await sync_to_async(
@@ -347,9 +347,13 @@ class FleetConsumer(AsyncWebsocketConsumer):
         await sync_to_async(save_last_seen, thread_sensitive=True)()
 
 
-    async def send_data(self, data):
-        data = zlib.compress(json.dumps(data).encode())
-        await self.send(bytes_data=data)
+    async def send_data(self, data, compress=False):
+        data = json.dumps(data)
+        if compress:
+            data = zlib.compress(data.encode())
+            await self.send(bytes_data=data)
+        else:
+            await self.send(data)
 
 
     async def start_logger(self):
