@@ -72,8 +72,14 @@ class BasicSensorMixin:
     gateway_class = FleetGatewayHandler
 
 
+
 class BinarySensor(FleeDeviceMixin, BasicSensorMixin, BaseBinarySensor):
     config_form = ColonelBinarySensorConfigForm
+
+    def _get_occupied_pins(self):
+        return [
+            self.component.config['pin_no'],
+        ]
 
 
 class BurglarSmokeDetector(BinarySensor):
@@ -91,10 +97,20 @@ class AnalogSensor(FleeDeviceMixin, BasicSensorMixin, BaseNumericSensor):
     config_form = ColonelNumericSensorConfigForm
     name = "Analog sensor"
 
+    def _get_occupied_pins(self):
+        return [
+            self.component.config['pin_no'],
+        ]
+
 
 class DS18B20Sensor(FleeDeviceMixin, BasicSensorMixin, BaseNumericSensor):
     config_form = DS18B20SensorConfigForm
     name = "DS18B20 Temperature sensor"
+
+    def _get_occupied_pins(self):
+        return [
+            self.component.config['pin_no'],
+        ]
 
 
 class BaseClimateSensor(FleeDeviceMixin, BasicSensorMixin, BaseMultiSensor):
@@ -141,6 +157,11 @@ class BaseClimateSensor(FleeDeviceMixin, BasicSensorMixin, BaseMultiSensor):
 class DHTSensor(BaseClimateSensor):
     config_form = ColonelDHTSensorConfigForm
     name = "DHT climate sensor"
+
+    def _get_occupied_pins(self):
+        return [
+            self.component.config['pin_no'],
+        ]
 
 
 class BME680Sensor(BaseClimateSensor):
