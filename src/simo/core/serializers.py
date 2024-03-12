@@ -186,7 +186,6 @@ class ComponentManyToManyRelatedField(serializers.Field):
         return self.queryset.filter(pk__in=data)
 
 
-
 class ComponentSerializer(FormSerializer):
     id = ObjectSerializerMethodField()
     controller_methods = serializers.SerializerMethodField()
@@ -301,7 +300,6 @@ class ComponentSerializer(FormSerializer):
                 if controller:
                     self.Meta.form = controller.config_form
 
-
     def get_form(self, data=None, **kwargs):
         self.set_form_cls()
         if not self.instance:
@@ -365,7 +363,8 @@ class ComponentSerializer(FormSerializer):
         form = self.get_form(instance=instance, data=data)
         if form.is_valid():
             instance = form.save(commit=True)
-        return instance
+            return instance
+        raise serializers.ValidationError(form.errors)
 
     def create(self, validated_data):
         form = self.get_form(data=validated_data)
@@ -374,6 +373,7 @@ class ComponentSerializer(FormSerializer):
         if form.is_valid():
             instance = form.save(commit=True)
             return instance
+        raise serializers.ValidationError(form.errors)
 
     def get_controller_methods(self, obj):
         c_methods = [m[0] for m in inspect.getmembers(
