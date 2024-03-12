@@ -273,7 +273,7 @@ class ColonelBinarySensorConfigForm(ColonelComponentForm):
 
 
     def save(self, commit=True):
-        self.instance.config['pin_no'] = not self.cleaned_data['pin']
+        self.instance.config['pin_no'] = self.cleaned_data['pin'].no
         return super().save(commit=commit)
 
 
@@ -324,7 +324,7 @@ class ColonelNumericSensorConfigForm(ColonelComponentForm, NumericSensorForm):
 
 
     def save(self, commit=True):
-        self.instance.config['pin_no'] = not self.cleaned_data['pin']
+        self.instance.config['pin_no'] = self.cleaned_data['pin'].no
         return super().save(commit=commit)
 
 
@@ -361,7 +361,7 @@ class DS18B20SensorConfigForm(ColonelComponentForm):
         return self.cleaned_data
 
     def save(self, commit=True):
-        self.instance.config['pin_no'] = not self.cleaned_data['pin']
+        self.instance.config['pin_no'] = self.cleaned_data['pin'].no
         return super().save(commit=commit)
 
 
@@ -407,7 +407,7 @@ class ColonelDHTSensorConfigForm(ColonelComponentForm):
         return self.cleaned_data
 
     def save(self, commit=True):
-        self.instance.config['pin_no'] = not self.cleaned_data['pin']
+        self.instance.config['pin_no'] = self.cleaned_data['pin'].no
         return super().save(commit=commit)
 
 
@@ -467,7 +467,7 @@ class ColonelTouchSensorConfigForm(ColonelComponentForm):
 
 
     def save(self, commit=True):
-        self.instance.config['pin_no'] = not self.cleaned_data['pin']
+        self.instance.config['pin_no'] = self.cleaned_data['pin'].no
         return super().save(commit=commit)
 
 
@@ -539,7 +539,7 @@ class ColonelSwitchConfigForm(ColonelComponentForm):
 
 
     def save(self, commit=True):
-        self.instance.config['output_pin_no'] = not self.cleaned_data['output_pin']
+        self.instance.config['output_pin_no'] = self.cleaned_data['output_pin'].no
         return super().save(commit=commit)
 
 
@@ -637,7 +637,7 @@ class ColonelPWMOutputConfigForm(ColonelComponentForm):
 
 
     def save(self, commit=True):
-        self.instance.config['output_pin_no'] = not self.cleaned_data['output_pin']
+        self.instance.config['output_pin_no'] = self.cleaned_data['output_pin'].no
         return super().save(commit=commit)
 
 
@@ -672,7 +672,7 @@ class ColonelRGBLightConfigForm(ColonelComponentForm):
     )
 
     def save(self, commit=True):
-        self.instance.config['output_pin_no'] = not self.cleaned_data['output_pin']
+        self.instance.config['output_pin_no'] = self.cleaned_data['output_pin'].no
         if len(self.cleaned_data['order']) > 3:
             self.instance.config['has_white'] = True
         else:
@@ -752,8 +752,8 @@ class DualMotorValveForm(ColonelComponentForm):
         return self.cleaned_data
 
     def save(self, commit=True):
-        self.instance.config['open_pin_no'] = not self.cleaned_data['open_pin']
-        self.instance.config['close_pin_no'] = not self.cleaned_data['close_pin']
+        self.instance.config['open_pin_no'] = self.cleaned_data['open_pin'].no
+        self.instance.config['close_pin_no'] = self.cleaned_data['close_pin'].no
         return super().save(commit=commit)
 
 
@@ -863,8 +863,8 @@ class BlindsConfigForm(ColonelComponentForm):
         return self.cleaned_data
 
     def save(self, commit=True):
-        self.instance.config['open_pin_no'] = not self.cleaned_data['open_pin']
-        self.instance.config['close_pin_no'] = not self.cleaned_data['close_pin']
+        self.instance.config['open_pin_no'] = self.cleaned_data['open_pin'].no
+        self.instance.config['close_pin_no'] = self.cleaned_data['close_pin'].no
         return super().save(commit=commit)
 
 
@@ -953,8 +953,8 @@ class BurglarSmokeDetectorConfigForm(ColonelComponentForm):
         return self.cleaned_data
 
     def save(self, commit=True):
-        self.instance.config['sensor_pin_no'] = not self.cleaned_data['sensor_pin_pin']
-        self.instance.config['power_pin_no'] = not self.cleaned_data['power_pin']
+        self.instance.config['sensor_pin_no'] = self.cleaned_data['sensor_pin_pin'].no
+        self.instance.config['power_pin_no'] = self.cleaned_data['power_pin'].no
         return super().save(commit=commit)
 
 
