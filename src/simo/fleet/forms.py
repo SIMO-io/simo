@@ -241,7 +241,7 @@ class ColonelBinarySensorConfigForm(ColonelComponentForm):
         self._clean_pin('pin')
 
         if self.cleaned_data['pin'].no > 100:
-            if self.cleaned_data['pin'] < 126:
+            if self.cleaned_data['pin'].no < 126:
                 if self.cleaned_data.get('pull') == 'HIGH':
                     self.add_error(
                         'pull',
