@@ -2,6 +2,7 @@ import inspect
 import datetime
 import json
 from django import forms
+from django.forms.utils import ErrorDict
 from collections.abc import Iterable
 from easy_thumbnails.files import get_thumbnailer
 from simo.core.middleware import get_current_request
@@ -358,22 +359,20 @@ class ComponentSerializer(FormSerializer):
         return super(FormSerializerBase, self).to_representation(instance)
 
     def update(self, instance, validated_data):
-        form = self.get_form(instance=instance, data=validated_data)
-        data = self.accomodate_formsets(form, validated_data)
-        form = self.get_form(instance=instance, data=data)
-        if form.is_valid():
-            instance = form.save(commit=True)
-            return instance
-        raise serializers.ValidationError(form.errors)
+        form = self.get_form(instance=instance)
+        form.cleaned_data = validated_data
+        form.is_bound = True
+        form._errors = ErrorDict()
+        instance = form.save(commit=True)
+        return instance
 
     def create(self, validated_data):
-        form = self.get_form(data=validated_data)
-        data = self.accomodate_formsets(form, validated_data)
-        form = self.get_form(data=data)
-        if form.is_valid():
-            instance = form.save(commit=True)
-            return instance
-        raise serializers.ValidationError(form.errors)
+        form = self.get_form()
+        form.cleaned_data = validated_data
+        form.is_bound = True
+        form._errors = ErrorDict()
+        instance = form.save(commit=True)
+        return instance
 
     def get_controller_methods(self, obj):
         c_methods = [m[0] for m in inspect.getmembers(
