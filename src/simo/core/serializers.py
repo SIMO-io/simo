@@ -358,7 +358,7 @@ class ComponentSerializer(FormSerializer):
     def update(self, instance, validated_data):
         form = self.get_form(instance=instance)
         data = self.accomodate_formsets(form, validated_data)
-        form = self.get_form(data=data)
+        form = self.get_form(instance=instance, data=data)
         if form.is_valid():
             instance = form.save(commit=True)
             return instance
