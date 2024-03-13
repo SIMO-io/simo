@@ -503,20 +503,20 @@ class AlarmClockEventForm(forms.Form):
     def clean(self):
         if not self.cleaned_data.get('component'):
             return self.cleaned_data
-        if not self.cleaned_data.get('play_method'):
+        if not self.cleaned_data.get('play_action'):
             return self.cleaned_data
         component = self.cleaned_data.get('component')
-        if not hasattr(component, self.cleaned_data['play_method']):
+        if not hasattr(component, self.cleaned_data['play_action']):
             self.add_error(
-                'play_method',
-                f"{component} has no {self.cleaned_data['play_method']} method!"
+                'play_action',
+                f"{component} has no {self.cleaned_data['play_action']} action!"
             )
-        if self.cleaned_data.get('reverse_method'):
-            if not hasattr(component, self.cleaned_data['reverse_method']):
+        if self.cleaned_data.get('reverse_action'):
+            if not hasattr(component, self.cleaned_data['reverse_action']):
                 self.add_error(
-                    'reverse_method',
+                    'reverse_action',
                     f"{component} has no "
-                    f"{self.cleaned_data['reverse_method']} method!"
+                    f"{self.cleaned_data['reverse_action']} action!"
                 )
         return self.cleaned_data
 
