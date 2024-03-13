@@ -356,14 +356,18 @@ class ComponentSerializer(FormSerializer):
         return super(FormSerializerBase, self).to_representation(instance)
 
     def update(self, instance, validated_data):
-        form = self.get_form(instance=instance, data=validated_data)
+        form = self.get_form(instance=instance)
+        data = self.accomodate_formsets(form, validated_data)
+        form = self.get_form(data=data)
         if form.is_valid():
             instance = form.save(commit=True)
             return instance
         raise serializers.ValidationError(form.errors)
 
     def create(self, validated_data):
-        form = self.get_form(data=validated_data)
+        form = self.get_form()
+        data = self.accomodate_formsets(form, validated_data)
+        form = self.get_form(data=data)
         if form.is_valid():
             instance = form.save(commit=True)
             return instance
