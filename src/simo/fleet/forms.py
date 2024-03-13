@@ -954,7 +954,7 @@ class BurglarSmokeDetectorConfigForm(ColonelComponentForm):
         return self.cleaned_data
 
     def save(self, commit=True):
-        self.instance.config['sensor_pin_no'] = self.cleaned_data['sensor_pin_pin'].no
+        self.instance.config['sensor_pin_no'] = self.cleaned_data['sensor_pin'].no
         self.instance.config['power_pin_no'] = self.cleaned_data['power_pin'].no
         return super().save(commit=commit)
 
