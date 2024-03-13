@@ -17,7 +17,7 @@ class I2CInterfaceInline(admin.TabularInline):
 class ColonelPinsInline(admin.TabularInline):
     model = ColonelPin
     extra = 0
-    fields = 'label', 'occupied_by_display'
+    fields = 'id_display', 'label', 'occupied_by_display',
     readonly_fields = fields
 
     def occupied_by_display(self, obj):
@@ -33,6 +33,11 @@ class ColonelPinsInline(admin.TabularInline):
         return txt
 
     occupied_by_display.short_description = "Occupied By"
+
+
+    def id_display(self, obj):
+        return obj.id
+    id_display.short_description = "ID"
 
     def has_add_permission(self, request, obj):
         return False

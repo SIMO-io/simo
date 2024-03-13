@@ -160,9 +160,10 @@ class ColonelComponentForm(BaseComponentForm):
         if formset_errors:
             for i, control in enumerate(self.cleaned_data['controls']):
                 errors_list.append(formset_errors.get(i, {}))
-        self._errors['controls'] = errors_list
-        if 'controls' in self.cleaned_data:
-            del self.cleaned_data['controls']
+        if errors_list:
+            self._errors['controls'] = errors_list
+            if 'controls' in self.cleaned_data:
+                del self.cleaned_data['controls']
 
     def save(self, commit=True):
         obj = super().save(commit)

@@ -82,7 +82,6 @@ class FormsetPrimaryKeyRelatedField(PrimaryKeyRelatedField):
 
 
 # TODO: if form field has initial value and is required, it is serialized as not required field, howerver when trying to submit it fails with a message, that field is required.
-# TODO: provide initial values to options.
 
 
 class ComponentFormsetField(FormSerializer):
@@ -336,20 +335,19 @@ class ComponentSerializer(FormSerializer):
     def validate(self, data):
         if not self.instance:
             try:
-                controller_uid = self.context['request'].META['HTTP_CONTROLLER']
+                self.context['request'].META['HTTP_CONTROLLER']
             except:
                 raise serializers.ValidationError(
                     ["Controller header is not supplied!"]
                 )
-        self.form_instance = form = self.get_form(
-            data=data, instance=self.instance
-        )
+        form = self.get_form(instance=self.instance)
         data = self.accomodate_formsets(form, data)
-        self.form_instance = form = self.get_form(
+        print("DATA: ", data)
+        form = self.get_form(
             data=data, instance=self.instance
         )
         if not form.is_valid():
-            _cleaned_data = getattr(form, 'cleaned_data', None) or {}
+            print("ŠIKNA! ", )
             raise serializers.ValidationError(form.errors)
         else:
             cleaned_data = form.cleaned_data
