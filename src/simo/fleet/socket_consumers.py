@@ -229,6 +229,8 @@ class FleetConsumer(AsyncWebsocketConsumer):
 
                 config_data['devices'][str(component.id)] = comp_config
             except:
+                print("Error preparing component config")
+                print(traceback.format_exc(), file=sys.stderr)
                 continue
 
         return config_data
