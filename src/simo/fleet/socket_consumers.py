@@ -209,29 +209,52 @@ class FleetConsumer(AsyncWebsocketConsumer):
         components = await sync_to_async(
             list, thread_sensitive=True
         )(self.colonel.components.all().prefetch_related('slaves'))
-        for component in components:
+
+        def get_comp_config(comp):
             try:
                 comp_config = {
-                    'type': component.controller.uid.split('.')[-1],
-                    'val': component.controller._prepare_for_send(
-                        component.value
+                    'type': comp.controller.uid.split('.')[-1],
+                    'val': comp.controller._prepare_for_send(
+                        comp.value
                     ),
-                    'config': component.controller._get_colonel_config()
+                    'config': comp.controller._get_colonel_config()
                 }
                 slaves = [
-                    s.id for s in component.slaves.all()
+                    s.id for s in comp.slaves.all()
                     if s.config.get('colonel') == self.colonel.id
                 ]
                 if slaves:
                     comp_config['slaves'] = slaves
-                if component.meta.get('options'):
-                    comp_config['options'] = component.meta['options']
+                if comp.meta.get('options'):
+                    comp_config['options'] = comp.meta['options']
 
-                config_data['devices'][str(component.id)] = comp_config
+                config_data['devices'][str(comp.id)] = comp_config
             except:
                 print("Error preparing component config")
                 print(traceback.format_exc(), file=sys.stderr)
+            else:
+                return comp_config
+
+        for component in components:
+
+            comp_config = components = await sync_to_async(
+                get_comp_config, thread_sensitive=True
+            )(component)
+
+            if not comp_config:
                 continue
+
+            slaves = [
+                s.id for s in component.slaves.all()
+                if s.config.get('colonel') == self.colonel.id
+            ]
+            if slaves:
+                comp_config['slaves'] = slaves
+            if component.meta.get('options'):
+                comp_config['options'] = component.meta['options']
+
+            config_data['devices'][str(component.id)] = comp_config
+
 
         return config_data
 
