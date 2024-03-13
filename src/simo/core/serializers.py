@@ -347,7 +347,6 @@ class ComponentSerializer(FormSerializer):
             data=data, instance=self.instance
         )
         if not form.is_valid():
-            print("ŠIKNA! ", )
             raise serializers.ValidationError(form.errors)
         else:
             cleaned_data = form.cleaned_data
@@ -357,20 +356,18 @@ class ComponentSerializer(FormSerializer):
         return super(FormSerializerBase, self).to_representation(instance)
 
     def update(self, instance, validated_data):
-        form = self.get_form(instance=instance)
-        form.cleaned_data = validated_data
-        form.is_bound = True
-        form._errors = ErrorDict()
-        instance = form.save(commit=True)
-        return instance
+        form = self.get_form(instance=instance, data=validated_data)
+        if form.is_valid():
+            instance = form.save(commit=True)
+            return instance
+        raise serializers.ValidationError(form.errors)
 
     def create(self, validated_data):
-        form = self.get_form()
-        form.cleaned_data = validated_data
-        form.is_bound = True
-        form._errors = ErrorDict()
-        instance = form.save(commit=True)
-        return instance
+        form = self.get_form(data=validated_data)
+        if form.is_valid():
+            instance = form.save(commit=True)
+            return instance
+        raise serializers.ValidationError(form.errors)
 
     def get_controller_methods(self, obj):
         c_methods = [m[0] for m in inspect.getmembers(
