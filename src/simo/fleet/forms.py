@@ -329,7 +329,7 @@ class ColonelNumericSensorConfigForm(ColonelComponentForm, NumericSensorForm):
         return super().save(commit=commit)
 
 
-class DS18B20SensorConfigForm(ColonelComponentForm):
+class DS18B20SensorConfigForm(ColonelComponentForm, NumericSensorForm):
     pin = ColonelPinChoiceField(
         queryset=ColonelPin.objects.filter(input=True, native=True),
         widget=autocomplete.ListSelect2(
