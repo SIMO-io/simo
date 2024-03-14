@@ -285,7 +285,7 @@ class FleetConsumer(AsyncWebsocketConsumer):
 
             if obj == self.colonel:
                 if payload.get('command') == 'update_firmware':
-                    asyncio.run(self.firmware_update(payload['kwargs'].get('to_version')))
+                    asyncio.run(self.firmware_update(payload['to_version']))
                 elif payload.get('command') == 'update_config':
                     async def send_config():
                         config = await self.get_config_data()
@@ -307,6 +307,12 @@ class FleetConsumer(AsyncWebsocketConsumer):
                         'command': 'set_val',
                         'id': obj.id,
                         'val': payload['set_val']
+                    }))
+                if 'update_options' in payload:
+                    asyncio.run(self.send_data({
+                        'command': 'update_options',
+                        'id': obj.id,
+                        'options': payload['options']
                     }))
 
         except Exception as e:
