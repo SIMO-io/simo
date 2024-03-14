@@ -532,7 +532,7 @@ class AlarmClockConfigForm(BaseComponentForm):
     def clean_default_events(self):
         events = self.cleaned_data['default_events']
         for i, cont in enumerate(events):
-            if not cont['uid']:
+            if not cont.get('uid'):
                 cont['uid'] = get_random_string(6)
         return events
 

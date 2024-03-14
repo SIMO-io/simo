@@ -341,24 +341,24 @@ class ComponentSerializer(FormSerializer):
                     ["Controller header is not supplied!"]
                 )
         form = self.get_form(instance=self.instance)
-        data = self.accomodate_formsets(form, data)
+        a_data = self.accomodate_formsets(form, data)
         print("DATA: ", data)
         form = self.get_form(
-            data=data, instance=self.instance
+            data=a_data, instance=self.instance
         )
         if not form.is_valid():
+            print("NEVALIDI FORMAAAAAAAAA!!!!")
             raise serializers.ValidationError(form.errors)
-        else:
-            cleaned_data = form.cleaned_data
-        return cleaned_data
+
+        return data
 
     def to_representation(self, instance):
         return super(FormSerializerBase, self).to_representation(instance)
 
     def update(self, instance, validated_data):
         form = self.get_form(instance=instance)
-        data = self.accomodate_formsets(form, validated_data)
-        form = self.get_form(instance=instance, data=data)
+        a_data = self.accomodate_formsets(form, validated_data)
+        form = self.get_form(instance=instance, data=a_data)
         if form.is_valid():
             instance = form.save(commit=True)
             return instance
@@ -366,8 +366,8 @@ class ComponentSerializer(FormSerializer):
 
     def create(self, validated_data):
         form = self.get_form()
-        data = self.accomodate_formsets(form, validated_data)
-        form = self.get_form(data=data)
+        a_data = self.accomodate_formsets(form, validated_data)
+        form = self.get_form(data=a_data)
         if form.is_valid():
             instance = form.save(commit=True)
             return instance

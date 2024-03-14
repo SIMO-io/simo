@@ -18,7 +18,7 @@ class IconModelAutocomplete(autocomplete.Select2QuerySetView):
 
         if self.q:
             qs = search_queryset(qs, self.q, ('slug', 'keywords'))
-        return qs
+        return qs.distinct()
 
     def get_result_label(self, item):
         return render_to_string(
@@ -65,7 +65,7 @@ class CategoryAutocomplete(autocomplete.Select2QuerySetView):
         qs = qs.filter(all=False)
         if self.q:
             qs = search_queryset(qs, self.q, ('name'))
-        return qs
+        return qs.distinct()
 
     def get_result_label(self, item):
         return render_to_string(
@@ -91,7 +91,7 @@ class ZoneAutocomplete(autocomplete.Select2QuerySetView):
 
         if self.q:
             qs = search_queryset(qs, self.q, ('name',))
-        return qs
+        return qs.distinct()
 
     def get_result_label(self, item):
         return render_to_string(
@@ -131,7 +131,7 @@ class ComponentAutocomplete(autocomplete.Select2QuerySetView):
 
         if self.q:
             qs = search_queryset(qs, self.q, ('name',))
-        return qs
+        return qs.distinct()
 
     def get_result_label(self, item):
         return render_to_string(
