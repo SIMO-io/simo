@@ -342,14 +342,11 @@ class ComponentSerializer(FormSerializer):
                 )
         form = self.get_form(instance=self.instance)
         a_data = self.accomodate_formsets(form, data)
-        print("DATA: ", data)
         form = self.get_form(
             data=a_data, instance=self.instance
         )
         if not form.is_valid():
-            print("NEVALIDI FORMAAAAAAAAA!!!!")
             raise serializers.ValidationError(form.errors)
-
         return data
 
     def to_representation(self, instance):
