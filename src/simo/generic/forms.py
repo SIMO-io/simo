@@ -506,6 +506,7 @@ class AlarmClockEventForm(forms.Form):
         if not self.cleaned_data.get('play_action'):
             return self.cleaned_data
         component = self.cleaned_data.get('component')
+        component.prepare_controller()
         if not hasattr(component, self.cleaned_data['play_action']):
             self.add_error(
                 'play_action',
