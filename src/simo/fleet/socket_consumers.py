@@ -81,15 +81,23 @@ class FleetConsumer(AsyncWebsocketConsumer):
         timezone.activate(tz)
 
         def get_colonel():
-            return Colonel.objects.update_or_create(
-                uid=headers['colonel-uid'], defaults={
-                    'instance': self.instance,
-                    'name': headers.get('colonel-name'),
-                    'type': headers['colonel-type'],
-                    'firmware_version': headers['firmware-version'],
-                    'last_seen': timezone.now()
-                }
+            # looks like update_or_create doesn't work in socket/async environment.
+            defaults={
+                'instance': self.instance,
+                'name': headers.get('colonel-name'),
+                'type': headers['colonel-type'],
+                'firmware_version': headers['firmware-version'],
+                'last_seen': timezone.now()
+            }
+            colonel, new = Colonel.objects.get_or_create(
+                uid=headers['colonel-uid'], defaults=defaults
             )
+            if not new:
+                for key, val in defaults:
+                    setattr(colonel, key, val)
+                colonel.save()
+
+            return colonel, new
 
         self.colonel, new = await sync_to_async(
             get_colonel, thread_sensitive=True
