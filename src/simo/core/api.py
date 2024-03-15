@@ -34,7 +34,7 @@ class InstanceMixin:
             )
         except Instance.DoesNotExist:
             raise APIValidationError(
-                "Instance {self.request.resolver_match.kwargs.get('instance_slug')} "
+                f"Instance {self.request.resolver_match.kwargs.get('instance_slug')} "
                 "is not found on this SIMO.io hub!",
                 code=400
             )
