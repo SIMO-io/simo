@@ -119,6 +119,8 @@ class FleetConsumer(AsyncWebsocketConsumer):
 
         await self.accept()
 
+        await self.log_colonel_connected()
+
 
         def get_gateway():
             return Gateway.objects.filter(
@@ -380,6 +382,11 @@ class FleetConsumer(AsyncWebsocketConsumer):
             for logline in bytes_data.decode(errors='replace').split('\n'):
                 self.colonel_logger.log(logging.INFO, logline)
 
+        await self.log_colonel_connected()
+
+
+    async def log_colonel_connected(self):
+
         def save_last_seen():
             self.colonel.socket_connected = True
             self.colonel.last_seen = timezone.now()
@@ -388,7 +395,6 @@ class FleetConsumer(AsyncWebsocketConsumer):
             ])
 
         await sync_to_async(save_last_seen, thread_sensitive=True)()
-
 
     async def send_data(self, data, compress=False):
         data = json.dumps(data)
