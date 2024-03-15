@@ -28,9 +28,16 @@ from .permissions import IsInstanceSuperuser, InstanceSuperuserCanEdit
 class InstanceMixin:
 
     def dispatch(self, request, *args, **kwargs):
-        self.instance = Instance.objects.get(
-            slug=self.request.resolver_match.kwargs.get('instance_slug')
-        )
+        try:
+            self.instance = Instance.objects.get(
+                slug=self.request.resolver_match.kwargs.get('instance_slug')
+            )
+        except Instance.DoesNotExist:
+            raise APIValidationError(
+                "Instance {self.request.resolver_match.kwargs.get('instance_slug')} "
+                "is not found on this SIMO.io hub!",
+                code=400
+            )
         return super().dispatch(request, *args, **kwargs)
 
     def get_serializer_context(self):
