@@ -94,7 +94,7 @@ class FleetConsumer(AsyncWebsocketConsumer):
                     uid=headers['colonel-uid'], defaults=defaults
                 )
                 if not new:
-                    for key, val in defaults:
+                    for key, val in defaults.items():
                         setattr(colonel, key, val)
                     colonel.save()
 
