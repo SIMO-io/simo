@@ -81,16 +81,15 @@ class FleetConsumer(AsyncWebsocketConsumer):
         timezone.activate(tz)
 
         def get_colonel():
-            with transaction.atomic():
-                return Colonel.objects.update_or_create(
-                    uid=headers['colonel-uid'], defaults={
-                        'instance': self.instance,
-                        'name': headers.get('colonel-name'),
-                        'type': headers['colonel-type'],
-                        'firmware_version': headers['firmware-version'],
-                        'last_seen': timezone.now()
-                    }
-                )
+            return Colonel.objects.update_or_create(
+                uid=headers['colonel-uid'], defaults={
+                    'instance': self.instance,
+                    'name': headers.get('colonel-name'),
+                    'type': headers['colonel-type'],
+                    'firmware_version': headers['firmware-version'],
+                    'last_seen': timezone.now()
+                }
+            )
 
         self.colonel, new = await sync_to_async(
             get_colonel, thread_sensitive=True

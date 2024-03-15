@@ -122,7 +122,7 @@ DATABASES = {
     'default': {
         'ENGINE': 'simo.core.db_backend',
         'NAME': 'SIMO',
-        'ATOMIC_REQUESTS': False,
+        'ATOMIC_REQUESTS': True, # required for update_or_create method to work!
     }
 }
 
