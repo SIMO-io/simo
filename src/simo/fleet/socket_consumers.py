@@ -5,6 +5,7 @@ import pytz
 import traceback
 import sys
 import zlib
+from django.db import transaction
 from logging.handlers import RotatingFileHandler
 from django.utils import timezone
 from django.conf import settings
@@ -79,16 +80,21 @@ class FleetConsumer(AsyncWebsocketConsumer):
         tz = await sync_to_async(get_tz, thread_sensitive=True)()
         timezone.activate(tz)
 
+        def get_colonel():
+            with transaction.atomic():
+                return Colonel.objects.update_or_create(
+                    uid=headers['colonel-uid'], defaults={
+                        'instance': self.instance,
+                        'name': headers.get('colonel-name'),
+                        'type': headers['colonel-type'],
+                        'firmware_version': headers['firmware-version'],
+                        'last_seen': timezone.now()
+                    }
+                )
+
         self.colonel, new = await sync_to_async(
-            Colonel.objects.update_or_create, thread_sensitive=True)(
-            uid=headers['colonel-uid'], defaults={
-                'instance': self.instance,
-                'name': headers.get('colonel-name'),
-                'type': headers['colonel-type'],
-                'firmware_version': headers['firmware-version'],
-                'last_seen': timezone.now()
-            }
-        )
+            get_colonel, thread_sensitive=True
+        )()
 
         print(f"Colonel {self.colonel} connected with headers: {headers}")
         if not self.colonel.enabled:
