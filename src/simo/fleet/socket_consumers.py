@@ -89,13 +89,14 @@ class FleetConsumer(AsyncWebsocketConsumer):
                 'firmware_version': headers['firmware-version'],
                 'last_seen': timezone.now()
             }
-            colonel, new = Colonel.objects.get_or_create(
-                uid=headers['colonel-uid'], defaults=defaults
-            )
-            if not new:
-                for key, val in defaults:
-                    setattr(colonel, key, val)
-                colonel.save()
+            with transaction.atomic():
+                colonel, new = Colonel.objects.get_or_create(
+                    uid=headers['colonel-uid'], defaults=defaults
+                )
+                if not new:
+                    for key, val in defaults:
+                        setattr(colonel, key, val)
+                    colonel.save()
 
             return colonel, new
 

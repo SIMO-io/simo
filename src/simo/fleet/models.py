@@ -98,20 +98,13 @@ class Colonel(DirtyFieldsMixin, models.Model):
             for comp in self.components.all():
                 comp.alive = self.is_connected
                 comp.save()
-        is_new = self.pk is None
 
         if self.minor_upgrade_available and self.firmware_version == self.minor_upgrade_available:
             self.minor_upgrade_available = None
         if self.major_upgrade_available and self.firmware_version == self.major_upgrade_available:
             self.major_upgrade_available = None
 
-        obj = super().save(*args, **kwargs)
-        if is_new and self.type == 'ample-wall':
-            I2CInterface.objects.create(
-                colonel=self, name="Main", no=0, scl_pin=4, sda_pin=15,
-                freq=100000
-            )
-        return obj
+        return super().save(*args, **kwargs)
 
     @property
     def is_connected(self):
