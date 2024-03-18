@@ -186,7 +186,7 @@ class Colonel(DirtyFieldsMixin, models.Model):
             component.config['colonel'] = other_colonel.id
             component.save()
             self.components.remove(component)
-            other_colonel.add(component)
+            other_colonel.components.add(component)
 
         self.rebuild_occupied_pins()
         other_colonel.rebuild_occupied_pins()
