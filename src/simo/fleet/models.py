@@ -198,11 +198,9 @@ class Colonel(DirtyFieldsMixin, models.Model):
                 freq=i2c_interface.freq,
                 scl_pin=ColonelPin.objects.get(
                     colonel=self, no=i2c_interface.scl_pin.no,
-                    occupied_by=None
                 ),
                 sda_pin=ColonelPin.objects.get(
                     colonel=self, no=i2c_interface.sda_pin.no,
-                    occupied_by=None
                 ),
             )
 
