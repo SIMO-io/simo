@@ -1,7 +1,15 @@
-from django.contrib import admin
+from django import forms
 from django.shortcuts import render, redirect
 from django.contrib.admin.helpers import Fieldset
 
+
+class AdminFormActionForm(forms.Form):
+
+    def __init__(self, modeladmin, request, queryset, *args, **kwargs):
+        self.modeladmin = modeladmin
+        self.request = request
+        self.queryset = queryset
+        super().__init__(*args, **kwargs)
 
 
 class FormAction:

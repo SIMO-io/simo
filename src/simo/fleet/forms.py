@@ -11,6 +11,7 @@ from simo.core.utils.formsets import FormsetField
 from simo.core.widgets import LogOutputWidget
 from simo.core.utils.easing import EASING_CHOICES
 from simo.core.utils.validators import validate_slaves
+from simo.core.utils.admin import AdminFormActionForm
 from .models import Colonel, ColonelPin, I2CInterface, i2c_interface_no_choices
 
 
@@ -45,7 +46,7 @@ class ColonelAdminForm(forms.ModelForm):
             )
 
 
-class MoveColonelForm(forms.Form):
+class MoveColonelForm(AdminFormActionForm):
     colonel = forms.ModelChoiceField(
         label="Move to:", queryset=Colonel.objects.filter(components=None),
     )
