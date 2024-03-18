@@ -51,7 +51,7 @@ BASE_ESP32_GPIO_PINS = {
     39: {'output': False, 'adc': True},
 }
 
-GPIO_PINS = {'generic': {}, '4-relays': {}, 'ample-wall': {}}
+GPIO_PINS = {'generic': {}, '4-relays': {}, 'ample-wall': {}, 'game-changer': {}}
 
 for no, data in BASE_ESP32_GPIO_PINS.items():
     GPIO_PINS['generic'][no] = GPIO_PIN_DEFAULTS.copy()
@@ -61,6 +61,9 @@ for no, data in BASE_ESP32_GPIO_PINS.items():
     if no in (4, 12, 13, 14, 15, 23, 32, 33, 34, 36, 39):
         GPIO_PINS['ample-wall'][no] = GPIO_PIN_DEFAULTS.copy()
         GPIO_PINS['ample-wall'][no].update(data)
+
+        GPIO_PINS['game-changer'][no] = GPIO_PIN_DEFAULTS.copy()
+        GPIO_PINS['game-changer'][no].update(data)
 
 
 for no in range(101, 126):
@@ -72,6 +75,14 @@ for no in range(101, 126):
 for no in range(126, 133):
     GPIO_PINS['ample-wall'][no] = {
         'output': True, 'input': True, 'default_pull': 'HIGH',
+        'native': False, 'adc': False,
+        'capacitive': False, 'note': ''
+    }
+
+
+for no in range(101, 133):
+    GPIO_PINS['game-changer'][no] = {
+        'output': True, 'input': True, 'default_pull': 'LOW',
         'native': False, 'adc': False,
         'capacitive': False, 'note': ''
     }
