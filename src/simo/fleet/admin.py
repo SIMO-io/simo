@@ -103,7 +103,7 @@ class ColonelAdmin(admin.ModelAdmin):
         )
 
     def move_colonel_to(self, request, queryset, form):
-        if form.cleaned_data['colonel'] not in request.user.instances:
+        if form.cleaned_data['colonel'].instance not in request.user.instances:
             return
         moved = 0
         for colonel in queryset:
