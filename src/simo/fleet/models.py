@@ -56,6 +56,7 @@ class Colonel(DirtyFieldsMixin, models.Model):
         choices=(
             ('4-relays', "4 Relay"),
             ('ample-wall', "Ample Wall"),
+            ('game-changer', "Game Changer"),
         )
     )
     firmware_version = models.CharField(
@@ -269,7 +270,7 @@ def create_interfaces(sender, instance, created, *args, **kwargs):
             capacitive=data.get('capacitive'), adc=data.get('adc'),
             native=data.get('native'), note=data.get('note')
         )
-    if instance.type in ('ample-wall', ):
+    if instance.type in ('ample-wall', 'game-changer'):
         I2CInterface.objects.create(
             colonel=instance, name='Main', no=0,
             scl_pin=ColonelPin.objects.get(colonel=instance, no=4),
