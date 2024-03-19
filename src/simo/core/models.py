@@ -290,7 +290,7 @@ class Gateway(DirtyFieldsMixin, models.Model, SimoAdminMixin):
         self.save(update_fields=['discovery'])
 
     def finish_discovery(self):
-        self.discovery['finished'] = timezone.now()
+        self.discovery['finished'] = time.time()
         self.save(update_fields=['discovery'])
 
 

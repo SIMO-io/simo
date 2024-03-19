@@ -373,7 +373,10 @@ class FleetConsumer(AsyncWebsocketConsumer):
             elif 'discover-ttlock' in data:
                 def process_discovery_result():
                     self.gateway.refresh_from_db()
-                    self.gateway.process_discovery(data)
+                    try:
+                        self.gateway.process_discovery(data)
+                    except Exception as e:
+                        print(traceback.format_exc(), file=sys.stderr)
                     self.gateway.finish_discovery()
                 await sync_to_async(
                     process_discovery_result, thread_sensitive=True
