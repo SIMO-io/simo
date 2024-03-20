@@ -308,7 +308,7 @@ class TTLock(FleeDeviceMixin, Lock):
         form = TTLockConfigForm(controller_uid=cls.uid, data=started_with)
         if form.is_valid():
             new_component = form.save()
-            new_component.config.update(data.get('result', {}))
+            new_component.config.update(data.get('result', {}).get('config'))
             new_component.save()
             new_component.prepare_controller()
             GatewayObjectCommand(

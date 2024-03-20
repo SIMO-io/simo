@@ -319,6 +319,8 @@ class FleetConsumer(AsyncWebsocketConsumer):
                         'command': 'finalize',
                         'data': payload.get('data', {})
                     }))
+                else:
+                    asyncio.run(self.send_data(payload))
 
             elif isinstance(obj, Component):
                 if int(obj.config.get('colonel')) != self.colonel.id:
