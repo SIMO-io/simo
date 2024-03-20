@@ -386,6 +386,9 @@ class FleetConsumer(AsyncWebsocketConsumer):
                 def process_discovery_result():
                     print("PROCESS DISCOVERIES!")
                     self.gateway.refresh_from_db()
+                    if self.gateway.discovery.get('finished'):
+                        print("Discovery is already finished!")
+                        return
                     try:
                         self.gateway.process_discovery(data)
                     except Exception as e:

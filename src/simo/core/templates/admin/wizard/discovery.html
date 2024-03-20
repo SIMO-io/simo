@@ -75,6 +75,9 @@
         margin-bottom: 30px;
         font-weight: bold;
       }
+      .discovered-component .error{
+        color: red;
+      }
     </style>
     <div id="components-discovered">
     
@@ -139,7 +142,7 @@
                   })
                 }
               } else{
-                if ($('#discovery-error--' + j).length < 1) {
+                if ($('#discovery-error-' + j).length < 1) {
                   $('#components-discovered').append('<p class="discovered-component error" id="discovery-error-' + j + '">' + discovery.result[j].error + '</p>');
                 }
               }

@@ -303,14 +303,14 @@ class TTLock(FleeDeviceMixin, Lock):
     def _process_discovery(cls, started_with, data):
         if data['discover-ttlock'] == 'fail':
             return {'error': data['result']}
-        print("STARTED WITH: ", started_with)
+
         started_with = deserialize_form_data(started_with)
+        print("STARTED WITH: ", started_with)
         form = TTLockConfigForm(controller_uid=cls.uid, data=started_with)
         if form.is_valid():
             new_component = form.save()
             new_component.config.update(data.get('result', {}).get('config'))
             new_component.save()
-            new_component.prepare_controller()
             GatewayObjectCommand(
                 new_component.gateway, Colonel(
                     id=new_component.config['colonel']
@@ -324,7 +324,6 @@ class TTLock(FleeDeviceMixin, Lock):
 
         # Literally impossible, but just in case...
         print("INVALID INITIAL DISCOVERY FORM!")
-        print("Started with: ", started_with)
         return {'error': 'INVALID INITIAL DISCOVERY FORM!'}
 
 
