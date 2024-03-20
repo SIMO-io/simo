@@ -59,9 +59,7 @@ class FleeDeviceMixin:
                 continue
             if val in ({}, [], None):
                 continue
-            if key not in declared_fields:
-                continue
-            if isinstance(declared_fields[key], ColonelPinChoiceField):
+            if isinstance(declared_fields.get(key), ColonelPinChoiceField):
                 config[f'{key}_no'] = self.component.config[f'{key}_no']
             else:
                 config[key] = val
