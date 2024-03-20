@@ -278,7 +278,7 @@ class Gateway(DirtyFieldsMixin, models.Model, SimoAdminMixin):
                 started_with=self.discovery['init_data'], data=data
             )
             if result:
-                if isinstance(result, Iterable):
+                if not isinstance(result, dict) and isinstance(result, Iterable):
                     for res in result:
                         if isinstance(res, models.Model):
                             self.discovery['result'].append(res.pk)

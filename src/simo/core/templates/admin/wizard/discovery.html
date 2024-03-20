@@ -125,17 +125,23 @@
           for (var i=0; i<response.length; i++) {
             var discovery = response[i];
             for (var j=0; j<discovery.result.length; j++){
-              var comp_id = discovery.result[j];
-              if ($('#discovered-component-' + comp_id).length < 1){
-                $.ajax({
-                  url: api_components_url + comp_id + '/',
-                  success: function(component){
-                    $('#components-discovered').append(
-                      '<p class="discovered-component" id="discovered-component-' + comp_id +'"><a href="/admin/core/component/' + comp_id + '">' +
-                      component.name + '</a></p>'
-                    );
-                  }
-                })
+              if (discovery.result[j].error === undefined){
+                var comp_id = discovery.result[j];
+                if ($('#discovered-component-' + comp_id).length < 1){
+                  $.ajax({
+                    url: api_components_url + comp_id + '/',
+                    success: function(component){
+                      $('#components-discovered').append(
+                        '<p class="discovered-component" id="discovered-component-' + comp_id +'"><a href="/admin/core/component/' + comp_id + '">' +
+                        component.name + '</a></p>'
+                      );
+                    }
+                  })
+                }
+              } else{
+                if ($('#discovery-error--' + j).length < 1) {
+                  $('#components-discovered').append('<p class="discovered-component error" id="discovery-error-' + j + '">' + discovery.result[j].error + '</p>');
+                }
               }
             }
           }
