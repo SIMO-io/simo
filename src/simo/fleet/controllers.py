@@ -305,7 +305,7 @@ class TTLock(FleeDeviceMixin, Lock):
     def _process_discovery(cls, started_with, data):
         if data['discover-ttlock'] == 'fail':
             return {'error': data['result']}
-
+        print("STARTED WITH: ", started_with)
         started_with = deserialize_form_data(started_with)
         form = TTLockConfigForm(controller_uid=cls.uid, data=started_with)
         if form.is_valid():

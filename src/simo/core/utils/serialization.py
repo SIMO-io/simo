@@ -40,9 +40,9 @@ def deserialize_form_data(data):
     deserialized_data = {}
     for field_name, val in data.items():
         if isinstance(val, dict) and val.get('model'):
-            deserialized_data[field_name] = model_serializers.deserialize(
+            deserialized_data[field_name] = list(model_serializers.deserialize(
                 'json', val['val']
-            )
+            ))
             if val['model'] == 'single':
                 deserialized_data[field_name] = deserialized_data[field_name][0]
         else:
