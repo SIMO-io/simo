@@ -314,6 +314,11 @@ class FleetConsumer(AsyncWebsocketConsumer):
                     asyncio.run(self.send_data({
                         'command': 'discover-ttlock'
                     }))
+                elif payload.get('command') == 'finalize':
+                    asyncio.run(self.send_data({
+                        'command': 'finalize',
+                        'data': payload.get('data', {})
+                    }))
 
             elif isinstance(obj, Component):
                 if int(obj.config.get('colonel')) != self.colonel.id:
@@ -346,9 +351,14 @@ class FleetConsumer(AsyncWebsocketConsumer):
                 }, compress=True)
             elif 'comp' in data:
                 try:
+                    try:
+                        id=int(data['comp'])
+                    except:
+                        return
+
                     component = await sync_to_async(
                         Component.objects.get, thread_sensitive=True
-                    )(id=int(data['comp']))
+                    )(id=id)
 
                     if 'val' in data:
                         def receive_val(val):

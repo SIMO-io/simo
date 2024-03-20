@@ -266,6 +266,7 @@ class Gateway(DirtyFieldsMixin, models.Model, SimoAdminMixin):
         self.save()
 
     def process_discovery(self, data):
+        self.refresh_from_db()
         from .utils.type_constants import get_controller_types_map
         ControllerClass = get_controller_types_map().get(
             self.discovery['controller_uid']
@@ -273,7 +274,9 @@ class Gateway(DirtyFieldsMixin, models.Model, SimoAdminMixin):
         if ControllerClass and hasattr(
             ControllerClass, '_complete_discovery'
         ):
-            result = ControllerClass._complete_discovery(data)
+            result = ControllerClass._process_discovery(
+                started_with=self.discovery['init_data'], data=data
+            )
             if result:
                 if isinstance(result, Iterable):
                     for res in result:
