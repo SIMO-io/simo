@@ -272,7 +272,7 @@ class Gateway(DirtyFieldsMixin, models.Model, SimoAdminMixin):
             self.discovery['controller_uid']
         )
         if ControllerClass and hasattr(
-            ControllerClass, '_complete_discovery'
+            ControllerClass, '_process_discovery'
         ):
             result = ControllerClass._process_discovery(
                 started_with=self.discovery['init_data'], data=data
