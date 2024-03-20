@@ -289,7 +289,7 @@ def post_component_delete(sender, instance, *args, **kwargs):
         for colonel in affected_colonels:
             print("Rebuild occupied pins for :", colonel)
             colonel.rebuild_occupied_pins()
-            colonel.restart()
+            colonel.update_config()
 
     transaction.on_commit(update_colonel)
 
