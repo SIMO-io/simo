@@ -21,7 +21,7 @@ class FleetGatewayHandler(BaseObjectCommandsGatewayHandler):
         for gw in Gateway.objects.filter(
             type=self.uid,
             discovery__has_key='start',
-        ).exclude(discovery__finished__gt=0):
+        ).exclude(discovery__has_key='finished'):
             colonel = Colonel.objects.get(
                 id=gw.discovery['init_data']['colonel']['val'][0]['pk']
             )
