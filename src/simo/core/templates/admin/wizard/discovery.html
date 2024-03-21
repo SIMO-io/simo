@@ -62,13 +62,19 @@
       </div>
     {% endif %}
     
-    <p style="margin: 30px 15px">
-      <i class="fas fa-spinner fa-spin fa-lg" style="margin-right: 10px"></i> DISCOVERY MODE ACTIVATED! <br>
-      Your new components will appear down bellow once discovered.
-    </p>
-    {% if discovery_msg %}
-      <p style="margin: 30px 15px">{{ discovery_msg }}</p>
-    {% endif %}
+    <div id="running-discovery">
+      <p style="margin: 30px 15px">
+        <i class="fas fa-spinner fa-spin fa-lg" style="margin-right: 10px"></i> DISCOVERY MODE ACTIVATED! <br>
+        Your new components will appear down bellow once discovered.
+      </p>
+      {% if discovery_msg %}
+        <p style="margin: 30px 15px">{{ discovery_msg }}</p>
+      {% endif %}
+    </div>
+    <div id="discovery-finished" style="display:none;">
+      <p style="margin: 30px 15px">Discovery process finished!</p>
+    </div>
+    
     <style>
       #components-discovered{
         padding: 0 20px;
@@ -130,6 +136,10 @@
         success: function(response){
           for (var i=0; i<response.length; i++) {
             var discovery = response[i];
+            if (discovery.finished > 0){
+              $('#running-discovery').hide();
+              $('#discovery-finished').show();
+            }
             for (var j=0; j<discovery.result.length; j++){
               if (discovery.result[j].error === undefined){
                 var comp_id = discovery.result[j];
