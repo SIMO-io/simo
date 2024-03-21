@@ -12,12 +12,18 @@ class FleetGatewayHandler(BaseObjectCommandsGatewayHandler):
     config_form = BaseGatewayForm
 
     periodic_tasks = (
+        ('look_for_updates', 600),
         ('watch_colonels_connection', 30),
-        ('push_discoveries', 5),
+        ('push_discoveries', 3),
     )
 
     def _on_mqtt_message(self, client, userdata, msg):
         pass
+
+    def look_for_updates(self):
+        from .models import Colonel
+        for colonel in Colonel.objects.all():
+            colonel.check_for_upgrade()
 
     def watch_colonels_connection(self):
         from .models import Colonel

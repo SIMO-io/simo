@@ -73,8 +73,10 @@
     </div>
     <div id="discovery-finished" style="display:none;">
       <p style="margin: 30px 15px">Discovery process finished!</p>
-      <p style="margin: 30px 15px; font-weight: bold; padding: 10px 20px; border: 1px solid;">
-        <a href="#" id="retry-btn"><i class="fas fa-redo"></i> Retry!</a>
+      <p style="margin: 30px 15px; font-weight: bold;">
+        <a href="#" id="retry-btn" style="padding: 10px 20px; border: 1px solid;">
+          <i class="fas fa-redo"></i> Retry!
+        </a>
       </p>
     </div>
     
@@ -175,7 +177,6 @@
     
     $('#retry-btn').on('click', function(e){
       e.preventDefault();
-      console.log("RETRY!")
       $.get(api_retry_url);
     });
   })();
