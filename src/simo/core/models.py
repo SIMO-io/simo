@@ -265,6 +265,11 @@ class Gateway(DirtyFieldsMixin, models.Model, SimoAdminMixin):
         }
         self.save()
 
+    def retry_discovery(self):
+        self.discovery['start'] = time.time()
+        self.discovery.pop('finished', None)
+        self.save()
+
     def process_discovery(self, data):
         self.refresh_from_db()
         from .utils.type_constants import get_controller_types_map

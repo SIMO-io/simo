@@ -317,8 +317,8 @@ def drop_fingerprints_learn():
 def time_out_discoveries():
     from .models import Gateway
     for gw in Gateway.objects.filter(
-        discovery__has_key='start', discovery__finished=None,
-    ):
+        discovery__has_key='start'
+    ).exclude(discovery__has_key='finished'):
         if time.time() - gw.discovery['start'] > gw.discovery['timeout']:
             gw.finish_discovery()
 

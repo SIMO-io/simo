@@ -73,6 +73,11 @@
     </div>
     <div id="discovery-finished" style="display:none;">
       <p style="margin: 30px 15px">Discovery process finished!</p>
+      <p style="margin: 30px 15px">
+        <form method="post" action="{{ api_check_url }}">
+          <button type="submit">Retry!</button>
+        </form>
+      </p>
     </div>
     
     <style>
@@ -139,6 +144,9 @@
             if (discovery.finished > 0){
               $('#running-discovery').hide();
               $('#discovery-finished').show();
+            } else {
+              $('#running-discovery').show();
+              $('#discovery-finished').hide();
             }
             for (var j=0; j<discovery.result.length; j++){
               if (discovery.result[j].error === undefined){

@@ -619,9 +619,24 @@ class RunningDiscoveries(InstanceMixin, viewsets.GenericViewSet):
             )
         for gateway in gateways:
             data.append({
+                'gateway': gateway.id,
                 'start': gateway.discovery['start'],
                 'controller_uid': gateway.discovery['controller_uid'],
                 'result': gateway.discovery['result'],
                 'finished': gateway.discovery.get('finished'),
             })
         return RESTResponse(data)
+
+
+    @action(detail=False, methods=['post'])
+    def retry(self, request, *args, **kwargs):
+        gateways = Gateway.objects.filter(
+            discovery__start__gt=time.time() - 60 * 60  # no more than an hour
+        )
+        if 'controller_uid' in request.GET:
+            gateways = gateways.filter(
+                discovery__controller_uid=request.GET['controller_uid']
+            )
+        for gateway in gateways:
+            gateway.retry_discovery()
+        return self.list(request, *args, **kwargs)
