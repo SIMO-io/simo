@@ -2,7 +2,7 @@ from simo.core.gateways import BaseObjectCommandsGatewayHandler
 from simo.core.forms import BaseGatewayForm
 from simo.core.models import Gateway
 from simo.core.events import GatewayObjectCommand
-from .models import Colonel
+
 
 
 class FleetGatewayHandler(BaseObjectCommandsGatewayHandler):
@@ -17,6 +17,7 @@ class FleetGatewayHandler(BaseObjectCommandsGatewayHandler):
         pass
 
     def push_discoveries(self):
+        from .models import Colonel
         for gw in Gateway.objects.filter(
             type=self.uid,
             discovery__has_key='start', discovery__finished=None,
