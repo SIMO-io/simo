@@ -388,24 +388,24 @@ class FleetConsumer(AsyncWebsocketConsumer):
                     self.gateway.refresh_from_db()
                     if self.gateway.discovery.get('finished'):
                         print("Discovery is already finished!")
-                        finished_comp = Component.objects.filter(
+                        return Component.objects.filter(
                             meta__finalization_data__temp_id=data['result']['id']
                         ).first()
-                        print("Created component discovered. Finalize it!")
-                        if finished_comp:
-                            await self.send_data({
-                                'command': 'finalize',
-                                'data': finished_comp.meta['finalization_data']
-                            })
-                        return
                     try:
                         self.gateway.process_discovery(data)
                     except Exception as e:
                         print(traceback.format_exc(), file=sys.stderr)
                     self.gateway.finish_discovery()
-                await sync_to_async(
+
+                finished_comp = await sync_to_async(
                     process_discovery_result, thread_sensitive=True
                 )()
+                if finished_comp:
+                    print("Created component discovered. Finalize it!")
+                    await self.send_data({
+                        'command': 'finalize',
+                        'data': finished_comp.meta['finalization_data']
+                    })
 
         elif bytes_data:
             if not self.colonel_logger:
