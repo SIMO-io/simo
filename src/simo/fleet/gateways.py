@@ -1,3 +1,5 @@
+import datetime
+from django.utils import timezone
 from simo.core.gateways import BaseObjectCommandsGatewayHandler
 from simo.core.forms import BaseGatewayForm
 from simo.core.models import Gateway
@@ -10,11 +12,21 @@ class FleetGatewayHandler(BaseObjectCommandsGatewayHandler):
     config_form = BaseGatewayForm
 
     periodic_tasks = (
-        ('push_discoveries', 10),
+        ('watch_colonels_connection', 30),
+        ('push_discoveries', 5),
     )
 
     def _on_mqtt_message(self, client, userdata, msg):
         pass
+
+    def watch_colonels_connection(self):
+        from .models import Colonel
+        for colonel in Colonel.objects.filter(
+            socket_connected=True,
+            last_seen__lt=timezone.now() - datetime.timedelta(minutes=2)
+        ):
+            colonel.socket_connected = False
+            colonel.save()
 
     def push_discoveries(self):
         from .models import Colonel

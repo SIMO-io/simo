@@ -598,7 +598,7 @@ class ControllerTypes(InstanceMixin, viewsets.GenericViewSet):
         return RESTResponse(data)
 
 
-class RunningDiscoveries(InstanceMixin, viewsets.GenericViewSet):
+class RunningDiscoveries(InstanceMixin, viewsets.ViewSet):
     url = 'core/discoveries'
     basename = 'discoveries'
     queryset = []
@@ -608,15 +608,8 @@ class RunningDiscoveries(InstanceMixin, viewsets.GenericViewSet):
         permissions.append(IsInstanceSuperuser())
         return permissions
 
-    def list(self, request, *args, **kwargs):
+    def get_data(self, gateways):
         data = []
-        gateways = Gateway.objects.filter(
-            discovery__start__gt=time.time() - 60 * 60 # no more than an hour
-        )
-        if 'controller_uid' in request.GET:
-            gateways = gateways.filter(
-                discovery__controller_uid=request.GET['controller_uid']
-            )
         for gateway in gateways:
             data.append({
                 'gateway': gateway.id,
@@ -625,11 +618,9 @@ class RunningDiscoveries(InstanceMixin, viewsets.GenericViewSet):
                 'result': gateway.discovery['result'],
                 'finished': gateway.discovery.get('finished'),
             })
-        return RESTResponse(data)
+        return data
 
-
-    @action(detail=False, methods=['post'])
-    def retry(self, request, *args, **kwargs):
+    def get_gateways(self, request):
         gateways = Gateway.objects.filter(
             discovery__start__gt=time.time() - 60 * 60  # no more than an hour
         )
@@ -637,6 +628,16 @@ class RunningDiscoveries(InstanceMixin, viewsets.GenericViewSet):
             gateways = gateways.filter(
                 discovery__controller_uid=request.GET['controller_uid']
             )
-        for gateway in gateways:
-            gateway.retry_discovery()
-        return self.list(request, *args, **kwargs)
+        return gateways
+
+    def get(self, request, *args, **kwargs):
+        return RESTResponse(self.get_data(self.get_gateways(request)))
+
+    def post(self, request, *args, **kwargs):
+        gateways = self.get_gateways(request)
+        if 'controller_uid' in request.GET:
+            for gateway in gateways:
+                gateway.retry_discovery()
+        return RESTResponse(self.get_data(gateways))
+
+
