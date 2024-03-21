@@ -388,6 +388,15 @@ class FleetConsumer(AsyncWebsocketConsumer):
                     self.gateway.refresh_from_db()
                     if self.gateway.discovery.get('finished'):
                         print("Discovery is already finished!")
+                        finished_comp = Component.objects.filter(
+                            meta__finalization_data__temp_id=data['result']['id']
+                        ).first()
+                        print("Created component discovered. Finalize it!")
+                        if finished_comp:
+                            await self.send_data({
+                                'command': 'finalize',
+                                'data': finished_comp.meta['finalization_data']
+                            })
                         return
                     try:
                         self.gateway.process_discovery(data)

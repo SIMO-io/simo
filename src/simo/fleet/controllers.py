@@ -310,15 +310,17 @@ class TTLock(FleeDeviceMixin, Lock):
         if form.is_valid():
             new_component = form.save()
             new_component.config.update(data.get('result', {}).get('config'))
+            new_component.meta['finalization_data'] = {
+                'temp_id': data['result']['id'],
+                'permanent_id': new_component.id,
+                'config': new_component.config,
+            }
             new_component.save()
             GatewayObjectCommand(
                 new_component.gateway, Colonel(
                     id=new_component.config['colonel']
-                ), command='finalize', data={
-                    'temp_id': data['result']['id'],
-                    'permanent_id': new_component.id,
-                    'config': new_component.config,
-                },
+                ), command='finalize',
+                data=new_component.meta['finalization_data'],
             ).publish()
             return [new_component]
 
