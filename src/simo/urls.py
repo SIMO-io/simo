@@ -9,7 +9,7 @@ from django.core.files.storage import FileSystemStorage
 from django.apps import apps
 from django.contrib.auth.views import LogoutView
 from rest_framework import routers
-from rest_framework.viewsets import GenericViewSet
+from rest_framework.viewsets import GenericViewSet, ViewSet
 from django.contrib.admin import site as admin_site
 from simo.users.views import protected_static
 
@@ -24,7 +24,7 @@ for name, app in apps.app_configs.items():
         continue
     for cls_name, cls in apis.__dict__.items():
         cls_id = '%s.%s' % (app.name, cls_name)
-        if inspect.isclass(cls) and issubclass(cls, GenericViewSet) \
+        if inspect.isclass(cls) and issubclass(cls, (GenericViewSet, ViewSet)) \
         and getattr(cls, 'url', None) and getattr(cls, 'basename', None):
             rest_router.register(
                 cls.url, cls, basename=cls.basename
