@@ -130,6 +130,7 @@
 <script>
   (function() {
     var api_check_url = '{{ api_check_url }}';
+    var api_retry_url = '{{ api_retry_url }}';
     var api_components_url = '{{ api_components_url }}';
     console.log("API CHECK URL: ", api_check_url);
     
@@ -175,7 +176,7 @@
     $('#retry-btn').on('click', function(e){
       e.preventDefault();
       console.log("RETRY!")
-      $.post(api_check_url);
+      $.get(api_retry_url);
     });
   })();
 </script>

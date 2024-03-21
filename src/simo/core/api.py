@@ -598,10 +598,11 @@ class ControllerTypes(InstanceMixin, viewsets.GenericViewSet):
         return RESTResponse(data)
 
 
-class RunningDiscoveries(InstanceMixin, viewsets.ViewSet):
+class RunningDiscoveries(InstanceMixin, viewsets.GenericViewSet):
     url = 'core/discoveries'
     basename = 'discoveries'
     queryset = []
+
 
     def get_permissions(self):
         permissions = super().get_permissions()
@@ -630,10 +631,11 @@ class RunningDiscoveries(InstanceMixin, viewsets.ViewSet):
             )
         return gateways
 
-    def get(self, request, *args, **kwargs):
+    def list(self, request, *args, **kwargs):
         return RESTResponse(self.get_data(self.get_gateways(request)))
 
-    def post(self, request, *args, **kwargs):
+    @action(detail=False, methods=['get'])
+    def retry(self, request, *args, **kwargs):
         gateways = self.get_gateways(request)
         if 'controller_uid' in request.GET:
             for gateway in gateways:

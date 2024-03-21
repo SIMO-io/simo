@@ -366,6 +366,10 @@ class ComponentAdmin(admin.ModelAdmin):
                                 'discoveries-list',
                                 kwargs={'instance_slug': instance.slug}
                             ) + f"?controller_uid={ctx['form'].controller.uid}"
+                            ctx['api_retry_url'] = reverse(
+                                'discoveries-list',
+                                kwargs={'instance_slug': instance.slug}
+                            ) + f"retry/?controller_uid={ctx['form'].controller.uid}"
                             ctx['api_components_url'] = reverse(
                                 'components-list',
                                 kwargs={'instance_slug': instance.slug}
