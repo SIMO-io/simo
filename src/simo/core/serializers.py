@@ -366,6 +366,9 @@ class ComponentSerializer(FormSerializer):
         a_data = self.accomodate_formsets(form, validated_data)
         form = self.get_form(data=a_data)
         if form.is_valid():
+            if form.controller.is_discoverable:
+                form.controller.init_discovery(form.cleaned_data)
+                return {'discovery': 'started'}
             instance = form.save(commit=True)
             return instance
         raise serializers.ValidationError(form.errors)
