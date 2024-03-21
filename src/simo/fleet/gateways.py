@@ -25,6 +25,7 @@ class FleetGatewayHandler(BaseObjectCommandsGatewayHandler):
             colonel = Colonel.objects.get(
                 id=gw.discovery['init_data']['colonel']['val'][0]['pk']
             )
+            print("Publish discover-ttlock command!")
             GatewayObjectCommand(
                 gw, colonel, command='discover-ttlock',
             ).publish()
