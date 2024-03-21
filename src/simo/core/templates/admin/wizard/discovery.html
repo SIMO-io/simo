@@ -74,7 +74,7 @@
     <div id="discovery-finished" style="display:none;">
       <p style="margin: 30px 15px">Discovery process finished!</p>
       <p style="margin: 30px 15px">
-        <button id="retry-btn">Retry!</button>
+        <button type="buttin" id="retry-btn">Retry!</button>
       </p>
     </div>
     
@@ -173,6 +173,7 @@
     setInterval(checkDiscoveryStatus, 1000);
     
     $('#retry-btn').on('click', function(e){
+      e.preventDefault();
       $.post(api_check_url);
     });
   })();
