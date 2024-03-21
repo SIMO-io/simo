@@ -302,7 +302,19 @@ class TTLock(FleeDeviceMixin, Lock):
     @classmethod
     def _process_discovery(cls, started_with, data):
         if data['discover-ttlock'] == 'fail':
-            return {'error': data['result']}
+            if data['result'] == 1:
+                return {'error': 'TTLock not found.'}
+            elif data['result'] == 2:
+                return {'error': 'Error connecting to your TTLock.'}
+            elif data['result'] == 3:
+                return {
+                    'error': 'Unable to initialize your TTLock. '
+                             'Perform full reset. '
+                             'Allow the lock to rest for at least 2 min. '
+                             'Retry!'
+                }
+            else:
+                return {'error': "Pairing error."}
 
         started_with = deserialize_form_data(started_with)
         print("STARTED WITH: ", started_with)
