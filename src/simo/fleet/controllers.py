@@ -314,8 +314,16 @@ class TTLock(FleeDeviceMixin, Lock):
                              'Move your lock as close as possible to your SIMO.io Colonel. '
                              'Retry!'
                 }
+            elif data['result'] == 4:
+                return {
+                    'error': 'BLE is available only on LAN connected colonels.'
+                }
+            elif data['result'] == 5:
+                return {
+                    'error': 'Single TTLock is alowed per Colonel.'
+                }
             else:
-                return {'error': "Pairing error."}
+                return {'error': data['result']}
 
         started_with = deserialize_form_data(started_with)
         print("STARTED WITH: ", started_with)
@@ -328,7 +336,8 @@ class TTLock(FleeDeviceMixin, Lock):
                 'permanent_id': new_component.id,
                 'config': {
                     'type': cls.uid.split('.')[-1],
-                    'config': new_component.config
+                    'config': new_component.config,
+                    'val': False,
                 },
             }
             new_component.save()
