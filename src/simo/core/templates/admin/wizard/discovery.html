@@ -74,9 +74,7 @@
     <div id="discovery-finished" style="display:none;">
       <p style="margin: 30px 15px">Discovery process finished!</p>
       <p style="margin: 30px 15px">
-        <form method="post" action="{{ api_check_url }}">
-          <button type="submit">Retry!</button>
-        </form>
+        <button id="retry-btn">Retry!</button>
       </p>
     </div>
     
@@ -173,6 +171,10 @@
       });
     }
     setInterval(checkDiscoveryStatus, 1000);
+    
+    $('#retry-btn').on('click', function(e){
+      $.post(api_check_url);
+    });
   })();
 </script>
 
