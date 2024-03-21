@@ -978,7 +978,7 @@ class TTLockConfigForm(ColonelComponentForm):
 
 
     def save(self, commit=True):
-        obj = super(ColonelComponentForm).save(commit)
+        obj = super(ColonelComponentForm, self).save(commit)
         if commit:
             self.cleaned_data['colonel'].components.add(obj)
             self.cleaned_data['colonel'].save()
