@@ -311,6 +311,7 @@ class TTLock(FleeDeviceMixin, Lock):
                     'error': 'Unable to initialize your TTLock. '
                              'Perform full reset. '
                              'Allow the lock to rest for at least 2 min. '
+                             'Move your lock as close as possible to your SIMO.io Colonel. '
                              'Retry!'
                 }
             else:
@@ -325,7 +326,10 @@ class TTLock(FleeDeviceMixin, Lock):
             new_component.meta['finalization_data'] = {
                 'temp_id': data['result']['id'],
                 'permanent_id': new_component.id,
-                'config': new_component.config,
+                'config': {
+                    'type': cls.uid.split('.')[-1],
+                    'config': new_component.config
+                },
             }
             new_component.save()
             GatewayObjectCommand(
