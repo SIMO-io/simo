@@ -26,7 +26,6 @@ for name, app in apps.app_configs.items():
         cls_id = '%s.%s' % (app.name, cls_name)
         if inspect.isclass(cls) and issubclass(cls, GenericViewSet) \
         and getattr(cls, 'url', None) and getattr(cls, 'basename', None):
-            print("REGISTER: ", cls)
             rest_router.register(
                 cls.url, cls, basename=cls.basename
             )

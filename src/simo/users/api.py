@@ -1,4 +1,5 @@
 import sys
+from django.db.models import Q
 from rest_framework import viewsets, mixins, status
 from rest_framework.serializers import Serializer
 from rest_framework.decorators import action
@@ -9,10 +10,11 @@ from django.utils import timezone
 from simo.core.api import InstanceMixin
 from .models import (
     User, UserDevice, UserDeviceReportLog, PermissionsRole, InstanceInvitation,
-    InstanceUser
+    Fingerprint
 )
 from .serializers import (
-    UserSerializer, PermissionsRoleSerializer, InstanceInvitationSerializer
+    UserSerializer, PermissionsRoleSerializer, InstanceInvitationSerializer,
+    FingerprintSerializer
 )
 
 
@@ -213,3 +215,37 @@ class InvitationsViewSet(InstanceMixin, viewsets.ModelViewSet):
                 status=400
             )
         return RESTResponse(response.json())
+
+
+class FingerprintViewSet(
+    InstanceMixin,
+    mixins.RetrieveModelMixin, mixins.UpdateModelMixin,
+    mixins.DestroyModelMixin, mixins.ListModelMixin,
+    viewsets.GenericViewSet
+):
+    url = 'users/fingerprints'
+    basename = 'fingerprints'
+    serializer_class = FingerprintSerializer
+
+
+    def get_queryset(self):
+        return Fingerprint.objects.filter(
+            Q(user=None) | Q(user__roles__instance=self.instance)
+        )
+
+    def check_can_manage_user(self, request):
+        user_role = request.user.get_role(self.instance)
+        if not request.user.is_superuser:
+            if not user_role or not user_role.can_manage_users:
+                msg = 'You are not allowed to change this!'
+                print(msg, file=sys.stderr)
+                raise ValidationError(msg, code=403)
+
+    def update(self, request, *args, **kwargs):
+        self.check_can_manage_user(request)
+        return super().update(request, *args, **kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        self.check_can_manage_user(request)
+        return super().destroy(request, *args, **kwargs)
+

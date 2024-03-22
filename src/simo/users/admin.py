@@ -6,7 +6,7 @@ from django.contrib.auth.admin import UserAdmin as OrgUserAdmin
 from django.contrib import admin
 from .models import (
     PermissionsRole, ComponentPermission, User, UserDevice, UserDeviceReportLog,
-    InstanceInvitation, InstanceUser
+    InstanceInvitation, InstanceUser, Fingerprint
 )
 
 
@@ -211,4 +211,11 @@ class InstanceInvitationAdmin(admin.ModelAdmin):
                 "No invitations were sent."
             )
 
+@admin.register(Fingerprint)
+class FingerprintAdmin(admin.ModelAdmin):
+    list_display = 'value', 'type', 'date_created', 'user',
+    search_fields = 'value', 'type', 'user__name', 'user__email'
+    readonly_fields = 'value', 'type', 'date_created'
 
+    def has_add_permission(self, request):
+        return False

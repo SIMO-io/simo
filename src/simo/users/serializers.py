@@ -2,7 +2,9 @@ from rest_framework import serializers
 from collections.abc import Iterable
 from simo.core.middleware import get_current_request
 from simo.core.utils.api import ReadWriteSerializerMethodField
-from .models import User, PermissionsRole, InstanceInvitation, InstanceUser
+from .models import (
+    User, PermissionsRole, InstanceInvitation, InstanceUser, Fingerprint
+)
 
 
 
@@ -72,3 +74,11 @@ class InstanceInvitationSerializer(serializers.ModelSerializer):
         read_only_fields = (
             'instance', 'token', 'from_user', 'taken_by',
         )
+
+
+class FingerprintSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Fingerprint
+        fields = 'type', 'value', 'user'
+        read_only_fields = ('type', 'value')

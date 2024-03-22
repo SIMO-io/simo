@@ -16,6 +16,7 @@ from simo.core.utils.model_helpers import get_log_file_path
 from simo.core.events import GatewayObjectCommand, get_event_obj
 from simo.core.models import Gateway, Instance, Component
 from simo.conf import dynamic_settings
+from simo.users.models import Fingerprint
 from .gateways import FleetGatewayHandler
 from .models import Colonel
 from .controllers import TTLock
@@ -365,6 +366,12 @@ class FleetConsumer(AsyncWebsocketConsumer):
 
                     if 'val' in data:
                         def receive_val(val):
+                            if data.get('actor'):
+                                fingerprint, new = Fingerprint.objects.get_or_create(
+                                    value=f"ttlock-{component.id}-{data.get('actor')}",
+                                    defaults={'type': "TTLock"}
+                                )
+                                component.change_init_fingerprint = fingerprint
                             component.controller._receive_from_device(
                                 val, bool(data.get('alive'))
                             )
@@ -383,6 +390,11 @@ class FleetConsumer(AsyncWebsocketConsumer):
                     if 'codes' in data and component.controller_uid == TTLock.uid:
                         def save_codes(codes):
                             component.meta['codes'] = codes
+                            for code in codes:
+                                Fingerprint.objects.get_or_create(
+                                    value=f"ttlock-{component.id}-{str(code)}",
+                                    defaults={'type': "TTLock"}
+                                )
                             component.save()
                         await sync_to_async(
                             save_codes, thread_sensitive=True

@@ -360,8 +360,7 @@ class Fingerprint(models.Model):
         related_name='fingerprints'
     )
     date_created = models.DateTimeField(auto_now_add=True)
-    name = models.CharField(max_length=100, null=True, blank=True)
-    is_valid = models.BooleanField(default=True, db_index=True)
+    type = models.CharField(max_length=100, null=True, blank=True)
 
 
 class UserDevice(models.Model, SimoAdminMixin):
