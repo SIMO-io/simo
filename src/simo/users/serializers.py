@@ -77,8 +77,12 @@ class InstanceInvitationSerializer(serializers.ModelSerializer):
 
 
 class FingerprintSerializer(serializers.ModelSerializer):
+    type = serializers.SerializerMethodField()
 
     class Meta:
         model = Fingerprint
         fields = 'type', 'value', 'user'
         read_only_fields = ('type', 'value')
+
+    def get_type(self, obj):
+        return obj.type
