@@ -18,6 +18,7 @@ from simo.core.models import Gateway, Instance, Component
 from simo.conf import dynamic_settings
 from .gateways import FleetGatewayHandler
 from .models import Colonel
+from .controllers import TTLock
 
 
 class FleetConsumer(AsyncWebsocketConsumer):
@@ -378,6 +379,14 @@ class FleetConsumer(AsyncWebsocketConsumer):
                         await sync_to_async(
                             receive_options, thread_sensitive=True
                         )(data['options'])
+
+                    if 'codes' in data and component.controller_uid == TTLock.uid:
+                        def save_codes(codes):
+                            component.meta['codes'] = codes
+                            component.save()
+                        await sync_to_async(
+                            save_codes, thread_sensitive=True
+                        )(data['codes'])
 
                 except Exception as e:
                     print(traceback.format_exc(), file=sys.stderr)

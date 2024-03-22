@@ -326,7 +326,6 @@ class TTLock(FleeDeviceMixin, Lock):
                 return {'error': data['result']}
 
         started_with = deserialize_form_data(started_with)
-        print("STARTED WITH: ", started_with)
         form = TTLockConfigForm(controller_uid=cls.uid, data=started_with)
         if form.is_valid():
             new_component = form.save()
@@ -350,8 +349,39 @@ class TTLock(FleeDeviceMixin, Lock):
             return [new_component]
 
         # Literally impossible, but just in case...
-        print("INVALID INITIAL DISCOVERY FORM!")
         return {'error': 'INVALID INITIAL DISCOVERY FORM!'}
+
+
+    def add_code(self, code):
+        code = str(code)
+        assert 4 <= len(code) <= 8
+        for no in code:
+            try:
+                int(no)
+            except:
+                raise AssertionError("Digits only please!")
+        GatewayObjectCommand(
+            self.component.gateway,
+            Colonel(id=self.component.config['colonel']),
+            id=self.component.id,
+            command='call', method='add_code', args=[str(code)]
+        ).publish()
+
+    def delete_code(self, code):
+        GatewayObjectCommand(
+            self.component.gateway,
+            Colonel(id=self.component.config['colonel']),
+            id=self.component.id,
+            command='call', method='delete_code', args=[str(code)]
+        ).publish()
+
+    def get_codes(self):
+        GatewayObjectCommand(
+            self.component.gateway,
+            Colonel(id=self.component.config['colonel']),
+            id=self.component.id,
+            command='call', method='get_codes'
+        ).publish()
 
 
 
