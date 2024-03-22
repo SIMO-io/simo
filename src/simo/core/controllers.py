@@ -773,3 +773,12 @@ class Lock(Switch):
                     f"one of available values [{available_values}] for lock."
                 )
         return value
+
+    def set(self, value, actor=None):
+        super().set(value, actor=actor)
+        if actor and value in ('locking', 'unlocking'):
+            self.component.change_init_by = actor
+            self.component.change_init_date = timezone.now()
+            self.component.save(
+                update_fields=['change_init_by', 'change_init_date']
+            )
