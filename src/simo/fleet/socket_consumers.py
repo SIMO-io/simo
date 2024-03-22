@@ -392,7 +392,7 @@ class FleetConsumer(AsyncWebsocketConsumer):
                             component.meta['codes'] = codes
                             for code in codes:
                                 Fingerprint.objects.get_or_create(
-                                    value=f"ttlock-{component.id}-{str(code)}",
+                                    value=f"ttlock-{component.id}-code-{str(code)}",
                                     defaults={'type': "TTLock"}
                                 )
                             component.save()
