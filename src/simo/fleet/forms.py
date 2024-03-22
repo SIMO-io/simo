@@ -449,7 +449,7 @@ class MPC9808SensorConfigForm(ColonelComponentForm):
     )
     i2c_address = forms.IntegerField(
         min_value=0, max_value=127,
-        help_text="Integer: 0 - 127",
+        help_text="Integer: 0 - 127. Default: 24",
     )
     read_frequency_s = forms.IntegerField(
         initial=60, min_value=1, max_value=60 * 60 * 24,
