@@ -44,7 +44,6 @@ class FleetConsumer(AsyncWebsocketConsumer):
 
     async def connect(self):
 
-        print("Fleet socket connect! Headers: ", self.scope['headers'])
         headers = {
             item[0].decode().lower(): item[1].decode() for item in self.scope['headers']
         }
@@ -106,7 +105,7 @@ class FleetConsumer(AsyncWebsocketConsumer):
             get_colonel, thread_sensitive=True
         )()
 
-        print(f"Colonel {self.colonel} connected with headers: {headers}")
+        print(f"Colonel {self.colonel} connected!")
         if not self.colonel.enabled:
             print("Colonel %s drop, it's not enabled!" % str(self.colonel))
             await self.accept()
