@@ -425,12 +425,36 @@ class BME680SensorConfigForm(ColonelComponentForm):
         )
     )
     i2c_address = forms.IntegerField(
-        help_text="Integer: 0 - 127", min_value=0, max_value=127
+        min_value=0, max_value=127, initial=118,
+        help_text="Integer: 0 - 127. Dafault: 118"
     )
     read_frequency_s = forms.IntegerField(
         initial=60, min_value=1, max_value=60*60*24,
         help_text='read and report climate value every s. '
                               'Can not be less than 1s.'
+
+    )
+
+
+class MPC9808SensorConfigForm(ColonelComponentForm):
+    i2c_interface = forms.TypedChoiceField(
+        coerce=int, choices=i2c_interface_no_choices,
+        widget=autocomplete.ListSelect2(
+            url='autocomplete-colonel-i2c_interfaces',
+            forward=[
+                forward.Self(),
+                forward.Field('colonel'),
+            ]
+        )
+    )
+    i2c_address = forms.IntegerField(
+        min_value=0, max_value=127,
+        help_text="Integer: 0 - 127",
+    )
+    read_frequency_s = forms.IntegerField(
+        initial=60, min_value=1, max_value=60 * 60 * 24,
+        help_text='read and report temperature value every s. '
+                  'Can not be less than 1s.'
 
     )
 

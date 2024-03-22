@@ -22,7 +22,7 @@ from .forms import (
     ColonelSwitchConfigForm, ColonelPWMOutputConfigForm,
     ColonelNumericSensorConfigForm, ColonelRGBLightConfigForm,
     ColonelDHTSensorConfigForm, DS18B20SensorConfigForm,
-    BME680SensorConfigForm,
+    BME680SensorConfigForm, MPC9808SensorConfigForm,
     DualMotorValveForm, BlindsConfigForm, BurglarSmokeDetectorConfigForm,
     TTLockConfigForm
 )
@@ -165,6 +165,12 @@ class DHTSensor(BaseClimateSensor):
 class BME680Sensor(BaseClimateSensor):
     config_form = BME680SensorConfigForm
     name = "BME680 Climate Sensor (I2C)"
+
+
+class MPC9808TempSensor(FleeDeviceMixin, BasicSensorMixin, BaseNumericSensor):
+    config_form = MPC9808SensorConfigForm
+    name = "MPC9808 Temperature Sensor (I2C)"
+
 
 
 class BasicOutputMixin:
