@@ -384,5 +384,29 @@ class TTLock(FleeDeviceMixin, Lock):
         ).publish()
 
 
+    def add_fingerprint(self, code):
+        GatewayObjectCommand(
+            self.component.gateway,
+            Colonel(id=self.component.config['colonel']),
+            id=self.component.id,
+            command='call', method='add_fingerprint', args=[str(code)]
+        ).publish()
+
+    def delete_fingerprint(self, code):
+        GatewayObjectCommand(
+            self.component.gateway,
+            Colonel(id=self.component.config['colonel']),
+            id=self.component.id,
+            command='call', method='delete_fingerprint', args=[str(code)]
+        ).publish()
+
+    def get_fingerprints(self):
+        GatewayObjectCommand(
+            self.component.gateway,
+            Colonel(id=self.component.config['colonel']),
+            id=self.component.id,
+            command='call', method='get_fingerprints'
+        ).publish()
+
 
 

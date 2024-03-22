@@ -280,7 +280,6 @@ class FleetConsumer(AsyncWebsocketConsumer):
         try:
             payload = json.loads(msg.payload)
 
-            print("PAYLOAD TO EXECUTE: ", payload)
             if 'bulk_send' in payload:
                 colonel_component_ids = [c['id'] for c in Component.objects.filter(
                     config__colonel=self.colonel.id,
@@ -347,6 +346,7 @@ class FleetConsumer(AsyncWebsocketConsumer):
     async def receive(self, text_data=None, bytes_data=None):
         if text_data:
             data = json.loads(text_data)
+            print(f"{self.colonel}: {text_data}")
             if 'get_config' in data:
                 config = await self.get_config_data()
                 print("Send config: ", config)
@@ -367,10 +367,9 @@ class FleetConsumer(AsyncWebsocketConsumer):
                     if 'val' in data:
                         def receive_val(val):
                             if data.get('actor'):
-                                fingerprint, new = Fingerprint.objects.get_or_create(
+                                fingerprint = Fingerprint.objects.filter(
                                     value=f"ttlock-{component.id}-{data.get('actor')}",
-                                    defaults={'type': "TTLock"}
-                                )
+                                ).first()
                                 component.change_init_fingerprint = fingerprint
                             component.controller._receive_from_device(
                                 val, bool(data.get('alive'))
@@ -393,22 +392,32 @@ class FleetConsumer(AsyncWebsocketConsumer):
                             for code in codes:
                                 Fingerprint.objects.get_or_create(
                                     value=f"ttlock-{component.id}-code-{str(code)}",
-                                    defaults={'type': "TTLock"}
+                                    defaults={'type': "TTLock code"}
                                 )
                             component.save()
                         await sync_to_async(
                             save_codes, thread_sensitive=True
                         )(data['codes'])
+                    if 'fingerprints' in data and component.controller_uid == TTLock.uid:
+                        def save_codes(codes):
+                            component.meta['fingerprints'] = codes
+                            for code in codes:
+                                Fingerprint.objects.get_or_create(
+                                    value=f"ttlock-{component.id}-finger-{str(code)}",
+                                    defaults={'type': "TTLock Fingerprint"}
+                                )
+                            component.save()
+                        await sync_to_async(
+                            save_codes, thread_sensitive=True
+                        )(data['fingerprints'])
 
                 except Exception as e:
                     print(traceback.format_exc(), file=sys.stderr)
 
             elif 'discover-ttlock' in data:
                 def process_discovery_result():
-                    print("PROCESS DISCOVERIES!")
                     self.gateway.refresh_from_db()
                     if self.gateway.discovery.get('finished'):
-                        print("Discovery is already finished!")
                         return Component.objects.filter(
                             meta__finalization_data__temp_id=data['result']['id']
                         ).first()
@@ -422,7 +431,6 @@ class FleetConsumer(AsyncWebsocketConsumer):
                     process_discovery_result, thread_sensitive=True
                 )()
                 if finished_comp:
-                    print("Created component discovered. Finalize it!")
                     await self.send_data({
                         'command': 'finalize',
                         'data': finished_comp.meta['finalization_data']
