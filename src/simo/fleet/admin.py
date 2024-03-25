@@ -83,7 +83,7 @@ class ColonelAdmin(admin.ModelAdmin):
 
     def save_model(self, request, obj, form, change):
         res = super().save_model(request, obj, form, change)
-        obj.restart()
+        obj.update_config()
         return res
 
     def update_firmware(self, request, queryset):
