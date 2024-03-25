@@ -192,7 +192,7 @@ def sync_with_remote():
             ).first()
             if weather_component:
                 weather_component.track_history = False
-                weather_component.set(data['weather_forecast'])
+                weather_component.controller.set(data['weather_forecast'])
 
         instance.save()
 
