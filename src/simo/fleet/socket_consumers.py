@@ -97,7 +97,9 @@ class FleetConsumer(AsyncWebsocketConsumer):
                 if not new:
                     for key, val in defaults.items():
                         setattr(colonel, key, val)
-                    colonel.save()
+                if new:
+                    colonel.enabled = True
+                colonel.save()
 
             return colonel, new
 
