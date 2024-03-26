@@ -179,6 +179,7 @@ class Colonel(DirtyFieldsMixin, models.Model):
 
     @transaction.atomic()
     def move_to(self, other_colonel):
+        # TODO: Need to replace pins on components!
         other_colonel.refresh_from_db()
         assert list(other_colonel.components.all()) == [], \
                "Other colonel must be completely empty!"
@@ -261,22 +262,27 @@ class ColonelPin(models.Model):
 
 
 @receiver(post_save, sender=Colonel)
-def create_interfaces(sender, instance, created, *args, **kwargs):
+def after_colonel_save(sender, instance, created, *args, **kwargs):
     if not created:
         return
-    for no, data in GPIO_PINS.get(instance.type).items():
-        ColonelPin.objects.get_or_create(
-            colonel=instance, no=no,
-            input=data.get('input'), output=data.get('output'),
-            capacitive=data.get('capacitive'), adc=data.get('adc'),
-            native=data.get('native'), note=data.get('note')
-        )
-    if instance.type in ('ample-wall', 'game-changer'):
-        I2CInterface.objects.create(
-            colonel=instance, name='Main', no=0,
-            scl_pin=ColonelPin.objects.get(colonel=instance, no=4),
-            sda_pin=ColonelPin.objects.get(colonel=instance, no=15),
-        )
+
+    def after_update():
+        for no, data in GPIO_PINS.get(instance.type).items():
+            ColonelPin.objects.get_or_create(
+                colonel=instance, no=no,
+                input=data.get('input'), output=data.get('output'),
+                capacitive=data.get('capacitive'), adc=data.get('adc'),
+                native=data.get('native'), note=data.get('note')
+            )
+        if instance.type in ('ample-wall', 'game-changer'):
+            I2CInterface.objects.create(
+                colonel=instance, name='Main', no=0,
+                scl_pin=ColonelPin.objects.get(colonel=instance, no=4),
+                sda_pin=ColonelPin.objects.get(colonel=instance, no=15),
+            )
+        instance.update_config()
+
+    transaction.on_commit(after_update)
 
 
 @receiver(pre_delete, sender=Component)

@@ -275,6 +275,10 @@ class ControllerBase(ABC):
                  'val': icon if any(values) else None}
             ]
 
+    def poke(self):
+        '''Use this when component is dead to try and wake it up'''
+        pass
+
     def _prepare_for_send(self, value):
         return value
 
@@ -435,7 +439,19 @@ class BinarySensor(ControllerBase):
         return value
 
 
-class Dimmer(ControllerBase, TimerMixin):
+class OnOffPokerMixin:
+    _poke_toggle = False
+
+    def poke(self):
+        if self._poke_toggle:
+            self._poke_toggle = False
+            self.turn_on()
+        else:
+            self._poke_toggle = True
+            self.turn_off()
+
+
+class Dimmer(ControllerBase, TimerMixin, OnOffPokerMixin):
     name = _("Dimmer")
     base_type = 'dimmer'
     app_widget = KnobWidget
@@ -443,6 +459,7 @@ class Dimmer(ControllerBase, TimerMixin):
     admin_widget_template = 'admin/controller_widgets/knob.html'
     default_config = {'min': 0.0, 'max': 100.0, 'inverse': False}
     default_value = 0
+
 
     def _prepare_for_send(self, value):
         if isinstance(value, bool):
@@ -484,7 +501,8 @@ class Dimmer(ControllerBase, TimerMixin):
             self.turn_on()
 
 
-class DimmerPlus(ControllerBase, TimerMixin):
+
+class DimmerPlus(ControllerBase, TimerMixin, OnOffPokerMixin):
     name = _("Dimmer Plus")
     base_type = 'dimmer-plus'
     app_widget = KnobPlusWidget
@@ -564,7 +582,7 @@ class DimmerPlus(ControllerBase, TimerMixin):
             self.turn_on()
 
 
-class RGBWLight(ControllerBase, TimerMixin):
+class RGBWLight(ControllerBase, TimerMixin, OnOffPokerMixin):
     name = _("RGB(W) Light")
     base_type = 'rgbw-light'
     app_widget = RGBWidget
@@ -648,7 +666,7 @@ class MultiSwitchBase(ControllerBase):
         return value
 
 
-class Switch(MultiSwitchBase, TimerMixin):
+class Switch(MultiSwitchBase, TimerMixin, OnOffPokerMixin):
     name = _("Switch")
     base_type = 'switch'
     app_widget = SingleSwitchWidget

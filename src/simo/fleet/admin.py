@@ -81,11 +81,6 @@ class ColonelAdmin(admin.ModelAdmin):
     def has_add_permission(self, request):
         return False
 
-    def save_model(self, request, obj, form, change):
-        res = super().save_model(request, obj, form, change)
-        obj.update_config()
-        return res
-
     def update_firmware(self, request, queryset):
         count = 0
         for colonel in queryset:
