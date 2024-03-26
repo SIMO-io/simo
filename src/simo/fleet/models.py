@@ -193,15 +193,16 @@ class Colonel(DirtyFieldsMixin, models.Model):
         other_colonel.rebuild_occupied_pins()
 
         other_colonel.i2c_interfaces.all().delete()
+
         for i2c_interface in self.i2c_interfaces.all():
             I2CInterface.objects.create(
                 colonel=other_colonel, name=i2c_interface.name,
                 freq=i2c_interface.freq,
                 scl_pin=ColonelPin.objects.get(
-                    colonel=self, no=i2c_interface.scl_pin.no,
+                    colonel=other_colonel, no=i2c_interface.scl_pin.no,
                 ),
                 sda_pin=ColonelPin.objects.get(
-                    colonel=self, no=i2c_interface.sda_pin.no,
+                    colonel=other_colonel, no=i2c_interface.sda_pin.no,
                 ),
             )
 
