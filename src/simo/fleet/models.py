@@ -283,10 +283,6 @@ def after_colonel_save(sender, instance, created, *args, **kwargs):
                 sda_pin=ColonelPin.objects.get(colonel=instance, no=15),
             )
 
-    def after_update():
-        instance.update_config()
-    transaction.on_commit(after_update)
-
 
 @receiver(pre_delete, sender=Component)
 def post_component_delete(sender, instance, *args, **kwargs):

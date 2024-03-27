@@ -45,3 +45,8 @@ class ColonelSerializer(serializers.ModelSerializer):
         for pin in obj.pins.all():
             result.append(ColonelPinSerializer(pin).data)
         return result
+
+    def update(self, instance, validated_data):
+        instance = super().update(instance, validated_data)
+        instance.update_config()
+        return instance
