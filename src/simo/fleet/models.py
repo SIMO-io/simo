@@ -82,8 +82,10 @@ class Colonel(DirtyFieldsMixin, models.Model):
     occupied_pins = models.JSONField(default=dict, blank=True)
 
     logs_stream = models.BooleanField(
-        default=False, help_text="Might cause unnecessary overhead. "
-                                 "Better to leave this off if things are running smoothly."
+        default=False, help_text="ATENTION! Causes serious overhead!!! "
+                                 "Leave this off. "
+                                 "It causes Colonel websocket to run out of memory "
+                                 "and reset if a lot of data is being transmitted."
     )
     pwm_frequency = models.IntegerField(default=1, choices=(
         (0, "3kHz"), (1, "22kHz")
