@@ -1,3 +1,4 @@
+from threading import Timer
 from django.contrib import admin
 from django.utils.safestring import mark_safe
 from django.template.loader import render_to_string
@@ -77,6 +78,15 @@ class ColonelAdmin(admin.ModelAdmin):
         if request.user.is_master:
             return qs
         return qs.filter(instance__in=request.user.instances)
+
+    def save_model(self, request, obj, form, change):
+        super().save_model(request, obj, form, change)
+        # give it one second to finish up with atomic transaction and
+        # send update_config command.
+        def update_colonel_config(colonel):
+            colonel.update_config()
+        Timer(1, update_colonel_config, [obj]).start()
+
 
     def has_add_permission(self, request):
         return False
