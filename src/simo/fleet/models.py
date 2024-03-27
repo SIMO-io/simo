@@ -161,10 +161,8 @@ class Colonel(DirtyFieldsMixin, models.Model):
     @transaction.atomic
     def rebuild_occupied_pins(self):
         for pin in ColonelPin.objects.filter(colonel=self):
-            if isinstance(pin.occupied_by, Component):
-                pin.occupied_by_content_type = None
-                pin.occupied_by_id = None
-                pin.save()
+            pin.occupied_by = None
+            pin.save()
 
         for component in self.components.all():
             try:
@@ -175,6 +173,12 @@ class Colonel(DirtyFieldsMixin, models.Model):
                 pin, new = ColonelPin.objects.get_or_create(colonel=self, no=no)
                 pin.occupied_by = component
                 pin.save()
+
+        for interface in self.i2c_interfaces.all():
+            interface.sda_pin.occupied_by = interface
+            interface.sda_pin.save()
+            interface.scl_pin.occupied_by = interface
+            interface.scl_pin.save()
 
 
     @transaction.atomic()
