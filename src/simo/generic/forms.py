@@ -171,7 +171,7 @@ class AlarmGroupConfigForm(BaseComponentForm):
         required=False, min_value=0,
         help_text="Notify active users if "
                   "not disarmed within given number of seconds "
-                  "after it was breached."
+                  "after the breached."
     )
     has_alarm = False
 

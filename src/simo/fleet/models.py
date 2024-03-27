@@ -264,10 +264,7 @@ class ColonelPin(models.Model):
 
 @receiver(post_save, sender=Colonel)
 def after_colonel_save(sender, instance, created, *args, **kwargs):
-    if not created:
-        return
-
-    def after_update():
+    if created:
         for no, data in GPIO_PINS.get(instance.type).items():
             ColonelPin.objects.get_or_create(
                 colonel=instance, no=no,
@@ -281,8 +278,9 @@ def after_colonel_save(sender, instance, created, *args, **kwargs):
                 scl_pin=ColonelPin.objects.get(colonel=instance, no=4),
                 sda_pin=ColonelPin.objects.get(colonel=instance, no=15),
             )
-        instance.update_config()
 
+    def after_update():
+        instance.update_config()
     transaction.on_commit(after_update)
 
 
