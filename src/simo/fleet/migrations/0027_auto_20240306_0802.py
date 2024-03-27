@@ -7,7 +7,7 @@ from django.db import migrations
 
 def forwards_func(apps, schema_editor):
     from simo.fleet.utils import GPIO_PINS
-    from django.contrib.contenttypes.models import ContentType
+    #from django.contrib.contenttypes.models import ContentType
 
     Colonel = apps.get_model('fleet', "Colonel")
     ColonelPin = apps.get_model("fleet", "ColonelPin")
@@ -26,18 +26,18 @@ def forwards_func(apps, schema_editor):
             )
 
         for i2c in colonel.i2c_interfaces.all():
-            ct = ContentType.objects.get_for_model(i2c)
+            #ct = ContentType.objects.get_for_model(i2c)
 
             scl_pin = new_pins[colonel.id][i2c.scl_pin_no]
-            scl_pin.occupied_by_content_type = ct
-            scl_pin.occupied_by_id = i2c.id
+            #scl_pin.occupied_by_content_type = ct
+            #scl_pin.occupied_by_id = i2c.id
             scl_pin.save()
             i2c.scl_pin = scl_pin
             i2c.scl_pin.save()
 
             sda_pin = new_pins[colonel.id][i2c.sda_pin_no]
-            sda_pin.occupied_by_content_type = ct
-            sda_pin.occupied_by_id = i2c.id
+            #sda_pin.occupied_by_content_type = ct
+            #sda_pin.occupied_by_id = i2c.id
             sda_pin.save()
 
             i2c.sda_pin = sda_pin
@@ -48,7 +48,7 @@ def forwards_func(apps, schema_editor):
     for comp in Component.objects.filter(
         controller_uid__startswith='simo.fleet.'
     ):
-        ct = ContentType.objects.get_for_model(comp)
+        #ct = ContentType.objects.get_for_model(comp)
         try:
             colonel = Colonel.objects.get(id=comp.config['colonel'])
         except Exception as e:
@@ -64,8 +64,8 @@ def forwards_func(apps, schema_editor):
 
             pin = new_pins[colonel.id][comp.config['pin_no']]
             comp.config['pin'] = pin.pk
-            pin.occupied_by_content_type = ct
-            pin.occupied_by_id = comp.id
+            #pin.occupied_by_content_type = ct
+            #pin.occupied_by_id = comp.id
             pin.save()
         if 'power_pin' in comp.config:
             comp.config['power_pin_no'] = comp.config.pop('power_pin')
@@ -77,8 +77,8 @@ def forwards_func(apps, schema_editor):
 
             pin = new_pins[colonel.id][comp.config['power_pin_no']]
             comp.config['power_pin'] = pin.pk
-            pin.occupied_by_content_type = ct
-            pin.occupied_by_id = comp.id
+            #pin.occupied_by_content_type = ct
+            #pin.occupied_by_id = comp.id
             pin.save()
         if 'sensor_pin' in comp.config:
             comp.config['sensor_pin_no'] = comp.config.pop('sensor_pin')
@@ -90,8 +90,8 @@ def forwards_func(apps, schema_editor):
 
             pin = new_pins[colonel.id][comp.config['sensor_pin_no']]
             comp.config['sensor_pin'] = pin.pk
-            pin.occupied_by_content_type = ct
-            pin.occupied_by_id = comp.id
+            #pin.occupied_by_content_type = ct
+            #pin.occupied_by_id = comp.id
             pin.save()
         if 'output_pin' in comp.config:
             comp.config['output_pin_no'] = comp.config.pop('output_pin')
@@ -103,8 +103,8 @@ def forwards_func(apps, schema_editor):
 
             pin = new_pins[colonel.id][comp.config['output_pin_no']]
             comp.config['output_pin'] = pin.pk
-            pin.occupied_by_content_type = ct
-            pin.occupied_by_id = comp.id
+            #pin.occupied_by_content_type = ct
+            #pin.occupied_by_id = comp.id
             pin.save()
         if 'open_pin' in comp.config:
             comp.config['open_pin_no'] = comp.config.pop('open_pin')
@@ -116,8 +116,8 @@ def forwards_func(apps, schema_editor):
 
             pin = new_pins[colonel.id][comp.config['open_pin_no']]
             comp.config['open_pin'] = pin.pk
-            pin.occupied_by_content_type = ct
-            pin.occupied_by_id = comp.id
+            #pin.occupied_by_content_type = ct
+            #pin.occupied_by_id = comp.id
             pin.save()
         if 'close_pin' in comp.config:
             comp.config['close_pin_no'] = comp.config.pop('close_pin')
@@ -129,8 +129,8 @@ def forwards_func(apps, schema_editor):
 
             pin = new_pins[colonel.id][comp.config['close_pin_no']]
             comp.config['close_pin'] = pin.pk
-            pin.occupied_by_content_type = ct
-            pin.occupied_by_id = comp.id
+            #pin.occupied_by_content_type = ct
+            #pin.occupied_by_id = comp.id
             pin.save()
 
         if 'controls' in comp.config:
@@ -146,8 +146,8 @@ def forwards_func(apps, schema_editor):
                 pin = new_pins[colonel.id][updated_controls['pin_no']]
                 updated_controls['pin'] = pin.pk
 
-                pin.occupied_by_content_type = ct
-                pin.occupied_by_id = comp.id
+                #pin.occupied_by_content_type = ct
+                #pin.occupied_by_id = comp.id
                 pin.save()
 
                 comp.config['controls'][i] = updated_controls

@@ -197,6 +197,7 @@ class Colonel(DirtyFieldsMixin, models.Model):
 
         for i2c_interface in self.i2c_interfaces.all():
             I2CInterface.objects.create(
+                no=i2c_interface.no,
                 colonel=other_colonel, name=i2c_interface.name,
                 freq=i2c_interface.freq,
                 scl_pin=ColonelPin.objects.get(

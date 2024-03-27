@@ -52,6 +52,7 @@ def handle_alarm_groups(sender, instance, *args, **kwargs):
                         [str(c) for c in breached_components]
                     )
                     notify_users(
+                        alarm_group_component.zone.instance,
                         'alarm', str(alarm_group_component), body,
                         component=alarm_group_component
                     )
@@ -60,7 +61,7 @@ def handle_alarm_groups(sender, instance, *args, **kwargs):
             alarm_group_value = 'breached'
         else:
             alarm_group_value = 'pending-arm'
-        alarm_group.set(alarm_group_value)
+        alarm_group.controller.set(alarm_group_value)
 
 
 @receiver(post_save, sender=Component)

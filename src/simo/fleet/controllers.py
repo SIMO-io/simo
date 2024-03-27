@@ -308,6 +308,8 @@ class TTLock(FleeDeviceMixin, Lock):
     @classmethod
     def _process_discovery(cls, started_with, data):
         if data['discover-ttlock'] == 'fail':
+            if data['result'] == 0:
+                return {'error': 'Internal Colonel error. See Colonel logs.'}
             if data['result'] == 1:
                 return {'error': 'TTLock not found.'}
             elif data['result'] == 2:
