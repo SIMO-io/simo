@@ -167,6 +167,12 @@ class AlarmGroupConfigForm(BaseComponentForm):
         required=False,
         help_text="Defines if this is your main/top global alarm group."
     )
+    notify_on_breach = forms.IntegerField(
+        required=False, min_value=0,
+        help_text="Notify active users if "
+                  "not disarmed within given number of seconds "
+                  "after it was breached."
+    )
     has_alarm = False
 
 
