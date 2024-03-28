@@ -13,15 +13,18 @@ import paho.mqtt.client as mqtt
 from channels.generic.websocket import AsyncWebsocketConsumer
 from asgiref.sync import sync_to_async
 from simo.core.utils.model_helpers import get_log_file_path
+from simo.core.utils.logs import capture_socket_errors
 from simo.core.events import GatewayObjectCommand, get_event_obj
 from simo.core.models import Gateway, Instance, Component
 from simo.conf import dynamic_settings
 from simo.users.models import Fingerprint
+
 from .gateways import FleetGatewayHandler
 from .models import Colonel
 from .controllers import TTLock
 
 
+@capture_socket_errors
 class FleetConsumer(AsyncWebsocketConsumer):
     colonel = None
     colonel_logger = None
@@ -345,106 +348,116 @@ class FleetConsumer(AsyncWebsocketConsumer):
 
 
     async def receive(self, text_data=None, bytes_data=None):
-        if text_data:
-            print(f"{self.colonel}: {text_data}")
-            data = json.loads(text_data)
-            if 'get_config' in data:
-                config = await self.get_config_data()
-                print("Send config: ", config)
-                await self.send_data({
-                    'command': 'set_config', 'data': config
-                }, compress=True)
-            elif 'comp' in data:
-                try:
+        if self.colonel.id == 328:
+            import random
+            if random.choice([False, False, False, False, True]):
+                raise Exception("TEST EXCEPTION AHAHAHAHAH!!!!")
+        # if anything goes wrong inside of this, socket get's closed
+        # prevetn socket from being closed!
+        try:
+            if text_data:
+                print(f"{self.colonel}: {text_data}")
+                data = json.loads(text_data)
+                if 'get_config' in data:
+                    config = await self.get_config_data()
+                    print("Send config: ", config)
+                    await self.send_data({
+                        'command': 'set_config', 'data': config
+                    }, compress=True)
+                elif 'comp' in data:
                     try:
-                        id=int(data['comp'])
-                    except:
-                        return
+                        try:
+                            id=int(data['comp'])
+                        except:
+                            return
 
-                    component = await sync_to_async(
-                        Component.objects.get, thread_sensitive=True
-                    )(id=id)
+                        component = await sync_to_async(
+                            Component.objects.get, thread_sensitive=True
+                        )(id=id)
 
-                    if 'val' in data:
-                        def receive_val(val):
-                            if data.get('actor'):
-                                fingerprint = Fingerprint.objects.filter(
-                                    value=f"ttlock-{component.id}-{data.get('actor')}",
-                                ).first()
-                                component.change_init_fingerprint = fingerprint
-                            component.controller._receive_from_device(
-                                val, bool(data.get('alive'))
-                            )
-                        await sync_to_async(
-                            receive_val, thread_sensitive=True
-                        )(data['val'])
-
-                    if 'options' in data:
-                        def receive_options(val):
-                            component.meta['options'] = val
-                            component.save()
-                        await sync_to_async(
-                            receive_options, thread_sensitive=True
-                        )(data['options'])
-
-                    if 'codes' in data and component.controller_uid == TTLock.uid:
-                        def save_codes(codes):
-                            component.meta['codes'] = codes
-                            for code in codes:
-                                Fingerprint.objects.get_or_create(
-                                    value=f"ttlock-{component.id}-code-{str(code)}",
-                                    defaults={'type': "TTLock code"}
+                        if 'val' in data:
+                            def receive_val(val):
+                                if data.get('actor'):
+                                    fingerprint = Fingerprint.objects.filter(
+                                        value=f"ttlock-{component.id}-{data.get('actor')}",
+                                    ).first()
+                                    component.change_init_fingerprint = fingerprint
+                                component.controller._receive_from_device(
+                                    val, bool(data.get('alive'))
                                 )
-                            component.save()
-                        await sync_to_async(
-                            save_codes, thread_sensitive=True
-                        )(data['codes'])
-                    if 'fingerprints' in data and component.controller_uid == TTLock.uid:
-                        def save_codes(codes):
-                            component.meta['fingerprints'] = codes
-                            for code in codes:
-                                Fingerprint.objects.get_or_create(
-                                    value=f"ttlock-{component.id}-finger-{str(code)}",
-                                    defaults={'type': "TTLock Fingerprint"}
-                                )
-                            component.save()
-                        await sync_to_async(
-                            save_codes, thread_sensitive=True
-                        )(data['fingerprints'])
+                            await sync_to_async(
+                                receive_val, thread_sensitive=True
+                            )(data['val'])
 
-                except Exception as e:
-                    print(traceback.format_exc(), file=sys.stderr)
+                        if 'options' in data:
+                            def receive_options(val):
+                                component.meta['options'] = val
+                                component.save()
+                            await sync_to_async(
+                                receive_options, thread_sensitive=True
+                            )(data['options'])
 
-            elif 'discover-ttlock' in data:
-                def process_discovery_result():
-                    self.gateway.refresh_from_db()
-                    if self.gateway.discovery.get('finished'):
-                        return Component.objects.filter(
-                            meta__finalization_data__temp_id=data['result']['id']
-                        ).first()
-                    try:
-                        self.gateway.process_discovery(data)
+                        if 'codes' in data and component.controller_uid == TTLock.uid:
+                            def save_codes(codes):
+                                component.meta['codes'] = codes
+                                for code in codes:
+                                    Fingerprint.objects.get_or_create(
+                                        value=f"ttlock-{component.id}-code-{str(code)}",
+                                        defaults={'type': "TTLock code"}
+                                    )
+                                component.save()
+                            await sync_to_async(
+                                save_codes, thread_sensitive=True
+                            )(data['codes'])
+                        if 'fingerprints' in data and component.controller_uid == TTLock.uid:
+                            def save_codes(codes):
+                                component.meta['fingerprints'] = codes
+                                for code in codes:
+                                    Fingerprint.objects.get_or_create(
+                                        value=f"ttlock-{component.id}-finger-{str(code)}",
+                                        defaults={'type': "TTLock Fingerprint"}
+                                    )
+                                component.save()
+                            await sync_to_async(
+                                save_codes, thread_sensitive=True
+                            )(data['fingerprints'])
+
                     except Exception as e:
                         print(traceback.format_exc(), file=sys.stderr)
-                    self.gateway.finish_discovery()
 
-                finished_comp = await sync_to_async(
-                    process_discovery_result, thread_sensitive=True
-                )()
-                if finished_comp:
-                    await self.send_data({
-                        'command': 'finalize',
-                        'data': finished_comp.meta['finalization_data']
-                    })
+                elif 'discover-ttlock' in data:
+                    def process_discovery_result():
+                        self.gateway.refresh_from_db()
+                        if self.gateway.discovery.get('finished'):
+                            return Component.objects.filter(
+                                meta__finalization_data__temp_id=data['result']['id']
+                            ).first()
+                        try:
+                            self.gateway.process_discovery(data)
+                        except Exception as e:
+                            print(traceback.format_exc(), file=sys.stderr)
+                        self.gateway.finish_discovery()
 
-        elif bytes_data:
-            if not self.colonel_logger:
-                await self.start_logger()
+                    finished_comp = await sync_to_async(
+                        process_discovery_result, thread_sensitive=True
+                    )()
+                    if finished_comp:
+                        await self.send_data({
+                            'command': 'finalize',
+                            'data': finished_comp.meta['finalization_data']
+                        })
 
-            for logline in bytes_data.decode(errors='replace').split('\n'):
-                self.colonel_logger.log(logging.INFO, logline)
+            elif bytes_data:
+                if not self.colonel_logger:
+                    await self.start_logger()
 
-        await self.log_colonel_connected()
+                for logline in bytes_data.decode(errors='replace').split('\n'):
+                    self.colonel_logger.log(logging.INFO, logline)
+
+            await self.log_colonel_connected()
+        except Exception as e:
+            print(traceback.format_exc(), file=sys.stderr)
+
 
 
     async def log_colonel_connected(self):

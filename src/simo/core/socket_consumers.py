@@ -7,6 +7,7 @@ from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
 from channels.generic.websocket import AsyncWebsocketConsumer, WebsocketConsumer
 from simo.core.events import ObjectChangeEvent, get_event_obj
+from simo.core.utils.logs import capture_socket_errors
 import paho.mqtt.client as mqtt
 from simo.users.middleware import introduce
 from simo.core.models import Component, Gateway
@@ -14,6 +15,7 @@ from simo.core.utils.model_helpers import get_log_file_path
 from simo.core.middleware import introduce_instance
 
 
+@capture_socket_errors
 class SIMOWebsocketConsumer(WebsocketConsumer):
     headers = {}
 
@@ -24,6 +26,7 @@ class SIMOWebsocketConsumer(WebsocketConsumer):
         }
 
 
+@capture_socket_errors
 class LogConsumer(AsyncWebsocketConsumer):
     log_file = None
     in_error = False
@@ -123,6 +126,7 @@ class LogConsumer(AsyncWebsocketConsumer):
             self.log_file = None
 
 
+@capture_socket_errors
 class GatewayController(SIMOWebsocketConsumer):
     gateway = None
     _mqtt_client = None
@@ -178,6 +182,7 @@ class GatewayController(SIMOWebsocketConsumer):
                 pass
 
 
+@capture_socket_errors
 class ComponentController(SIMOWebsocketConsumer):
     component = None
     send_value = False
