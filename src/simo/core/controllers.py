@@ -762,6 +762,12 @@ class Lock(Switch):
     app_widget = LockWidget
     admin_widget_template = 'admin/controller_widgets/lock.html'
 
+    UNLOCKED = 0
+    LOCKED = 1
+    LOCKING = 2
+    UNLOCKING = 3
+    FAULT = 4
+
     def lock(self):
         self.turn_on()
 
@@ -769,11 +775,20 @@ class Lock(Switch):
         self.turn_off()
 
     def _receive_from_device(self, value, is_alive=True):
-        if type(value) in (int, bool):
+        if type(value) == bool:
             if value:
                 value = 'locked'
             else:
                 value = 'unlocked'
+        if type(value) == int:
+            values_map = {
+                self.UNLOCKED: 'unlocked',
+                self.LOCKED: 'locked',
+                self.LOCKING: 'locking',
+                self.UNLOCKING: 'unlocking',
+                self.FAULT: 'fault'
+            }
+            value = values_map.get(value, 'fault')
         return super()._receive_from_device(value, is_alive=is_alive)
 
     def _validate_val(self, value, occasion=None):

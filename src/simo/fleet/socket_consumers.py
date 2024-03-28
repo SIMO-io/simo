@@ -348,7 +348,7 @@ class FleetConsumer(AsyncWebsocketConsumer):
 
 
     async def receive(self, text_data=None, bytes_data=None):
-        if self.colonel.id == 328:
+        if self.colonel.id == 3:
             import random
             if random.choice([False, False, False, False, True]):
                 raise Exception("TEST EXCEPTION AHAHAHAHAH!!!!")
