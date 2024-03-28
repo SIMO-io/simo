@@ -196,9 +196,6 @@ class Colonel(DirtyFieldsMixin, models.Model):
             self.components.remove(component)
             other_colonel.components.add(component)
 
-        self.rebuild_occupied_pins()
-        other_colonel.rebuild_occupied_pins()
-
         other_colonel.i2c_interfaces.all().delete()
 
         for i2c_interface in self.i2c_interfaces.all():
@@ -214,6 +211,8 @@ class Colonel(DirtyFieldsMixin, models.Model):
                 ),
             )
 
+        self.rebuild_occupied_pins()
+        other_colonel.rebuild_occupied_pins()
         self.update_config()
         other_colonel.update_config()
 
