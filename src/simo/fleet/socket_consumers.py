@@ -46,7 +46,7 @@ class FleetConsumer(AsyncWebsocketConsumer):
 
 
     async def connect(self):
-        super().connect()
+        print("Fleet Socket Connect with headers:", self.scope.get('headers'))
         await self.accept()
 
         headers = {
