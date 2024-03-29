@@ -46,6 +46,8 @@ class FleetConsumer(AsyncWebsocketConsumer):
 
 
     async def connect(self):
+        super().connect()
+        await self.accept()
 
         headers = {
             item[0].decode().lower(): item[1].decode() for item in self.scope['headers']
@@ -91,7 +93,8 @@ class FleetConsumer(AsyncWebsocketConsumer):
                 'name': headers.get('colonel-name'),
                 'type': headers['colonel-type'],
                 'firmware_version': headers['firmware-version'],
-                'last_seen': timezone.now()
+                'last_seen': timezone.now(),
+                'enabled': True
             }
             with transaction.atomic():
                 colonel, new = Colonel.objects.get_or_create(
@@ -99,10 +102,10 @@ class FleetConsumer(AsyncWebsocketConsumer):
                 )
                 if not new:
                     for key, val in defaults.items():
+                        if key in ('new', ):
+                            continue
                         setattr(colonel, key, val)
-                if new:
-                    colonel.enabled = True
-                colonel.save()
+                    colonel.save()
 
             return colonel, new
 
@@ -113,7 +116,6 @@ class FleetConsumer(AsyncWebsocketConsumer):
         print(f"Colonel {self.colonel} connected!")
         if not self.colonel.enabled:
             print("Colonel %s drop, it's not enabled!" % str(self.colonel))
-            await self.accept()
             return await self.close()
 
         if headers.get('instance-uid') != self.colonel.instance.uid \
@@ -122,8 +124,6 @@ class FleetConsumer(AsyncWebsocketConsumer):
             return await self.close()
 
         self.connected = True
-
-        await self.accept()
 
         await self.log_colonel_connected()
 
