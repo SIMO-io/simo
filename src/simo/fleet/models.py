@@ -1,4 +1,5 @@
 import requests
+import time
 from django.db import transaction
 from django.db import models
 from django.db.models.signals import post_save, pre_delete, post_delete
@@ -185,38 +186,13 @@ class Colonel(DirtyFieldsMixin, models.Model):
             interface.scl_pin.save()
 
 
-    @transaction.atomic()
     def move_to(self, other_colonel):
-        # TODO: Need to replace pins on components!
-        other_colonel.refresh_from_db()
-        assert list(other_colonel.components.all()) == [], \
-               "Other colonel must be completely empty!"
-
-        for component in self.components.all():
-            component.config['colonel'] = other_colonel.id
-            component.save()
-            self.components.remove(component)
-            other_colonel.components.add(component)
-
-        other_colonel.i2c_interfaces.all().delete()
-
-        for i2c_interface in self.i2c_interfaces.all():
-            I2CInterface.objects.create(
-                no=i2c_interface.no,
-                colonel=other_colonel, name=i2c_interface.name,
-                freq=i2c_interface.freq,
-                scl_pin=ColonelPin.objects.get(
-                    colonel=other_colonel, no=i2c_interface.scl_pin.no,
-                ),
-                sda_pin=ColonelPin.objects.get(
-                    colonel=other_colonel, no=i2c_interface.sda_pin.no,
-                ),
-            )
-
-        self.rebuild_occupied_pins()
-        other_colonel.rebuild_occupied_pins()
-        self.update_config()
-        other_colonel.update_config()
+        self.restart()
+        other_colonel.restart()
+        time.sleep(1)
+        self.uid = other_colonel.uid
+        other_colonel.delete()
+        self.save()
 
 
 class ColonelPin(models.Model):
