@@ -370,18 +370,19 @@ class FleetConsumer(AsyncWebsocketConsumer):
                         )(id=id)
 
                         if 'val' in data:
-                            def receive_val(val):
+                            def receive_val(data):
                                 if data.get('actor'):
                                     fingerprint = Fingerprint.objects.filter(
                                         value=f"ttlock-{component.id}-{data.get('actor')}",
                                     ).first()
                                     component.change_init_fingerprint = fingerprint
                                 component.controller._receive_from_device(
-                                    val, bool(data.get('alive'))
+                                    data['val'], bool(data.get('alive')),
+                                    data.get('battery_level')
                                 )
                             await sync_to_async(
                                 receive_val, thread_sensitive=True
-                            )(data['val'])
+                            )(data)
 
                         if 'options' in data:
                             def receive_options(val):
