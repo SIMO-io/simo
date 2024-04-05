@@ -106,6 +106,8 @@ class ColonelComponentForm(BaseComponentForm):
     )
 
     def clean_colonel(self):
+        if not self.instance.pk:
+            return self.cleaned_data['colonel']
         org = self.instance.config.get('colonel')
         if org and org != self.cleaned_data['colonel'].id:
             raise forms.ValidationError(
@@ -618,7 +620,7 @@ class ColonelPWMOutputConfigForm(ColonelComponentForm):
         help_text="easeOutSine - offers most naturally looking effect."
     )
     inverse = forms.BooleanField(
-        label=_("Inverse dimmer signal"), required=False
+        label=_("Inverse dimmer signal"), required=False, initial=True
     )
     on_value = forms.FloatField(
         required=True, initial=100,
