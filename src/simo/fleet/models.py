@@ -166,7 +166,8 @@ class Colonel(DirtyFieldsMixin, models.Model):
     @transaction.atomic
     def rebuild_occupied_pins(self):
         for pin in ColonelPin.objects.filter(colonel=self):
-            pin.occupied_by = None
+            pin.occupied_by_id = None
+            pin.occupied_by_content_type = None
             pin.save()
 
         for component in self.components.all():
