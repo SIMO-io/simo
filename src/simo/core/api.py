@@ -14,6 +14,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response as RESTResponse
 from rest_framework.exceptions import ValidationError as APIValidationError
 from simo.core.utils.config_values import ConfigException
+from simo.users.middleware import introduce as introduce_user
 from .models import (
     Instance, Category, Zone, Component, Icon, ComponentHistory,
     HistoryAggregate, Gateway
@@ -181,6 +182,7 @@ class ComponentViewSet(InstanceMixin, viewsets.ModelViewSet):
         return singular
 
     def perform_controller_method(self, json_data, component):
+        introduce_user(self.request.user)
         component.prepare_controller()
         for method_name, param in json_data.items():
             if not hasattr(component, method_name):
