@@ -182,6 +182,7 @@ class ComponentViewSet(InstanceMixin, viewsets.ModelViewSet):
         return singular
 
     def perform_controller_method(self, json_data, component):
+        print("Introduce user: ", self.request.user)
         introduce_user(self.request.user)
         component.prepare_controller()
         for method_name, param in json_data.items():

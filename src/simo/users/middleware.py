@@ -11,9 +11,8 @@ import threading
 
 # We use daphne for asgi, which seems to be working fine for what we have already
 # observed. However, this is a good candidate for reworking it in to something
-# more rboust.
+# more robust.
 
-# TODO: rework this in to something more roboust
 
 _thread_locals = threading.local()
 
