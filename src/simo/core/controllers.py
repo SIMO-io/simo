@@ -166,7 +166,6 @@ class ControllerBase(ABC):
             return self.component.change_init_fingerprint.user
         if self.component.change_init_by:
             if self.component.change_init_date < timezone.now() - datetime.timedelta(seconds=30):
-                print("Change init date: ", self.component.change_init_date)
                 self.component.change_init_by = None
                 self.component.change_init_date = None
                 self.component.change_init_to = None
@@ -176,7 +175,6 @@ class ControllerBase(ABC):
                 )
                 return None
             else:
-                print("Yes, user detected: ", self.component.change_init_by)
                 return self.component.change_init_by
 
     def send(self, value):
@@ -197,7 +195,6 @@ class ControllerBase(ABC):
 
         self.component.change_init_by = get_current_user()
         self.component.change_init_date = timezone.now()
-        print("Change initiated by: ", self.component.change_init_by)
         self.component.save(
             update_fields=['change_init_by', 'change_init_date']
         )

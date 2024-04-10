@@ -1,7 +1,7 @@
-import json
 from rest_framework.authentication import SessionAuthentication, BasicAuthentication
 from rest_framework import HTTP_HEADER_ENCODING, exceptions
 from simo.users.models import User
+from simo.users.middleware import introduce as introduce_user
 
 
 class SecretKeyAuth(BasicAuthentication):
@@ -15,7 +15,7 @@ class SecretKeyAuth(BasicAuthentication):
 
             if not user or not user.is_active:
                 return
-
+            introduce_user(user)
             return (user, None)
 
     def authenticate_header(self, request):
@@ -34,6 +34,8 @@ class IsAuthenticated(SessionAuthentication):
         # Unauthenticated, CSRF validation not required
         if not user.is_authenticated:
             raise exceptions.NotAuthenticated()
+
+        introduce_user(user)
 
         return (user, None)
 
