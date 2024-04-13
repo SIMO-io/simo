@@ -217,16 +217,11 @@ class Gateway(DirtyFieldsMixin, models.Model, SimoAdminMixin):
         return self.type
 
     def __init__(self, *args, **kwargs):
-        from .utils.type_constants import get_all_gateways
-        ALL_GATEWAYS = get_all_gateways()
-        GATEWAYS_CHOICES = [
-            (slug, cls.name) for slug, cls in ALL_GATEWAYS.items()
-        ]
-        GATEWAYS_CHOICES.sort(key=lambda e: e[1])
+        from .utils.type_constants import GATEWAYS_MAP, GATEWAYS_CHOICES
         self._meta.get_field('type').choices = GATEWAYS_CHOICES
         super().__init__(*args, **kwargs)
 
-        gateway_class = ALL_GATEWAYS.get(self.type)
+        gateway_class = GATEWAYS_MAP.get(self.type)
         if gateway_class:
             self.handler = gateway_class(self)
             if hasattr(self.handler, 'run'):
@@ -272,8 +267,8 @@ class Gateway(DirtyFieldsMixin, models.Model, SimoAdminMixin):
 
     def process_discovery(self, data):
         self.refresh_from_db()
-        from .utils.type_constants import get_controller_types_map
-        ControllerClass = get_controller_types_map().get(
+        from .utils.type_constants import CONTROLLER_TYPES_MAP
+        ControllerClass = CONTROLLER_TYPES_MAP.get(
             self.discovery['controller_uid']
         )
         if ControllerClass and hasattr(
@@ -403,7 +398,39 @@ def is_in_alarm(self):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Goes in zero seconds!
+        self.prepare_controller()
+
+    def __str__(self):
+        if self.zone:
+            return '%s | %s' % (self.zone.name, self.name)
+        return self.name
+
+    @cached_property
+    def controller(self):
+        from .utils.type_constants import (
+            CONTROLLERS_BY_GATEWAY,
+            CONTROLLER_TYPES_CHOICES
+        )
+        self._meta.get_field('controller_uid').choices = CONTROLLER_TYPES_CHOICES
+        if self.controller_uid:
+            controller_cls = None
+            if not controller_cls:
+                controller_cls = CONTROLLERS_BY_GATEWAY.get(
+                    self.gateway.type, {}
+                ).get(self.controller_uid)
+            if controller_cls:
+                return controller_cls(self)
+
+    def prepare_controller(self):
+        if self.controller:
+            controller_methods = [m for m in inspect.getmembers(
+                self.controller, predicate=inspect.ismethod
+            ) if not m[0].startswith('_')]
+            for method in controller_methods:
+                setattr(self, method[0], method[1])
+            if not self.id:
+                self.value = self.controller.default_value
+
         if self.instance_methods:
             custom_methods = {}
             funcType = type(self.save)
@@ -415,49 +442,6 @@ def is_in_alarm(self):
                 if not callable(val):
                     continue
                 setattr(self, key, funcType(val, self))
-
-    def __str__(self):
-        if self.zone:
-            return '%s | %s' % (self.zone.name, self.name)
-        return self.name
-
-    @cached_property
-    def controller(self):
-        from .utils.type_constants import (
-            get_controller_types_map,
-            get_controller_types_choices
-        )
-        self._meta.get_field('controller_uid').choices = \
-            get_controller_types_choices()
-        if self.controller_uid:
-            controller_cls = None
-            if self.id and not 'test' in sys.argv:
-                try:
-                    controller_cls = cache.get('c_%d_contr_cls' % self.id)
-                except:
-                    pass
-            if not controller_cls:
-                controller_cls = get_controller_types_map(
-                    self.gateway
-                ).get(self.controller_uid)
-                if controller_cls and self.id and not 'test' in sys.argv:
-                    cache.set(
-                        'c_%d_contr_cls' % self.id,
-                        controller_cls, None
-                    )
-            if controller_cls:
-                return controller_cls(self)
-
-    def prepare_controller(self):
-        if not self.controller:
-            return
-        controller_methods = [m for m in inspect.getmembers(
-            self.controller, predicate=inspect.ismethod
-        ) if not m[0].startswith('_')]
-        for method in controller_methods:
-            setattr(self, method[0], method[1])
-        if not self.id:
-            self.value = self.controller.default_value
 
     def get_socket_url(self):
         return reverse_lazy(

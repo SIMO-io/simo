@@ -260,10 +260,12 @@ class CompTypeSelectForm(forms.Form):
     def __init__(self, gateway, *args, **kwargs):
         super().__init__(*args, **kwargs)
         if gateway:
-            from .utils.type_constants import get_controller_types_choices
-            self.fields['controller_type'].choices = get_controller_types_choices(
-                gateway
-            )
+            from .utils.type_constants import CONTROLLERS_BY_GATEWAY
+            self.fields['controller_type'].choices = [
+                (cls.uid, cls.name) for cls in CONTROLLERS_BY_GATEWAY.get(
+                    gateway, {}
+                ).values()
+            ]
 
 
 class ComponentAdminForm(forms.ModelForm):
@@ -300,8 +302,8 @@ class ComponentAdminForm(forms.ModelForm):
             self.gateway = self.instance.gateway
             self.controller = self.instance.controller
         else:
-            from .utils.type_constants import get_controller_types_map
-            ControllerClass = get_controller_types_map().get(self.controller_uid)
+            from .utils.type_constants import CONTROLLER_TYPES_MAP
+            ControllerClass = CONTROLLER_TYPES_MAP.get(self.controller_uid)
             if ControllerClass:
                 self.controller = ControllerClass(self.instance)
                 self.gateway = Gateway.objects.filter(

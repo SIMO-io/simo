@@ -182,7 +182,6 @@ class ComponentViewSet(InstanceMixin, viewsets.ModelViewSet):
         return singular
 
     def perform_controller_method(self, json_data, component):
-        component.prepare_controller()
         for method_name, param in json_data.items():
             if not hasattr(component, method_name):
                 raise APIValidationError(
@@ -584,10 +583,10 @@ class ControllerTypes(InstanceMixin, viewsets.GenericViewSet):
         return permissions
 
     def list(self, request, *args, **kwargs):
-        from .utils.type_constants import get_controller_types_map
+        from .utils.type_constants import CONTROLLER_TYPES_MAP
         data = {}
 
-        for uid, cls in get_controller_types_map().items():
+        for uid, cls in CONTROLLER_TYPES_MAP.items():
             if cls.gateway_class.name not in data:
                 data[cls.gateway_class.name] = []
             data[cls.gateway_class.name].append({

@@ -19,9 +19,17 @@ def get_controller_types_map(gateway=None):
         except ModuleNotFoundError:
             continue
         for cls_name, cls in configs.__dict__.items():
-            if inspect.isclass(cls) and issubclass(cls, ControllerBase) \
-                and not inspect.isabstract(cls):
-                if gateway:
+            if not inspect.isclass(cls):
+                continue
+            if not issubclass(cls, ControllerBase):
+                continue
+            if inspect.isabstract(cls):
+                continue
+            if gateway:
+                if issubclass(gateway, BaseGatewayHandler):
+                    if gateway.uid != cls.gateway_class.uid:
+                        continue
+                else:
                     try:
                         same = gateway.type == cls.gateway_class.uid
                     except:
@@ -29,8 +37,11 @@ def get_controller_types_map(gateway=None):
                     else:
                         if not same:
                             continue
-                controllers_map[cls.uid] = cls
+            controllers_map[cls.uid] = cls
     return controllers_map
+
+
+CONTROLLER_TYPES_MAP = get_controller_types_map()
 
 
 def get_controller_types_choices(gateway=None):
@@ -40,11 +51,8 @@ def get_controller_types_choices(gateway=None):
     return choices
 
 
-#ALL_CONTROLLER_TYPES = get_controller_types_map()
-# CONTROLLER_TYPE_CHOICES = [
-#     (slug, cls.name) for slug, cls in ALL_CONTROLLER_TYPES.items()
-# ]
-# CONTROLLER_TYPE_CHOICES.sort(key=lambda e: e[0])
+CONTROLLER_TYPES_CHOICES = get_controller_types_choices()
+
 
 def get_all_gateways():
     all_gateways = {}
@@ -65,12 +73,24 @@ def get_all_gateways():
     return all_gateways
 
 
+GATEWAYS_MAP = get_all_gateways()
+
+
 def get_gateway_choices():
     choices = [
-        (slug, cls.name) for slug, cls in get_all_gateways().items()
+        (slug, cls.name) for slug, cls in GATEWAYS_MAP.items()
     ]
     choices.sort(key=lambda e: e[1])
     return choices
+
+GATEWAYS_CHOICES = get_gateway_choices()
+
+
+CONTROLLERS_BY_GATEWAY = {}
+for gateway_slug, gateway_cls in GATEWAYS_MAP.items():
+    CONTROLLERS_BY_GATEWAY[gateway_slug] = {}
+    for ctrl_uid, ctrl_cls in get_controller_types_map(gateway_cls).items():
+        CONTROLLERS_BY_GATEWAY[gateway_slug][ctrl_uid] = ctrl_cls
 
 
 ALL_BASE_TYPES = {}

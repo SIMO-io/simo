@@ -202,7 +202,6 @@ class AlarmGroupConfigForm(BaseComponentForm):
                     "Can not cover self. Please remove - [%s]" % str(check_cmp)
                 )
             if comp.base_type == 'alarm-group':
-                comp.prepare_controller()
                 self.recurse_check_alarm_groups(
                     comp.get_children(), check_cmp
                 )
@@ -227,7 +226,6 @@ class AlarmGroupConfigForm(BaseComponentForm):
                 c.save(update_fields=('config',))
         if obj.id:
             comp = Component.objects.get(id=obj.id)
-            comp.prepare_controller()
             comp.refresh_status()
         return obj
 
@@ -512,7 +510,6 @@ class AlarmClockEventForm(forms.Form):
         if not self.cleaned_data.get('play_action'):
             return self.cleaned_data
         component = self.cleaned_data.get('component')
-        component.prepare_controller()
         if not hasattr(component, self.cleaned_data['play_action']):
             self.add_error(
                 'play_action',

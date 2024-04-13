@@ -10,7 +10,7 @@ from django.shortcuts import redirect, render
 from simo.users.models import ComponentPermission
 from .utils.type_constants import (
     ALL_BASE_TYPES,
-    get_all_gateways, get_controller_types_map
+    GATEWAYS_MAP, CONTROLLERS_BY_GATEWAY
 )
 from .models import Instance, Icon, Gateway, Component, Zone, Category
 from .forms import (
@@ -156,7 +156,7 @@ class GatewayAdmin(admin.ModelAdmin):
         }
         if request.session.get('gateway_type'):
             try:
-                formClass = get_all_gateways().get(
+                formClass = GATEWAYS_MAP.get(
                     request.session.get('gateway_type')
                 ).config_form
             except:
@@ -188,7 +188,7 @@ class GatewayAdmin(admin.ModelAdmin):
                     )
                 except:
                     ctx['error'] = '%s gateway already exists!' \
-                                   % get_all_gateways().get(
+                                   % GATEWAYS_MAP.get(
                         request.session.get('gateway_type'), 'None'
                     ).name
                 else:
@@ -210,7 +210,7 @@ class GatewayAdmin(admin.ModelAdmin):
 
     def get_form(self, request, obj=None, change=False, **kwargs):
         if obj:
-            gateway_class = get_all_gateways().get(obj.type)
+            gateway_class = GATEWAYS_MAP.get(obj.type)
             if gateway_class:
                 return gateway_class.config_form
         return BaseGatewayForm
@@ -323,8 +323,8 @@ class ComponentAdmin(admin.ModelAdmin):
 
             if request.session.get('add_comp_type'):
                 try:
-                    controller_cls = get_controller_types_map(
-                        gateway
+                    controller_cls = CONTROLLERS_BY_GATEWAY.get(
+                        gateway, {}
                     )[request.session['add_comp_type']]
                 except:
                     request.session.pop('add_comp_type')
@@ -430,8 +430,8 @@ class ComponentAdmin(admin.ModelAdmin):
     def get_form(self, request, obj=None, change=False, **kwargs):
         if obj:
             try:
-                self.form = get_controller_types_map(
-                    obj.gateway
+                self.form = CONTROLLERS_BY_GATEWAY.get(
+                    obj.gateway, {}
                 )[obj.controller_uid].config_form
             except KeyError:
                 pass

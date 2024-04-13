@@ -284,10 +284,9 @@ class ComponentSerializer(FormSerializer):
     def set_form_cls(self):
         self.Meta.form = ComponentAdminForm
         if not isinstance(self.instance, Iterable):
-            from .utils.type_constants import get_controller_types_map
-            controllers_map = get_controller_types_map()
+            from .utils.type_constants import CONTROLLER_TYPES_MAP
             if not self.instance:
-                controller = controllers_map.get(
+                controller = CONTROLLER_TYPES_MAP.get(
                     #'simo.generic.controllers.AlarmClock'
                     self.context['request'].META.get('HTTP_CONTROLLER')
                 )
