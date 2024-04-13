@@ -26,12 +26,13 @@ def get_controller_types_map(gateway=None):
             if inspect.isabstract(cls):
                 continue
             if gateway:
-                if issubclass(gateway, BaseGatewayHandler):
+                if issubclass(gateway, BaseGatewayHandler) \
+                or isinstance(gateway, BaseGatewayHandler):
                     if gateway.uid != cls.gateway_class.uid:
                         continue
                 else:
                     try:
-                        same = gateway.type == cls.gateway_class.uid
+                        same = gateway.handler.uid == cls.gateway_class.uid
                     except:
                         continue
                     else:

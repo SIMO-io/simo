@@ -263,7 +263,7 @@ class CompTypeSelectForm(forms.Form):
             from .utils.type_constants import CONTROLLERS_BY_GATEWAY
             self.fields['controller_type'].choices = [
                 (cls.uid, cls.name) for cls in CONTROLLERS_BY_GATEWAY.get(
-                    gateway, {}
+                    gateway.handler.uid, {}
                 ).values()
             ]
 

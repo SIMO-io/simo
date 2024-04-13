@@ -9,8 +9,7 @@ from django.views.decorators.csrf import csrf_protect
 from django.shortcuts import redirect, render
 from simo.users.models import ComponentPermission
 from .utils.type_constants import (
-    ALL_BASE_TYPES,
-    GATEWAYS_MAP, CONTROLLERS_BY_GATEWAY
+    ALL_BASE_TYPES, GATEWAYS_MAP, CONTROLLERS_BY_GATEWAY
 )
 from .models import Instance, Icon, Gateway, Component, Zone, Category
 from .forms import (
@@ -22,7 +21,6 @@ from .forms import (
 )
 from .filters import ZonesFilter
 from .widgets import AdminImageWidget
-from .middleware import get_current_instance
 from simo.conf import dynamic_settings
 
 csrf_protect_m = method_decorator(csrf_protect)
