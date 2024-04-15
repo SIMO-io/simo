@@ -1016,7 +1016,6 @@ class TTLockConfigForm(ColonelComponentForm):
                 )
         return self.cleaned_data
 
-
     def save(self, commit=True):
         obj = super(ColonelComponentForm, self).save(commit)
         if commit:

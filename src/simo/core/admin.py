@@ -355,6 +355,7 @@ class ComponentAdmin(admin.ModelAdmin):
                     pop_fields_from_form(ctx['form'])
                     if ctx['form'].is_valid():
                         if ctx['form'].controller.is_discoverable:
+                            print("INIT DISCOVERY!!!")
                             ctx['form'].controller.init_discovery(
                                 ctx['form'].cleaned_data
                             )
