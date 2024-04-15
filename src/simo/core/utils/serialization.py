@@ -21,14 +21,14 @@ def serialize_form_data(data):
                 serialized_data[field_name] = {
                     'model': 'many',
                     'val': json.loads(model_serializers.serialize(
-                        'json', val
+                        'json', val, fields=['pk']
                     ))
                 }
             else:
                 serialized_data[field_name] = {
                     'model': 'single',
                     'val': json.loads(model_serializers.serialize(
-                        'json', [val]
+                        'json', [val], fields=['pk']
                     ))
                 }
         else:
@@ -46,11 +46,13 @@ def deserialize_form_data(data):
             if val['model'] == 'single':
                 for item in deserializer_generator:
                     deserialized_data[field_name] = item.object
+                    deserialized_data[field_name].refresh_from_db()
                     break
             else:
                 deserialized_data[field_name] = []
                 for item in deserializer_generator:
                     deserialized_data[field_name].append(item.object)
+                    deserialized_data[field_name][-1].refresh_from_db()
         else:
             deserialized_data[field_name] = val
     return deserialized_data
