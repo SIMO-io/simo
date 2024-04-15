@@ -1,4 +1,5 @@
 import datetime
+import time
 from django.utils import timezone
 from simo.core.gateways import BaseObjectCommandsGatewayHandler
 from simo.core.forms import BaseGatewayForm
@@ -14,7 +15,7 @@ class FleetGatewayHandler(BaseObjectCommandsGatewayHandler):
     periodic_tasks = (
         ('look_for_updates', 600),
         ('watch_colonels_connection', 30),
-        ('push_discoveries', 3),
+        ('push_discoveries', 10),
     )
 
     def _on_mqtt_message(self, client, userdata, msg):
@@ -37,9 +38,12 @@ class FleetGatewayHandler(BaseObjectCommandsGatewayHandler):
     def push_discoveries(self):
         from .models import Colonel
         for gw in Gateway.objects.filter(
-            type=self.uid,
-            discovery__has_key='start',
+            type=self.uid, discovery__has_key='start',
         ).exclude(discovery__has_key='finished'):
+            if time.time() - gw.discovery.get('last_check') > 10:
+                gw.finish_discovery()
+                continue
+
             colonel = Colonel.objects.get(
                 id=gw.discovery['init_data']['colonel']['val'][0]['pk']
             )

@@ -604,7 +604,6 @@ class RunningDiscoveries(InstanceMixin, viewsets.GenericViewSet):
     basename = 'discoveries'
     queryset = []
 
-
     def get_permissions(self):
         permissions = super().get_permissions()
         permissions.append(IsInstanceSuperuser())
@@ -613,6 +612,8 @@ class RunningDiscoveries(InstanceMixin, viewsets.GenericViewSet):
     def get_data(self, gateways):
         data = []
         for gateway in gateways:
+            gateway.discovery['last_check'] = time.time()
+            gateway.save(update_fields=['discovery'])
             data.append({
                 'gateway': gateway.id,
                 'start': gateway.discovery['start'],
