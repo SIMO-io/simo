@@ -294,6 +294,7 @@ class TTLock(FleeDeviceMixin, Lock):
     @classmethod
     def init_discovery(self, form_cleaned_data):
         from simo.core.models import Gateway
+        print("INIT discovery form cleaned data: ", form_cleaned_data)
         print("Serialized form: ", serialize_form_data(form_cleaned_data))
         gateway = Gateway.objects.filter(type=self.gateway_class.uid).first()
         gateway.start_discovery(
