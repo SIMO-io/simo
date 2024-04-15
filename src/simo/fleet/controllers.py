@@ -24,7 +24,7 @@ from .forms import (
     ColonelDHTSensorConfigForm, DS18B20SensorConfigForm,
     BME680SensorConfigForm, MPC9808SensorConfigForm,
     DualMotorValveForm, BlindsConfigForm, BurglarSmokeDetectorConfigForm,
-    TTLockConfigForm
+    TTLockConfigForm, DALIDeviceConfigForm
 )
 
 
@@ -307,7 +307,7 @@ class TTLock(FleeDeviceMixin, Lock):
 
     @classmethod
     def _process_discovery(cls, started_with, data):
-        if data['discover-ttlock'] == 'fail':
+        if data['discovery-result'] == 'fail':
             if data['result'] == 0:
                 return {'error': 'Internal Colonel error. See Colonel logs.'}
             if data['result'] == 1:
@@ -348,6 +348,7 @@ class TTLock(FleeDeviceMixin, Lock):
                 },
             }
             new_component.save()
+            new_component.gateway.finish_discovery()
             GatewayObjectCommand(
                 new_component.gateway, Colonel(
                     id=new_component.config['colonel']
@@ -417,4 +418,75 @@ class TTLock(FleeDeviceMixin, Lock):
         ).publish()
 
 
+class DALIDevice(FleeDeviceMixin):
+    gateway_class = FleetGatewayHandler
+    config_form = DALIDeviceConfigForm
+    discovery_msg = _("Please hook up your new DALI device to your DALI bus.")
+
+    @classmethod
+    def init_discovery(self, form_cleaned_data):
+        from simo.core.models import Gateway
+        gateway = Gateway.objects.filter(type=self.gateway_class.uid).first()
+        gateway.start_discovery(
+            self.uid, serialize_form_data(form_cleaned_data),
+            timeout=60
+        )
+        GatewayObjectCommand(
+            gateway, form_cleaned_data['colonel'],
+            command=f'discover-dali',
+            interface=form_cleaned_data['interface'].no
+        ).publish()
+
+    @classmethod
+    def _process_discovery(cls, started_with, data):
+        started_with = deserialize_form_data(started_with)
+        form = TTLockConfigForm(controller_uid=cls.uid, data=started_with)
+
+        if form.is_valid():
+            new_component = form.save()
+            new_component.config.update(data.get('result', {}).get('config'))
+            new_component.meta['finalization_data'] = {
+                'temp_id': data['result']['id'],
+                'permanent_id': new_component.id,
+                'config': {
+                    'type': cls.uid.split('.')[-1],
+                    'config': new_component.config,
+                    'val': False,
+                },
+            }
+            new_component.save()
+            new_component.gateway.finish_discovery()
+            GatewayObjectCommand(
+                new_component.gateway, Colonel(
+                    id=new_component.config['colonel']
+                ), command='finalize',
+                data=new_component.meta['finalization_data'],
+            ).publish()
+            return [new_component]
+
+        # Literally impossible, but just in case...
+        return {'error': 'INVALID INITIAL DISCOVERY FORM!'}
+
+
+class DALIGear(DALIDevice):
+
+    def _send_to_device(self, value):
+        GatewayObjectCommand(
+            self.component.gateway,
+            Colonel(id=self.component.config['colonel']),
+            set_val=value,
+            component_id=self.component.id,
+        ).publish()
+
+
+class DALILamp(DALIGear, BaseSwitch):
+    manual_add = False
+    name = 'DALI Lamp'
+    discovery_msg = _("Please hook up your new DALI device to your DALI bus.")
+
+
+class DALIDimmableLamp(DALIGear, BaseDimmer):
+    manual_add = False
+    name = 'DALI Dimmable Lamp'
+    discovery_msg = _("Please hook up your new DALI lamp to your DALI bus.")
 

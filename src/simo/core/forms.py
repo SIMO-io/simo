@@ -264,7 +264,7 @@ class CompTypeSelectForm(forms.Form):
             self.fields['controller_type'].choices = [
                 (cls.uid, cls.name) for cls in CONTROLLERS_BY_GATEWAY.get(
                     gateway.handler.uid, {}
-                ).values()
+                ).values() if cls.manual_add
             ]
 
 

@@ -322,7 +322,7 @@ class ComponentAdmin(admin.ModelAdmin):
             if request.session.get('add_comp_type'):
                 try:
                     controller_cls = CONTROLLERS_BY_GATEWAY.get(
-                        gateway, {}
+                        gateway.type, {}
                     )[request.session['add_comp_type']]
                 except:
                     request.session.pop('add_comp_type')
@@ -393,6 +393,7 @@ class ComponentAdmin(admin.ModelAdmin):
                     if ctx['form'].is_valid():
                         request.session['add_comp_type'] = \
                             ctx['form'].cleaned_data['controller_type']
+                        print("Session controller type: ", request.session['add_comp_type'])
                         return redirect(request.path)
 
                 else:
@@ -429,7 +430,7 @@ class ComponentAdmin(admin.ModelAdmin):
         if obj:
             try:
                 self.form = CONTROLLERS_BY_GATEWAY.get(
-                    obj.gateway, {}
+                    obj.gateway.type, {}
                 )[obj.controller_uid].config_form
             except KeyError:
                 pass

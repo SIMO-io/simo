@@ -12,7 +12,7 @@ from simo.core.widgets import LogOutputWidget
 from simo.core.utils.easing import EASING_CHOICES
 from simo.core.utils.validators import validate_slaves
 from simo.core.utils.admin import AdminFormActionForm
-from .models import Colonel, ColonelPin, Interface, i2c_interface_no_choices
+from .models import Colonel, ColonelPin, Interface
 from .utils import INTERFACES_PINS_MAP
 
 
@@ -22,6 +22,11 @@ class ColonelPinChoiceField(forms.ModelChoiceField):
     fleet components configuration.
     '''
     filter_by = 'colonel'
+
+
+class ColonelInterfacesChoiceField(forms.ModelChoiceField):
+    filter_by = 'colonel'
+
 
 
 class ColonelAdminForm(forms.ModelForm):
@@ -412,13 +417,16 @@ class ColonelDHTSensorConfigForm(ColonelComponentForm):
 
 
 class BME680SensorConfigForm(ColonelComponentForm):
-    i2c_interface = forms.TypedChoiceField(
-        coerce=int, choices=i2c_interface_no_choices,
+    interface = ColonelInterfacesChoiceField(
+        queryset=Interface.objects.filter(type='i2c'),
         widget=autocomplete.ListSelect2(
-            url='autocomplete-colonel-i2c_interfaces',
+            url='autocomplete-interfaces',
             forward=[
                 forward.Self(),
                 forward.Field('colonel'),
+                forward.Const(
+                    {'type': 'i2c'}, 'filters'
+                )
             ]
         )
     )
@@ -433,15 +441,22 @@ class BME680SensorConfigForm(ColonelComponentForm):
 
     )
 
+    def save(self, commit=True):
+        self.instance.config['i2c_interface'] = self.cleaned_data['interface'].no
+        return super().save(commit=commit)
+
 
 class MPC9808SensorConfigForm(ColonelComponentForm):
-    i2c_interface = forms.TypedChoiceField(
-        coerce=int, choices=i2c_interface_no_choices,
+    interface = ColonelInterfacesChoiceField(
+        queryset=Interface.objects.filter(type='i2c'),
         widget=autocomplete.ListSelect2(
-            url='autocomplete-colonel-i2c_interfaces',
+            url='autocomplete-interfaces',
             forward=[
                 forward.Self(),
                 forward.Field('colonel'),
+                forward.Const(
+                    {'type': 'i2c'}, 'filters'
+                )
             ]
         )
     )
@@ -455,6 +470,10 @@ class MPC9808SensorConfigForm(ColonelComponentForm):
                   'Can not be less than 1s.'
 
     )
+
+    def save(self, commit=True):
+        self.instance.config['i2c_interface'] = self.cleaned_data['interface'].no
+        return super().save(commit=commit)
 
 
 class ColonelTouchSensorConfigForm(ColonelComponentForm):
@@ -1005,4 +1024,26 @@ class TTLockConfigForm(ColonelComponentForm):
             self.cleaned_data['colonel'].components.add(obj)
             self.cleaned_data['colonel'].save()
         return obj
+
+
+
+class DALIDeviceConfigForm(ColonelComponentForm):
+    interface = ColonelInterfacesChoiceField(
+        queryset=Interface.objects.filter(type='dali'),
+        widget=autocomplete.ListSelect2(
+            url='autocomplete-interfaces',
+            forward=[
+                forward.Self(),
+                forward.Field('colonel'),
+                forward.Const(
+                    {'type': 'dali'}, 'filters'
+                )
+            ]
+        )
+    )
+
+    def save(self, commit=True):
+        self.instance.config['dali_interface'] = self.cleaned_data['interface'].no
+        return super().save(commit=commit)
+
 

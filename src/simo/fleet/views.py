@@ -1,9 +1,8 @@
-from django.contrib.contenttypes.models import ContentType
 from django.http import HttpResponse, Http404
 from django.db.models import Q
 from dal import autocomplete
 from simo.core.utils.helpers import search_queryset
-from .models import Colonel, ColonelPin, I2CInterface
+from .models import Colonel, ColonelPin, Interface
 
 
 def colonels_ping(request):
@@ -43,20 +42,22 @@ class PinsSelectAutocomplete(autocomplete.Select2QuerySetView):
         return qs
 
 
-class I2CInterfaceSelectAutocomplete(autocomplete.Select2ListView):
+class InterfaceSelectAutocomplete(autocomplete.Select2ListView):
 
     def get_list(self):
         if not self.request.user.is_staff:
-            return []
+            return Interface.objects.none()
 
         try:
             colonel = Colonel.objects.get(
                 pk=self.forwarded.get("colonel")
             )
         except:
-            return []
+            return Interface.objects.none()
 
-        return [
-            (i.no, i.get_no_display()) for i in
-            I2CInterface.objects.filter(colonel=colonel)
-        ]
+        qs = Interface.objects.filter(colonel=colonel)
+
+        if self.forwarded.get('filters'):
+            qs = qs.filter(**self.forwarded.get('filters'))
+
+        return qs

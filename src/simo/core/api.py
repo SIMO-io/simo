@@ -62,7 +62,7 @@ class IconViewSet(viewsets.ReadOnlyModelViewSet):
         if 'q' in self.request.GET:
             queryset = search_queryset(
                 queryset, self.request.GET['q'], ['slug', 'keywords']
-            )[:10]
+            )[:25]
         return queryset
 
     def get_view_name(self):
@@ -592,7 +592,8 @@ class ControllerTypes(InstanceMixin, viewsets.GenericViewSet):
             data[cls.gateway_class.name].append({
                 'uid': uid,
                 'name': cls.name,
-                'is_discoverable': cls.is_discoverable
+                'is_discoverable': cls.is_discoverable,
+                'manual_add': cls.manual_add
             })
 
         return RESTResponse(data)

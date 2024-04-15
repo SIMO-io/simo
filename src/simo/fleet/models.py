@@ -400,3 +400,5 @@ def post_interface_delete(sender, instance, *args, **kwargs):
             pin.occupied_by_content_type = None
             pin.occupied_by_content_id = None
             pin.save()
+
+

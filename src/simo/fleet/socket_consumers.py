@@ -318,6 +318,11 @@ class FleetConsumer(AsyncWebsocketConsumer):
                     asyncio.run(self.send_data({
                         'command': 'discover-ttlock'
                     }))
+                elif payload.get('command') == 'discover-dali':
+                    print("SEND discover-dali command!")
+                    asyncio.run(self.send_data({
+                        'command': 'discover-dali', 'i': payload['interface']
+                    }))
                 elif payload.get('command') == 'finalize':
                     asyncio.run(self.send_data({
                         'command': 'finalize',
@@ -419,18 +424,20 @@ class FleetConsumer(AsyncWebsocketConsumer):
                     except Exception as e:
                         print(traceback.format_exc(), file=sys.stderr)
 
-                elif 'discover-ttlock' in data:
+                elif 'discovery-result' in data:
                     def process_discovery_result():
+                        # check if component is already created
+                        comp = Component.objects.filter(
+                            meta__finalization_data__temp_id=data['result']['id']
+                        ).first()
+                        if comp:
+                            return comp
+
                         self.gateway.refresh_from_db()
-                        if self.gateway.discovery.get('finished'):
-                            return Component.objects.filter(
-                                meta__finalization_data__temp_id=data['result']['id']
-                            ).first()
                         try:
                             self.gateway.process_discovery(data)
                         except Exception as e:
                             print(traceback.format_exc(), file=sys.stderr)
-                        self.gateway.finish_discovery()
 
                     finished_comp = await sync_to_async(
                         process_discovery_result, thread_sensitive=True

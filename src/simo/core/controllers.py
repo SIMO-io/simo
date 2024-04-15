@@ -34,6 +34,7 @@ class ControllerBase(ABC):
     default_config = {}
     default_meta = {}
     discovery_msg = None
+    manual_add = True # Can be added manually
 
     @property
     @abstractmethod
