@@ -1002,7 +1002,6 @@ class BurglarSmokeDetectorConfigForm(ColonelComponentForm):
 
 
 class TTLockConfigForm(ColonelComponentForm):
-    pass
 
     def clean(self):
         if not self.instance or not self.instance.pk:
