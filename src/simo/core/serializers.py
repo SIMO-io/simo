@@ -293,7 +293,7 @@ class ComponentSerializer(FormSerializer):
                 if controller:
                     self.Meta.form = controller.add_form
             else:
-                controller = controllers_map.get(
+                controller = CONTROLLER_TYPES_MAP.get(
                     self.instance.controller_uid
                 )
                 if controller:
