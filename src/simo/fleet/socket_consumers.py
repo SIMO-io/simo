@@ -427,7 +427,7 @@ class FleetConsumer(AsyncWebsocketConsumer):
                 elif 'discovery-result' in data:
                     def process_discovery_result():
                         # check if component is already created
-                        if 'id' in data.get('result', {}):
+                        if data['discovery-result'] == 'success':
                             comp = Component.objects.filter(
                                 meta__finalization_data__temp_id=data['result']['id']
                             ).first()
