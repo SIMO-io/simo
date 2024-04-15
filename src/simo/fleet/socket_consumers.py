@@ -427,11 +427,12 @@ class FleetConsumer(AsyncWebsocketConsumer):
                 elif 'discovery-result' in data:
                     def process_discovery_result():
                         # check if component is already created
-                        comp = Component.objects.filter(
-                            meta__finalization_data__temp_id=data['result']['id']
-                        ).first()
-                        if comp:
-                            return comp
+                        if 'id' in data.get('result', {}):
+                            comp = Component.objects.filter(
+                                meta__finalization_data__temp_id=data['result']['id']
+                            ).first()
+                            if comp:
+                                return comp
 
                         self.gateway.refresh_from_db()
                         try:
