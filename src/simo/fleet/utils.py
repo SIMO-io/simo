@@ -58,7 +58,7 @@ for no, data in BASE_ESP32_GPIO_PINS.items():
 
 # ample-wall
 for no, data in BASE_ESP32_GPIO_PINS.items():
-    if no in (4, 12, 13, 14, 15, 23, 32, 33, 34, 36, 39):
+    if no in (12, 13, 14, 23, 32, 33, 34, 36, 39):
         GPIO_PINS['ample-wall'][no] = GPIO_PIN_DEFAULTS.copy()
         GPIO_PINS['ample-wall'][no].update(data)
 
@@ -114,3 +114,8 @@ for no, data in BASE_ESP32_GPIO_PINS.items():
         GPIO_PINS['4-relays'][no]['note'] = 'Relay4'
     else:
         GPIO_PINS['4-relays'][no].update(data)
+
+
+INTERFACES_PINS_MAP = {
+    1: [13, 23], 2: [32, 33]
+}

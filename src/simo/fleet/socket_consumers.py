@@ -218,15 +218,14 @@ class FleetConsumer(AsyncWebsocketConsumer):
             }
         }
         config_data['settings'].update(instance_options)
-        i2c_interfaces = await sync_to_async(list, thread_sensitive=True)(
+        interfaces = await sync_to_async(list, thread_sensitive=True)(
             self.colonel.i2c_interfaces.all().select_related(
-                'scl_pin', 'sda_pin'
+                'pin_a', 'pin_b'
             )
         )
-        for i2c_interface in i2c_interfaces:
-            config_data['interfaces']['i2c-%d' % i2c_interface.no] = {
-                'scl': i2c_interface.scl_pin.no, 'sda': i2c_interface.sda_pin.no,
-                'freq': i2c_interface.freq
+        for interface in interfaces:
+            config_data['interfaces'][f'{interface.type}-{interface.no}'] = {
+                'pin_a': interface.pin_a.no, 'pin_b': interface.pin_b.no,
             }
         components = await sync_to_async(
             list, thread_sensitive=True

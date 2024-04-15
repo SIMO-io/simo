@@ -5,14 +5,14 @@ from django.template.loader import render_to_string
 from django.templatetags.static import static
 from simo.core.models import Component
 from simo.core.utils.admin import FormAction
-from .models import Colonel, I2CInterface, ColonelPin
-from .forms import ColonelAdminForm, MoveColonelForm, I2CInterfaceAdminForm
+from .models import Colonel, Interface, ColonelPin
+from .forms import ColonelAdminForm, MoveColonelForm, InterfaceAdminForm
 
 
-class I2CInterfaceInline(admin.TabularInline):
-    model = I2CInterface
+class InterfaceInline(admin.TabularInline):
+    model = Interface
     extra = 0
-    form = I2CInterfaceAdminForm
+    form = InterfaceAdminForm
 
 
 class ColonelPinsInline(admin.TabularInline):
@@ -71,7 +71,7 @@ class ColonelAdmin(admin.ModelAdmin):
         'rebuild_occupied_pins'
     )
 
-    inlines = I2CInterfaceInline, ColonelPinsInline
+    inlines = InterfaceInline, ColonelPinsInline
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)

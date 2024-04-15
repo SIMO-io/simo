@@ -22,7 +22,7 @@ class ColonelPinsManager(models.Manager):
         return qs
 
 
-class I2CInterfacesManager(models.Manager):
+class InterfacesManager(models.Manager):
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -30,3 +30,5 @@ class I2CInterfacesManager(models.Manager):
         if instance:
             qs = qs.filter(colonel__instance=instance)
         return qs
+
+

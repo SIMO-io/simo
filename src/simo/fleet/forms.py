@@ -12,7 +12,8 @@ from simo.core.widgets import LogOutputWidget
 from simo.core.utils.easing import EASING_CHOICES
 from simo.core.utils.validators import validate_slaves
 from simo.core.utils.admin import AdminFormActionForm
-from .models import Colonel, ColonelPin, I2CInterface, i2c_interface_no_choices
+from .models import Colonel, ColonelPin, Interface, i2c_interface_no_choices
+from .utils import INTERFACES_PINS_MAP
 
 
 class ColonelPinChoiceField(forms.ModelChoiceField):
@@ -52,33 +53,28 @@ class MoveColonelForm(AdminFormActionForm):
     )
 
 
-class I2CInterfaceAdminForm(forms.ModelForm):
-    scl_pin = ColonelPinChoiceField(
-        queryset=ColonelPin.objects.filter(output=True, native=True),
-        widget=autocomplete.ListSelect2(
-            url='autocomplete-colonel-pins',
-            forward=[
-                forward.Self(),
-                forward.Field('colonel'),
-                forward.Const({'output': True, 'native': True}, 'filters')
-            ]
-        )
-    )
-    sda_pin = ColonelPinChoiceField(
-        queryset=ColonelPin.objects.filter(output=True, native=True),
-        widget=autocomplete.ListSelect2(
-            url='autocomplete-colonel-pins',
-            forward=[
-                forward.Self(),
-                forward.Field('colonel'),
-                forward.Const({'output': True, 'native': True}, 'filters')
-            ]
-        )
-    )
+class InterfaceAdminForm(forms.ModelForm):
 
     class Meta:
-        model = I2CInterface
+        model = Interface
         fields = '__all__'
+
+
+    def clean(self):
+        if self.instance.pk:
+            return self.cleaned_data
+
+        for pin_no in INTERFACES_PINS_MAP[self.cleaned_data['no']]:
+            cpin = ColonelPin.objects.get(
+                colonel=self.instance.colonel, no=pin_no
+            )
+            if cpin.occupied_by:
+                raise forms.ValidationError(
+                    f"Interface can not be created, because "
+                    f"GPIO{cpin} is already occupied by {cpin.occupied_by}."
+                )
+
+
 
     def clean_scl_pin(self):
         if self.cleaned_data['scl_pin'].occupied_by \

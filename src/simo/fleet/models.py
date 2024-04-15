@@ -1,5 +1,6 @@
 import requests
 import time
+from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db import models
 from django.db.models.signals import post_save, pre_delete, post_delete
@@ -11,8 +12,8 @@ from simo.core.models import Instance, Gateway, Component
 from simo.core.utils.helpers import get_random_string
 from simo.core.events import GatewayObjectCommand
 from .gateways import FleetGatewayHandler
-from .managers import ColonelsManager, ColonelPinsManager, I2CInterfacesManager
-from .utils import GPIO_PINS
+from .managers import ColonelsManager, ColonelPinsManager, InterfacesManager
+from .utils import GPIO_PINS, INTERFACES_PINS_MAP
 
 
 
@@ -181,10 +182,12 @@ class Colonel(DirtyFieldsMixin, models.Model):
                 pin.save()
 
         for interface in self.i2c_interfaces.all():
-            interface.sda_pin.occupied_by = interface
-            interface.sda_pin.save()
-            interface.scl_pin.occupied_by = interface
-            interface.scl_pin.save()
+            if interface.sda_pin:
+                interface.sda_pin.occupied_by = interface
+                interface.sda_pin.save()
+            if interface.scl_pin:
+                interface.scl_pin.occupied_by = interface
+                interface.scl_pin.save()
 
 
     def move_to(self, other_colonel):
@@ -256,12 +259,6 @@ def after_colonel_save(sender, instance, created, *args, **kwargs):
                 capacitive=data.get('capacitive'), adc=data.get('adc'),
                 native=data.get('native'), note=data.get('note')
             )
-        if instance.type in ('ample-wall', 'game-changer'):
-            I2CInterface.objects.create(
-                colonel=instance, name='Main', no=0,
-                scl_pin=ColonelPin.objects.get(colonel=instance, no=4),
-                sda_pin=ColonelPin.objects.get(colonel=instance, no=15),
-            )
 
 
 @receiver(pre_delete, sender=Component)
@@ -310,7 +307,7 @@ class I2CInterface(models.Model):
         default=100000, help_text="100000 - is a good middle point!"
     )
 
-    objects = I2CInterfacesManager()
+    objects = InterfacesManager()
 
     class Meta:
         unique_together = 'colonel', 'no'
@@ -319,7 +316,7 @@ class I2CInterface(models.Model):
         return self.name
 
 
-@receiver(post_save, sender=I2CInterface)
+@receiver(post_delete, sender=I2CInterface)
 def post_i2c_interface_delete(sender, instance, *args, **kwargs):
     with transaction.atomic():
         ct = ContentType.objects.get_for_model(instance)
@@ -334,3 +331,72 @@ def post_i2c_interface_delete(sender, instance, *args, **kwargs):
         instance.scl_pin.save()
         instance.sda_pin.occupied_by = instance
         instance.sda_pin.save()
+
+
+class Interface(models.Model):
+    colonel = models.ForeignKey(
+        Colonel, on_delete=models.CASCADE, related_name='interfaces'
+    )
+    no = models.PositiveIntegerField(choices=((1, "1"), (2, "2")))
+    type = models.CharField(
+        max_length=20, choices=(('i2c', "I2C"), ('dali', "DALI"))
+    )
+    pin_a = models.ForeignKey(
+        ColonelPin, on_delete=models.CASCADE, limit_choices_to={
+            'native': True, 'output': True,
+        }, name="Pin A (scl)", null=True, related_name='interface_a',
+        editable=False
+    )
+    pin_b = models.ForeignKey(
+        ColonelPin, on_delete=models.CASCADE, limit_choices_to={
+            'native': True, 'output': True,
+        }, name="Pin B (sda)", null=True, related_name='interface_b',
+        editable=False
+    )
+
+    objects = InterfacesManager()
+
+    class Meta:
+        unique_together = 'colonel', 'no'
+
+    def __str__(self):
+        return f"{self.no} - {self.get_type_display()}"
+
+    def save(self, *args, **kwargs):
+        if not self.pk:
+            for pin_no in INTERFACES_PINS_MAP[self.no]:
+                cpin = ColonelPin.objects.get(colonel=self.colonel, no=pin_no)
+                if cpin.occupied_by:
+                    raise ValidationError(
+                        f"Interface can not be created, because "
+                        f"GPIO{cpin} is already occupied by {cpin.occupied_by}."
+                    )
+        return super().save(*args, **kwargs)
+
+
+@receiver(post_save, sender=Interface)
+def post_interface_save(sender, instance, created, *args, **kwargs):
+    if created:
+        instance.pin_a = ColonelPin.objects.get(
+            colonel=instance.colonel, no=INTERFACES_PINS_MAP[instance.no][0]
+        )
+        instance.pin_a.occupied_by = instance
+        instance.pin_a.save()
+        instance.pin_b = ColonelPin.objects.get(
+            colonel=instance.colonel, no=INTERFACES_PINS_MAP[instance.no][1]
+        )
+        instance.pin_b.occupied_by = instance
+        instance.pin_b.save()
+
+
+@receiver(post_delete, sender=Interface)
+def post_interface_delete(sender, instance, *args, **kwargs):
+    with transaction.atomic():
+        ct = ContentType.objects.get_for_model(instance)
+        for pin in ColonelPin.objects.filter(
+            occupied_by_content_type=ct,
+            occupied_by_id=instance.id
+        ):
+            pin.occupied_by_content_type = None
+            pin.occupied_by_content_id = None
+            pin.save()
