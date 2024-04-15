@@ -219,7 +219,7 @@ class FleetConsumer(AsyncWebsocketConsumer):
         }
         config_data['settings'].update(instance_options)
         interfaces = await sync_to_async(list, thread_sensitive=True)(
-            self.colonel.i2c_interfaces.all().select_related(
+            self.colonel.interfaces.all().select_related(
                 'pin_a', 'pin_b'
             )
         )
