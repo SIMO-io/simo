@@ -22,8 +22,8 @@ class Migration(migrations.Migration):
                 ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
                 ('no', models.PositiveIntegerField(choices=[(1, '1'), (2, '2')])),
                 ('type', models.CharField(choices=[('i2c', 'I2C'), ('dali', 'DALI')], max_length=20)),
-                ('Pin A (scl)', models.ForeignKey(editable=False, limit_choices_to={'native': True, 'output': True}, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='interface_a', to='fleet.colonelpin')),
-                ('Pin B (sda)', models.ForeignKey(editable=False, limit_choices_to={'native': True, 'output': True}, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='interface_b', to='fleet.colonelpin')),
+                ('pin_a', models.ForeignKey(editable=False, limit_choices_to={'native': True, 'output': True}, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='interface_a', to='fleet.colonelpin')),
+                ('pin_b', models.ForeignKey(editable=False, limit_choices_to={'native': True, 'output': True}, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='interface_b', to='fleet.colonelpin')),
                 ('colonel', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='interfaces', to='fleet.colonel')),
             ],
             options={

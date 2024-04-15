@@ -344,13 +344,13 @@ class Interface(models.Model):
     pin_a = models.ForeignKey(
         ColonelPin, on_delete=models.CASCADE, limit_choices_to={
             'native': True, 'output': True,
-        }, name="Pin A (scl)", null=True, related_name='interface_a',
+        }, verbose_name="Pin A (scl)", null=True, related_name='interface_a',
         editable=False
     )
     pin_b = models.ForeignKey(
         ColonelPin, on_delete=models.CASCADE, limit_choices_to={
             'native': True, 'output': True,
-        }, name="Pin B (sda)", null=True, related_name='interface_b',
+        }, verbose_name="Pin B (sda)", null=True, related_name='interface_b',
         editable=False
     )
 
