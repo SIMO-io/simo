@@ -5,7 +5,7 @@ from simo.core.gateways import BaseObjectCommandsGatewayHandler
 from simo.core.forms import BaseGatewayForm
 from simo.core.models import Gateway
 from simo.core.events import GatewayObjectCommand
-
+from simo.core.utils.serialization import deserialize_form_data
 
 
 class FleetGatewayHandler(BaseObjectCommandsGatewayHandler):
@@ -15,7 +15,7 @@ class FleetGatewayHandler(BaseObjectCommandsGatewayHandler):
     periodic_tasks = (
         ('look_for_updates', 600),
         ('watch_colonels_connection', 30),
-        ('push_discoveries', 10),
+        ('push_discoveries', 6),
     )
 
     def _on_mqtt_message(self, client, userdata, msg):
@@ -47,7 +47,14 @@ class FleetGatewayHandler(BaseObjectCommandsGatewayHandler):
             colonel = Colonel.objects.get(
                 id=gw.discovery['init_data']['colonel']['val'][0]['pk']
             )
-            print("Publish discover-ttlock command!")
-            GatewayObjectCommand(
-                gw, colonel, command='discover-ttlock',
-            ).publish()
+            if gw.discovery['controller_uid'] == 'simo.fleet.controllers.TTLock':
+                GatewayObjectCommand(
+                    gw, colonel, command='discover-ttlock',
+                ).publish()
+            elif gw.discovery['controller_uid'] == 'simo.fleet.controllers.DALIDevice':
+                form_cleaned_data = deserialize_form_data(gw.discovery['init_data'])
+                GatewayObjectCommand(
+                    gw, colonel,
+                    command=f'discover-dali',
+                    interface=form_cleaned_data['interface'].no
+                ).publish()

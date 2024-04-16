@@ -8,7 +8,7 @@ from simo.core.controllers import (
 )
 from simo.conf import dynamic_settings
 from simo.core.app_widgets import NumericSensorWidget
-from simo.core.controllers import Lock
+from simo.core.controllers import Lock, ControllerBase, SingleSwitchWidget
 from simo.core.utils.helpers import heat_index
 from simo.core.utils.serialization import (
     serialize_form_data, deserialize_form_data
@@ -91,14 +91,14 @@ class BurglarSmokeDetector(BinarySensor):
         ]
 
 
-class AnalogSensor(FleeDeviceMixin, BasicSensorMixin, BaseNumericSensor):
-    config_form = ColonelNumericSensorConfigForm
-    name = "Analog sensor"
-
-    def _get_occupied_pins(self):
-        return [
-            self.component.config['pin_no'],
-        ]
+# class AnalogSensor(FleeDeviceMixin, BasicSensorMixin, BaseNumericSensor):
+#     config_form = ColonelNumericSensorConfigForm
+#     name = "Analog sensor"
+#
+#     def _get_occupied_pins(self):
+#         return [
+#             self.component.config['pin_no'],
+#         ]
 
 
 class DS18B20Sensor(FleeDeviceMixin, BasicSensorMixin, BaseNumericSensor):
@@ -112,6 +112,7 @@ class DS18B20Sensor(FleeDeviceMixin, BasicSensorMixin, BaseNumericSensor):
 
 
 class BaseClimateSensor(FleeDeviceMixin, BasicSensorMixin, BaseMultiSensor):
+    manual_add = False
     app_widget = NumericSensorWidget
 
     def __init__(self, *args, **kwargs):
@@ -196,7 +197,7 @@ class Switch(FleeDeviceMixin, BasicOutputMixin, BaseSwitch):
 
 
 class PWMOutput(FleeDeviceMixin, BasicOutputMixin, BaseDimmer):
-    name = "PWM Output"
+    name = "Dimmer"
     config_form = ColonelPWMOutputConfigForm
 
     def _prepare_for_send(self, value):
@@ -419,10 +420,18 @@ class TTLock(FleeDeviceMixin, Lock):
         ).publish()
 
 
-class DALIDevice(FleeDeviceMixin):
+class DALIDevice(FleeDeviceMixin, ControllerBase):
     gateway_class = FleetGatewayHandler
     config_form = DALIDeviceConfigForm
+    name = "DALI Device"
     discovery_msg = _("Please hook up your new DALI device to your DALI bus.")
+
+    base_type = 'dali'
+    default_value = False
+    app_widget = SingleSwitchWidget
+
+    def _validate_val(self, value, occasion=None):
+        pass
 
     @classmethod
     def init_discovery(self, form_cleaned_data):
@@ -470,6 +479,7 @@ class DALIDevice(FleeDeviceMixin):
 
 
 class DALIGear(DALIDevice):
+    manual_add = False
 
     def _send_to_device(self, value):
         GatewayObjectCommand(
@@ -483,11 +493,10 @@ class DALIGear(DALIDevice):
 class DALILamp(DALIGear, BaseSwitch):
     manual_add = False
     name = 'DALI Lamp'
-    discovery_msg = _("Please hook up your new DALI device to your DALI bus.")
 
 
 class DALIDimmableLamp(DALIGear, BaseDimmer):
     manual_add = False
     name = 'DALI Dimmable Lamp'
-    discovery_msg = _("Please hook up your new DALI lamp to your DALI bus.")
+
 

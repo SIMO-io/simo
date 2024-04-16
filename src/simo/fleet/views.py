@@ -42,9 +42,9 @@ class PinsSelectAutocomplete(autocomplete.Select2QuerySetView):
         return qs
 
 
-class InterfaceSelectAutocomplete(autocomplete.Select2ListView):
+class InterfaceSelectAutocomplete(autocomplete.Select2QuerySetView):
 
-    def get_list(self):
+    def get_queryset(self):
         if not self.request.user.is_staff:
             return Interface.objects.none()
 

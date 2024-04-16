@@ -542,7 +542,7 @@ class Gate(ControllerBase, TimerMixin):
 
 
 class Blinds(ControllerBase, TimerMixin):
-    name = _("Blinds")
+    name = _("Blind")
     base_type = 'blinds'
     gateway_class = GenericGatewayHandler
     config_form = BlindsConfigForm

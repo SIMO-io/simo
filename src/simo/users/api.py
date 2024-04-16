@@ -229,9 +229,12 @@ class FingerprintViewSet(
 
 
     def get_queryset(self):
-        return Fingerprint.objects.filter(
+        qs = Fingerprint.objects.filter(
             Q(user=None) | Q(user__roles__instance=self.instance)
         )
+        if 'value' in self.request.GET:
+            qs = qs.filter(value=self.request.GET)
+        return qs
 
     def check_can_manage_user(self, request):
         user_role = request.user.get_role(self.instance)
