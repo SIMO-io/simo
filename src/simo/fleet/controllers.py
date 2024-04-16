@@ -491,11 +491,13 @@ class DALIGear(DALIDevice):
 
 
 class DALILamp(DALIGear, BaseSwitch):
+    family = 'dali'
     manual_add = False
     name = 'DALI Lamp'
 
 
 class DALIDimmableLamp(DALIGear, BaseDimmer):
+    family = 'dali'
     manual_add = False
     name = 'DALI Dimmable Lamp'
 

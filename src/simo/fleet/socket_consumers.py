@@ -240,6 +240,8 @@ class FleetConsumer(AsyncWebsocketConsumer):
                     ),
                     'config': comp.controller._get_colonel_config()
                 }
+                if hasattr(comp.controller, 'family'):
+                    comp_config['family'] = comp.controller.family
                 slaves = [
                     s.id for s in comp.slaves.all()
                     if s.config.get('colonel') == self.colonel.id
