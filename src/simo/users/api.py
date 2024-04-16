@@ -227,13 +227,12 @@ class FingerprintViewSet(
     basename = 'fingerprints'
     serializer_class = FingerprintSerializer
 
-
     def get_queryset(self):
         qs = Fingerprint.objects.filter(
             Q(user=None) | Q(user__roles__instance=self.instance)
         )
-        if 'value' in self.request.GET:
-            qs = qs.filter(value=self.request.GET)
+        if 'values' in self.request.GET:
+            qs = qs.filter(value__in=self.request.GET.split(','))
         return qs
 
     def check_can_manage_user(self, request):
