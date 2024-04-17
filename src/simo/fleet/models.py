@@ -387,6 +387,7 @@ def post_interface_save(sender, instance, created, *args, **kwargs):
         )
         instance.pin_b.occupied_by = instance
         instance.pin_b.save()
+        instance.save()
 
 
 @receiver(post_delete, sender=Interface)

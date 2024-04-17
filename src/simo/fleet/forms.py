@@ -66,7 +66,6 @@ class InterfaceAdminForm(forms.ModelForm):
         model = Interface
         fields = '__all__'
 
-
     def clean(self):
         if self.instance.pk:
             return self.cleaned_data
@@ -80,26 +79,6 @@ class InterfaceAdminForm(forms.ModelForm):
                     f"Interface can not be created, because "
                     f"GPIO{cpin} is already occupied by {cpin.occupied_by}."
                 )
-
-
-
-    def clean_scl_pin(self):
-        if self.cleaned_data['scl_pin'].occupied_by \
-        and self.cleaned_data['scl_pin'].occupied_by  != self.instance:
-            raise forms.ValidationError(
-                f"This pin is already occupied by "
-                f"{self.cleaned_data['scl_pin'].occupied_by}!"
-            )
-        return self.cleaned_data['scl_pin']
-
-    def clean_sda_pin(self):
-        if self.cleaned_data['sda_pin'].occupied_by \
-                and self.cleaned_data['sda_pin'].occupied_by != self.instance:
-            raise forms.ValidationError(
-                f"This pin is already occupied by "
-                f"{self.cleaned_data['sda_pin'].occupied_by}!"
-            )
-        return self.cleaned_data['sda_pin']
 
 
 class ColonelComponentForm(BaseComponentForm):
