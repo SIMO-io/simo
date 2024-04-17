@@ -444,7 +444,7 @@ class DALIDevice(FleeDeviceMixin, ControllerBase):
         GatewayObjectCommand(
             gateway, form_cleaned_data['colonel'],
             command='discover', type=self.uid,
-            interface=form_cleaned_data['interface'].no
+            i=form_cleaned_data['interface'].no
         ).publish()
 
     @classmethod

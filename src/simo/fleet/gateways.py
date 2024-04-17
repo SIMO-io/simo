@@ -58,5 +58,5 @@ class FleetGatewayHandler(BaseObjectCommandsGatewayHandler):
                     gw, colonel,
                     command=f'discover',
                     type=gw.discovery['controller_uid'],
-                    interface=form_cleaned_data['interface'].no
+                    i=form_cleaned_data['interface'].no
                 ).publish()
