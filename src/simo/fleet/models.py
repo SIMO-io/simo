@@ -353,7 +353,6 @@ class Interface(models.Model):
         }, verbose_name="Pin B (sda)", null=True, related_name='interface_b',
         editable=False
     )
-    meta = models.JSONField(default=dict, editable=False)
 
     objects = InterfacesManager()
 
