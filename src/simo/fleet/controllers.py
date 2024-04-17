@@ -386,6 +386,14 @@ class TTLock(FleeDeviceMixin, Lock):
             command='call', method='delete_code', args=[str(code)]
         ).publish()
 
+    def clear_codes(self):
+        GatewayObjectCommand(
+            self.component.gateway,
+            Colonel(id=self.component.config['colonel']),
+            id=self.component.id,
+            command='call', method='clear_codes'
+        ).publish()
+
     def get_codes(self):
         GatewayObjectCommand(
             self.component.gateway,
@@ -409,6 +417,14 @@ class TTLock(FleeDeviceMixin, Lock):
             Colonel(id=self.component.config['colonel']),
             id=self.component.id,
             command='call', method='delete_fingerprint', args=[str(code)]
+        ).publish()
+
+    def clear_fingerprints(self):
+        GatewayObjectCommand(
+            self.component.gateway,
+            Colonel(id=self.component.config['colonel']),
+            id=self.component.id,
+            command='call', method='clear_fingerprints'
         ).publish()
 
     def get_fingerprints(self):
