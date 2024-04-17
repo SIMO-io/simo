@@ -7,7 +7,7 @@ def create_objects(apps, schema_editor):
     Interface = apps.get_model("fleet", "Interface")
     for i2c_i in I2CInterface.objects.filter(no__gt=0):
         Interface.objects.create(
-            colonel=i2c_i.colonel, type='i2c',
+            no=i2c_i.no, colonel=i2c_i.colonel, type='i2c',
             pin_a=i2c_i.scl_pin, pin_b=i2c_i.sda_pin
         )
 
