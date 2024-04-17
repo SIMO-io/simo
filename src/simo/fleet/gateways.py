@@ -49,12 +49,14 @@ class FleetGatewayHandler(BaseObjectCommandsGatewayHandler):
             )
             if gw.discovery['controller_uid'] == 'simo.fleet.controllers.TTLock':
                 GatewayObjectCommand(
-                    gw, colonel, command='discover-ttlock',
+                    gw, colonel, command='discover',
+                    type=gw.discovery['controller_uid']
                 ).publish()
             elif gw.discovery['controller_uid'] == 'simo.fleet.controllers.DALIDevice':
                 form_cleaned_data = deserialize_form_data(gw.discovery['init_data'])
                 GatewayObjectCommand(
                     gw, colonel,
-                    command=f'discover-dali',
+                    command=f'discover',
+                    type=gw.discovery['controller_uid'],
                     interface=form_cleaned_data['interface'].no
                 ).publish()
