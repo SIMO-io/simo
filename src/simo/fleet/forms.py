@@ -6,7 +6,9 @@ from django.contrib.contenttypes.models import ContentType
 from dal import autocomplete
 from dal import forward
 from simo.core.models import Component
-from simo.core.forms import BaseComponentForm, ValueLimitForm, NumericSensorForm
+from simo.core.forms import (
+    BaseComponentForm, ValueLimitForm, NumericSensorForm, SwitchForm
+)
 from simo.core.utils.formsets import FormsetField
 from simo.core.widgets import LogOutputWidget
 from simo.core.utils.easing import EASING_CHOICES
@@ -1043,5 +1045,18 @@ class DALIDeviceConfigForm(ColonelComponentForm):
     def save(self, commit=True):
         self.instance.config['dali_interface'] = self.cleaned_data['interface'].no
         return super().save(commit=commit)
+
+
+class DaliSwitchForm(DALIDeviceConfigForm, SwitchForm):
+
+    auto_off = forms.FloatField(
+        required=False, min_value=0.01, max_value=1000000000,
+        help_text="If provided, switch will be turned off after "
+                  "given amount of seconds after last turn on event."
+    )
+    inverse = forms.BooleanField(
+        label=_("Inverse switch value"), required=False
+    )
+
 
 

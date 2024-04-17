@@ -24,7 +24,7 @@ from .forms import (
     ColonelDHTSensorConfigForm, DS18B20SensorConfigForm,
     BME680SensorConfigForm, MPC9808SensorConfigForm,
     DualMotorValveForm, BlindsConfigForm, BurglarSmokeDetectorConfigForm,
-    TTLockConfigForm, DALIDeviceConfigForm
+    TTLockConfigForm, DALIDeviceConfigForm, DaliSwitchForm
 )
 
 
@@ -304,7 +304,7 @@ class TTLock(FleeDeviceMixin, Lock):
         )
         GatewayObjectCommand(
             gateway, form_cleaned_data['colonel'],
-            command='discover-ttlock',
+            command='discover', type=self.uid
         ).publish()
 
     @classmethod
@@ -443,14 +443,25 @@ class DALIDevice(FleeDeviceMixin, ControllerBase):
         )
         GatewayObjectCommand(
             gateway, form_cleaned_data['colonel'],
-            command=f'discover-dali',
+            command='discover', type=self.uid,
             interface=form_cleaned_data['interface'].no
         ).publish()
 
     @classmethod
     def _process_discovery(cls, started_with, data):
+        if data['discovery-result'] == 'fail':
+            if data['result'] == 1:
+                return {'error': 'DALI interface is unavailable!'}
+            else:
+                return {'error': 'Unknown error!'}
+
+        controller_cls = globals().get(data['result']['type'])
+
         started_with = deserialize_form_data(started_with)
-        form = TTLockConfigForm(controller_uid=cls.uid, data=started_with)
+        started_with['name'] += f" {data['result']['config']['da']}"
+        form = controller_cls.config_form(
+            controller_uid=controller_cls.uid, data=started_with
+        )
 
         if form.is_valid():
             new_component = form.save()
@@ -461,11 +472,9 @@ class DALIDevice(FleeDeviceMixin, ControllerBase):
                 'config': {
                     'type': cls.uid.split('.')[-1],
                     'config': new_component.config,
-                    'val': False,
                 },
             }
             new_component.save()
-            new_component.gateway.finish_discovery()
             GatewayObjectCommand(
                 new_component.gateway, Colonel(
                     id=new_component.config['colonel']
@@ -494,6 +503,7 @@ class DALILamp(DALIGear, BaseSwitch):
     family = 'dali'
     manual_add = False
     name = 'DALI Lamp'
+    config_form = DaliSwitchForm
 
 
 class DALIDimmableLamp(DALIGear, BaseDimmer):

@@ -267,29 +267,38 @@ class Gateway(DirtyFieldsMixin, models.Model, SimoAdminMixin):
 
     def process_discovery(self, data):
         self.refresh_from_db()
-        from .utils.type_constants import CONTROLLER_TYPES_MAP
-        ControllerClass = CONTROLLER_TYPES_MAP.get(
-            self.discovery['controller_uid']
-        )
-        if ControllerClass and hasattr(
-            ControllerClass, '_process_discovery'
-        ):
-            result = ControllerClass._process_discovery(
-                started_with=self.discovery['init_data'], data=data
+        if self.discovery.get('finished'):
+            print(
+                f"Gateway is not in pairing mode at the moment!"
             )
-            if result:
-                self.refresh_from_db()
-                if not isinstance(result, dict) and isinstance(result, Iterable):
-                    for res in result:
-                        if isinstance(res, models.Model):
-                            self.discovery['result'].append(res.pk)
-                        else:
-                            self.discovery['result'].append(res)
-                else:
-                    if isinstance(result, models.Model):
-                        self.discovery['result'].append(result.pk)
+            return
+        if self.discovery['controller_uid'] != data.get('type'):
+            print(f"Gateway is not in pairing mode for {self.discovery['controller_uid']} "
+                  f"but not for {data.get('type')} at the moment!")
+            return
+
+        from .utils.type_constants import CONTROLLER_TYPES_MAP
+        ControllerClass = CONTROLLER_TYPES_MAP.get(data.get('type'))
+        if not hasattr(ControllerClass, '_process_discovery'):
+            print(f"{data.get('type')} controller has no _process_discovery method." )
+            return
+
+        result = ControllerClass._process_discovery(
+            started_with=self.discovery['init_data'], data=data
+        )
+        if result:
+            self.refresh_from_db()
+            if not isinstance(result, dict) and isinstance(result, Iterable):
+                for res in result:
+                    if isinstance(res, models.Model):
+                        self.discovery['result'].append(res.pk)
                     else:
-                        self.discovery['result'].append(result)
+                        self.discovery['result'].append(res)
+            else:
+                if isinstance(result, models.Model):
+                    self.discovery['result'].append(result.pk)
+                else:
+                    self.discovery['result'].append(result)
 
         self.save(update_fields=['discovery'])
 

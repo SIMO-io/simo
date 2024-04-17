@@ -315,16 +315,10 @@ class FleetConsumer(AsyncWebsocketConsumer):
                             'command': 'set_config', 'data': config
                         }, compress=True)
                     asyncio.run(send_config())
-                elif payload.get('command') == 'discover-ttlock':
-                    print("SEND discover-ttlock command!")
-                    asyncio.run(self.send_data({
-                        'command': 'discover-ttlock'
-                    }))
-                elif payload.get('command') == 'discover-dali':
-                    print("SEND discover-dali command!")
-                    asyncio.run(self.send_data({
-                        'command': 'discover-dali', 'i': payload['interface']
-                    }))
+                elif payload.get('command') == 'discover':
+                    print(f"SEND discover command for {payload['type']}")
+                    asyncio.run(self.send_data(payload))
+
                 elif payload.get('command') == 'finalize':
                     asyncio.run(self.send_data({
                         'command': 'finalize',
@@ -411,7 +405,7 @@ class FleetConsumer(AsyncWebsocketConsumer):
                                 save_codes, thread_sensitive=True
                             )(data['codes'])
                         if 'fingerprints' in data and component.controller_uid == TTLock.uid:
-                            def save_codes(codes):
+                            def save_fingerprints(codes):
                                 component.meta['fingerprints'] = codes
                                 for code in codes:
                                     Fingerprint.objects.get_or_create(
@@ -420,7 +414,7 @@ class FleetConsumer(AsyncWebsocketConsumer):
                                     )
                                 component.save()
                             await sync_to_async(
-                                save_codes, thread_sensitive=True
+                                save_fingerprints, thread_sensitive=True
                             )(data['fingerprints'])
 
                     except Exception as e:
