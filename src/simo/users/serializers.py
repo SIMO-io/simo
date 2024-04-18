@@ -81,7 +81,7 @@ class FingerprintSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Fingerprint
-        fields = 'id', 'type', 'value', 'user'
+        fields = 'id', 'type', 'value', 'user', 'name'
         read_only_fields = ('id', 'type', 'value')
 
     def get_type(self, obj):

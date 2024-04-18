@@ -359,6 +359,7 @@ class Fingerprint(models.Model):
         User, on_delete=models.CASCADE, null=True, blank=True,
         related_name='fingerprints'
     )
+    name = models.CharField(max_length=100, null=True, blank=True)
     date_created = models.DateTimeField(auto_now_add=True)
     type = models.CharField(max_length=100, null=True, blank=True)
 
