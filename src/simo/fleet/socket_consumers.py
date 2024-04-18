@@ -392,30 +392,12 @@ class FleetConsumer(AsyncWebsocketConsumer):
                                 receive_options, thread_sensitive=True
                             )(data['options'])
 
-                        if 'codes' in data and component.controller_uid == TTLock.uid:
-                            def save_codes(codes):
-                                component.meta['codes'] = codes
-                                for code in codes:
-                                    Fingerprint.objects.get_or_create(
-                                        value=f"ttlock-{component.id}-code-{str(code)}",
-                                        defaults={'type': "TTLock code"}
-                                    )
-                                component.save()
-                            await sync_to_async(
-                                save_codes, thread_sensitive=True
-                            )(data['codes'])
-                        if 'fingerprints' in data and component.controller_uid == TTLock.uid:
-                            def save_fingerprints(codes):
-                                component.meta['fingerprints'] = codes
-                                for code in codes:
-                                    Fingerprint.objects.get_or_create(
-                                        value=f"ttlock-{component.id}-finger-{str(code)}",
-                                        defaults={'type': "TTLock Fingerprint"}
-                                    )
-                                component.save()
-                            await sync_to_async(
-                                save_fingerprints, thread_sensitive=True
-                            )(data['fingerprints'])
+                        if component.controller_uid == TTLock.uid:
+                            if 'codes' in data or 'fingerprints' in data:
+                                await sync_to_async(
+                                    component.controller._receive_meta,
+                                    thread_sensitive=True
+                                )(data)
 
                     except Exception as e:
                         print(traceback.format_exc(), file=sys.stderr)

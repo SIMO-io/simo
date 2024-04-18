@@ -7,9 +7,6 @@ from .models import (
 )
 
 
-
-
-
 class UserSerializer(serializers.ModelSerializer):
     avatar = serializers.SerializerMethodField()
     role = serializers.IntegerField(source='role_id')

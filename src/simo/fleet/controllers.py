@@ -402,7 +402,6 @@ class TTLock(FleeDeviceMixin, Lock):
             command='call', method='get_codes'
         ).publish()
 
-
     def add_fingerprint(self):
         GatewayObjectCommand(
             self.component.gateway,
@@ -420,6 +419,8 @@ class TTLock(FleeDeviceMixin, Lock):
         ).publish()
 
     def clear_fingerprints(self):
+        self.component.meta['clear_fingerprints'] = True
+        self.component.save(update_fields=['meta'])
         GatewayObjectCommand(
             self.component.gateway,
             Colonel(id=self.component.config['colonel']),
@@ -434,6 +435,13 @@ class TTLock(FleeDeviceMixin, Lock):
             id=self.component.id,
             command='call', method='get_fingerprints'
         ).publish()
+
+    def _receive_meta(self, data):
+        if 'codes' in data:
+            self.component.meta['codes'] = data['codes']
+        if 'fingerprints' in data:
+            self.component.meta['fingerprints'] = data['fingerprints']
+        self.component.save(update_fields=['meta'])
 
 
 class DALIDevice(FleeDeviceMixin, ControllerBase):
