@@ -437,10 +437,21 @@ class TTLock(FleeDeviceMixin, Lock):
         ).publish()
 
     def _receive_meta(self, data):
+        from simo.users.models import Fingerprint
         if 'codes' in data:
             self.component.meta['codes'] = data['codes']
+            for code in data['codes']:
+                Fingerprint.objects.get_or_create(
+                    value=f"ttlock-{self.component.id}-code-{str(code)}",
+                    defaults={'type': "TTLock code"}
+                )
         if 'fingerprints' in data:
             self.component.meta['fingerprints'] = data['fingerprints']
+            for finger in data['fingerprints']:
+                Fingerprint.objects.get_or_create(
+                    value=f"ttlock-{self.component.id}-finger-{str(finger)}",
+                    defaults={'type': "TTLock code"}
+                )
         self.component.save(update_fields=['meta'])
 
 
