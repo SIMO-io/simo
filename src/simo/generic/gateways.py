@@ -114,9 +114,9 @@ class CameraWatcher(threading.Thread):
 
 class ScriptRunHandler(multiprocessing.Process):
     '''
-      Threading offers better overall stability, but we must use
-      multiprocessing for Scripts only to be able to kill them whenever
-      we need it.
+      Threading offers better overall stability, but we use
+      multiprocessing for Scripts so that they are better isolated and
+      we are able to kill them whenever we need.
     '''
     component = None
     logger = None
@@ -164,7 +164,7 @@ class GenericGatewayHandler(BaseObjectCommandsGatewayHandler):
     periodic_tasks = (
         ('watch_thermostats', 60),
         ('watch_alarm_clocks', 30),
-        ('watch_scripts', 60),
+        ('watch_scripts', 10),
         ('watch_watering', 60)
     )
 
@@ -187,6 +187,29 @@ class GenericGatewayHandler(BaseObjectCommandsGatewayHandler):
             alarm_clock.tick()
 
     def watch_scripts(self):
+        # observe running scripts and drop the ones that are no longer alive
+        dead_processes = []
+        for id, process in self.running_scripts.items():
+            if process.is_alive():
+                continue
+            component = Component.objects.filter(id=id).exclude(
+                value__in=('error', 'finished')
+            ).first()
+            if component:
+                logger = get_component_logger(component)
+                logger.log(logging.INFO, "-------DEAD!-------")
+                component.value = 'error'
+                component.save()
+            dead_processes.append(id)
+
+        for id in dead_processes:
+            self.running_scripts.pop(id)
+
+        if dead_processes:
+            # give 10s of air before we restart the scripts what were
+            # detected to be dead.
+            return
+
         from simo.generic.controllers import Script
         for script in Component.objects.filter(
             controller_uid=Script.uid,
