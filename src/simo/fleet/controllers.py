@@ -351,12 +351,8 @@ class TTLock(FleeDeviceMixin, Lock):
             }
             new_component.save()
             new_component.gateway.finish_discovery()
-            GatewayObjectCommand(
-                new_component.gateway, Colonel(
-                    id=new_component.config['colonel']
-                ), command='finalize',
-                data=new_component.meta['finalization_data'],
-            ).publish()
+            colonel = Colonel.objects.get(id=new_component.config['colonel'])
+            colonel.update_config()
             return [new_component]
 
         # Literally impossible, but just in case...
