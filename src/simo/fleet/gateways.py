@@ -22,7 +22,6 @@ class FleetGatewayHandler(BaseObjectCommandsGatewayHandler):
     )
 
     def run(self, exit):
-        super().run(exit)
         from simo.fleet.controllers import TTLock
         self.door_sensors_on_watch = set()
         for lock in Component.objects.filter(controller_uid=TTLock.uid):
@@ -35,6 +34,8 @@ class FleetGatewayHandler(BaseObjectCommandsGatewayHandler):
                 continue
             self.door_sensors_on_watch.add(door_sensor.id)
             door_sensor.on_change(self.on_door_sensor)
+        super().run(exit)
+
 
     def _on_mqtt_message(self, client, userdata, msg):
         from simo.core.models import Component
