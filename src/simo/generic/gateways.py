@@ -459,9 +459,9 @@ class GenericGatewayHandler(BaseObjectCommandsGatewayHandler):
                 except Exception:
                     print(traceback.format_exc(), file=sys.stderr)
                 if not alarm.meta.get('events_triggered'):
-                    alarm.meta['events_triggered'] = uid
+                    alarm.meta['events_triggered'] = [uid]
                 else:
-                    alarm.meta['events_triggered'].append('uid')
+                    alarm.meta['events_triggered'].append(uid)
                 alarm.save(update_fields=['meta'])
 
 

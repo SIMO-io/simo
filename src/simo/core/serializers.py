@@ -62,9 +62,6 @@ class CategorySerializer(serializers.ModelSerializer):
         return
 
 
-
-
-
 class ObjectSerializerMethodField(serializers.SerializerMethodField):
 
     def bind(self, field_name, parent):
@@ -280,6 +277,7 @@ class ComponentSerializer(FormSerializer):
             ret[field_name].initial = form_field.initial
             ret[field_name].default = form_field.initial
 
+        print("Fields: ", ret)
         return ret
 
     def _get_field_kwargs(self, form_field, serializer_field_class):
