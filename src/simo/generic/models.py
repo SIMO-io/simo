@@ -117,3 +117,24 @@ def clear_alarm_group_config_on_component_delete(
             id for id in ag.config.get('components', []) if id != instance.id
         ]
         ag.save(update_fields=['config'])
+
+
+@receiver(post_save, sender=Component)
+def bind_controlling_locks_to_alarm_groups(sender, instance, *args, **kwargs):
+    if instance.base_type != 'lock':
+        return
+    if 'value' not in instance.get_dirty_fields():
+        return
+    if instance.value == 'locked':
+        for ag in Component.objects.filter(
+            base_type=AlarmGroup.base_type,
+            config__arming_locks__contains=instance.id
+        ):
+            ag.arm()
+    elif instance.value == 'unlocked':
+        for ag in Component.objects.filter(
+            base_type=AlarmGroup.base_type,
+            config__arming_locks__contains=instance.id
+        ):
+            ag.disarm()
+

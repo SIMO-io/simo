@@ -219,6 +219,30 @@ class AlarmGroupConfigForm(BaseComponentForm):
         required=False,
         help_text="Defines if this is your main/top global alarm group."
     )
+    arming_locks = forms.ModelMultipleChoiceField(
+        Component.objects.filter(base_type='lock'),
+        label="Arming locks", required=False,
+        widget=autocomplete.ModelSelect2Multiple(
+            url='autocomplete-component', attrs={'data-html': True},
+            forward=(
+                forward.Const(['lock'], 'base_type'),
+            )
+        ),
+        help_text="Alarm group will get armed automatically whenever "
+                  "any of assigned locks get's locked. "
+    )
+    disarming_locks = forms.ModelMultipleChoiceField(
+        Component.objects.filter(base_type='lock'),
+        label="Disarming locks", required=False,
+        widget=autocomplete.ModelSelect2Multiple(
+            url='autocomplete-component', attrs={'data-html': True},
+            forward=(
+                forward.Const(['lock'], 'base_type'),
+            )
+        ),
+        help_text="Alarm group will be disarmed automatically whenever "
+                  "any of assigned locks get's unlocked. "
+    )
     notify_on_breach = forms.IntegerField(
         required=False, min_value=0,
         help_text="Notify active users on breach if "
