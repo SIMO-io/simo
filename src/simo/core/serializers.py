@@ -2,6 +2,7 @@ import inspect
 import datetime
 import json
 from django import forms
+from collections import OrderedDict
 from django.forms.utils import ErrorDict
 from collections.abc import Iterable
 from easy_thumbnails.files import get_thumbnailer
@@ -11,7 +12,8 @@ from simo.core.forms import FormsetField
 from rest_framework.relations import PrimaryKeyRelatedField, ManyRelatedField
 from .drf_braces.serializers.form_serializer import (
     FormSerializer, FormSerializerBase, reduce_attr_dict_from_instance,
-    FORM_SERIALIZER_FIELD_MAPPING, set_form_partial_validation
+    FORM_SERIALIZER_FIELD_MAPPING, set_form_partial_validation,
+    find_matching_class_kwargs
 )
 from .forms import ComponentAdminForm
 from .models import Category, Zone, Icon, ComponentHistory
@@ -145,6 +147,11 @@ class ComponentFormsetField(FormSerializer):
         kwargs['style'] = {'form_field': form_field}
         if serializer_field_class == FormsetPrimaryKeyRelatedField:
             kwargs['queryset'] = form_field.queryset
+
+        attrs = find_matching_class_kwargs(form_field, serializer_field_class)
+        if 'choices' in attrs:
+            kwargs['choices'] = attrs['choices']
+
         return kwargs
 
     def to_representation(self, instance):
@@ -278,6 +285,10 @@ class ComponentSerializer(FormSerializer):
         elif serializer_field_class == ComponentFormsetField:
             kwargs['formset_field'] = form_field
             kwargs['many'] = True
+
+        attrs = find_matching_class_kwargs(form_field, serializer_field_class)
+        if 'choices' in attrs:
+            kwargs['choices'] = form_field.choices
 
         return kwargs
 
