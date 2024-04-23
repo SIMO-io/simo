@@ -74,11 +74,8 @@ def handle_alarm_groups(sender, instance, *args, **kwargs):
 
 
 @receiver(pre_save, sender=Component)
-def manage_alarm_groups(sender, instance, created, *args, **kwargs):
+def manage_alarm_groups(sender, instance, *args, **kwargs):
     if instance.controller_uid != AlarmGroup.uid:
-        return
-    if created:
-        instance.refresh_status()
         return
 
     if 'value' not in instance.get_dirty_fields():
