@@ -159,7 +159,6 @@ class ThermostatConfigForm(BaseComponentForm):
 
 class AlarmBreachEventForm(forms.Form):
     uid = forms.CharField(widget=forms.HiddenInput(), required=False)
-    name = forms.CharField(max_length=30)
     component = forms.ModelChoiceField(
         Component.objects.all(),
         widget=autocomplete.ModelSelect2(
@@ -273,6 +272,14 @@ class AlarmGroupConfigForm(BaseComponentForm):
         else:
             if self.instance.config.get('is_main'):
                 self.fields['is_main'].widget.attrs['disabled'] = 'disabled'
+
+
+    def clean_breach_events(self):
+        events = self.cleaned_data['breach_events']
+        for i, cont in enumerate(events):
+            if not cont.get('uid'):
+                cont['uid'] = get_random_string(6)
+        return events
 
 
     def recurse_check_alarm_groups(self, components, start_comp=None):
