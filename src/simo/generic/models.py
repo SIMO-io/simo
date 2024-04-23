@@ -22,7 +22,6 @@ def handle_alarm_groups(sender, instance, *args, **kwargs):
     for alarm_group in Component.objects.filter(
         controller_uid=AlarmGroup.uid,
         config__components__contains=instance.id,
-        config__notify_on_breach__gt=-1
     ).exclude(value='disarmed'):
         stats = {
             'disarmed': 0, 'pending-arm': 0, 'armed': 0, 'breached': 0
@@ -60,12 +59,13 @@ def handle_alarm_groups(sender, instance, *args, **kwargs):
                         'alarm', str(alarm_group_component), body,
                         component=alarm_group_component
                     )
-                t = Timer(
-                    # give it one second to finish with other db processes.
-                    alarm_group.config['notify_on_breach'] + 1,
-                    notify_users_security_breach, [alarm_group.id]
-                )
-                t.start()
+                if alarm_group.config.get('notify_on_breach') is not None:
+                    t = Timer(
+                        # give it one second to finish with other db processes.
+                        alarm_group.config['notify_on_breach'] + 1,
+                        notify_users_security_breach, [alarm_group.id]
+                    )
+                    t.start()
             alarm_group_value = 'breached'
         else:
             alarm_group_value = 'pending-arm'
@@ -87,11 +87,11 @@ def manage_alarm_groups(sender, instance, created, *args, **kwargs):
     if instance.value == 'breached':
         instance.meta['breach_start'] = time.time()
         instance.meta['events_triggered'] = []
-        instance.save()
+        instance.save(update_fields=['meta'])
     elif instance.get_dirty_fields()['value'] == 'breached' \
     and instance.value == 'disarmed':
         instance.meta['breach_start'] = None
-        instance.save()
+        instance.save(update_fields=['meta'])
         for event_uid in instance.meta.get('events_triggered', []):
             event = instance.events_map.get(event_uid)
             if not event:
