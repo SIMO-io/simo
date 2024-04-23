@@ -26,6 +26,15 @@ from .utils.formsets import FormsetField
 from .utils.validators import validate_slaves
 
 
+class HiddenField(forms.CharField):
+    '''
+        Hidden field used in API
+    '''
+    def __init__(self, *args, **kwargs):
+        super().__init__(widget=forms.HiddenInput())
+
+
+
 class HubConfigForm(forms.Form):
     name = forms.CharField(
         label=_("Hub Name"), required=True,

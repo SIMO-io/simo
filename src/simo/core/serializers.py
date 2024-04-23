@@ -8,7 +8,7 @@ from collections.abc import Iterable
 from easy_thumbnails.files import get_thumbnailer
 from simo.core.middleware import get_current_request
 from rest_framework import serializers
-from simo.core.forms import FormsetField
+from simo.core.forms import HiddenField, FormsetField
 from rest_framework.relations import PrimaryKeyRelatedField, ManyRelatedField
 from .drf_braces.serializers.form_serializer import (
     FormSerializer, FormSerializerBase, reduce_attr_dict_from_instance,
@@ -63,6 +63,8 @@ class CategorySerializer(serializers.ModelSerializer):
 
 
 
+
+
 class ObjectSerializerMethodField(serializers.SerializerMethodField):
 
     def bind(self, field_name, parent):
@@ -85,6 +87,9 @@ class FormsetPrimaryKeyRelatedField(PrimaryKeyRelatedField):
 
 # TODO: if form field has initial value and is required, it is serialized as not required field, howerver when trying to submit it fails with a message, that field is required.
 
+class HiddenSerializerField(serializers.CharField):
+    pass
+
 
 class ComponentFormsetField(FormSerializer):
 
@@ -93,6 +98,7 @@ class ComponentFormsetField(FormSerializer):
         # we set it to proper formset form on __init__
         form = forms.Form
         field_mapping = {
+            HiddenField: HiddenSerializerField,
             forms.ModelChoiceField: FormsetPrimaryKeyRelatedField,
             forms.TypedChoiceField: serializers.ChoiceField,
             forms.FloatField: serializers.FloatField,
@@ -213,6 +219,7 @@ class ComponentSerializer(FormSerializer):
         form = ComponentAdminForm
         exclude = ('instance_methods', )
         field_mapping = {
+            HiddenField: HiddenSerializerField,
             forms.TypedChoiceField: serializers.ChoiceField,
             forms.FloatField: serializers.FloatField,
             forms.SlugField: serializers.CharField,

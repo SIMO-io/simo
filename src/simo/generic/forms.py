@@ -4,7 +4,7 @@ from django.db.models import Q
 from django.utils.translation import gettext_lazy as _
 from django.urls.base import get_script_prefix
 from django.contrib.contenttypes.models import ContentType
-from simo.core.forms import BaseComponentForm
+from simo.core.forms import HiddenField, BaseComponentForm
 from simo.core.models import Icon, Component
 from simo.core.controllers import (
     BinarySensor, NumericSensor, MultiSensor, Switch
@@ -158,7 +158,7 @@ class ThermostatConfigForm(BaseComponentForm):
 
 
 class AlarmBreachEventForm(forms.Form):
-    uid = forms.CharField(widget=forms.HiddenInput(), required=False)
+    uid = HiddenField(required=False)
     component = forms.ModelChoiceField(
         Component.objects.all(),
         widget=autocomplete.ModelSelect2(
@@ -565,7 +565,7 @@ class StateSelectForm(BaseComponentForm):
 
 
 class AlarmClockEventForm(forms.Form):
-    uid = forms.CharField(widget=forms.HiddenInput(), required=False)
+    uid = HiddenField(required=False)
     enabled = forms.BooleanField(initial=True)
     name = forms.CharField(max_length=30)
     component = forms.ModelChoiceField(

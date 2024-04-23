@@ -3,7 +3,9 @@ from django.utils.encoding import force_str
 from rest_framework import serializers
 from rest_framework.metadata import SimpleMetadata
 from rest_framework.utils.field_mapping import ClassLookupDict
-from .serializers import ComponentManyToManyRelatedField
+from .serializers import (
+    HiddenSerializerField, ComponentManyToManyRelatedField
+)
 
 
 class SIMOAPIMetadata(SimpleMetadata):
@@ -32,7 +34,8 @@ class SIMOAPIMetadata(SimpleMetadata):
         serializers.Serializer: 'nested object',
         serializers.RelatedField: 'related object',
         serializers.ManyRelatedField: 'many related objects',
-        ComponentManyToManyRelatedField: 'many related objects'
+        ComponentManyToManyRelatedField: 'many related objects',
+        HiddenSerializerField: 'hidden',
     })
 
     def get_field_info(self, field):
