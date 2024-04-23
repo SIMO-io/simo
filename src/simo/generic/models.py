@@ -73,7 +73,7 @@ def handle_alarm_groups(sender, instance, *args, **kwargs):
         alarm_group.controller.set(alarm_group_value)
 
 
-@receiver(post_save, sender=Component)
+@receiver(pre_save, sender=Component)
 def manage_alarm_groups(sender, instance, created, *args, **kwargs):
     if instance.controller_uid != AlarmGroup.uid:
         return
@@ -87,11 +87,9 @@ def manage_alarm_groups(sender, instance, created, *args, **kwargs):
     if instance.value == 'breached':
         instance.meta['breach_start'] = time.time()
         instance.meta['events_triggered'] = []
-        instance.save(update_fields=['meta'])
     elif instance.get_dirty_fields()['value'] == 'breached' \
     and instance.value == 'disarmed':
         instance.meta['breach_start'] = None
-        instance.save(update_fields=['meta'])
         for event_uid in instance.meta.get('events_triggered', []):
             event = instance.controller.events_map.get(event_uid)
             if not event:
