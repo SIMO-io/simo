@@ -93,7 +93,7 @@ def manage_alarm_groups(sender, instance, created, *args, **kwargs):
         instance.meta['breach_start'] = None
         instance.save(update_fields=['meta'])
         for event_uid in instance.meta.get('events_triggered', []):
-            event = instance.events_map.get(event_uid)
+            event = instance.controller.events_map.get(event_uid)
             if not event:
                 continue
             if not event.get('disarm_action'):

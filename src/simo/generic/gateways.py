@@ -449,7 +449,7 @@ class GenericGatewayHandler(BaseObjectCommandsGatewayHandler):
             controller_uid=AlarmGroup.uid, value='breached',
             meta__breach_start__gt=0
         ):
-            for uid, event in alarm.events_map.items():
+            for uid, event in alarm.controller.events_map.items():
                 if uid in alarm.meta.get('events_triggered', []):
                     continue
                 if time.time() - alarm.meta['breach_start'] < event['delay']:
