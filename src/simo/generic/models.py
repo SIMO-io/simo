@@ -1,3 +1,6 @@
+import time
+import sys
+import traceback
 from threading import Timer
 from django.db.models.signals import pre_save, post_save, post_delete
 from django.dispatch import receiver
@@ -66,17 +69,40 @@ def handle_alarm_groups(sender, instance, *args, **kwargs):
             alarm_group_value = 'breached'
         else:
             alarm_group_value = 'pending-arm'
+
         alarm_group.controller.set(alarm_group_value)
 
 
 @receiver(post_save, sender=Component)
-def set_initial_alarm_group_stats(sender, instance, created, *args, **kwargs):
-    if not created:
-        return
+def manage_alarm_groups(sender, instance, created, *args, **kwargs):
     if instance.controller_uid != AlarmGroup.uid:
         return
-    if instance.controller:
-        instance.controller.refresh_status()
+    if created:
+        instance.refresh_status()
+        return
+
+    if 'value' not in instance.get_dirty_fields():
+        return
+
+    if instance.value == 'breached':
+        instance.meta['breach_start'] = time.time()
+        instance.meta['events_triggered'] = []
+        instance.save()
+    elif instance.get_dirty_fields()['value'] == 'breached' \
+    and instance.value == 'disarmed':
+        instance.meta['breach_start'] = None
+        instance.save()
+        for event_uid in instance.meta.get('events_triggered', []):
+            event = instance.events_map.get(event_uid)
+            if not event:
+                continue
+            if not event.get('disarm_action'):
+                continue
+            try:
+                getattr(event['component'], event['disarm_action'])()
+            except Exception:
+                print(traceback.format_exc(), file=sys.stderr)
+
 
 
 @receiver(post_delete, sender=Component)

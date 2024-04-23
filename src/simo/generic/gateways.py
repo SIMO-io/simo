@@ -5,6 +5,7 @@ import json
 import time
 import multiprocessing
 import threading
+import traceback
 from django.conf import settings
 from django.utils import timezone
 from django.db import connection as db_connection
@@ -165,7 +166,8 @@ class GenericGatewayHandler(BaseObjectCommandsGatewayHandler):
         ('watch_thermostats', 60),
         ('watch_alarm_clocks', 30),
         ('watch_scripts', 10),
-        ('watch_watering', 60)
+        ('watch_watering', 60),
+        ('watch_alarm_events'),
     )
 
     def watch_thermostats(self):
@@ -440,6 +442,27 @@ class GenericGatewayHandler(BaseObjectCommandsGatewayHandler):
                 switch.turn_on()
             else:
                 switch.turn_off()
+
+    def watch_alarm_events(self):
+        from .controllers import AlarmGroup
+        for alarm in Component.objects.filter(
+            controller_uid=AlarmGroup.uid, value='breached',
+            meta__breach_start__gt=0
+        ):
+            for uid, event in alarm.events_map.items():
+                if uid in alarm.meta.get('events_triggered', []):
+                    continue
+                if time.time() - alarm.meta['breach_start'] < event['delay']:
+                    continue
+                try:
+                    getattr(event['component'], event['breach_action'])()
+                except Exception:
+                    print(traceback.format_exc(), file=sys.stderr)
+                if not alarm.meta.get('events_triggered'):
+                    alarm.meta['events_triggered'] = uid
+                else:
+                    alarm.meta['events_triggered'].append('uid')
+                alarm.save(update_fields=['meta'])
 
 
 class DummyGatewayHandler(BaseObjectCommandsGatewayHandler):

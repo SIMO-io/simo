@@ -5,6 +5,7 @@ import datetime
 import json
 from django.core.exceptions import ValidationError
 from django.utils import timezone
+from django.utils.functional import cached_property
 from django.utils.translation import gettext_lazy as _
 from django.conf import settings
 from django.urls import reverse_lazy
@@ -353,6 +354,18 @@ class AlarmGroup(ControllerBase):
 
         self.component.config['stats'] = stats
         self.component.save()
+
+    @cached_property
+    def events_map(self):
+        map = {}
+        for entry in self.component.config['breach_events']:
+            comp = Component.objects.filter(id=entry['component']).first()
+            if not comp:
+                continue
+            map[entry['uid']] = entry
+            map[entry['uid']].pop('uid')
+            map[entry['uid']]['component'] = comp
+        return map
 
 
 class WeatherForecast(ControllerBase):

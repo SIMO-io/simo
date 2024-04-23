@@ -18,6 +18,14 @@ from simo.core.utils.form_fields import ListSelect2Widget
 from simo.conf import dynamic_settings
 
 
+ACTION_METHODS = (
+    ('turn_on', "Turn ON"), ('turn_off', "Turn OFF"),
+    ('play', "Play"), ('pause', "Pause"), ('stop', "Stop"),
+    ('open', 'Open'), ('close', 'Close'),
+    ('lock', "Lock"), ('unlock', "Unlock"),
+)
+
+
 class ScriptConfigForm(BaseComponentForm):
     autostart = forms.BooleanField(
         initial=True, required=False,
@@ -149,6 +157,50 @@ class ThermostatConfigForm(BaseComponentForm):
         return super().save(commit)
 
 
+class AlarmBreachEventForm(forms.Form):
+    uid = forms.CharField(widget=forms.HiddenInput(), required=False)
+    name = forms.CharField(max_length=30)
+    component = forms.ModelChoiceField(
+        Component.objects.all(),
+        widget=autocomplete.ModelSelect2(
+            url='autocomplete-component', attrs={'data-html': True},
+        ),
+    )
+    breach_action = forms.ChoiceField(
+        initial='turn_on', choices=ACTION_METHODS
+    )
+    disarm_action = forms.ChoiceField(
+        required=False, initial='turn_off', choices=ACTION_METHODS
+    )
+    delay = forms.IntegerField(
+        label="Delay (s)",
+        min_value=0, max_value=600, initial=0,
+        help_text="Event will not fire if alarm group is disarmed "
+                  "within given timeframe of seconds after the breach."
+    )
+    prefix = 'breach_events'
+
+    def clean(self):
+        if not self.cleaned_data.get('component'):
+            return self.cleaned_data
+        if not self.cleaned_data.get('breach_action'):
+            return self.cleaned_data
+        component = self.cleaned_data.get('component')
+        if not hasattr(component, self.cleaned_data['breach_action']):
+            self.add_error(
+                'breach_action',
+                f"{component} has no {self.cleaned_data['breach_action']} action!"
+            )
+        if self.cleaned_data.get('disarm_action'):
+            if not hasattr(component, self.cleaned_data['disarm_action']):
+                self.add_error(
+                    'disarm_action',
+                    f"{component} has no "
+                    f"{self.cleaned_data['disarm_action']} action!"
+                )
+        return self.cleaned_data
+
+
 # TODO: create control widget for admin use.
 class AlarmGroupConfigForm(BaseComponentForm):
     components = forms.ModelMultipleChoiceField(
@@ -169,9 +221,14 @@ class AlarmGroupConfigForm(BaseComponentForm):
     )
     notify_on_breach = forms.IntegerField(
         required=False, min_value=0,
-        help_text="Notify active users if "
-                  "not disarmed within given number of seconds "
-                  "after the breached."
+        help_text="Notify active users on breach if "
+                  "not disarmed within given number of seconds. <br>"                  
+                  "Leave this empty to disable breach notifications."
+    )
+    breach_events = FormsetField(
+        formset_factory(
+            AlarmBreachEventForm, can_delete=True, can_order=True, extra=0
+        ), label='Breach events'
     )
     has_alarm = False
 
@@ -474,14 +531,6 @@ class StateSelectForm(BaseComponentForm):
     states = FormsetField(
         formset_factory(StateForm, can_delete=True, can_order=True, extra=0)
     )
-
-
-ACTION_METHODS = (
-    ('turn_on', "Turn ON"), ('turn_off', "Turn OFF"),
-    ('play', "Play"), ('pause', "Pause"), ('stop', "Stop"),
-    ('open', 'Open'), ('close', 'Close'),
-    ('lock', "Lock"), ('unlock', "Unlock"),
-)
 
 
 class AlarmClockEventForm(forms.Form):

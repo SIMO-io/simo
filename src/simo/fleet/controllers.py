@@ -432,6 +432,30 @@ class TTLock(FleeDeviceMixin, Lock):
             command='call', method='get_fingerprints'
         ).publish()
 
+    def check_locked_status(self):
+        '''
+        Lock state is monitored by capturing adv data
+        periodically transmitted by the lock.
+        This data includes information about it's lock/unlock position
+        also if there are any new events in it that we are not yet aware of.
+
+        If anything new is observer, connection is made to the lock
+        and reported back to the system.
+        This helps to save batteries of a lock,
+        however it is not always as timed as we would want to.
+        Sometimes it can take even up to 20s for these updates to occur.
+
+        This method is here to force immediate connection to the lock
+        to check it's current status. After this method is called,
+        we might expect to receive an update within 2 seconds or less.
+        '''
+        GatewayObjectCommand(
+            self.component.gateway,
+            Colonel(id=self.component.config['colonel']),
+            id=self.component.id,
+            command='call', method='check_locked_status'
+        ).publish()
+
     def _receive_meta(self, data):
         from simo.users.models import Fingerprint
         if 'codes' in data:

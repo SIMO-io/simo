@@ -14,6 +14,7 @@ from simo.core.widgets import LogOutputWidget
 from simo.core.utils.easing import EASING_CHOICES
 from simo.core.utils.validators import validate_slaves
 from simo.core.utils.admin import AdminFormActionForm
+from simo.core.events import GatewayObjectCommand
 from .models import Colonel, ColonelPin, Interface
 from .utils import INTERFACES_PINS_MAP
 
@@ -984,6 +985,18 @@ class BurglarSmokeDetectorConfigForm(ColonelComponentForm):
 
 class TTLockConfigForm(ColonelComponentForm):
 
+    door_sensor = forms.ModelChoiceField(
+        Component.objects.filter(base_type='binary-sensor'),
+        required=False,
+        help_text="Quickens up lock status reporting on open/close if provided.",
+        widget=autocomplete.ModelSelect2(
+            url='autocomplete-component', attrs={'data-html': True},
+            forward=(
+                forward.Const(['binary-sensor'], 'base_type'),
+            )
+        )
+    )
+
     def clean(self):
         if not self.instance or not self.instance.pk:
             from .controllers import TTLock
@@ -1002,6 +1015,11 @@ class TTLockConfigForm(ColonelComponentForm):
         if commit:
             self.cleaned_data['colonel'].components.add(obj)
             self.cleaned_data['colonel'].save()
+            if self.cleaned_data['door_sensor']:
+                GatewayObjectCommand(
+                    self.instance.gateway, self.cleaned_data['door_sensor'],
+                    command='watch_lock_sensor'
+                ).publish()
         return obj
 
 
