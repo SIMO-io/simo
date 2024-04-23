@@ -104,7 +104,6 @@ def manage_alarm_groups(sender, instance, created, *args, **kwargs):
                 print(traceback.format_exc(), file=sys.stderr)
 
 
-
 @receiver(post_delete, sender=Component)
 def clear_alarm_group_config_on_component_delete(
     sender, instance, *args, **kwargs

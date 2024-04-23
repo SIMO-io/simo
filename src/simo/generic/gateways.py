@@ -167,7 +167,7 @@ class GenericGatewayHandler(BaseObjectCommandsGatewayHandler):
         ('watch_alarm_clocks', 30),
         ('watch_scripts', 10),
         ('watch_watering', 60),
-        ('watch_alarm_events'),
+        ('watch_alarm_events', 1),
     )
 
     def watch_thermostats(self):

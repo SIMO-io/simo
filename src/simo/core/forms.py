@@ -278,7 +278,7 @@ class ComponentAdminForm(forms.ModelForm):
         model = Component
         fields = '__all__'
         exclude = (
-            'gateway', 'controller_uid', 'base_type',
+            'gateway', 'controller_uid', 'base_type', 'instance_methods'
             'alive', 'value_type', 'value', 'arm_status',
         )
         widgets = {
@@ -291,7 +291,7 @@ class ComponentAdminForm(forms.ModelForm):
             'category': autocomplete.ModelSelect2(
                 url='autocomplete-category', attrs={'data-html': True}
             ),
-            'instance_methods': PythonCode
+            #'instance_methods': PythonCode
         }
 
     def __init__(self, *args, **kwargs):
