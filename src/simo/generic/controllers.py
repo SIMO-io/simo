@@ -358,7 +358,7 @@ class AlarmGroup(ControllerBase):
     @cached_property
     def events_map(self):
         map = {}
-        for entry in self.component.config['breach_events']:
+        for entry in self.component.config.get('breach_events', []):
             comp = Component.objects.filter(id=entry['component']).first()
             if not comp:
                 continue
