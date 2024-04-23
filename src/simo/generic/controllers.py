@@ -359,6 +359,8 @@ class AlarmGroup(ControllerBase):
     def events_map(self):
         map = {}
         for entry in self.component.config.get('breach_events', []):
+            if 'uid' not in entry:
+                continue
             comp = Component.objects.filter(id=entry['component']).first()
             if not comp:
                 continue
