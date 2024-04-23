@@ -188,7 +188,7 @@ class ComponentManyToManyRelatedField(serializers.Field):
         super().__init__(*args, **kwargs)
 
     def to_representation(self, value):
-        return [obj.pk for obj in value]
+        return [obj.pk for obj in value.all()]
 
     def to_internal_value(self, data):
         if data == [] and self.allow_blank:
@@ -245,11 +245,11 @@ class ComponentSerializer(FormSerializer):
             if field_name in getattr(self.Meta, 'exclude', []):
                 continue
 
-            # if field is already defined via declared fields
-            # skip mapping it from forms which then honors
-            # the custom validation defined on the DRF declared field
-            if field_name in ret:
-                continue
+            # # if field is already defined via declared fields
+            # # skip mapping it from forms which then honors
+            # # the custom validation defined on the DRF declared field
+            # if field_name in ret:
+            #     continue
 
             form_field = form[field_name]
 
@@ -277,7 +277,7 @@ class ComponentSerializer(FormSerializer):
             ret[field_name].initial = form_field.initial
             ret[field_name].default = form_field.initial
 
-        print("Fields: ", ret)
+        #print("Fields: ", ret)
         return ret
 
     def _get_field_kwargs(self, form_field, serializer_field_class):
