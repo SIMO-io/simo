@@ -364,7 +364,7 @@ class AlarmGroup(ControllerBase):
             comp = Component.objects.filter(id=entry['component']).first()
             if not comp:
                 continue
-            map[entry['uid']] = entry
+            map[entry['uid']] = json.loads(json.dumps(entry))
             map[entry['uid']].pop('uid')
             map[entry['uid']]['component'] = comp
         return map
