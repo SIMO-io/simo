@@ -158,7 +158,12 @@ class ComponentFormsetField(FormSerializer):
         return kwargs
 
     def to_representation(self, instance):
-        return super(FormSerializerBase, self).to_representation(instance)
+        items = []
+        for item in instance:
+            if not item:
+                continue
+            items.append(item)
+        return super(FormSerializerBase, self).to_representation(items)
 
     def get_form(self, data=None, **kwargs):
         form = super().get_form(data=data, **kwargs)
@@ -198,7 +203,6 @@ class ComponentManyToManyRelatedField(serializers.Field):
 
 class ComponentSerializer(FormSerializer):
     id = ObjectSerializerMethodField()
-    controller_methods = serializers.SerializerMethodField()
     last_change = TimestampField(read_only=True)
     read_only = serializers.SerializerMethodField()
     app_widget = serializers.SerializerMethodField()
