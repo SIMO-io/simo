@@ -195,6 +195,29 @@ class BasicOutputMixin:
 class Switch(FleeDeviceMixin, BasicOutputMixin, BaseSwitch):
     config_form = ColonelSwitchConfigForm
 
+    def signal(self, pulses):
+        '''
+        Expecting list of tuples where each item represents component value
+        followed by duration in miliseconds.
+        Maximum of 20 pulses is accepted, each pulse might not be longer than 3000ms
+        If you need anything longer than this, use on(), off() methods instead.
+        :param pulses: [(True, 200), (False, 600), (True, 200)]
+        :return: None
+        '''
+        assert len(pulses) > 0, "At least on pulse is expected"
+        assert len(pulses) <= 20, "No more than 20 pulses is accepted"
+        for i, pulse in enumerate(pulses):
+            assert isinstance(pulse[0], bool), f"{i+1}-th pulse is not boolean!"
+            assert pulse[1] <= 3000, "Pulses must not exceed 3000ms"
+
+        GatewayObjectCommand(
+            self.component.gateway,
+            Colonel(id=self.component.config['colonel']),
+            call='signal', args=[pulses],
+            component_id=self.component.id,
+        ).publish()
+
+
 
 class PWMOutput(FleeDeviceMixin, BasicOutputMixin, BaseDimmer):
     name = "Dimmer"
