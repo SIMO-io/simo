@@ -336,9 +336,9 @@ class ComponentAdmin(admin.ModelAdmin):
                         'alarm_category', 'arm_status'
                     ):
                         if field_neme in form.fields:
-                            form.fields.pop(field_neme)
+                            form.fields.pop(field_neme, None)
                     if 'slaves' not in form.declared_fields:
-                        form.fields.pop('slaves')
+                        form.fields.pop('slaves', None)
 
                 ctx['is_last'] = True
                 ctx['current_step'] = 3
