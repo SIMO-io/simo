@@ -112,7 +112,6 @@ class DS18B20Sensor(FleeDeviceMixin, BasicSensorMixin, BaseNumericSensor):
 
 
 class BaseClimateSensor(FleeDeviceMixin, BasicSensorMixin, BaseMultiSensor):
-    manual_add = False
     app_widget = NumericSensorWidget
 
     def __init__(self, *args, **kwargs):
