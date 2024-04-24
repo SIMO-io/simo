@@ -213,7 +213,7 @@ class Switch(FleeDeviceMixin, BasicOutputMixin, BaseSwitch):
         GatewayObjectCommand(
             self.component.gateway,
             Colonel(id=self.component.config['colonel']),
-            call='signal', args=[pulses],
+            command='call', method='signal', args=[pulses],
             component_id=self.component.id,
         ).publish()
 
