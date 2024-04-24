@@ -8,6 +8,8 @@ from collections.abc import Iterable
 from easy_thumbnails.files import get_thumbnailer
 from simo.core.middleware import get_current_request
 from rest_framework import serializers
+from rest_framework.fields import SkipField
+from rest_framework.relations import Hyperlink, PKOnlyObject
 from simo.core.forms import HiddenField, FormsetField
 from rest_framework.relations import PrimaryKeyRelatedField, ManyRelatedField
 from .drf_braces.serializers.form_serializer import (
@@ -158,12 +160,30 @@ class ComponentFormsetField(FormSerializer):
         return kwargs
 
     def to_representation(self, instance):
-        items = []
-        for item in instance:
-            if not item:
+        """
+        Object instance -> Dict of primitive datatypes.
+        """
+        ret = OrderedDict()
+        fields = self._readable_fields
+
+        for field in fields:
+            try:
+                attribute = field.get_attribute(instance)
+            except SkipField:
                 continue
-            items.append(item)
-        return super(FormSerializerBase, self).to_representation(items)
+            except:
+                ret[field.field_name] = None
+                continue
+
+            check_for_none = attribute.pk if isinstance(
+                attribute, PKOnlyObject
+            ) else attribute
+            if check_for_none is None:
+                ret[field.field_name] = None
+            else:
+                ret[field.field_name] = field.to_representation(attribute)
+
+        return ret
 
     def get_form(self, data=None, **kwargs):
         form = super().get_form(data=data, **kwargs)
