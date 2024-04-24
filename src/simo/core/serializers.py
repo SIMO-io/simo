@@ -238,7 +238,6 @@ class ComponentSerializer(FormSerializer):
 
     class Meta:
         form = ComponentAdminForm
-        exclude = ('instance_methods', )
         field_mapping = {
             HiddenField: HiddenSerializerField,
             forms.TypedChoiceField: serializers.ChoiceField,
@@ -252,7 +251,7 @@ class ComponentSerializer(FormSerializer):
     def get_fields(self):
         self.set_form_cls()
 
-        ret = super(FormSerializerBase, self).get_fields()
+        ret = OrderedDict()
 
         field_mapping = reduce_attr_dict_from_instance(
             self,
@@ -301,7 +300,10 @@ class ComponentSerializer(FormSerializer):
             ret[field_name].initial = form_field.initial
             ret[field_name].default = form_field.initial
 
-        #print("Fields: ", ret)
+        for name, field in super(FormSerializerBase, self).get_fields().items():
+            if name in ret:
+                continue
+            ret[name] = field
         return ret
 
     def _get_field_kwargs(self, form_field, serializer_field_class):

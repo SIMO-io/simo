@@ -287,8 +287,8 @@ class ComponentAdminForm(forms.ModelForm):
         model = Component
         fields = '__all__'
         exclude = (
-            'gateway', 'controller_uid', 'base_type', 'instance_methods'
-            'alive', 'value_type', 'value', 'arm_status',
+            'gateway', 'controller_uid', 'base_type', 'instance_methods',
+            'alive', 'value_type', 'value', 'arm_status', 'slaves',
         )
         widgets = {
             'icon': autocomplete.ModelSelect2(
@@ -331,7 +331,8 @@ class ComponentAdminForm(forms.ModelForm):
         main_fields = (
             'name', 'icon', 'zone', 'category',
             'show_in_app', 'battery_level',
-            'instance_methods', 'value_units',
+            #'instance_methods',
+            'value_units',
             'alarm_category', 'arm_status',
         )
         base_fields = ['id', 'gateway', 'base_type', 'name']
@@ -347,7 +348,7 @@ class ComponentAdminForm(forms.ModelForm):
 
         base_fields.append('show_in_app')
         base_fields.append('control')
-        base_fields.append('instance_methods')
+        #base_fields.append('instance_methods')
 
         fieldsets = [
             (_("Base settings"), {'fields': base_fields}),
