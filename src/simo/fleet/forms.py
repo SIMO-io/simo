@@ -681,7 +681,8 @@ class ColonelRGBLightConfigForm(ColonelComponentForm):
     num_leds = forms.IntegerField(
         label=_("Number of leds"), min_value=1, max_value=2000
     )
-    type = forms.ChoiceField(
+    strip_type = forms.ChoiceField(
+        label="LED strip type",
         choices=(
             ("WS2811", "WS2811"),
             ('WS2812', "WS2812"),
@@ -695,6 +696,7 @@ class ColonelRGBLightConfigForm(ColonelComponentForm):
     has_white = forms.BooleanField(initial=False, required=False)
     color_order = forms.ChoiceField(
         required=False, choices=(
+            (None, 'Default'),
             ("RGB", "RGB"), ("RBG", "RBG"), ("GRB", "GRB"),
             ("RGBW", "RGBW"), ("RBGW", "RBGW"), ("GRBW", "GRBW"),
         ),
@@ -718,6 +720,24 @@ class ColonelRGBLightConfigForm(ColonelComponentForm):
             self.instance.config['has_white'] = False
         return super().save(commit)
 
+    def clean_custom_timing(self):
+        custom_timing = self.cleaned_data.get('custom_timing')
+        if not custom_timing:
+            return custom_timing
+        custom_timing = custom_timing.strip().\
+            strip('(').strip('[').rstrip(')').rstrip(']').split(',')
+        if len(custom_timing.split(',')) != 4:
+            raise forms.ValidationError("Tuple of 4 integers please.")
+        for t in custom_timing.split(','):
+            try:
+                t = int(t)
+            except:
+                raise forms.ValidationError(f"Integers only please.")
+            if t <= 0:
+                raise forms.ValidationError(f"Intervals must be greater than 0.")
+            if t > 100000:
+                raise forms.ValidationError(f"{t} seems way to much!")
+        return f"({custom_timing})"
 
     def clean(self):
         super().clean()
