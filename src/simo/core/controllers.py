@@ -697,16 +697,6 @@ class Switch(MultiSwitchBase, TimerMixin, OnOffPokerMixin):
             self.turn_off()
         threading.Thread(target=toggle_back).start()
 
-    def _prepare_for_send(self, value):
-        if self.component.config.get('inverse'):
-            return not value
-        return value
-
-    def _prepare_for_set(self, value):
-        if self.component.config.get('inverse'):
-            return not value
-        return value
-
 
 class DoubleSwitch(MultiSwitchBase):
     name = _("Double Switch")
