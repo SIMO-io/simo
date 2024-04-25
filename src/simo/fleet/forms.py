@@ -196,18 +196,10 @@ class ColonelBinarySensorConfigForm(ColonelComponentForm):
             ]
         )
     )
-    pull = forms.ChoiceField(
-        choices=(
-            ('HIGH', "HIGH"), ('LOW', "LOW"), ("FLOATING", "leave floating"),
-        ),
-        help_text="If you are not sure what is this all about, "
-                  "you are most definitely want to pull this HIGH or LOW "
-                  "but not leave it floating!"
-    )
     inverse = forms.TypedChoiceField(
-        choices=((1, "Yes"), (0, "No")), coerce=int,
-        help_text="Hint: Set pull HIGH and inverse to Yes, to get ON signal when "
-                  "you deliver GND to the pin and OFF when you cut it out."
+        choices=((1, "Yes"), (0, "No")), coerce=int, initial=1,
+        help_text="Hint: Set inverse to Yes, to get ON signal when "
+                  "you deliver GND to the input and OFF when you cut it out."
     )
     debounce = forms.IntegerField(
         min_value=0, max_value=1000 * 60 * 60, required=False, initial=0,
@@ -215,7 +207,6 @@ class ColonelBinarySensorConfigForm(ColonelComponentForm):
                   "between ON/OFF states when engaged. <br>"
                   "Set debounce value in milliseconds, to remediate this. "
                   "100ms offers a good starting point!"
-
     )
 
     def clean(self):
@@ -508,17 +499,12 @@ class ColonelSwitchConfigForm(ColonelComponentForm):
             ]
         )
     )
-    engaged_action = forms.ChoiceField(
-        choices=(('HIGH', "HIGH"), ('LOW', "LOW")),
-    )
     auto_off = forms.FloatField(
         required=False, min_value=0.01, max_value=1000000000,
         help_text="If provided, switch will be turned off after "
                   "given amount of seconds after every turn on event."
     )
-    inverse = forms.BooleanField(
-        label=_("Inverse switch value"), required=False
-    )
+    inverse = forms.BooleanField(required=False)
     slaves = forms.ModelMultipleChoiceField(
         required=False,
         queryset=Component.objects.filter(
