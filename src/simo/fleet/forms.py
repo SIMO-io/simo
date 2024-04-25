@@ -681,14 +681,30 @@ class ColonelRGBLightConfigForm(ColonelComponentForm):
     num_leds = forms.IntegerField(
         label=_("Number of leds"), min_value=1, max_value=2000
     )
-    timing = forms.TypedChoiceField(
-        initial=1, coerce=int, choices=((1, "800kHz (most common)"), (0, "400kHz"),)
+    type = forms.ChoiceField(
+        choices=(
+            ("WS2811", "WS2811"),
+            ('WS2812', "WS2812"),
+            ('WS2812B', "WS2812B"),
+            ('WS2813', "WS2813"),
+            ('WS2815', "WS2815"),
+            ('SK6812', "SK6812"),
+            ('generic-1', "Generic 800kHz"),
+            ('generic-0', "Generic 400kHz"),
+        )
     )
-    order = forms.ChoiceField(
-        initial='RGB', choices=(
+    has_white = forms.BooleanField(initial=False, required=False)
+    color_order = forms.ChoiceField(
+        initial='', choices=(
+            ('', "Default"),
             ("RGB", "RGB"), ("RBG", "RBG"), ("GRB", "GRB"),
             ("RGBW", "RGBW"), ("RBGW", "RBGW"), ("GRBW", "GRBW"),
-        )
+        ),
+    )
+    custom_timing = forms.CharField(
+        required=False,
+        help_text="Custom addressable led strip timing (T0H, T0L, T1H, T1L). <br>"
+                  "For example SK6812 is: (300, 900, 600, 600)"
     )
     controls = FormsetField(
         formset_factory(
@@ -711,6 +727,20 @@ class ColonelRGBLightConfigForm(ColonelComponentForm):
             return self.cleaned_data
         if not self.cleaned_data.get('output_pin'):
             return self.cleaned_data
+
+        if self.cleaned_data.get('color_order') != '':
+            if self.cleaned_data['has_white']:
+                if len(self.cleaned_data['color_order']) != 4:
+                    self.add_error(
+                        "color_order",
+                        _("4 colors expected for stripes with dedicated White led.")
+                    )
+            else:
+                if len(self.cleaned_data['color_order']) != 3:
+                    self.add_error(
+                        "color_order",
+                        _("3 colors expected for stripes without dedicated White led.")
+                    )
 
         self._clean_pin('output_pin')
 
