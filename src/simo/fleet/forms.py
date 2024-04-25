@@ -689,14 +689,12 @@ class ColonelRGBLightConfigForm(ColonelComponentForm):
             ('WS2813', "WS2813"),
             ('WS2815', "WS2815"),
             ('SK6812', "SK6812"),
-            ('generic-1', "Generic 800kHz"),
-            ('generic-0', "Generic 400kHz"),
+            ('generic', "Generic"),
         )
     )
     has_white = forms.BooleanField(initial=False, required=False)
     color_order = forms.ChoiceField(
-        initial='', choices=(
-            ('', "Default"),
+        required=False, choices=(
             ("RGB", "RGB"), ("RBG", "RBG"), ("GRB", "GRB"),
             ("RGBW", "RGBW"), ("RBGW", "RBGW"), ("GRBW", "GRBW"),
         ),
@@ -728,7 +726,7 @@ class ColonelRGBLightConfigForm(ColonelComponentForm):
         if not self.cleaned_data.get('output_pin'):
             return self.cleaned_data
 
-        if self.cleaned_data.get('color_order') != '':
+        if self.cleaned_data.get('color_order'):
             if self.cleaned_data['has_white']:
                 if len(self.cleaned_data['color_order']) != 4:
                     self.add_error(
