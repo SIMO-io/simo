@@ -714,10 +714,6 @@ class ColonelRGBLightConfigForm(ColonelComponentForm):
 
     def save(self, commit=True):
         self.instance.config['output_pin_no'] = self.cleaned_data['output_pin'].no
-        if len(self.cleaned_data['order']) > 3:
-            self.instance.config['has_white'] = True
-        else:
-            self.instance.config['has_white'] = False
         return super().save(commit)
 
     def clean_custom_timing(self):
