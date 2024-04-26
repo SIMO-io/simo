@@ -218,6 +218,16 @@ class AlarmGroupConfigForm(BaseComponentForm):
         required=False,
         help_text="Defines if this is your main/top global alarm group."
     )
+    arm_on_away = forms.ChoiceField(
+        required=False,
+        choices=(
+            (None, "No"),
+            ('on_away', "Yes"),
+            ('on_away_and_locked', "Yes, but only if at least one arming lock is Locked."),
+            ('on_away_and_locked_all', "Yes, but only if all arming locks are Locked."),
+        ),
+        help_text="Arm automatically as soon as everybody leaves.<br>"
+    )
     arming_locks = forms.ModelMultipleChoiceField(
         Component.objects.filter(base_type='lock'),
         label="Arming locks", required=False,
@@ -228,7 +238,9 @@ class AlarmGroupConfigForm(BaseComponentForm):
             )
         ),
         help_text="Alarm group will get armed automatically whenever "
-                  "any of assigned locks get's locked. "
+                  "any of assigned locks changes it's state to locked. <br>"
+                  "If Arm on away is enabled and set to work with arming locks, "
+                  "arming will take effect only after everybody leaves."
     )
     disarming_locks = forms.ModelMultipleChoiceField(
         Component.objects.filter(base_type='lock'),
@@ -240,7 +252,7 @@ class AlarmGroupConfigForm(BaseComponentForm):
             )
         ),
         help_text="Alarm group will be disarmed automatically whenever "
-                  "any of assigned locks get's unlocked. "
+                  "any of assigned locks changes it's state to unlocked. "
     )
     notify_on_breach = forms.IntegerField(
         required=False, min_value=0,

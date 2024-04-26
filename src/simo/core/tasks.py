@@ -7,20 +7,16 @@ import datetime
 import requests
 import subprocess
 import threading
-import simo
 import pkg_resources
 from django.db.models import Q
 from django.db import connection
-from django.db import transaction
 from django.template.loader import render_to_string
-from easy_thumbnails.files import get_thumbnailer
 from celeryc import celery_app
 from django.utils import timezone
-from django.conf import settings
+from easy_thumbnails.files import get_thumbnailer
 from simo.conf import dynamic_settings
 from simo.core.utils.helpers import get_self_ip
 from .models import Instance, Component, ComponentHistory, HistoryAggregate
-from .utils.helpers import get_random_string, is_update_available
 
 
 def supervisor_restart():
@@ -150,7 +146,8 @@ def sync_with_remote():
         if instance.share_location:
             instance_data['location'] = instance.location
         if instance.cover_image and not instance.cover_image_synced:
-            cover_imb_path = instance.cover_image.get_thumbnail(
+            thumbnailer = get_thumbnailer(instance.cover_image.path)
+            cover_imb_path = thumbnailer.get_thumbnail(
                 {'size': (880, 490), 'crop': True}
             ).path
             with open(cover_imb_path, 'rb') as img:

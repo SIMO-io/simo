@@ -51,7 +51,8 @@ class CategorySerializer(serializers.ModelSerializer):
 
     def get_header_image_thumb(self, obj):
         if obj.header_image:
-            url = get_thumbnailer(obj.header_image).get_thumbnail(
+            thumbnailer = get_thumbnailer(obj.header_image.path)
+            url = thumbnailer.get_thumbnail(
                 {'size': (830, 430), 'crop': True}
             ).url
             request = get_current_request()

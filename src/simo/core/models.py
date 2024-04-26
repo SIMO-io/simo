@@ -79,7 +79,7 @@ class Instance(DirtyFieldsMixin, models.Model, SimoAdminMixin):
     )
     name = models.CharField(max_length=100, db_index=True, unique=True)
     slug = models.CharField(max_length=100, db_index=True, unique=True)
-    cover_image = ThumbnailerImageField(
+    cover_image = models.ImageField(
         upload_to='hub_covers', null=True, blank=True
     )
     cover_image_synced = models.BooleanField(default=False)
@@ -151,7 +151,7 @@ class Category(DirtyFieldsMixin, models.Model, SimoAdminMixin):
     instance = models.ForeignKey(Instance, on_delete=models.CASCADE)
     name = models.CharField(_('name'), max_length=40)
     icon = models.ForeignKey(Icon, on_delete=models.SET_NULL, null=True)
-    header_image = ThumbnailerImageField(
+    header_image = models.ImageField(
         upload_to='categories', null=True, blank=True,
         help_text="Will be cropped down to: 830x430"
     )

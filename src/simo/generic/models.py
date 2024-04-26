@@ -5,6 +5,7 @@ from threading import Timer
 from django.db.models.signals import pre_save, post_save, post_delete
 from django.dispatch import receiver
 from simo.core.models import Instance, Component
+from simo.users.models import InstanceUser
 from .controllers import AlarmGroup
 
 
@@ -124,6 +125,10 @@ def bind_controlling_locks_to_alarm_groups(sender, instance, *args, **kwargs):
             base_type=AlarmGroup.base_type,
             config__arming_locks__contains=instance.id
         ):
+            if ag.config.get(
+                'arm_on_away', ''
+            ).startswith('on_away_and_locked'):
+                continue
             ag.arm()
     elif instance.value == 'unlocked':
         for ag in Component.objects.filter(
@@ -132,3 +137,39 @@ def bind_controlling_locks_to_alarm_groups(sender, instance, *args, **kwargs):
         ):
             ag.disarm()
 
+
+@receiver(post_save, sender=InstanceUser)
+def bind_alarm_groups(sender, instance, created, *args, **kwargs):
+    if created:
+        return
+    if instance.at_home:
+        return
+    if 'at_home' not in instance.get_dirty_fields():
+        return
+    users_at_home = InstanceUser.objects.filter(
+        instance=instance.instance, at_home=True
+    ).exclude(is_active=False).exclude(instance.id)
+    if not users_at_home.count():
+        for ag in Component.objects.filter(
+            zone__instance=instance.instance,
+            base_type=AlarmGroup.base_type,
+            config__has_key='arm_on_away'
+        ).exclude(config__arm_on_away=None):
+            if ag.config.get('arm_on_away') == 'on_away':
+                ag.arm()
+            elif ag.config.get('arm_on_away').startswith('on_away_and_locked'):
+                locked_states = [
+                    True if l['value'] == 'locked' else False
+                    for l in Component.objects.filter(
+                        base_type='lock', id__in=ag.config.get('arming_locks', []),
+                    ).values('value')
+                ]
+                if not any(locked_states):
+                    continue
+                if ag.config['arm_on_away'] == 'on_away_and_locked':
+                    ag.arm()
+                    continue
+                if ag.config['arm_on_away'] == 'on_away_and_locked_all' \
+                and all(locked_states):
+                    ag.arm()
+                    continue
