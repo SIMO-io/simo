@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import InstanceOptions, Colonel, ColonelPin
+from .models import InstanceOptions, Colonel, ColonelPin, Interface
 
 
 class InstanceOptionsSerializer(serializers.ModelSerializer):
@@ -28,7 +28,7 @@ class ColonelPinSerializer(serializers.ModelSerializer):
 class ColonelInterfaceSerializer(serializers.ModelSerializer):
 
     class Meta:
-        model = ColonelPin
+        model = Interface
         fields = 'id', 'no', 'type'
         read_only_fields = fields
 
