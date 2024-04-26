@@ -101,9 +101,9 @@ class Colonel(DirtyFieldsMixin, models.Model):
         return self.name if self.name else self.uid
 
     def save(self, *args, **kwargs):
-        if 'socket_connected' in self.get_dirty_fields() and self.pk:
+        if 'socket_connected' in self.get_dirty_fields() and self.socket_connected:
             for comp in self.components.all():
-                comp.alive = self.is_connected
+                comp.alive = True
                 comp.save()
 
         if self.minor_upgrade_available and self.firmware_version == self.minor_upgrade_available:
