@@ -25,8 +25,17 @@ class ColonelPinSerializer(serializers.ModelSerializer):
         return bool(obj.occupied_by)
 
 
+class ColonelInterfaceSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = ColonelPin
+        fields = 'id', 'no', 'type'
+        read_only_fields = fields
+
+
 class ColonelSerializer(serializers.ModelSerializer):
     pins = serializers.SerializerMethodField()
+    interfaces = serializers.SerializerMethodField()
 
     class Meta:
         model = Colonel
@@ -44,6 +53,12 @@ class ColonelSerializer(serializers.ModelSerializer):
         result = []
         for pin in obj.pins.all():
             result.append(ColonelPinSerializer(pin).data)
+        return result
+
+    def get_interfaces(self, obj):
+        result = []
+        for interface in obj.interfaces.all():
+            result.append(ColonelInterfaceSerializer(interface).data)
         return result
 
     def update(self, instance, validated_data):
