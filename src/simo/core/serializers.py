@@ -56,7 +56,7 @@ class CategorySerializer(serializers.ModelSerializer):
             thumb = thumbnailer.get_thumbnail(
                 {'size': (830, 430), 'crop': True}
             )
-            url = thumb.path.strip(settings.VAR_DIR) + '/'
+            url = '/' + thumb.path.strip(settings.VAR_DIR)
             request = get_current_request()
             if request:
                 url = request.build_absolute_uri(url)
