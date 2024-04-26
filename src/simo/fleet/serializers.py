@@ -42,11 +42,11 @@ class ColonelSerializer(serializers.ModelSerializer):
         fields = (
             'id', 'uid', 'name', 'type', 'firmware_version', 'firmware_auto_update',
             'socket_connected', 'last_seen', 'enabled', 'pwm_frequency',
-            'logs_stream', 'pins'
+            'logs_stream', 'pins', 'interfaces',
         )
         read_only_fields = [
             'uid', 'type', 'firmware_version', 'socket_connected',
-            'last_seen', 'pins'
+            'last_seen', 'pins', 'interfaces',
         ]
 
     def get_pins(self, obj):
