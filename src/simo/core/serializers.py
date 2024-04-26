@@ -4,6 +4,7 @@ import json
 from django import forms
 from collections import OrderedDict
 from django.forms.utils import ErrorDict
+from django.conf import settings
 from collections.abc import Iterable
 from easy_thumbnails.files import get_thumbnailer
 from simo.core.middleware import get_current_request
@@ -52,9 +53,10 @@ class CategorySerializer(serializers.ModelSerializer):
     def get_header_image_thumb(self, obj):
         if obj.header_image:
             thumbnailer = get_thumbnailer(obj.header_image.path)
-            url = thumbnailer.get_thumbnail(
+            thumb = thumbnailer.get_thumbnail(
                 {'size': (830, 430), 'crop': True}
-            ).url
+            )
+            url = thumb.path.strip(settings.VAR_DIR) + '/'
             request = get_current_request()
             if request:
                 url = request.build_absolute_uri(url)
