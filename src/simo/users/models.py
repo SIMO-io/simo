@@ -113,7 +113,7 @@ def post_instance_user_save(sender, instance, created, **kwargs):
     if 'at_home' in dirty_fields:
         def post_update():
             ObjectChangeEvent(
-                instance, dirty_fields=dirty_fields
+                instance.instance, instance,  dirty_fields=dirty_fields
             ).publish()
         transaction.on_commit(post_update)
     if 'role' or 'is_active' in instance.dirty_fields:
