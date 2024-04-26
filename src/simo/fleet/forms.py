@@ -526,11 +526,15 @@ class ColonelSwitchConfigForm(ColonelComponentForm):
         )
     )
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance.pk:
+            self.fields['slaves'].initial = self.instance.slaves.all()
+
     def clean_slaves(self):
         if not self.cleaned_data['slaves'] or not self.instance:
             return self.cleaned_data['slaves']
         return validate_slaves(self.cleaned_data['slaves'], self.instance)
-
 
     def clean(self):
         super().clean()
@@ -551,7 +555,10 @@ class ColonelSwitchConfigForm(ColonelComponentForm):
 
     def save(self, commit=True):
         self.instance.config['output_pin_no'] = self.cleaned_data['output_pin'].no
-        return super().save(commit=commit)
+        obj = super().save(commit=commit)
+        if commit:
+            obj.slaves.set(self.cleaned_data['slaves'])
+        return obj
 
 
 class ColonelPWMOutputConfigForm(ColonelComponentForm):
@@ -625,6 +632,11 @@ class ColonelPWMOutputConfigForm(ColonelComponentForm):
         )
     )
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance.pk:
+            self.fields['slaves'].initial = self.instance.slaves.all()
+
     def clean_slaves(self):
         if not self.cleaned_data['slaves'] or not self.instance:
             return self.cleaned_data['slaves']
@@ -649,7 +661,10 @@ class ColonelPWMOutputConfigForm(ColonelComponentForm):
 
     def save(self, commit=True):
         self.instance.config['output_pin_no'] = self.cleaned_data['output_pin'].no
-        return super().save(commit=commit)
+        obj = super().save(commit=commit)
+        if commit:
+            obj.slaves.set(self.cleaned_data['slaves'])
+        return obj
 
 
 class ColonelRGBLightConfigForm(ColonelComponentForm):

@@ -507,10 +507,21 @@ class SwitchForm(BaseComponentForm):
         )
     )
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance.pk:
+            self.fields['slaves'].initial = self.instance.slaves.all()
+
     def clean_slaves(self):
         if not self.cleaned_data['slaves'] or not self.instance:
             return self.cleaned_data['slaves']
         return validate_slaves(self.cleaned_data['slaves'], self.instance)
+
+    def save(self, commit=True):
+        obj = super().save(commit=commit)
+        if commit:
+            obj.slaves.set(self.cleaned_data['slaves'])
+        return obj
 
 
 class DoubleSwitchConfigForm(BaseComponentForm):
@@ -634,10 +645,22 @@ class DimmerConfigForm(BaseComponentForm):
         )
     )
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance.pk:
+            self.fields['slaves'].initial = self.instance.slaves.all()
+
     def clean_slaves(self):
         if not self.cleaned_data['slaves'] or not self.instance:
             return self.cleaned_data['slaves']
         return validate_slaves(self.cleaned_data['slaves'], self.instance)
+
+    def save(self, commit=True):
+        self.instance.config['output_pin_no'] = self.cleaned_data['output_pin'].no
+        obj = super().save(commit=commit)
+        if commit:
+            obj.slaves.set(self.cleaned_data['slaves'])
+        return obj
 
 
 class DimmerPlusConfigForm(BaseComponentForm):
