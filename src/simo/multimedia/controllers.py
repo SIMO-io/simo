@@ -1,6 +1,4 @@
 from django.utils.translation import gettext_lazy as _
-from django.core.exceptions import ValidationError
-from simo.core.controllers import BEFORE_SEND, BEFORE_SET
 from simo.core.controllers import Switch, TimerMixin
 from .app_widgets import AudioPlayerWidget, VideoPlayerWidget
 
