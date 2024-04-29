@@ -34,7 +34,6 @@ class HiddenField(forms.CharField):
         super().__init__(widget=forms.HiddenInput())
 
 
-
 class HubConfigForm(forms.Form):
     name = forms.CharField(
         label=_("Hub Name"), required=True,
@@ -300,7 +299,6 @@ class ComponentAdminForm(forms.ModelForm):
             'category': autocomplete.ModelSelect2(
                 url='autocomplete-category', attrs={'data-html': True}
             ),
-            #'instance_methods': PythonCode
         }
 
     def __init__(self, *args, **kwargs):
@@ -334,6 +332,7 @@ class ComponentAdminForm(forms.ModelForm):
             #'instance_methods',
             'value_units',
             'alarm_category', 'arm_status',
+            'notes'
         )
         base_fields = ['id', 'gateway', 'base_type', 'name']
         if cls.has_icon:
@@ -348,7 +347,7 @@ class ComponentAdminForm(forms.ModelForm):
 
         base_fields.append('show_in_app')
         base_fields.append('control')
-        #base_fields.append('instance_methods')
+        base_fields.append('notes')
 
         fieldsets = [
             (_("Base settings"), {'fields': base_fields}),

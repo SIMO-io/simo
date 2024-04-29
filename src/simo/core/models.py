@@ -361,6 +361,8 @@ class Component(DirtyFieldsMixin, models.Model, SimoAdminMixin, OnChangeMixin):
 
     show_in_app = models.BooleanField(default=True, db_index=True)
 
+    notes = models.TextField(null=True, blank=True)
+
     # Feature for global superusers.
     # Good candidate for reworking in to something more API oriented
     # instead of injecting the code directly.

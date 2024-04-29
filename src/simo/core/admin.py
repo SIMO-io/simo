@@ -269,7 +269,7 @@ class ComponentAdmin(admin.ModelAdmin):
         'alarm_category', 'arm_status'
     )
 
-    search_fields = 'name',
+    search_fields = 'id', 'name', 'value', 'config', 'meta', 'notes'
     list_per_page = 100
     change_list_template = 'admin/component_change_list.html'
     inlines = ComponentPermissionInline,

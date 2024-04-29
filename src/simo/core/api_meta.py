@@ -4,7 +4,8 @@ from rest_framework import serializers
 from rest_framework.metadata import SimpleMetadata
 from rest_framework.utils.field_mapping import ClassLookupDict
 from .serializers import (
-    HiddenSerializerField, ComponentManyToManyRelatedField
+    HiddenSerializerField, ComponentManyToManyRelatedField,
+    TextAreaSerializerField
 )
 
 
@@ -36,6 +37,7 @@ class SIMOAPIMetadata(SimpleMetadata):
         serializers.ManyRelatedField: 'many related objects',
         ComponentManyToManyRelatedField: 'many related objects',
         HiddenSerializerField: 'hidden',
+        TextAreaSerializerField: 'textarea',
     })
 
     def get_field_info(self, field):

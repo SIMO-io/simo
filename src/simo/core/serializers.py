@@ -93,6 +93,10 @@ class HiddenSerializerField(serializers.CharField):
     pass
 
 
+class TextAreaSerializerField(serializers.CharField):
+    pass
+
+
 class ComponentFormsetField(FormSerializer):
 
     class Meta:
@@ -130,6 +134,7 @@ class ComponentFormsetField(FormSerializer):
                 continue
 
             cls_type = form_field.__class__
+
             try:
                 serializer_field_class = field_mapping[cls_type]
             except KeyError:
@@ -280,22 +285,26 @@ class ComponentSerializer(FormSerializer):
             form_field = form[field_name]
 
             cls = form_field.field.__class__
-            try:
-                serializer_field_class = field_mapping[cls]
-            except KeyError:
-                cls = form_field.field.__class__.__bases__[0]
+            if field_name == 'notes':
+                serializer_field_class = TextAreaSerializerField
+                print("TEXTAREA!~!!!")
+            else:
                 try:
                     serializer_field_class = field_mapping[cls]
                 except KeyError:
-                    raise TypeError(
-                        "{field} is not mapped to a serializer field. "
-                        "Please add {field} to {serializer}.Meta.field_mapping. "
-                        "Currently mapped fields: {mapped}".format(
-                            field=form_field.field.__class__.__name__,
-                            serializer=self.__class__.__name__,
-                            mapped=', '.join(sorted([i.__name__ for i in field_mapping.keys()]))
+                    cls = form_field.field.__class__.__bases__[0]
+                    try:
+                        serializer_field_class = field_mapping[cls]
+                    except KeyError:
+                        raise TypeError(
+                            "{field} is not mapped to a serializer field. "
+                            "Please add {field} to {serializer}.Meta.field_mapping. "
+                            "Currently mapped fields: {mapped}".format(
+                                field=form_field.field.__class__.__name__,
+                                serializer=self.__class__.__name__,
+                                mapped=', '.join(sorted([i.__name__ for i in field_mapping.keys()]))
+                            )
                         )
-                    )
 
             ret[field_name] = self._get_field(
                 form_field.field, serializer_field_class
