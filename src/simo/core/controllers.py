@@ -244,7 +244,7 @@ class ControllerBase(ABC):
         introduce(actor)
         self.component.alive = is_alive
         if battery_level:
-            self.battery_level = battery_level
+            self.component.battery_level = battery_level
         self.component.save(update_fields=['alive', 'battery_level'])
         self.set(value, actor)
 
