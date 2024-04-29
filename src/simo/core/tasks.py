@@ -320,6 +320,17 @@ def time_out_discoveries():
             gw.finish_discovery()
 
 
+@celery_app.task
+def restart_postgresql():
+    # restart postgresql daily, so that we do not get in to any kind of
+    # hanging connections left by Django, which might happen if things are
+    # running for months without a reboot.
+    proc = subprocess.Popen(
+        ['service', 'postgresql', 'restart']
+    )
+    proc.communicate()
+
+
 @celery_app.on_after_finalize.connect
 def setup_periodic_tasks(sender, **kwargs):
     sender.add_periodic_task(1, watch_timers.s())
@@ -327,3 +338,4 @@ def setup_periodic_tasks(sender, **kwargs):
     sender.add_periodic_task(60 * 60, clear_history.s())
     sender.add_periodic_task(60 * 60 * 6, update_latest_version_available.s())
     sender.add_periodic_task(60, drop_fingerprints_learn.s())
+    sender.add_periodic_task(60 * 60 * 24, restart_postgresql.s())
