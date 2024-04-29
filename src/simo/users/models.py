@@ -277,7 +277,7 @@ class User(AbstractBaseUser, SimoAdminMixin):
     @property
     def is_active(self):
         if self.is_master and not self.instance_roles.all():
-            # Master that has no roles on any instance is in GOD mode!
+            # Master who have no roles on any instance are in GOD mode!
             # It can not be disabled by anybody, nor it is seen by anybody. :)
             return True
         if self._instance:
@@ -411,6 +411,7 @@ def set_user_at_home(sender, instance, created, **kwargs):
     from simo.core.models import Instance
     if not created:
         return
+
     if not instance.relay:
         for item in InstanceUser.objects.filter(user=instance.user_device.user):
             item.at_home = True
@@ -418,6 +419,12 @@ def set_user_at_home(sender, instance, created, **kwargs):
         return
     if not instance.location:
         return
+
+    instance.user_device.last_seen_location = instance.location
+    instance.user_device.save()
+    instance.user_device.user.last_seen_location = instance.location
+    instance.user_device.user.last_seen_location_datetime = timezone.now()
+    instance.user_device.user.save()
 
     for hub_instance in Instance.objects.all():
         try:

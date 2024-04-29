@@ -35,16 +35,20 @@ class UserSerializer(serializers.ModelSerializer):
         return obj.is_active
 
     def get_avatar(self, obj):
-        if obj.avatar:
+        if not obj.avatar:
+            return
+        try:
             url = obj.avatar['avatar'].url
-            request = get_current_request()
-            if request:
-                url = request.build_absolute_uri(url)
-            return {
-                'url': url,
-                'last_change': obj.avatar_last_change.timestamp()
-            }
-        return None
+        except:
+            return
+        request = get_current_request()
+        if request:
+            url = request.build_absolute_uri(url)
+        return {
+            'url': url,
+            'last_change': obj.avatar_last_change.timestamp()
+        }
+
 
     def get_at_home(self, obj):
         iu = InstanceUser.objects.filter(

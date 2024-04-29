@@ -38,25 +38,34 @@ class UsersViewSet(mixins.RetrieveModelMixin,
         return queryset.filter(roles__instance=self.instance)
 
 
+    def check_permission_to_change(self, request, target_user):
+        user_role = request.user.get_role(self.instance)
+        if request.user.is_master:
+            return user_role
+        if user_role.is_superuser:
+            return user_role
+        if user_role.can_manage_users:
+            return user_role
+        msg = 'You are not allowed to change this!'
+        print(msg, file=sys.stderr)
+        raise ValidationError(msg, code=403)
+
+
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop('partial', False)
+        target_user = self.get_object()
+        user_role = self.check_permission_to_change(request, target_user)
 
         for key, val in request.data.items():
             if key not in ('role', 'is_active'):
                 request.data.pop(key)
 
-        user = self.get_object()
-        user.set_instance(self.instance)
 
-        user_role = request.user.get_role(self.instance)
-        if not request.user.is_superuser:
-            if not user_role or not user_role.can_manage_users:
-                msg = 'You are not allowed to change this!'
-                print(msg, file=sys.stderr)
-                raise ValidationError(msg, code=403)
+        target_user.set_instance(self.instance)
+
 
         serializer = self.get_serializer(
-            user, data=request.data, partial=partial
+            target_user, data=request.data, partial=partial
         )
         try:
             serializer.is_valid(raise_exception=True)
@@ -71,14 +80,15 @@ class UsersViewSet(mixins.RetrieveModelMixin,
         except:
             pass
         else:
-            if set_role_to != user.get_role(self.instance) and set_role_to.is_superuser \
+            if set_role_to != target_user.get_role(self.instance) \
+            and set_role_to.is_superuser \
             and not user_role.is_superuser:
                 msg = "You are not allowed to grant superuser roles to others " \
                       "if you are not a superuser yourself."
                 print(msg, file=sys.stderr)
                 raise ValidationError(msg, code=403)
 
-            if user == request.user \
+            if target_user == request.user \
             and user_role and user_role.is_superuser \
             and not set_role_to.is_superuser:
             # User is trying to downgrade his own role from
@@ -86,7 +96,7 @@ class UsersViewSet(mixins.RetrieveModelMixin,
             # there is at least one user left that has superuser role on this instance.
                 if not User.objects.filter(
                     roles__instance=self.instance, roles__is_superuser=True
-                ).exclude(id=user.id).values('id').first():
+                ).exclude(id=target_user.id).values('id').first():
                     msg = "You are the only one superuser on this instance, " \
                           "therefore you are not alowed to downgrade your role."
                     print(msg, file=sys.stderr)
@@ -94,10 +104,10 @@ class UsersViewSet(mixins.RetrieveModelMixin,
 
         self.perform_update(serializer)
 
-        if getattr(user, '_prefetched_objects_cache', None):
+        if getattr(target_user, '_prefetched_objects_cache', None):
             # If 'prefetch_related' has been applied to a queryset, we need to
             # forcibly invalidate the prefetch cache on the instance.
-            user._prefetched_objects_cache = {}
+            target_user._prefetched_objects_cache = {}
 
         return RESTResponse(serializer.data)
 

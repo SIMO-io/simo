@@ -148,28 +148,29 @@ def bind_alarm_groups(sender, instance, created, *args, **kwargs):
         return
     users_at_home = InstanceUser.objects.filter(
         instance=instance.instance, at_home=True
-    ).exclude(is_active=False).exclude(instance.id)
-    if not users_at_home.count():
-        for ag in Component.objects.filter(
-            zone__instance=instance.instance,
-            base_type=AlarmGroup.base_type,
-            config__has_key='arm_on_away'
-        ).exclude(config__arm_on_away=None):
-            if ag.config.get('arm_on_away') == 'on_away':
-                ag.arm()
-            elif ag.config.get('arm_on_away').startswith('on_away_and_locked'):
-                locked_states = [
-                    True if l['value'] == 'locked' else False
-                    for l in Component.objects.filter(
-                        base_type='lock', id__in=ag.config.get('arming_locks', []),
-                    ).values('value')
-                ]
-                if not any(locked_states):
-                    continue
-                if ag.config['arm_on_away'] == 'on_away_and_locked':
-                    ag.arm()
-                    continue
-                if ag.config['arm_on_away'] == 'on_away_and_locked_all' \
-                and all(locked_states):
-                    ag.arm()
-                    continue
+    ).exclude(is_active=False).exclude(id=instance.id)
+    if users_at_home.count():
+        return
+    for ag in Component.objects.filter(
+        zone__instance=instance.instance,
+        base_type=AlarmGroup.base_type,
+        config__arm_on_away__startswith='on_away_and_locked'
+    ):
+        locked_states = [
+            True if l['value'] == 'locked' else False
+            for l in Component.objects.filter(
+                base_type='lock', id__in=ag.config.get('arming_locks', []),
+            ).values('value')
+        ]
+        if not any(locked_states):
+            print("Not a single lock is locked. Continue.")
+            continue
+        if ag.config['arm_on_away'] == 'on_away_and_locked':
+            print(f"Everybody is away, single lock is locked, arm {ag}!")
+            ag.arm()
+            continue
+        if ag.config['arm_on_away'] == 'on_away_and_locked_all' \
+        and all(locked_states):
+            print(f"Everybody is away, all locks are locked, arm {ag}!")
+            ag.arm()
+            continue

@@ -210,14 +210,7 @@ class ComponentViewSet(InstanceMixin, viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     def subcomponent(self, request, pk=None, *args, **kwargs):
         component = self.get_object()
-        if not request.user.is_superuser \
-            and not request.get_role(self.instance).component_permissions.filter(
-            write=True, component=component
-        ):
-            raise APIValidationError(
-                _('You do not have permission to write to this component.'),
-                code=403
-            )
+        self.check_object_permissions(request, component)
         json_data = request.data
         subcomponent_id = json_data.pop('id', -1)
         try:
@@ -232,28 +225,35 @@ class ComponentViewSet(InstanceMixin, viewsets.ModelViewSet):
                 _('Subcomponent has no controller assigned.'),
                 code=400
             )
+        self.check_object_permissions(self.request, subcomponent)
         return self.perform_controller_method(json_data, subcomponent)
 
 
     def check_object_permissions(self, request, component):
         super().check_object_permissions(request, component)
-        if not request.user.is_superuser\
-        and not request.user.get_role(self.instance).component_permissions.filter(
-            write=True, component=component
-        ):
-            raise APIValidationError(
-                _('You do not have permission to write to this component.'),
-                code=403
-            )
+
         if not component.controller:
             raise APIValidationError(
                 _('Component has no controller assigned.'),
                 code=400
             )
+        if request.user.is_master:
+            return
+        user_role = request.user.get_role(self.instance)
+        if user_role.is_superuser:
+            return
+        if not user_role.component_permissions.filter(
+            write=True, component=component
+        ).count():
+            raise APIValidationError(
+                _('You do not have permission to write to this component.'),
+                code=403
+            )
 
     @action(detail=True, methods=['post'])
     def controller(self, request, pk=None, *args, **kwargs):
         component = self.get_object()
+        self.check_object_permissions(self.request, component)
         return self.perform_controller_method(request.data, component)
 
     @action(detail=False, methods=['post'])

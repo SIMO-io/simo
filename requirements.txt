@@ -32,3 +32,4 @@ slugify==0.0.1
 django-countries==7.5.1
 librosa==0.10.1
 daphne==4.1.0
+Pillow==9.5.0 # newer version breaks easy-thumbnails
