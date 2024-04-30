@@ -723,9 +723,9 @@ class ColonelRGBLightConfigForm(ColonelComponentForm):
             return custom_timing
         custom_timing = custom_timing.strip().\
             strip('(').strip('[').rstrip(')').rstrip(']').split(',')
-        if len(custom_timing.split(',')) != 4:
+        if len(custom_timing) != 4:
             raise forms.ValidationError("Tuple of 4 integers please.")
-        for t in custom_timing.split(','):
+        for t in custom_timing:
             try:
                 t = int(t)
             except:
@@ -734,7 +734,7 @@ class ColonelRGBLightConfigForm(ColonelComponentForm):
                 raise forms.ValidationError(f"Intervals must be greater than 0.")
             if t > 100000:
                 raise forms.ValidationError(f"{t} seems way to much!")
-        return f"({custom_timing})"
+        return f"({','.join(custom_timing)})"
 
     def clean(self):
         super().clean()
