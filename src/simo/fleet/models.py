@@ -327,10 +327,20 @@ def post_i2c_interface_delete(sender, instance, *args, **kwargs):
             pin.occupied_by_content_type = None
             pin.occupied_by_content_id = None
             pin.save()
-        instance.scl_pin.occupied_by = instance
-        instance.scl_pin.save()
-        instance.sda_pin.occupied_by = instance
-        instance.sda_pin.save()
+
+        # In an event of colonel deletion these pin no longer exist
+        # at this point, therefore this trhows irrelevant exceptions
+        # that we want to fail silenty
+        try:
+            instance.scl_pin.occupied_by = instance
+            instance.scl_pin.save()
+        except ColonelPin.DoesNotExist:
+            pass
+        try:
+            instance.sda_pin.occupied_by = instance
+            instance.sda_pin.save()
+        except ColonelPin.DoesNotExist:
+            pass
 
 
 class Interface(models.Model):
