@@ -35,6 +35,15 @@ class InstanceSuperuserCanEdit(BasePermission):
     message = "Only superusers are allowed to perform this action."
 
     def has_object_permission(self, request, view, obj):
+        '''
+        in this permission we only care about:
+        POST - create new object
+        PATCH - modify an object
+        DELETE - delete an oject
+        '''
+
+        if request.method in SAFE_METHODS + ('PUT', 'POST', ): # TODO: remove POST
+            return True
 
         # allow deleting only empty categories and zones
         if type(obj) in (Zone, Category) and request.method == 'DELETE'\
@@ -46,29 +55,23 @@ class InstanceSuperuserCanEdit(BasePermission):
         user_role = request.user.get_role(view.instance)
         if user_role.is_superuser:
             return True
-        return request.method in SAFE_METHODS
+
+        return False
 
 
 class ComponentPermission(BasePermission):
     message = "You do not have permission to do this on this component."
 
-    # TODO: clean this up once the app is tested and running 100% correctly for at least 6 months.
     def has_object_permission(self, request, view, obj):
-        print(f"Check permission of {request.user} on {obj}")
         if request.method in SAFE_METHODS:
-            print("THIS IS SAFE METHOD!")
             return True
         if request.user.is_master:
-            print("USER IS MASTER!")
             return True
         user_role = request.user.get_role(view.instance)
         if user_role.is_superuser:
-            print("USER IS SUPERUSER!")
             return True
         if request.method == 'POST' and user_role.component_permissions.filter(
             write=True, component=obj
         ).count():
-            print("USER HAS RIGHT TO DO THIS!")
             return True
-        print("USER IS NOT ALLOWED TO DO THIS!")
         return False
