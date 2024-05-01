@@ -54,14 +54,19 @@ class ComponentPermission(BasePermission):
 
     def has_object_permission(self, request, view, obj):
         if request.method in SAFE_METHODS:
+            print("THIS IS SAFE METHOD!")
             return True
         if request.user.is_master:
+            print("USER IS MASTER!")
             return True
         user_role = request.user.get_role(view.instance)
         if user_role.is_superuser:
+            print("USER IS SUPERUSER!")
             return True
         if request.method == 'POST' and user_role.component_permissions.filter(
             write=True, component=obj
         ).count():
+            print("USER HAS RIGHT TO DO THIS!")
             return True
+        print("USER IS NOT ALLOWED TO DO THIS!")
         return False
