@@ -3,9 +3,7 @@ from .models import Instance, Category, Zone
 
 
 class InstancePermission(BasePermission):
-    """
-       Allows access only to user instances
-    """
+    message = "You have no role in this SIMO.io instance."
 
     def has_permission(self, request, view):
         if not request.user.is_active:
@@ -24,6 +22,7 @@ class InstancePermission(BasePermission):
 
 
 class IsInstanceSuperuser(BasePermission):
+    message = "Only superusers are allowed to do this."
 
     def has_permission(self, request, view):
         if request.user.is_master:
@@ -33,6 +32,7 @@ class IsInstanceSuperuser(BasePermission):
 
 
 class InstanceSuperuserCanEdit(BasePermission):
+    message = "Only superusers are allowed to perform this action."
 
     def has_object_permission(self, request, view, obj):
 
@@ -47,3 +47,21 @@ class InstanceSuperuserCanEdit(BasePermission):
         if user_role.is_superuser:
             return True
         return request.method in SAFE_METHODS
+
+
+class ComponentPermission(BasePermission):
+    message = "You do not have permission to do this on this component."
+
+    def has_object_permission(self, request, view, obj):
+        if request.method in SAFE_METHODS:
+            return
+        if request.user.is_master:
+            return
+        user_role = request.user.get_role(view.instance)
+        if user_role.is_superuser:
+            return
+        if request.method == 'POST' and user_role.component_permissions.filter(
+            write=True, component=obj
+        ).count():
+            return
+        return False

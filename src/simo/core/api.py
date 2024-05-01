@@ -5,8 +5,7 @@ import time
 from django.db.models import Q, Prefetch
 from django.utils.translation import gettext_lazy as _
 from django.utils import timezone
-from django.shortcuts import get_object_or_404
-from django.http import HttpResponse
+from django.http import HttpResponse, Http404
 from simo.core.utils.helpers import get_self_ip, search_queryset
 from rest_framework.pagination import PageNumberPagination
 from rest_framework import viewsets
@@ -23,7 +22,9 @@ from .serializers import (
     IconSerializer, CategorySerializer, ZoneSerializer,
     ComponentSerializer, ComponentHistorySerializer
 )
-from .permissions import IsInstanceSuperuser, InstanceSuperuserCanEdit
+from .permissions import (
+    IsInstanceSuperuser, InstanceSuperuserCanEdit, ComponentPermission
+)
 
 
 class InstanceMixin:
@@ -165,6 +166,7 @@ class ComponentViewSet(InstanceMixin, viewsets.ModelViewSet):
 
     def get_permissions(self):
         permissions = super().get_permissions()
+        permissions.append(ComponentPermission())
         permissions.append(InstanceSuperuserCanEdit())
         return permissions
 
@@ -210,7 +212,6 @@ class ComponentViewSet(InstanceMixin, viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     def subcomponent(self, request, pk=None, *args, **kwargs):
         component = self.get_object()
-        self.check_object_permissions(request, component)
         json_data = request.data
         subcomponent_id = json_data.pop('id', -1)
         try:
@@ -228,37 +229,16 @@ class ComponentViewSet(InstanceMixin, viewsets.ModelViewSet):
         self.check_object_permissions(self.request, subcomponent)
         return self.perform_controller_method(json_data, subcomponent)
 
-
-    def check_object_permissions(self, request, component):
-        super().check_object_permissions(request, component)
-
-        if not component.controller:
-            raise APIValidationError(
-                _('Component has no controller assigned.'),
-                code=400
-            )
-        if request.user.is_master:
-            return
-        user_role = request.user.get_role(self.instance)
-        if user_role.is_superuser:
-            return
-        if not user_role.component_permissions.filter(
-            write=True, component=component
-        ).count():
-            raise APIValidationError(
-                _('You do not have permission to write to this component.'),
-                code=403
-            )
-
     @action(detail=True, methods=['post'])
     def controller(self, request, pk=None, *args, **kwargs):
         component = self.get_object()
-        self.check_object_permissions(self.request, component)
         return self.perform_controller_method(request.data, component)
 
     @action(detail=False, methods=['post'])
     def control(self, request, *args, **kwargs):
-        component = get_object_or_404(Component, id=request.data.pop('id', 0))
+        component = self.get_queryset().filter(id=request.data.pop('id', 0))
+        if not component:
+            raise Http404()
         self.check_object_permissions(self.request, component)
         return self.perform_controller_method(request.data, component)
 
