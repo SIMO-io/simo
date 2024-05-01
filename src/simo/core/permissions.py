@@ -53,6 +53,7 @@ class ComponentPermission(BasePermission):
     message = "You do not have permission to do this on this component."
 
     def has_object_permission(self, request, view, obj):
+        print(f"Check permission of {request.user} on {obj}")
         if request.method in SAFE_METHODS:
             print("THIS IS SAFE METHOD!")
             return True
