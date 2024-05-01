@@ -701,6 +701,14 @@ class ColonelRGBLightConfigForm(ColonelComponentForm):
         help_text="Custom addressable led strip timing (T0H, T0L, T1H, T1L). <br>"
                   "For example SK6812 is: (300, 900, 600, 600)"
     )
+    sustain_color = forms.BooleanField(
+        initial=True, required=False,
+        help_text="Recommended to leave this enabled. <br>"
+                  "Addressible signal wire might pick up electrical "
+                  "noise from it's surroundings which might cause color change "
+                  "on random pixels. Colonel will send color update every 20s "
+                  "to sustain last set color if this is enabled. "
+    )
     controls = FormsetField(
         formset_factory(
             ControlPinForm, can_delete=True, can_order=True, extra=0, max_num=2
