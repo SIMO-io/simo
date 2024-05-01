@@ -243,6 +243,7 @@ class ComponentSerializer(FormSerializer):
     meta = ObjectSerializerMethodField()
     arm_status = ObjectSerializerMethodField()
     battery_level = ObjectSerializerMethodField()
+    controller_methods = serializers.SerializerMethodField()
 
     class Meta:
         form = ComponentAdminForm
@@ -287,7 +288,6 @@ class ComponentSerializer(FormSerializer):
             cls = form_field.field.__class__
             if field_name == 'notes':
                 serializer_field_class = TextAreaSerializerField
-                print("TEXTAREA!~!!!")
             else:
                 try:
                     serializer_field_class = field_mapping[cls]
