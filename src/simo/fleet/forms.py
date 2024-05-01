@@ -573,12 +573,6 @@ class ColonelPWMOutputConfigForm(ColonelComponentForm):
             ]
         )
     )
-    frequency = forms.IntegerField(
-        min_value=30, max_value=100000, required=True, initial=3000,
-        help_text="PWM signal frequency in Hz. Works only with GPIO ports."
-                  "3000 Hz offers great performance in most use cases."
-
-    )
     min = forms.FloatField(
         required=True, initial=0,
         help_text="Minimum component value"

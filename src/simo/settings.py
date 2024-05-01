@@ -176,7 +176,6 @@ REST_FRAMEWORK = {
         'simo.core.api_auth.IsAuthenticated',
     ],
     'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.IsAuthenticated',
         'simo.users.permissions.IsActivePermission',
         'simo.core.permissions.InstancePermission'
     ],
