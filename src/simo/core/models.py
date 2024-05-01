@@ -163,7 +163,7 @@ class Category(DirtyFieldsMixin, models.Model, SimoAdminMixin):
         help_text=_("All components automatically belongs to this category")
     )
     order = models.PositiveIntegerField(
-        default=0, blank=False, null=False, db_index=True
+        blank=False, null=False, db_index=True
     )
     objects = CategoriesManager()
 
@@ -175,8 +175,13 @@ class Category(DirtyFieldsMixin, models.Model, SimoAdminMixin):
     def __str__(self):
         return self.name
 
-
     def save(self, *args, **kwargs):
+        if self.order is None:
+            last_cat = Category.objects.filter(instance=self.instance).last()
+            if last_cat:
+                self.order = last_cat.order + 1
+            else:
+                self.order = 0
         dirty_fields = self.get_dirty_fields()
         if 'all' in dirty_fields:
             if self.all:
