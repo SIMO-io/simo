@@ -6,6 +6,7 @@ from django.db.models import Q, Prefetch
 from django.utils.translation import gettext_lazy as _
 from django.utils import timezone
 from django.shortcuts import get_object_or_404
+from django.http import HttpResponse
 from simo.core.utils.helpers import get_self_ip, search_queryset
 from rest_framework.pagination import PageNumberPagination
 from rest_framework import viewsets
@@ -14,7 +15,6 @@ from rest_framework.decorators import action
 from rest_framework.response import Response as RESTResponse
 from rest_framework.exceptions import ValidationError as APIValidationError
 from simo.core.utils.config_values import ConfigException
-from simo.users.middleware import introduce as introduce_user
 from .models import (
     Instance, Category, Zone, Component, Icon, ComponentHistory,
     HistoryAggregate, Gateway
@@ -34,7 +34,7 @@ class InstanceMixin:
                 slug=self.request.resolver_match.kwargs.get('instance_slug')
             )
         except Instance.DoesNotExist:
-            return RESTResponse(
+            return HttpResponse(
                 f"Instance {self.request.resolver_match.kwargs.get('instance_slug')} "
                 "is not found on this SIMO.io hub!",
                 status=400
