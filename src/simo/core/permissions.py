@@ -52,6 +52,7 @@ class InstanceSuperuserCanEdit(BasePermission):
 class ComponentPermission(BasePermission):
     message = "You do not have permission to do this on this component."
 
+    # TODO: clean this up once the app is tested and running 100% correctly for at least 6 months.
     def has_object_permission(self, request, view, obj):
         print(f"Check permission of {request.user} on {obj}")
         if request.method in SAFE_METHODS:
