@@ -532,9 +532,7 @@ class StatesViewSet(InstanceMixin, viewsets.GenericViewSet):
         ).exclude(email__in=('system@simo.io', 'device@simo.io'))
         component_values = get_components_queryset(
             self.instance, request.user
-        ).filter(zone__instance=self.instance).prefetch_related(
-            Prefetch('history', queryset=ComponentHistory.objects.filter())
-        ).values(
+        ).filter(zone__instance=self.instance).values(
             'id', 'value', 'last_change', 'arm_status', 'battery_level',
             'alive', 'meta'
         )
