@@ -263,6 +263,7 @@ class ComponentViewSet(
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)
         headers = self.get_success_headers(serializer.data)
+        serializer.instance.refresh_from_db()
         serializer = ComponentSerializer(serializer.instance, context={
             'request': request, 'instance': self.instance
         })
@@ -276,6 +277,7 @@ class ComponentViewSet(
         serializer = self.get_serializer(instance, data=request.data, partial=partial)
         serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
+        serializer.instance.refresh_from_db()
         serializer = ComponentSerializer(serializer.instance, context={
             'request': request, 'instance': self.instance
         })
