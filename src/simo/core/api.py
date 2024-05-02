@@ -7,11 +7,13 @@ from django.utils.translation import gettext_lazy as _
 from django.utils import timezone
 from django.http import HttpResponse, Http404
 from simo.core.utils.helpers import get_self_ip, search_queryset
+from rest_framework import status as resp_status
 from rest_framework.pagination import PageNumberPagination
 from rest_framework import viewsets
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.decorators import action
 from rest_framework.response import Response as RESTResponse
+from rest_framework.request import clone_request
 from rest_framework.exceptions import ValidationError as APIValidationError
 from simo.core.utils.config_values import ConfigException
 from .models import (
@@ -25,6 +27,12 @@ from .serializers import (
 from .permissions import (
     IsInstanceSuperuser, InstanceSuperuserCanEdit, ComponentPermission
 )
+
+
+class AllowPUTAsCreateMixin:
+
+    def put(self, request, *args, **kwargs):
+        return self.create(request, *args, **kwargs)
 
 
 class InstanceMixin:
@@ -75,7 +83,7 @@ class IconViewSet(viewsets.ReadOnlyModelViewSet):
         return singular
 
 
-class CategoryViewSet(InstanceMixin, viewsets.ModelViewSet):
+class CategoryViewSet(AllowPUTAsCreateMixin, InstanceMixin, viewsets.ModelViewSet):
     url = 'core/categories'
     basename = 'categories'
     serializer_class = CategorySerializer
@@ -101,7 +109,7 @@ class CategoryViewSet(InstanceMixin, viewsets.ModelViewSet):
         serializer.save()
 
 
-class ZoneViewSet(InstanceMixin, viewsets.ModelViewSet):
+class ZoneViewSet(AllowPUTAsCreateMixin, InstanceMixin, viewsets.ModelViewSet):
     url = 'core/zones'
     basename = 'zones'
     serializer_class = ZoneSerializer
@@ -159,7 +167,7 @@ def get_components_queryset(instance, user):
     return qs
 
 
-class ComponentViewSet(InstanceMixin, viewsets.ModelViewSet):
+class ComponentViewSet(AllowPUTAsCreateMixin, InstanceMixin, viewsets.ModelViewSet):
     url = 'core/components'
     basename = 'components'
     serializer_class = ComponentSerializer
@@ -622,5 +630,3 @@ class RunningDiscoveries(InstanceMixin, viewsets.GenericViewSet):
             for gateway in gateways:
                 gateway.retry_discovery()
         return RESTResponse(self.get_data(gateways))
-
-

@@ -787,7 +787,7 @@ class DualMotorValveForm(ColonelComponentForm):
     )
     open_duration = forms.FloatField(
         required=True, min_value=0.01, max_value=1000000000,
-        help_text="Time in seconds to open."
+        initial=2, help_text="Time in seconds to open."
     )
     close_pin = ColonelPinChoiceField(
         queryset=ColonelPin.objects.filter(output=True),
@@ -805,7 +805,7 @@ class DualMotorValveForm(ColonelComponentForm):
     )
     close_duration = forms.FloatField(
         required=True, min_value=0.01, max_value=1000000000,
-        help_text="Time in seconds to close."
+        initial=10, help_text="Time in seconds to close."
     )
 
 
