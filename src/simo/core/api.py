@@ -210,7 +210,7 @@ class ComponentViewSet(InstanceMixin, viewsets.ModelViewSet):
             return RESTResponse(result)
 
     # TODO: remove post when app is updated for all users
-    @action(detail=True, methods=['post', 'put'])
+    @action(detail=True, methods=['post'])
     def subcomponent(self, request, pk=None, *args, **kwargs):
         component = self.get_object()
         json_data = request.data
@@ -230,12 +230,12 @@ class ComponentViewSet(InstanceMixin, viewsets.ModelViewSet):
         self.check_object_permissions(self.request, subcomponent)
         return self.perform_controller_method(json_data, subcomponent)
 
-    @action(detail=True, methods=['post', 'put'])
+    @action(detail=True, methods=['post'])
     def controller(self, request, pk=None, *args, **kwargs):
         component = self.get_object()
         return self.perform_controller_method(request.data, component)
 
-    @action(detail=False, methods=['post', 'put'])
+    @action(detail=False, methods=['post'])
     def control(self, request, *args, **kwargs):
         component = self.get_queryset().filter(id=request.data.pop('id', 0))
         if not component:

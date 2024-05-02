@@ -37,12 +37,12 @@ class InstanceSuperuserCanEdit(BasePermission):
     def has_object_permission(self, request, view, obj):
         '''
         in this permission we only care about:
-        POST - create new object
+        PUT - create new object
         PATCH - modify an object
         DELETE - delete an oject
         '''
 
-        if request.method in SAFE_METHODS + ('PUT', 'POST', ): # TODO: remove POST
+        if request.method in SAFE_METHODS + ('POST',):
             return True
 
         # allow deleting only empty categories and zones
