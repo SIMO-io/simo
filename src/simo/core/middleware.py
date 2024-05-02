@@ -78,7 +78,7 @@ def instance_middleware(get_response):
 
         response = get_response(request)
 
-        print(f"RESPONSE IN: {time.time() - start}")
+        print(f"{request.path} RESPONSE IN: {time.time() - start}")
         return response
 
     return middleware
