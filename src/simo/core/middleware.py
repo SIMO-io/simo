@@ -52,7 +52,6 @@ def simo_router_middleware(get_response):
 def instance_middleware(get_response):
 
     def middleware(request):
-        start = time.time()
         from simo.core.models import Instance
 
         instance = None
@@ -78,7 +77,6 @@ def instance_middleware(get_response):
 
         response = get_response(request)
 
-        print(f"{request.path} RESPONSE IN: {time.time() - start}")
         return response
 
     return middleware

@@ -37,10 +37,12 @@ class InstanceSuperuserCanEdit(BasePermission):
     def has_object_permission(self, request, view, obj):
         '''
         in this permission we only care about:
+        POST - new object can be created
         PUT - create new object
         PATCH - modify an object
         DELETE - delete an oject
         '''
+        # TODO: allow object creation only with PUT method, this way proper permissions system will be guaranteed.
 
         if request.method in SAFE_METHODS + ('POST',):
             return True
