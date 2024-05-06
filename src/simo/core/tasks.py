@@ -345,7 +345,7 @@ def low_battery_notifications():
         ):
             users = User.objects.filter(
                 roles__is_owner=True, roles__instance=comp.zone.instance
-            ).distinct()
+            ).exclude(email__endswith='simo.io').distinct()
             if users:
                 notify_users(
                     comp.zone.instance, 'warning',
