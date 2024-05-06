@@ -16,6 +16,9 @@ def notify_users(instance, severity, title, body=None, component=None, users=Non
             instance_roles__is_active=True
         )
     for user in users:
+        # do not send emails to system users
+        if user.email.endswith('simo.io'):
+            continue
         if instance not in user.instances:
             continue
         if component and not component.can_write(user):
