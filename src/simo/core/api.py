@@ -2,6 +2,7 @@ import datetime
 from calendar import monthrange
 import pytz
 import time
+import json
 from django.db.models import Q
 from django.utils.translation import gettext_lazy as _
 from django.utils import timezone
@@ -15,6 +16,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response as RESTResponse
 from rest_framework.exceptions import ValidationError as APIValidationError
 from simo.core.utils.config_values import ConfigException
+from simo.core.utils.json import restore_json
 from .models import (
     Instance, Category, Zone, Component, Icon, ComponentHistory,
     HistoryAggregate, Gateway
@@ -36,11 +38,7 @@ class InstanceMixin:
                 slug=self.request.resolver_match.kwargs.get('instance_slug')
             )
         except Instance.DoesNotExist:
-            return HttpResponse(
-                f"Instance {self.request.resolver_match.kwargs.get('instance_slug')} "
-                "is not found on this SIMO.io hub!",
-                status=400
-            )
+            raise Http404()
         return super().dispatch(request, *args, **kwargs)
 
     def get_serializer_context(self):
@@ -188,11 +186,14 @@ class ComponentViewSet(
 
     def perform_controller_method(self, json_data, component):
         for method_name, param in json_data.items():
+            if method_name in ('id', 'secret'):
+                continue
             if not hasattr(component, method_name):
                 raise APIValidationError(
                      _('"%s" method not found on controller') % method_name,
                     code=400
                 )
+            print("VARYSIM: ", method_name, param, type(param))
             call = getattr(component, method_name)
 
             if not isinstance(param, list) and not isinstance(param, dict):
@@ -216,7 +217,7 @@ class ComponentViewSet(
     @action(detail=True, methods=['post'])
     def subcomponent(self, request, pk=None, *args, **kwargs):
         component = self.get_object()
-        json_data = request.data
+        json_data = restore_json(request.data.dict())
         subcomponent_id = json_data.pop('id', -1)
         try:
             subcomponent = component.slaves.get(pk=subcomponent_id)
@@ -236,15 +237,18 @@ class ComponentViewSet(
     @action(detail=True, methods=['post'])
     def controller(self, request, pk=None, *args, **kwargs):
         component = self.get_object()
-        return self.perform_controller_method(request.data, component)
+        return self.perform_controller_method(
+            restore_json(request.data.dict()), component
+        )
 
     @action(detail=False, methods=['post'])
     def control(self, request, *args, **kwargs):
-        component = self.get_queryset().filter(id=request.data.pop('id', 0))
+        request_data = restore_json(request.data.dict())
+        component = self.get_queryset().filter(id=request_data.pop('id', 0)).first()
         if not component:
             raise Http404()
         self.check_object_permissions(self.request, component)
-        return self.perform_controller_method(request.data, component)
+        return self.perform_controller_method(request_data, component)
 
     @action(detail=True, methods=['get'])
     def value_history(self, request, pk=None, *args, **kwargs):

@@ -187,6 +187,8 @@ class ControllerBase(ABC):
             bulk_send_map = {self.component: value}
             for slave in self.component.slaves.all():
                 bulk_send_map[slave] = value
+
+            print("BULK SEND MAP: ", bulk_send_map)
             from .models import Component
             Component.objects.bulk_send(bulk_send_map)
             return
@@ -652,7 +654,9 @@ class MultiSwitchBase(ControllerBase):
         if not(0 < number_of_values < 16):
             raise ValidationError("Wrong number of values")
         if number_of_values == 1:
-            if not isinstance(value, bool):
+            if isinstance(value, int):
+                value = bool(value)
+            elif not isinstance(value, bool):
                 raise ValidationError("Must be a boolean value")
         else:
             if not isinstance(value, list):

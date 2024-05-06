@@ -1,4 +1,5 @@
 from rest_framework.permissions import BasePermission, SAFE_METHODS, IsAuthenticated
+from django.http import Http404
 from .models import Instance, Category, Zone
 
 
@@ -13,7 +14,7 @@ class InstancePermission(BasePermission):
             slug=request.resolver_match.kwargs.get('instance_slug')
         ).first()
         if not instance:
-            return False
+            raise Http404()
 
         if instance not in request.user.instances:
             return False
