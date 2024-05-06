@@ -59,7 +59,7 @@ class InstanceSuperuserCanEdit(BasePermission):
         if user_role.is_superuser:
             return True
 
-        if user_role.is_owner and request.method == 'PUT':
+        if user_role.is_owner and request.method != 'DELETE':
             return True
 
         return False
@@ -75,6 +75,8 @@ class ComponentPermission(BasePermission):
             return True
         user_role = request.user.get_role(view.instance)
         if user_role.is_superuser:
+            return True
+        if user_role.is_owner and request.method != 'DELETE':
             return True
         if request.method == 'POST' and user_role.component_permissions.filter(
             write=True, component=obj
