@@ -261,12 +261,6 @@ class ComponentSerializer(FormSerializer):
         self.set_form_cls()
 
         ret = OrderedDict()
-        if not self.context['request'].user.is_master:
-            user_role = self.context['request'].user.get_role(
-                self.context['instance']
-            )
-            if not any([user_role.is_superuser, user_role.is_owner]):
-                return ret
 
         field_mapping = reduce_attr_dict_from_instance(
             self,
