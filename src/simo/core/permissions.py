@@ -59,7 +59,7 @@ class InstanceSuperuserCanEdit(BasePermission):
         if user_role.is_superuser:
             return True
 
-        if user_role.can_manage_components and request.method == 'PUT':
+        if user_role.is_owner and request.method == 'PUT':
             return True
 
         return False

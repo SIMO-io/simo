@@ -265,7 +265,7 @@ class ComponentSerializer(FormSerializer):
             user_role = self.context['request'].user.get_role(
                 self.context['instance']
             )
-            if not any([user_role.is_superuser, user_role.can_manage_components]):
+            if not any([user_role.is_superuser, user_role.is_owner]):
                 return ret
 
         field_mapping = reduce_attr_dict_from_instance(
@@ -376,7 +376,7 @@ class ComponentSerializer(FormSerializer):
             user_role = self.context['request'].user.get_role(
                 self.context['instance']
             )
-            if not user_role.is_superuser and user_role.can_manage_components:
+            if not user_role.is_superuser and user_role.is_owner:
                 for field_name in list(form.fields.keys()):
                     if field_name not in form.basic_fields:
                         del form.fields[field_name]

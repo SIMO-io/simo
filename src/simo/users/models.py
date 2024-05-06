@@ -35,9 +35,11 @@ class PermissionsRole(models.Model):
         help_text="Global role if instance is not set."
     )
     name = models.CharField(max_length=100, db_index=True)
-    can_manage_components = models.BooleanField(
+    is_owner = models.BooleanField(
         default=False,
-        help_text="Can manage zones and basic component parameters via SIMO.io app."
+        help_text="Can manage zones, basic component parameters"
+                  "and other things via SIMO.io app, but is not yet allowed "
+                  "to perform any serious system changes, like superusers can."
     )
     can_manage_users = models.BooleanField(default=False)
     is_superuser = models.BooleanField(

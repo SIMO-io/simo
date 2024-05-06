@@ -285,8 +285,8 @@ class ComponentAdminForm(forms.ModelForm):
     has_icon = True
     has_alarm = True
 
-    # fields that can be edited via SIMO.io app by instance managers AKA - owners.
-    # Users who have can_manage_components enabled on their user role.
+    # fields that can be edited via SIMO.io app by instance owners.
+    # Users who have is_owner enabled on their user role.
     basic_fields = ['name', 'icon', 'zone', 'category']
 
     class Meta:
