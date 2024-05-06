@@ -16,11 +16,6 @@ class ComponentPermissionInline(admin.TabularInline):
     fields = 'component', 'read', 'write'
     readonly_fields = 'component',
 
-    def get_queryset(self, request):
-        return super().get_queryset(request).filter(
-            component__show_in_app=True
-        )
-
     def has_delete_permission(self, request, obj=None):
         return False
 
