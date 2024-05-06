@@ -137,8 +137,6 @@ class ThermostatConfigForm(BaseComponentForm):
             else:
                 self.fields['use_real_feel'].disabled = True
 
-
-
     def save(self, commit=True):
         self.instance.value_units = self.cleaned_data[
             'temperature_sensor'
@@ -314,8 +312,9 @@ class AlarmGroupConfigForm(BaseComponentForm):
     def save(self, *args, **kwargs):
         self.instance.value_units = 'status'
         from .controllers import AlarmGroup
-        if self.fields['is_main'].widget.attrs.get('disabled'):
-            self.cleaned_data['is_main'] = self.fields['is_main'].initial
+        if 'is_main' in self.cleaned_data:
+            if self.fields['is_main'].widget.attrs.get('disabled'):
+                self.cleaned_data['is_main'] = self.fields['is_main'].initial
         obj = super().save(*args, **kwargs)
         if obj.config.get('is_main'):
             for c in Component.objects.filter(
@@ -366,8 +365,9 @@ class WeatherForecastForm(BaseComponentForm):
     def save(self, *args, **kwargs):
         self.instance.value_units = 'status'
         from .controllers import WeatherForecast
-        if self.fields['is_main'].widget.attrs.get('disabled'):
-            self.cleaned_data['is_main'] = self.fields['is_main'].initial
+        if 'is_main' in self.fields and 'is_main' in self.cleaned_data:
+            if self.fields['is_main'].widget.attrs.get('disabled'):
+                self.cleaned_data['is_main'] = self.fields['is_main'].initial
         obj = super().save(*args, **kwargs)
         if obj.config.get('is_main'):
             for c in Component.objects.filter(
@@ -541,11 +541,12 @@ class WateringConfigForm(BaseComponentForm):
         return contours
 
     def save(self, commit=True):
-        self.instance.config['program'] = self.controller._build_program(
-            self.cleaned_data['contours']
-        )
+        if 'contours' in self.cleaned_data:
+            self.instance.config['program'] = self.controller._build_program(
+                self.cleaned_data['contours']
+            )
         obj = super().save(commit=commit)
-        if commit:
+        if commit and 'contours' in self.cleaned_data:
             obj.slaves.clear()
             for contour in self.cleaned_data['contours']:
                 obj.slaves.add(
@@ -564,10 +565,6 @@ class StateForm(forms.Form):
     name = forms.CharField(required=True)
     help_text = forms.CharField(required=False, widget=forms.Textarea(attrs={'rows': 3}))
     prefix = 'states'
-
-    def clean(self):
-        print("Let's clean the data! ", self.cleaned_data)
-        return self.cleaned_data
 
 
 class StateSelectForm(BaseComponentForm):
@@ -602,18 +599,20 @@ class AlarmClockEventForm(forms.Form):
         if not self.cleaned_data.get('play_action'):
             return self.cleaned_data
         component = self.cleaned_data.get('component')
-        if not hasattr(component, self.cleaned_data['play_action']):
-            self.add_error(
-                'play_action',
-                f"{component} has no {self.cleaned_data['play_action']} action!"
-            )
-        if self.cleaned_data.get('reverse_action'):
-            if not hasattr(component, self.cleaned_data['reverse_action']):
+        if 'play_action' in self.cleaned_data:
+            if not hasattr(component, self.cleaned_data['play_action']):
                 self.add_error(
-                    'reverse_action',
-                    f"{component} has no "
-                    f"{self.cleaned_data['reverse_action']} action!"
+                    'play_action',
+                    f"{component} has no {self.cleaned_data['play_action']} action!"
                 )
+        if 'reverse_action' in self.cleaned_data:
+            if self.cleaned_data.get('reverse_action'):
+                if not hasattr(component, self.cleaned_data['reverse_action']):
+                    self.add_error(
+                        'reverse_action',
+                        f"{component} has no "
+                        f"{self.cleaned_data['reverse_action']} action!"
+                    )
         return self.cleaned_data
 
 

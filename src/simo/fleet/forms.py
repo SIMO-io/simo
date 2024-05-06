@@ -91,13 +91,16 @@ class ColonelComponentForm(BaseComponentForm):
     def clean_colonel(self):
         if not self.instance.pk:
             return self.cleaned_data['colonel']
+        colonel = self.cleaned_data.get('colonel')
+        if not colonel:
+            return
         org = self.instance.config.get('colonel')
-        if org and org != self.cleaned_data['colonel'].id:
+        if org and org != colonel.id:
             raise forms.ValidationError(
                 "Changing colonel after component is created "
                 "it is not allowed!"
             )
-        return self.cleaned_data['colonel']
+        return colonel
 
     def _clean_pin(self, field_name):
         if self.cleaned_data[field_name].colonel != self.cleaned_data['colonel']:
@@ -153,7 +156,7 @@ class ColonelComponentForm(BaseComponentForm):
 
     def save(self, commit=True):
         obj = super().save(commit)
-        if commit:
+        if commit and 'colonel' in self.cleaned_data:
             self.cleaned_data['colonel'].components.add(obj)
             self.cleaned_data['colonel'].rebuild_occupied_pins()
             self.cleaned_data['colonel'].save()
@@ -211,7 +214,7 @@ class ColonelBinarySensorConfigForm(ColonelComponentForm):
 
     def clean(self):
         super().clean()
-        if not self.cleaned_data.get('colonel'):
+        if 'colonel' not in self.cleaned_data:
             return self.cleaned_data
         if 'pin' not in self.cleaned_data:
             return self.cleaned_data
@@ -251,7 +254,8 @@ class ColonelBinarySensorConfigForm(ColonelComponentForm):
 
 
     def save(self, commit=True):
-        self.instance.config['pin_no'] = self.cleaned_data['pin'].no
+        if 'pin' in self.cleaned_data:
+            self.instance.config['pin_no'] = self.cleaned_data['pin'].no
         return super().save(commit=commit)
 
 
@@ -291,7 +295,7 @@ class ColonelNumericSensorConfigForm(ColonelComponentForm, NumericSensorForm):
 
     def clean(self):
         super().clean()
-        if not self.cleaned_data.get('colonel'):
+        if 'colonel' not in self.cleaned_data:
             return self.cleaned_data
         if 'pin' not in self.cleaned_data:
             return self.cleaned_data
@@ -302,7 +306,8 @@ class ColonelNumericSensorConfigForm(ColonelComponentForm, NumericSensorForm):
 
 
     def save(self, commit=True):
-        self.instance.config['pin_no'] = self.cleaned_data['pin'].no
+        if 'pin' in self.cleaned_data:
+            self.instance.config['pin_no'] = self.cleaned_data['pin'].no
         return super().save(commit=commit)
 
 
@@ -329,7 +334,7 @@ class DS18B20SensorConfigForm(ColonelComponentForm, NumericSensorForm):
 
     def clean(self):
         super().clean()
-        if not self.cleaned_data.get('colonel'):
+        if 'colonel' not in self.cleaned_data:
             return self.cleaned_data
         if 'pin' not in self.cleaned_data:
             return self.cleaned_data
@@ -339,7 +344,8 @@ class DS18B20SensorConfigForm(ColonelComponentForm, NumericSensorForm):
         return self.cleaned_data
 
     def save(self, commit=True):
-        self.instance.config['pin_no'] = self.cleaned_data['pin'].no
+        if 'pin' in self.cleaned_data:
+            self.instance.config['pin_no'] = self.cleaned_data['pin'].no
         return super().save(commit=commit)
 
 
@@ -385,7 +391,8 @@ class ColonelDHTSensorConfigForm(ColonelComponentForm):
         return self.cleaned_data
 
     def save(self, commit=True):
-        self.instance.config['pin_no'] = self.cleaned_data['pin'].no
+        if 'pin' in self.cleaned_data:
+            self.instance.config['pin_no'] = self.cleaned_data['pin'].no
         return super().save(commit=commit)
 
 
@@ -415,7 +422,8 @@ class BME680SensorConfigForm(ColonelComponentForm):
     )
 
     def save(self, commit=True):
-        self.instance.config['i2c_interface'] = self.cleaned_data['interface'].no
+        if 'interface' in self.cleaned_data:
+            self.instance.config['i2c_interface'] = self.cleaned_data['interface'].no
         return super().save(commit=commit)
 
 
@@ -445,7 +453,8 @@ class MPC9808SensorConfigForm(ColonelComponentForm):
     )
 
     def save(self, commit=True):
-        self.instance.config['i2c_interface'] = self.cleaned_data['interface'].no
+        if 'interface' in self.cleaned_data:
+            self.instance.config['i2c_interface'] = self.cleaned_data['interface'].no
         return super().save(commit=commit)
 
 
@@ -472,7 +481,7 @@ class ColonelTouchSensorConfigForm(ColonelComponentForm):
 
     def clean(self):
         super().clean()
-        if not self.cleaned_data.get('colonel'):
+        if 'colonel' not in self.cleaned_data:
             return self.cleaned_data
         if 'pin' not in self.cleaned_data:
             return self.cleaned_data
@@ -483,7 +492,8 @@ class ColonelTouchSensorConfigForm(ColonelComponentForm):
 
 
     def save(self, commit=True):
-        self.instance.config['pin_no'] = self.cleaned_data['pin'].no
+        if 'pin' in self.cleaned_data:
+            self.instance.config['pin_no'] = self.cleaned_data['pin'].no
         return super().save(commit=commit)
 
 
@@ -529,35 +539,32 @@ class ColonelSwitchConfigForm(ColonelComponentForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.basic_fields.append('auto_off')
-        if self.instance.pk:
+        if self.instance.pk and 'slaves' in self.fields:
             self.fields['slaves'].initial = self.instance.slaves.all()
 
     def clean_slaves(self):
+        if 'slaves' not in self.cleaned_data:
+            return
         if not self.cleaned_data['slaves'] or not self.instance:
             return self.cleaned_data['slaves']
         return validate_slaves(self.cleaned_data['slaves'], self.instance)
 
     def clean(self):
         super().clean()
-        if not self.cleaned_data.get('colonel'):
-            return self.cleaned_data
-        if not self.cleaned_data.get('output_pin'):
-            return self.cleaned_data
 
-        self._clean_pin('output_pin')
-
-        if not self.cleaned_data.get('controls'):
-            return self.cleaned_data
-
-        self._clean_controls()
+        if self.cleaned_data.get('output_pin'):
+            self._clean_pin('output_pin')
+        if self.cleaned_data.get('controls'):
+            self._clean_controls()
 
         return self.cleaned_data
 
 
     def save(self, commit=True):
-        self.instance.config['output_pin_no'] = self.cleaned_data['output_pin'].no
+        if 'output_pin' in self.cleaned_data:
+            self.instance.config['output_pin_no'] = self.cleaned_data['output_pin'].no
         obj = super().save(commit=commit)
-        if commit:
+        if commit and 'slaves' in self.cleaned_data:
             obj.slaves.set(self.cleaned_data['slaves'])
         return obj
 
@@ -630,7 +637,7 @@ class ColonelPWMOutputConfigForm(ColonelComponentForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.basic_fields.extend(['turn_on_time', 'turn_off_time', 'skew'])
-        if self.instance.pk:
+        if self.instance.pk and 'slaves' in self.fields:
             self.fields['slaves'].initial = self.instance.slaves.all()
 
     def clean_slaves(self):
@@ -640,25 +647,18 @@ class ColonelPWMOutputConfigForm(ColonelComponentForm):
 
     def clean(self):
         super().clean()
-        if not self.cleaned_data.get('colonel'):
-            return self.cleaned_data
-        if not self.cleaned_data.get('output_pin'):
-            return self.cleaned_data
-
-        self._clean_pin('output_pin')
-
-        if not self.cleaned_data.get('controls'):
-            return self.cleaned_data
-
-        self._clean_controls()
-
+        if self.cleaned_data.get('output_pin'):
+            self._clean_pin('output_pin')
+        if self.cleaned_data.get('controls'):
+            self._clean_controls()
         return self.cleaned_data
 
 
     def save(self, commit=True):
-        self.instance.config['output_pin_no'] = self.cleaned_data['output_pin'].no
+        if 'output_pin' in self.cleaned_data:
+            self.instance.config['output_pin_no'] = self.cleaned_data['output_pin'].no
         obj = super().save(commit=commit)
-        if commit:
+        if commit and 'slaves' in self.cleaned_data:
             obj.slaves.set(self.cleaned_data['slaves'])
         return obj
 
@@ -718,7 +718,9 @@ class ColonelRGBLightConfigForm(ColonelComponentForm):
     )
 
     def save(self, commit=True):
-        self.instance.config['output_pin_no'] = self.cleaned_data['output_pin'].no
+        if 'output_pin' in self.cleaned_data:
+            self.instance.config['output_pin_no'] = \
+                self.cleaned_data['output_pin'].no
         return super().save(commit)
 
     def clean_custom_timing(self):
@@ -742,31 +744,25 @@ class ColonelRGBLightConfigForm(ColonelComponentForm):
 
     def clean(self):
         super().clean()
-        if not self.cleaned_data.get('colonel'):
-            return self.cleaned_data
-        if not self.cleaned_data.get('output_pin'):
-            return self.cleaned_data
-
-        if self.cleaned_data.get('color_order'):
-            if self.cleaned_data['has_white']:
-                if len(self.cleaned_data['color_order']) != 4:
-                    self.add_error(
-                        "color_order",
-                        _("4 colors expected for stripes with dedicated White led.")
-                    )
-            else:
-                if len(self.cleaned_data['color_order']) != 3:
-                    self.add_error(
-                        "color_order",
-                        _("3 colors expected for stripes without dedicated White led.")
-                    )
 
         self._clean_pin('output_pin')
+        if self.cleaned_data.get('controls'):
+            self._clean_controls()
 
-        if not self.cleaned_data.get('controls'):
-            return self.cleaned_data
-
-        self._clean_controls()
+        if 'color_order' in self.cleaned_data:
+            if self.cleaned_data.get('color_order'):
+                if self.cleaned_data['has_white']:
+                    if len(self.cleaned_data['color_order']) != 4:
+                        self.add_error(
+                            "color_order",
+                            _("4 colors expected for stripes with dedicated White led.")
+                        )
+                else:
+                    if len(self.cleaned_data['color_order']) != 3:
+                        self.add_error(
+                            "color_order",
+                            _("3 colors expected for stripes without dedicated White led.")
+                        )
 
         return self.cleaned_data
 
@@ -813,21 +809,19 @@ class DualMotorValveForm(ColonelComponentForm):
 
     def clean(self):
         super().clean()
-        if not self.cleaned_data.get('colonel'):
-            return self.cleaned_data
-        if not self.cleaned_data.get('open_pin'):
-            return self.cleaned_data
-        if not self.cleaned_data.get('close_pin'):
-            return self.cleaned_data
-
-        self._clean_pin('open_pin')
-        self._clean_pin('close_pin')
-
+        if self.cleaned_data.get('open_pin'):
+            self._clean_pin('open_pin')
+        if self.cleaned_data.get('close_pin'):
+            self._clean_pin('close_pin')
         return self.cleaned_data
 
     def save(self, commit=True):
-        self.instance.config['open_pin_no'] = self.cleaned_data['open_pin'].no
-        self.instance.config['close_pin_no'] = self.cleaned_data['close_pin'].no
+        if 'open_pin' in self.cleaned_data:
+            self.instance.config['open_pin_no'] = \
+                self.cleaned_data['open_pin'].no
+        if 'close_pin' in self.cleaned_data:
+            self.instance.config['close_pin_no'] = \
+                self.cleaned_data['close_pin'].no
         return super().save(commit=commit)
 
 
@@ -905,40 +899,37 @@ class BlindsConfigForm(ColonelComponentForm):
 
     def clean(self):
         super().clean()
-        if not self.cleaned_data.get('colonel'):
-            return self.cleaned_data
-        if not self.cleaned_data.get('open_pin'):
-            return self.cleaned_data
-        if not self.cleaned_data.get('close_pin'):
-            return self.cleaned_data
 
-        self._clean_pin('open_pin')
-        self._clean_pin('close_pin')
+        if self.cleaned_data.get('open_pin'):
+            self._clean_pin('open_pin')
+        if self.cleaned_data.get('close_pin'):
+            self._clean_pin('close_pin')
 
-        if 'controls' not in self.cleaned_data:
-            return self.cleaned_data
+        if 'controls' in self.cleaned_data:
+            if len(self.cleaned_data['controls']) not in (0, 2):
+                self.add_error('controls', "Must have 0 or 2 controls")
+                return self.cleaned_data
 
-        if len(self.cleaned_data['controls']) not in (0, 2):
-            self.add_error('controls', "Must have 0 or 2 controls")
-            return self.cleaned_data
+            if len(self.cleaned_data['controls']) == 2:
+                method = None
+                for c in self.cleaned_data['controls']:
+                    if not method:
+                        method = c['method']
+                    else:
+                        if c['method'] != method:
+                            self.add_error('controls', "Both must use the same control method.")
+                            return self.cleaned_data
 
-        if len(self.cleaned_data['controls']) == 2:
-            method = None
-            for c in self.cleaned_data['controls']:
-                if not method:
-                    method = c['method']
-                else:
-                    if c['method'] != method:
-                        self.add_error('controls', "Both must use the same control method.")
-                        return self.cleaned_data
-
-        self._clean_controls()
-
+            self._clean_controls()
         return self.cleaned_data
 
     def save(self, commit=True):
-        self.instance.config['open_pin_no'] = self.cleaned_data['open_pin'].no
-        self.instance.config['close_pin_no'] = self.cleaned_data['close_pin'].no
+        if 'open_pin' in self.cleaned_data:
+            self.instance.config['open_pin_no'] = \
+                self.cleaned_data['open_pin'].no
+        if 'close_pin' in self.cleaned_data:
+            self.instance.config['close_pin_no'] = \
+                self.cleaned_data['close_pin'].no
         return super().save(commit=commit)
 
 
@@ -954,9 +945,6 @@ class BurglarSmokeDetectorConfigForm(ColonelComponentForm):
             ]
         )
     )
-    power_action = forms.ChoiceField(
-        choices=(('HIGH', "HIGH"), ('LOW', "LOW")),
-    )
     sensor_pin = ColonelPinChoiceField(
         queryset=ColonelPin.objects.filter(input=True),
         widget=autocomplete.ListSelect2(
@@ -968,67 +956,28 @@ class BurglarSmokeDetectorConfigForm(ColonelComponentForm):
             ]
         )
     )
-    sensor_pull = forms.ChoiceField(
-        choices=(
-            ('HIGH', "HIGH"), ('LOW', "LOW"), ("FLOATING", "leave floating"),
-        ),
-        help_text="If you are not sure what is this all about, "
-                  "you are most definitely want to pull this HIGH or LOW "
-                  "but not leave it floating!"
-    )
     sensor_inverse = forms.TypedChoiceField(
-        choices=((1, "Yes"), (0, "No")), coerce=int,
-        help_text="Hint: Set pull HIGH and inverse to Yes, to get ON signal when "
+        choices=((0, "No"), (1, "Yes")), coerce=int, initial=0,
+        help_text="Hint: Set to Yes, to get ON signal when "
                   "you deliver GND to the pin and OFF when you cut it out."
     )
 
-
     def clean(self):
         super().clean()
-        if not self.cleaned_data.get('colonel'):
-            return self.cleaned_data
-        if 'sensor_pin' not in self.cleaned_data:
-            return self.cleaned_data
-        if 'power_pin' not in self.cleaned_data:
-            return self.cleaned_data
-
-        self._clean_pin('sensor_pin')
-        self._clean_pin('power_pin')
-
-
-        if self.cleaned_data['sensor_pin'].no > 100:
-            if self.cleaned_data['sensor_pin'].no < 126:
-                if self.cleaned_data.get('sensor_pull') == 'HIGH':
-                    self.add_error(
-                        'sensor_pull',
-                        "Sorry, but this pin is already pulled LOW and "
-                        "it can not be changed by this setting. "
-                        "Please use 5kohm resistor to physically pull it HIGH "
-                        "if that's what you want to do."
-                    )
-            else:
-                if self.cleaned_data.get('sensor_pull') == 'LOW':
-                    self.add_error(
-                        'sensor_pull',
-                        "Sorry, but this pin is already pulled HIGH and "
-                        "it can not be changed by this setting. "
-                        "Please use 5kohm resistor to physically pull it LOW "
-                        "if that's what you want to do."
-                    )
-        elif self.cleaned_data.get('sensor_pull') != 'FLOATING':
-            if not self.cleaned_data['sensor_pin'].output:
-                self.add_error(
-                    'sensor_pin',
-                    f"Sorry, but {self.cleaned_data['sensor_pin']} "
-                    f"does not have internal pull HIGH/LOW"
-                    " resistance capability"
-                )
+        if 'sensor_pin' in self.cleaned_data:
+            self._clean_pin('sensor_pin')
+        if 'power_pin' in self.cleaned_data:
+            self._clean_pin('power_pin')
 
         return self.cleaned_data
 
     def save(self, commit=True):
-        self.instance.config['sensor_pin_no'] = self.cleaned_data['sensor_pin'].no
-        self.instance.config['power_pin_no'] = self.cleaned_data['power_pin'].no
+        if 'sensor_pin' in self.cleaned_data:
+            self.instance.config['sensor_pin_no'] = \
+                self.cleaned_data['sensor_pin'].no
+        if 'power_pin' in self.cleaned_data:
+            self.instance.config['power_pin_no'] = \
+                self.cleaned_data['power_pin'].no
         return super().save(commit=commit)
 
 
@@ -1061,16 +1010,12 @@ class TTLockConfigForm(ColonelComponentForm):
 
     def save(self, commit=True):
         obj = super(ColonelComponentForm, self).save(commit)
-        if commit:
-            self.cleaned_data['colonel'].components.add(obj)
-            self.cleaned_data['colonel'].save()
-            if self.cleaned_data['door_sensor']:
-                GatewayObjectCommand(
-                    self.instance.gateway, self.cleaned_data['door_sensor'],
-                    command='watch_lock_sensor'
-                ).publish()
+        if commit and 'door_sensor' in self.cleaned_data:
+            GatewayObjectCommand(
+                self.instance.gateway, self.cleaned_data['door_sensor'],
+                command='watch_lock_sensor'
+            ).publish()
         return obj
-
 
 
 class DALIDeviceConfigForm(ColonelComponentForm):
@@ -1089,7 +1034,9 @@ class DALIDeviceConfigForm(ColonelComponentForm):
     )
 
     def save(self, commit=True):
-        self.instance.config['dali_interface'] = self.cleaned_data['interface'].no
+        if 'interface' in self.cleaned_data:
+            self.instance.config['dali_interface'] = \
+                self.cleaned_data['interface'].no
         return super().save(commit=commit)
 
 
