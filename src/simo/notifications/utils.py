@@ -6,9 +6,7 @@ def notify_users(instance, severity, title, body=None, component=None, users=Non
     assert severity in ('info', 'warning', 'alarm')
     notification = Notification.objects.create(
         instance=instance,
-        title='<strong>%s:</strong> %s' % (
-            instance.name, title
-        ),
+        title=f'{instance.name}: {title}',
         severity=severity, body=body,
         component=component
     )
