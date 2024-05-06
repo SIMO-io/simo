@@ -35,6 +35,10 @@ class PermissionsRole(models.Model):
         help_text="Global role if instance is not set."
     )
     name = models.CharField(max_length=100, db_index=True)
+    can_manage_components = models.BooleanField(
+        default=False,
+        help_text="Can manage zones and basic component parameters via SIMO.io app."
+    )
     can_manage_users = models.BooleanField(default=False)
     is_superuser = models.BooleanField(
         default=False,
@@ -213,12 +217,7 @@ class User(AbstractBaseUser, SimoAdminMixin):
         return self.is_active and self.ssh_key and self.is_master
 
     def get_role(self, instance):
-        for role in self.roles.all():
-            if not role.instance:
-                return role
-        for role in self.roles.all():
-            if role.instance == instance:
-                return role
+        return self.roles.filter(instance=instance).first()
 
     def set_instance(self, instance):
         self._instance = instance

@@ -195,6 +195,9 @@ class ConfigFieldsMixin:
 
     def save(self, commit=True):
         for field_name in self.config_fields:
+            # support for partial forms
+            if field_name not in self.cleaned_data:
+                continue
             if isinstance(self.cleaned_data[field_name], models.Model):
                 self.instance.config[field_name] = \
                     self.cleaned_data[field_name].pk
@@ -282,6 +285,10 @@ class ComponentAdminForm(forms.ModelForm):
     has_icon = True
     has_alarm = True
 
+    # fields that can be edited via SIMO.io app by instance managers AKA - owners.
+    # Users who have can_manage_components enabled on their user role.
+    basic_fields = ['name', 'icon', 'zone', 'category']
+
     class Meta:
         model = Component
         fields = '__all__'
@@ -323,6 +330,27 @@ class ComponentAdminForm(forms.ModelForm):
                 self.instance.value_previous = self.controller.default_value
                 self.instance.config = self.controller.default_config
                 self.instance.meta = self.controller.default_meta
+
+        self.cleanup_missing_keys(kwargs.get("data"))
+
+    def cleanup_missing_keys(self, data):
+        """
+        Removes missing keys from fields on form submission.
+        This avoids resetting fields that are not present in
+        the submitted data, which may be the sign of a buggy
+        or incomplete template.
+        Note that this cleanup relies on the HTML form being
+        patched to send all keys, even for checkboxes, via
+        input[type="hidden"] fields or some JS magic.
+        """
+        if data is None:
+            # not a form submission, don't modify self.fields
+            return
+
+        got_keys = data.keys()
+        field_names = self.fields.keys()
+        for missing in set(field_names) - set(got_keys):
+            del self.fields[missing]
 
     @classmethod
     def get_admin_fieldsets(cls, request, obj=None):
@@ -518,7 +546,7 @@ class SwitchForm(BaseComponentForm):
 
     def save(self, commit=True):
         obj = super().save(commit=commit)
-        if commit:
+        if commit and 'slaves' in self.cleaned_data:
             obj.slaves.set(self.cleaned_data['slaves'])
         return obj
 

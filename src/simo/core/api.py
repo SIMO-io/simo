@@ -217,7 +217,10 @@ class ComponentViewSet(
     @action(detail=True, methods=['post'])
     def subcomponent(self, request, pk=None, *args, **kwargs):
         component = self.get_object()
-        json_data = restore_json(request.data.dict())
+        data = request.data
+        if not isinstance(request.data, dict):
+            data = data.dict()
+        json_data = restore_json(data)
         subcomponent_id = json_data.pop('id', -1)
         try:
             subcomponent = component.slaves.get(pk=subcomponent_id)
@@ -237,13 +240,20 @@ class ComponentViewSet(
     @action(detail=True, methods=['post'])
     def controller(self, request, pk=None, *args, **kwargs):
         component = self.get_object()
+        data = request.data
+        if not isinstance(request.data, dict):
+            data = data.dict()
+        request_data = restore_json(data)
         return self.perform_controller_method(
-            restore_json(request.data.dict()), component
+            restore_json(request_data), component
         )
 
     @action(detail=False, methods=['post'])
     def control(self, request, *args, **kwargs):
-        request_data = restore_json(request.data.dict())
+        data = request.data
+        if not isinstance(request.data, dict):
+            data = data.dict()
+        request_data = restore_json(data)
         component = self.get_queryset().filter(id=request_data.pop('id', 0)).first()
         if not component:
             raise Http404()
@@ -260,6 +270,8 @@ class ComponentViewSet(
             )
         }
         return RESTResponse(resp_data)
+
+
 
 
 class HistoryResultsSetPagination(PageNumberPagination):

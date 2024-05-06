@@ -261,6 +261,12 @@ class ComponentSerializer(FormSerializer):
         self.set_form_cls()
 
         ret = OrderedDict()
+        if not self.context['request'].user.is_master:
+            user_role = self.context['request'].user.get_role(
+                self.context['instance']
+            )
+            if not any([user_role.is_superuser, user_role.can_manage_components]):
+                return ret
 
         field_mapping = reduce_attr_dict_from_instance(
             self,
@@ -269,9 +275,10 @@ class ComponentSerializer(FormSerializer):
         )
 
         if not self.instance or isinstance(self.instance, Iterable):
-            form = self.Meta.form()
+            form = self.get_form()
         else:
-            form = self.Meta.form(instance=self.instance)
+            form = self.get_form(instance=self.instance)
+
         for field_name in form.fields:
             # if field is specified as excluded field
             if field_name in getattr(self.Meta, 'exclude', []):
@@ -355,7 +362,7 @@ class ComponentSerializer(FormSerializer):
 
     def get_form(self, data=None, **kwargs):
         self.set_form_cls()
-        if not self.instance:
+        if not self.instance or isinstance(self.instance, Iterable):
             #controller_uid = 'simo.generic.controllers.AlarmClock'
             controller_uid = self.context['request'].META.get('HTTP_CONTROLLER')
         else:
@@ -365,6 +372,14 @@ class ComponentSerializer(FormSerializer):
             controller_uid=controller_uid,
             **kwargs
         )
+        if not self.context['request'].user.is_master:
+            user_role = self.context['request'].user.get_role(
+                self.context['instance']
+            )
+            if not user_role.is_superuser and user_role.can_manage_components:
+                for field_name in list(form.fields.keys()):
+                    if field_name not in form.basic_fields:
+                        del form.fields[field_name]
         return form
 
     def accomodate_formsets(self, form, data):
@@ -395,6 +410,7 @@ class ComponentSerializer(FormSerializer):
                 )
         form = self.get_form(instance=self.instance)
         a_data = self.accomodate_formsets(form, data)
+
         form = self.get_form(
             data=a_data, instance=self.instance
         )
@@ -410,6 +426,7 @@ class ComponentSerializer(FormSerializer):
         a_data = self.accomodate_formsets(form, validated_data)
         form = self.get_form(instance=instance, data=a_data)
         if form.is_valid():
+            print("FORM FIELDS", form.fields)
             instance = form.save(commit=True)
             return instance
         raise serializers.ValidationError(form.errors)

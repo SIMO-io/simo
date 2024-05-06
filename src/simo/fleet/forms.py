@@ -528,6 +528,7 @@ class ColonelSwitchConfigForm(ColonelComponentForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.basic_fields.append('auto_off')
         if self.instance.pk:
             self.fields['slaves'].initial = self.instance.slaves.all()
 
@@ -628,6 +629,7 @@ class ColonelPWMOutputConfigForm(ColonelComponentForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.basic_fields.extend(['turn_on_time', 'turn_off_time', 'skew'])
         if self.instance.pk:
             self.fields['slaves'].initial = self.instance.slaves.all()
 

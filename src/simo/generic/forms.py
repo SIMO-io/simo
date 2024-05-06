@@ -633,7 +633,7 @@ class AlarmClockConfigForm(BaseComponentForm):
 
     def save(self, commit=True):
         obj = super().save(commit=commit)
-        if commit:
+        if commit and 'default_events' in self.cleaned_data:
             obj.slaves.clear()
             for comp in self.cleaned_data['default_events']:
                 c = Component.objects.filter(pk=comp['component']).first()
