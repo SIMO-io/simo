@@ -331,6 +331,30 @@ def restart_postgresql():
     proc.communicate()
 
 
+@celery_app.task
+def low_battery_notifications():
+    from simo.users.models import User
+    from simo.notifications.utils import notify_users
+    for instance in Instance.objects.all():
+        timezone.activate(instance.timezone)
+        if timezone.localtime().hour != 10:
+            continue
+        for comp in Component.objects.filter(
+            zone__instance=instance,
+            battery_level__isnull=False, battery_level__lt=20
+        ):
+            users = User.objects.filter(
+                roles__is_owner=True, roles__instance=comp.zone.instance
+            ).distinct()
+            if users:
+                notify_users(
+                    comp.zone.instance, 'warning',
+                    f"Low battery ({comp.battery_level}%) on {comp}",
+                    component=comp, users=users
+                )
+
+
+
 @celery_app.on_after_finalize.connect
 def setup_periodic_tasks(sender, **kwargs):
     sender.add_periodic_task(1, watch_timers.s())
@@ -339,3 +363,4 @@ def setup_periodic_tasks(sender, **kwargs):
     sender.add_periodic_task(60 * 60 * 6, update_latest_version_available.s())
     sender.add_periodic_task(60, drop_fingerprints_learn.s())
     sender.add_periodic_task(60 * 60 * 24, restart_postgresql.s())
+    sender.add_periodic_task(60 * 60, low_battery_notifications.s())
