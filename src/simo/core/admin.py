@@ -60,6 +60,7 @@ class IconAdmin(admin.ModelAdmin):
 @admin.register(Instance)
 class InstanceAdmin(admin.ModelAdmin):
     list_display = 'name', 'timezone', 'uid'
+    exclude = 'learn_fingerprints_start', 'learn_fingerprints'
 
 
     def has_module_permission(self, request):

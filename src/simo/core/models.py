@@ -80,7 +80,7 @@ class Instance(DirtyFieldsMixin, models.Model, SimoAdminMixin):
     name = models.CharField(max_length=100, db_index=True, unique=True)
     slug = models.CharField(max_length=100, db_index=True, unique=True)
     cover_image = models.ImageField(
-        upload_to='hub_covers', null=True, blank=True
+        name='cover_image', upload_to='hub_covers', null=True, blank=True
     )
     cover_image_synced = models.BooleanField(default=False)
     secret_key = models.CharField(max_length=100, blank=True)
@@ -100,7 +100,8 @@ class Instance(DirtyFieldsMixin, models.Model, SimoAdminMixin):
 
     )
     indoor_climate_sensor = models.ForeignKey(
-        'Component', null=True, blank=True, on_delete=models.SET_NULL
+        'Component', null=True, blank=True, on_delete=models.SET_NULL,
+        limit_choices_to={'base_type__in': ['numeric-sensor', 'multi-sensor']}
     )
     history_days = models.PositiveIntegerField(
         default=90, help_text="How many days of component history do we keep?"
@@ -127,6 +128,7 @@ class Instance(DirtyFieldsMixin, models.Model, SimoAdminMixin):
     @property
     def components(self):
         return Component.objects.filter(zone__instance=self)
+
 
 class Zone(DirtyFieldsMixin, models.Model, SimoAdminMixin):
     instance = models.ForeignKey(Instance, on_delete=models.CASCADE)
