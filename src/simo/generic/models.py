@@ -125,11 +125,27 @@ def bind_controlling_locks_to_alarm_groups(sender, instance, *args, **kwargs):
             base_type=AlarmGroup.base_type,
             config__arming_locks__contains=instance.id
         ):
-            if ag.config.get(
-                'arm_on_away', ''
-            ).startswith('on_away_and_locked'):
+            if ag.config.get('arm_on_away') in (None, 'on_away'):
                 continue
-            ag.arm()
+            users_at_home = InstanceUser.objects.filter(
+                instance=instance.instance, at_home=True
+            ).exclude(is_active=False).exclude(id=instance.id).count()
+            if users_at_home:
+                continue
+            if ag.config.get('arm_on_away') == 'on_away_and_locked':
+                print(f"Nobody is at home, lock was locked. Arm {ag}!")
+                ag.arm()
+                continue
+            locked_states = [
+                True if l['value'] == 'locked' else False
+                for l in Component.objects.filter(
+                    base_type='lock', id__in=ag.config.get('arming_locks', []),
+                ).values('value')
+            ]
+            if all(locked_states):
+                print(f"Nobody is at home, all locks are now locked. Arm {ag}!")
+                ag.arm()
+
     elif instance.value == 'unlocked':
         for ag in Component.objects.filter(
             base_type=AlarmGroup.base_type,
@@ -148,8 +164,8 @@ def bind_alarm_groups(sender, instance, created, *args, **kwargs):
         return
     users_at_home = InstanceUser.objects.filter(
         instance=instance.instance, at_home=True
-    ).exclude(is_active=False).exclude(id=instance.id)
-    if users_at_home.count():
+    ).exclude(is_active=False).exclude(id=instance.id).count()
+    if users_at_home:
         return
     for ag in Component.objects.filter(
         zone__instance=instance.instance,
