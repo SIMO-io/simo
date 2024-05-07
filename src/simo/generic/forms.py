@@ -29,7 +29,11 @@ ACTION_METHODS = (
 class ScriptConfigForm(BaseComponentForm):
     autostart = forms.BooleanField(
         initial=True, required=False,
-        help_text="Wake up every 60 s if not running."
+        help_text="Start automatically on system boot."
+    )
+    keep_alive = forms.BooleanField(
+        initial=True, required=False,
+        help_text="Wake up every 10s if not running."
     )
     code = forms.CharField(widget=PythonCode)
     log = forms.CharField(
@@ -38,6 +42,7 @@ class ScriptConfigForm(BaseComponentForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.basic_fields.extend(['autostart', 'keep_alive'])
         if self.instance.pk:
             prefix = get_script_prefix()
             if prefix == '/':

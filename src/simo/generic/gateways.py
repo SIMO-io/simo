@@ -215,7 +215,7 @@ class GenericGatewayHandler(BaseObjectCommandsGatewayHandler):
         from simo.generic.controllers import Script
         for script in Component.objects.filter(
             controller_uid=Script.uid,
-            config__autostart=True
+            config__keep_alive=True
         ).exclude(value='running'):
             self.start_script(script)
 
