@@ -347,7 +347,12 @@ class ComponentAdminForm(forms.ModelForm):
             # not a form submission, don't modify self.fields
             return
 
-        got_keys = data.keys()
+        got_keys = list(data.keys())
+        formset_fields = set()
+        for key in got_keys:
+            if key.endswith('-TOTAL_FORMS'):
+                formset_fields.add(key[:-12])
+        got_keys.extend(list(formset_fields))
         field_names = self.fields.keys()
         for missing in set(field_names) - set(got_keys):
             del self.fields[missing]

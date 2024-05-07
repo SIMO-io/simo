@@ -68,7 +68,7 @@ def post_icon_delete(sender, instance, *args, **kwargs):
             pass
 
 
-class Instance(DirtyFieldsMixin, models.Model, SimoAdminMixin):
+class Instance(models.Model, SimoAdminMixin):
     # Multiple home instances can be had on a single hub computer!
     # For example separate hotel apartments
     # or something of that kind.
