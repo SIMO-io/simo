@@ -344,7 +344,8 @@ def low_battery_notifications():
             battery_level__isnull=False, battery_level__lt=20
         ):
             users = User.objects.filter(
-                roles__is_owner=True, roles__instance=comp.zone.instance
+                roles__is_owner=True, roles__instance=comp.zone.instance,
+                instance_roles__is_active=True
             ).distinct()
             if users:
                 notify_users(
