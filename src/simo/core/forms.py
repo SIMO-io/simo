@@ -287,15 +287,11 @@ class ComponentAdminForm(forms.ModelForm):
 
     # fields that can be edited via SIMO.io app by instance owners.
     # Users who have is_owner enabled on their user role.
-    basic_fields = ['name', 'icon', 'zone', 'category']
+    basic_fields = ['name', 'icon', 'zone', 'category', 'show_in_app']
 
     class Meta:
         model = Component
-        fields = '__all__'
-        exclude = (
-            'gateway', 'controller_uid', 'base_type', 'instance_methods',
-            'alive', 'value_type', 'value', 'arm_status', 'slaves',
-        )
+        fields = 'name', 'icon', 'zone', 'category', 'show_in_app', 'notes'
         widgets = {
             'icon': autocomplete.ModelSelect2(
                 url='autocomplete-icon', attrs={'data-html': True}

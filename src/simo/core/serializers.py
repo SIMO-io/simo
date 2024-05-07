@@ -236,6 +236,7 @@ class ComponentSerializer(FormSerializer):
     app_widget = serializers.SerializerMethodField()
     slaves = serializers.SerializerMethodField()
     base_type = ObjectSerializerMethodField()
+    show_in_app = ObjectSerializerMethodField()
     controller_uid = ObjectSerializerMethodField()
     alive = ObjectSerializerMethodField()
     value = ObjectSerializerMethodField()
