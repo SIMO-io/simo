@@ -216,7 +216,7 @@ class GenericGatewayHandler(BaseObjectCommandsGatewayHandler):
         for script in Component.objects.filter(
             controller_uid=Script.uid,
             config__keep_alive=True
-        ).exclude(value='running'):
+        ).exclude(value__in=('running', 'stopped', 'finished')):
             self.start_script(script)
 
     def watch_watering(self):
@@ -252,12 +252,18 @@ class GenericGatewayHandler(BaseObjectCommandsGatewayHandler):
         for component in Component.objects.filter(
             controller_uid=Script.uid, value='running'
         ):
-            component.value = 'stopped'
+            component.value = 'error'
             component.save()
 
+        # Start scripts that are designed to be autostarted
+        # as well as those who are designed to be kept alive, but
+        # got terminated unexpectedly
         for script in Component.objects.filter(
-            controller_uid=Script.uid, config__autostart=True
-        ):
+            controller_uid=Script.uid,
+        ).filter(
+            Q(config__autostart=True) |
+            Q(value='error', config__keep_alive=True)
+        ).disticnt():
             self.start_script(script)
 
         for cam in Component.objects.filter(
@@ -276,7 +282,9 @@ class GenericGatewayHandler(BaseObjectCommandsGatewayHandler):
 
         script_ids = [id for id in self.running_scripts.keys()]
         for id in script_ids:
-            self.stop_script(Component.objects.get(id=id))
+            self.stop_script(
+                Component.objects.get(id=id), 'error'
+            )
 
         while len(script_ids):
             time.sleep(0.1)
@@ -310,17 +318,17 @@ class GenericGatewayHandler(BaseObjectCommandsGatewayHandler):
         if component.id in self.running_scripts:
             if self.running_scripts[component.id].is_alive():
                 self.running_scripts[component.id].kill()
-                component.value = 'stopped'
+                component.value = 'error'
                 component.save(update_fields=['value'])
         self.running_scripts[component.id] = ScriptRunHandler(
             component.id, daemon=True
         )
         self.running_scripts[component.id].start()
 
-    def stop_script(self, component):
+    def stop_script(self, component, stop_status='stopped'):
         if component.id not in self.running_scripts:
             if component.value == 'running':
-                component.value = 'stopped'
+                component.value = stop_status
                 component.save(update_fields=['value'])
             return
         if self.running_scripts[component.id].is_alive():
@@ -342,7 +350,7 @@ class GenericGatewayHandler(BaseObjectCommandsGatewayHandler):
                     )
                     self.running_scripts[component.id].kill()
 
-                component.value = 'stopped'
+                component.value = stop_status
                 component.save(update_fields=['value'])
                 self.running_scripts.pop(component.id)
                 logger.handlers = []

@@ -33,7 +33,7 @@ class ScriptConfigForm(BaseComponentForm):
     )
     keep_alive = forms.BooleanField(
         initial=True, required=False,
-        help_text="Wake up every 10s if not running."
+        help_text="Restart the script if it fails. "
     )
     code = forms.CharField(widget=PythonCode)
     log = forms.CharField(
