@@ -263,7 +263,7 @@ class GenericGatewayHandler(BaseObjectCommandsGatewayHandler):
         ).filter(
             Q(config__autostart=True) |
             Q(value='error', config__keep_alive=True)
-        ).disticnt():
+        ).distinct():
             self.start_script(script)
 
         for cam in Component.objects.filter(
@@ -332,8 +332,13 @@ class GenericGatewayHandler(BaseObjectCommandsGatewayHandler):
                 component.save(update_fields=['value'])
             return
         if self.running_scripts[component.id].is_alive():
+            tz = pytz.timezone(component.zone.instance.timezone)
+            timezone.activate(tz)
             logger = get_component_logger(component)
-            logger.log(logging.INFO, "-------STOP-------")
+            if stop_status == 'error':
+                logger.log(logging.INFO, "-------GATEWAY STOP-------")
+            else:
+                logger.log(logging.INFO, "-------STOP-------")
             self.running_scripts[component.id].terminate()
 
             def kill():
@@ -345,9 +350,10 @@ class GenericGatewayHandler(BaseObjectCommandsGatewayHandler):
                         break
                     time.sleep(0.1)
                 if not terminated:
-                    logger.log(
-                        logging.INFO, "-------KILL!-------"
-                    )
+                    if stop_status == 'error':
+                        logger.log(logging.INFO, "-------GATEWAY KILL-------")
+                    else:
+                        logger.log(logging.INFO, "-------KILL!-------")
                     self.running_scripts[component.id].kill()
 
                 component.value = stop_status
