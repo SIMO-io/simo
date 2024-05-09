@@ -551,6 +551,7 @@ class DALIDevice(FleeDeviceMixin, ControllerBase):
         started_with = deserialize_form_data(started_with)
         started_with['name'] += f" {data['result']['config']['da']}"
         started_with['controller_uid'] = controller_uid
+        started_with['base_type'] = controller_cls.base_type
         form = controller_cls.config_form(
             controller_uid=controller_cls.uid, data=started_with
         )

@@ -485,7 +485,7 @@ def is_in_alarm(self):
         else:
             self.arm_status = 'disarmed'
 
-        dirty_fields = self.get_dirty_fields()
+        dirty_fields = self.get_dirty_fields(check_relationship=True)
 
         if self.pk:
             actor = get_current_user()
