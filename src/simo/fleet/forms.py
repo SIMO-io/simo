@@ -745,7 +745,9 @@ class ColonelRGBLightConfigForm(ColonelComponentForm):
     def clean(self):
         super().clean()
 
-        self._clean_pin('output_pin')
+        if 'output_pin' in self.cleaned_data:
+            self._clean_pin('output_pin')
+
         if self.cleaned_data.get('controls'):
             self._clean_controls()
 

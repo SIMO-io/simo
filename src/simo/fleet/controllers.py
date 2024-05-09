@@ -513,6 +513,8 @@ class DALIDevice(FleeDeviceMixin, ControllerBase):
         if data['discovery-result'] == 'fail':
             if data['result'] == 1:
                 return {'error': 'DALI interface is unavailable!'}
+            elif data['result'] == 2:
+                return {'error': 'No new DALI devices were found!'}
             else:
                 return {'error': 'Unknown error!'}
 
