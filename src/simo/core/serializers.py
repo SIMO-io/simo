@@ -232,6 +232,7 @@ class ComponentManyToManyRelatedField(serializers.Field):
 class ComponentSerializer(FormSerializer):
     id = ObjectSerializerMethodField()
     last_change = TimestampField(read_only=True)
+    last_modified = TimestampField(read_only=True)
     read_only = serializers.SerializerMethodField()
     app_widget = serializers.SerializerMethodField()
     slaves = serializers.SerializerMethodField()

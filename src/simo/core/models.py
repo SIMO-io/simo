@@ -359,7 +359,12 @@ class Component(DirtyFieldsMixin, models.Model, SimoAdminMixin, OnChangeMixin):
         on_delete=models.SET_NULL
     )
     last_change = models.DateTimeField(
-        null=True, editable=False, auto_now_add=True
+        null=True, editable=False, auto_now_add=True,
+        help_text="Last time component state was changed."
+    )
+    last_modified = models.DateTimeField(
+        auto_now_add=True, db_index=True, editable=False,
+        help_text="Last time component was modified."
     )
 
     last_update = models.DateTimeField(auto_now=True)
@@ -502,6 +507,13 @@ def is_in_alarm(self):
             if action_performed:
                 actor.last_action = timezone.now()
                 actor.save()
+
+            modifying_fields = (
+                'name', 'icon', 'zone', 'category', 'config', 'meta',
+                'value_units', 'slaves', 'show_in_app', 'alarm_category'
+            )
+            if any(f in dirty_fields for f in modifying_fields):
+                self.last_modified = timezone.now()
 
         obj = super().save(*args, **kwargs)
 

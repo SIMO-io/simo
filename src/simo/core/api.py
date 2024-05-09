@@ -552,12 +552,15 @@ class StatesViewSet(InstanceMixin, viewsets.GenericViewSet):
         component_values = get_components_queryset(
             self.instance, request.user
         ).filter(zone__instance=self.instance).values(
-            'id', 'value', 'last_change', 'arm_status', 'battery_level',
-            'alive', 'meta'
+            'id', 'value', 'last_change', 'last_modified',
+            'arm_status', 'battery_level', 'alive', 'meta'
         )
         for vals in component_values:
             vals['last_change'] = datetime.datetime.timestamp(
                 vals['last_change']
+            )
+            vals['last_modified'] = datetime.datetime.timestamp(
+                vals['last_modified']
             )
 
         return RESTResponse({
