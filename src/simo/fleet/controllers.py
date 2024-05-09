@@ -533,17 +533,24 @@ class DALIDevice(FleeDeviceMixin, ControllerBase):
                 return {'error': 'Unknown error!'}
 
         from simo.core.models import Component
-        if Component.objects.filter(
-            type=data['result']['type'],
+        from simo.core.utils.type_constants import CONTROLLER_TYPES_MAP
+        controller_uid = 'simo.fleet.controllers.' + data['result']['type']
+        if controller_uid not in CONTROLLER_TYPES_MAP:
+            return {'error': f"Unknown controller type: {controller_uid}"}
+
+        comp = Component.objects.filter(
+            controller_uid=controller_uid,
             meta__finalization_data__temp_id=data['result']['id']
-        ).first():
-            print("Already created")
+        ).first()
+        if comp:
+            print(f"{comp} is already created.")
             return
 
-        controller_cls = globals().get(data['result']['type'])
+        controller_cls = CONTROLLER_TYPES_MAP[controller_uid]
 
         started_with = deserialize_form_data(started_with)
         started_with['name'] += f" {data['result']['config']['da']}"
+        started_with['controller_uid'] = controller_uid
         form = controller_cls.config_form(
             controller_uid=controller_cls.uid, data=started_with
         )
@@ -552,19 +559,18 @@ class DALIDevice(FleeDeviceMixin, ControllerBase):
             new_component = form.save()
             new_component.config.update(data.get('result', {}).get('config'))
             new_component.meta['finalization_data'] = {
-                'temp_id': data['result']['id'],
-                'permanent_id': new_component.id,
-                'config': {
-                    'type': cls.uid.split('.')[-1],
-                    'config': new_component.config,
-                },
+                'temp_id': data['result']['id']
             }
             new_component.save()
             GatewayObjectCommand(
                 new_component.gateway, Colonel(
                     id=new_component.config['colonel']
                 ), command='finalize',
-                data=new_component.meta['finalization_data'],
+                data={
+                    'temp_id': data['result']['id'],
+                    'permanent_id': new_component.id,
+                    'config': new_component.config
+                }
             ).publish()
             return [new_component]
 
