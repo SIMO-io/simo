@@ -532,6 +532,14 @@ class DALIDevice(FleeDeviceMixin, ControllerBase):
             else:
                 return {'error': 'Unknown error!'}
 
+        from simo.core.models import Component
+        if Component.objects.filter(
+            type=data['result']['type'],
+            meta__finalization_data__temp_id=data['result']['id']
+        ).first():
+            print("Already created")
+            return
+
         controller_cls = globals().get(data['result']['type'])
 
         started_with = deserialize_form_data(started_with)
