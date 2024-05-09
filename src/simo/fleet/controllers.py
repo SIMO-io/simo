@@ -492,7 +492,7 @@ class DALIDevice(FleeDeviceMixin, ControllerBase):
     app_widget = SingleSwitchWidget
 
     def _validate_val(self, value, occasion=None):
-        pass
+        return value
 
     @classmethod
     def init_discovery(self, form_cleaned_data):
@@ -563,14 +563,14 @@ class DALIDevice(FleeDeviceMixin, ControllerBase):
         return {'error': 'INVALID INITIAL DISCOVERY FORM!'}
 
 
-class DALILamp(DALIDevice, BaseSwitch):
+class DALILamp(BaseSwitch, DALIDevice):
     family = 'dali'
     manual_add = False
     name = 'DALI Lamp'
     config_form = DaliSwitchForm
 
 
-class DALIDimmableLamp(DALIDevice, BaseDimmer):
+class DALIDimmableLamp(BaseDimmer, DALIDevice):
     family = 'dali'
     manual_add = False
     name = 'DALI Dimmable Lamp'
