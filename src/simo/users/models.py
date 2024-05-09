@@ -481,11 +481,12 @@ def rebuild_mqtt_acls_on_create(sender, instance, created, **kwargs):
 def create_component_permissions_comp(sender, instance, created, **kwargs):
     if created:
         for role in PermissionsRole.objects.filter(
-            Q(instance__isnull=True) | Q(instance=instance.zone.instance)
+            instance=instance.zone.instance
         ):
             ComponentPermission.objects.get_or_create(
                 component=instance, role=role, defaults={
-                    'read': role.is_superuser, 'write': role.is_superuser
+                    'read': role.is_superuser or role.is_owner,
+                    'write': role.is_superuser or role.is_owner
                 }
             )
         rebuild_mqtt_acls.delay()
