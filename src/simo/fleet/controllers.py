@@ -182,14 +182,6 @@ class BasicOutputMixin:
             pins.append(control_unit['pin_no'])
         return pins
 
-    def _send_to_device(self, value):
-        GatewayObjectCommand(
-            self.component.gateway,
-            Colonel(id=self.component.config['colonel']),
-            set_val=value,
-            component_id=self.component.id,
-        ).publish()
-
 
 class Switch(FleeDeviceMixin, BasicOutputMixin, BaseSwitch):
     config_form = ColonelSwitchConfigForm
@@ -305,14 +297,6 @@ class TTLock(FleeDeviceMixin, Lock):
     config_form = TTLockConfigForm
     name = 'TTLock'
     discovery_msg = _("Please activate your TTLock so it can be discovered.")
-
-    def _send_to_device(self, value):
-        GatewayObjectCommand(
-            self.component.gateway,
-            Colonel(id=self.component.config['colonel']),
-            set_val=value,
-            component_id=self.component.id,
-        ).publish()
 
     @classmethod
     def init_discovery(self, form_cleaned_data):
@@ -579,28 +563,17 @@ class DALIDevice(FleeDeviceMixin, ControllerBase):
         return {'error': 'INVALID INITIAL DISCOVERY FORM!'}
 
 
-class DALIGear(DALIDevice):
-    manual_add = False
-
-    def _send_to_device(self, value):
-        GatewayObjectCommand(
-            self.component.gateway,
-            Colonel(id=self.component.config['colonel']),
-            set_val=value,
-            component_id=self.component.id,
-        ).publish()
-
-
-class DALILamp(DALIGear, BaseSwitch):
+class DALILamp(DALIDevice, BaseSwitch):
     family = 'dali'
     manual_add = False
     name = 'DALI Lamp'
     config_form = DaliSwitchForm
 
 
-class DALIDimmableLamp(DALIGear, BaseDimmer):
+class DALIDimmableLamp(DALIDevice, BaseDimmer):
     family = 'dali'
     manual_add = False
     name = 'DALI Dimmable Lamp'
+
 
 
