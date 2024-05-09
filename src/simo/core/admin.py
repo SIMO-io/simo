@@ -261,8 +261,8 @@ class ComponentAdmin(admin.ModelAdmin):
         'alarm_category', 'show_in_app',
     )
     readonly_fields = (
-        'id', 'controller_uid', 'base_type', 'gateway', 'config', 'alive',
-        'battery_level',
+        'id', 'controller_uid', 'base_type', 'gateway', 'config',
+        'alive', 'error_msg', 'battery_level',
         'control', 'value', 'arm_status', 'history', 'meta'
     )
     list_filter = (

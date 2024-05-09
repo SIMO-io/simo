@@ -232,7 +232,9 @@ class ControllerBase(ABC):
         self.component.change_init_fingerprint = None
         self.component.save()
 
-    def _receive_from_device(self, value, is_alive=True, battery_level=None):
+    def _receive_from_device(
+        self, value, is_alive=True, battery_level=None, error_msg=None
+    ):
         value = self._prepare_for_set(value)
         actor = self._get_actor(value)
 
@@ -245,9 +247,11 @@ class ControllerBase(ABC):
         # in relation to the change of this component
         introduce(actor)
         self.component.alive = is_alive
+        if error_msg != None:
+            self.component.error_msg = error_msg if error_msg.strip() else None
         if battery_level:
             self.component.battery_level = battery_level
-        self.component.save(update_fields=['alive', 'battery_level'])
+        self.component.save(update_fields=['alive', 'battery_level', 'error_msg'])
         self.set(value, actor)
 
         if init_by_device and self.component.slaves.count():
@@ -772,7 +776,9 @@ class Lock(Switch):
     def unlock(self):
         self.turn_off()
 
-    def _receive_from_device(self, value, is_alive=True, battery_level=None):
+    def _receive_from_device(
+        self, value, *args, **kwargs
+    ):
         if type(value) == bool:
             if value:
                 value = 'locked'
@@ -788,7 +794,7 @@ class Lock(Switch):
             }
             value = values_map.get(value, 'fault')
         return super()._receive_from_device(
-            value, is_alive=is_alive, battery_level=battery_level
+            value, *args, **kwargs
         )
 
     def _validate_val(self, value, occasion=None):

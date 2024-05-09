@@ -369,6 +369,7 @@ class Component(DirtyFieldsMixin, models.Model, SimoAdminMixin, OnChangeMixin):
 
     last_update = models.DateTimeField(auto_now=True)
     alive = models.BooleanField(default=True)
+    error_msg = models.TextField(null=True, blank=True, editable=False)
     battery_level = models.PositiveIntegerField(null=True, editable=False)
 
     show_in_app = models.BooleanField(default=True, db_index=True)

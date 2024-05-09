@@ -393,7 +393,7 @@ class ComponentAdminForm(forms.ModelForm):
         fieldsets.extend([
             (_("Meta"), {
                 'fields': (
-                    'alive', 'battery_level',
+                    'alive', 'error_msg', 'battery_level',
                     'config', 'meta',
                     'value', 'value_units',
                     'history'

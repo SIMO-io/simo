@@ -378,7 +378,7 @@ class FleetConsumer(AsyncWebsocketConsumer):
                                     component.change_init_fingerprint = fingerprint
                                 component.controller._receive_from_device(
                                     data['val'], bool(data.get('alive')),
-                                    data.get('battery_level')
+                                    data.get('battery_level'), data.get('error_msg')
                                 )
                             await sync_to_async(
                                 receive_val, thread_sensitive=True
