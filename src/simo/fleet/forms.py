@@ -647,9 +647,9 @@ class ColonelPWMOutputConfigForm(ColonelComponentForm):
 
     def clean(self):
         super().clean()
-        if self.cleaned_data.get('output_pin'):
+        if 'output_pin' in self.cleaned_data:
             self._clean_pin('output_pin')
-        if self.cleaned_data.get('controls'):
+        if 'controls' in self.cleaned_data:
             self._clean_controls()
         return self.cleaned_data
 

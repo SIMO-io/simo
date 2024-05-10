@@ -684,7 +684,6 @@ class DimmerConfigForm(BaseComponentForm):
         return validate_slaves(self.cleaned_data['slaves'], self.instance)
 
     def save(self, commit=True):
-        self.instance.config['output_pin_no'] = self.cleaned_data['output_pin'].no
         obj = super().save(commit=commit)
         if commit:
             obj.slaves.set(self.cleaned_data['slaves'])
