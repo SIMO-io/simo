@@ -404,28 +404,16 @@ class FleetConsumer(AsyncWebsocketConsumer):
 
                 elif 'discovery-result' in data:
                     def process_discovery_result():
-                        # check if component is already created
-                        if data['discovery-result'] == 'success':
-                            comp = Component.objects.filter(
-                                meta__finalization_data__temp_id=data['result']['id']
-                            ).first()
-                            if comp:
-                                return comp
-
                         self.gateway.refresh_from_db()
                         try:
                             self.gateway.process_discovery(data)
                         except Exception as e:
                             print(traceback.format_exc(), file=sys.stderr)
 
-                    finished_comp = await sync_to_async(
+                    await sync_to_async(
                         process_discovery_result, thread_sensitive=True
                     )()
-                    if finished_comp:
-                        await self.send_data({
-                            'command': 'finalize',
-                            'data': finished_comp.meta['finalization_data']
-                        })
+
 
             elif bytes_data:
                 if not self.colonel_logger:

@@ -298,14 +298,19 @@ class Gateway(DirtyFieldsMixin, models.Model, SimoAdminMixin):
             if not isinstance(result, dict) and isinstance(result, Iterable):
                 for res in result:
                     if isinstance(res, models.Model):
-                        self.discovery['result'].append(res.pk)
+                        if res.pk not in self.discovery['result']:
+                            self.discovery['result'].append(res.pk)
                     else:
-                        self.discovery['result'].append(res)
+                        if res not in self.discovery['result']:
+                            self.discovery['result'].append(res)
             else:
                 if isinstance(result, models.Model):
-                    self.discovery['result'].append(result.pk)
+                    if result.pk not in self.discovery['result']:
+                        self.discovery['result'].append(result.pk)
                 else:
-                    self.discovery['result'].append(result)
+                    if result not in self.discovery['result']:
+                        self.discovery['result'].append(result)
+
 
         self.save(update_fields=['discovery'])
 

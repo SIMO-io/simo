@@ -532,7 +532,13 @@ class DALIDevice(FleeDeviceMixin, ControllerBase):
         ).first()
         if comp:
             print(f"{comp} is already created.")
-            return
+            GatewayObjectCommand(
+                comp.gateway, Colonel(
+                    id=comp.config['colonel']
+                ), command='finalize',
+                data=comp.meta['finalization_data']
+            ).publish()
+            return [comp]
 
         controller_cls = CONTROLLER_TYPES_MAP[controller_uid]
 
@@ -547,23 +553,22 @@ class DALIDevice(FleeDeviceMixin, ControllerBase):
         if form.is_valid():
             new_component = form.save()
             new_component.config.update(data.get('result', {}).get('config'))
+            # saving it to meta, for repeated delivery to colonel
             new_component.meta['finalization_data'] = {
-                'temp_id': data['result']['id']
+                'temp_id': data['result']['id'],
+                'permanent_id': new_component.id,
+                'comp_config': {
+                    'type': new_component.controller.uid.split('.')[-1],
+                    'family': new_component.controller.family,
+                    'config': new_component.config
+                }
             }
             new_component.save()
             GatewayObjectCommand(
                 new_component.gateway, Colonel(
                     id=new_component.config['colonel']
                 ), command='finalize',
-                data={
-                    'temp_id': data['result']['id'],
-                    'permanent_id': new_component.id,
-                    'comp_config': {
-                        'type': new_component.controller.uid.split('.')[-1],
-                        'family': new_component.controller.family,
-                        'config': new_component.config
-                    }
-                }
+                data=new_component.meta['finalization_data']
             ).publish()
             return [new_component]
 
@@ -582,6 +587,3 @@ class DALIRelay(BaseSwitch, DALIDevice):
     family = 'dali'
     manual_add = False
     name = 'DALI Relay'
-
-
-
