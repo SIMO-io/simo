@@ -556,7 +556,11 @@ class DALIDevice(FleeDeviceMixin, ControllerBase):
                 data={
                     'temp_id': data['result']['id'],
                     'permanent_id': new_component.id,
-                    'config': new_component.config
+                    'comp_config': {
+                        'type': new_component.controller.uid.split('.')[-1],
+                        'family': new_component.controller.family,
+                        'config': new_component.config
+                    }
                 }
             ).publish()
             return [new_component]
