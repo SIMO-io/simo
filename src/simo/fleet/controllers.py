@@ -552,13 +552,14 @@ class DALIDevice(FleeDeviceMixin, ControllerBase):
 
         if form.is_valid():
             new_component = form.save()
+            new_component = Component.objects.get(id=new_component.id)
             new_component.config.update(data.get('result', {}).get('config'))
-            # saving it to meta, for repeated delivery to colonel
+            # saving it to meta, for repeated delivery
             new_component.meta['finalization_data'] = {
                 'temp_id': data['result']['id'],
                 'permanent_id': new_component.id,
                 'comp_config': {
-                    'type': new_component.controller.uid.split('.')[-1],
+                    'type': controller_uid.split('.')[-1],
                     'family': new_component.controller.family,
                     'config': new_component.config
                 }
