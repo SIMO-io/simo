@@ -24,7 +24,7 @@ from .forms import (
     ColonelDHTSensorConfigForm, DS18B20SensorConfigForm,
     BME680SensorConfigForm, MPC9808SensorConfigForm,
     DualMotorValveForm, BlindsConfigForm, BurglarSmokeDetectorConfigForm,
-    TTLockConfigForm, DALIDeviceConfigForm, DaliSwitchForm
+    TTLockConfigForm, DALIDeviceConfigForm, DaliLampForm
 )
 
 
@@ -515,6 +515,8 @@ class DALIDevice(FleeDeviceMixin, ControllerBase):
                 return {'error': 'DALI interface is unavailable!'}
             elif data['result'] == 2:
                 return {'error': 'No new DALI devices were found!'}
+            elif data['result'] == 2:
+                return {'error': 'DALI line is fully occupied, no more devices can be included!'}
             else:
                 return {'error': 'Unknown error!'}
 
@@ -569,17 +571,17 @@ class DALIDevice(FleeDeviceMixin, ControllerBase):
         return {'error': 'INVALID INITIAL DISCOVERY FORM!'}
 
 
-class DALILamp(BaseSwitch, DALIDevice):
+class DALILamp(BaseDimmer, DALIDevice):
     family = 'dali'
     manual_add = False
     name = 'DALI Lamp'
-    config_form = DaliSwitchForm
+    config_form = DaliLampForm
 
 
-class DALIDimmableLamp(BaseDimmer, DALIDevice):
+class DALIRelay(BaseSwitch, DALIDevice):
     family = 'dali'
     manual_add = False
-    name = 'DALI Dimmable Lamp'
+    name = 'DALI Relay'
 
 
 
