@@ -1046,6 +1046,7 @@ class DALIDeviceConfigForm(ColonelComponentForm):
         obj = super(BaseComponentForm, self).save(commit=commit)
         if commit:
             self.cleaned_data['colonel'].components.add(obj)
+        return obj
 
 
 class DaliLampForm(DALIDeviceConfigForm, BaseComponentForm):
