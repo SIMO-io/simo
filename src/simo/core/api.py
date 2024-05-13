@@ -131,14 +131,14 @@ class ZoneViewSet(InstanceMixin, viewsets.ModelViewSet):
         if not isinstance(request.data, dict):
             data = data.dict()
         request_data = restore_json(data)
-        zones = {z.id: z for z in Zone.objects.filter(instance=self.instance)}
-        if len(request_data.get('zones')) != len(zones):
+        zones = {str(z.id): z for z in Zone.objects.filter(instance=self.instance)}
+        if len(request_data.get('zones', [])) != len(zones):
             raise APIValidationError(
                 _('All zones must be provided to perform reorder.'), code=400
             )
-        for i, id in request_data.get('zones'):
-            zones[id].order = i
-        Zone.objects.bulk_update([z for id, z in zones], fields=['order'])
+        for i, id in enumerate(request_data.get('zones')):
+            zones[str(id)].order = i
+        Zone.objects.bulk_update([z for id, z in zones.items()], fields=['order'])
         return RESTResponse({'status': 'success'})
 
 
