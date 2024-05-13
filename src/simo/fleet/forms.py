@@ -1040,7 +1040,12 @@ class DALIDeviceConfigForm(ColonelComponentForm):
         if 'interface' in self.cleaned_data:
             self.instance.config['dali_interface'] = \
                 self.cleaned_data['interface'].no
-        return super().save(commit=commit)
+
+        # prevent immediate config update on colonel as dali devices are
+        # added via pairing process, which uses finalization procedure.
+        obj = super(BaseComponentForm).save(commit=commit)
+        if commit:
+            self.cleaned_data['colonel'].components.add(obj)
 
 
 class DaliLampForm(DALIDeviceConfigForm, BaseComponentForm):
