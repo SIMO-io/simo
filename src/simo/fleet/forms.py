@@ -1043,7 +1043,7 @@ class DALIDeviceConfigForm(ColonelComponentForm):
 
         # prevent immediate config update on colonel as dali devices are
         # added via pairing process, which uses finalization procedure.
-        obj = super(BaseComponentForm).save(commit=commit)
+        obj = super(BaseComponentForm, self).save(commit=commit)
         if commit:
             self.cleaned_data['colonel'].components.add(obj)
 
