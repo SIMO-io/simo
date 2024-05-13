@@ -1036,7 +1036,7 @@ class DALIDeviceConfigForm(ColonelComponentForm):
         )
     )
 
-    def save(self, commit=True):
+    def save(self, commit=True, update_colonel_config=True):
         if 'interface' in self.cleaned_data:
             self.instance.config['dali_interface'] = \
                 self.cleaned_data['interface'].no
@@ -1046,12 +1046,23 @@ class DALIDeviceConfigForm(ColonelComponentForm):
         obj = super(BaseComponentForm, self).save(commit=commit)
         if commit:
             self.cleaned_data['colonel'].components.add(obj)
+            if update_colonel_config:
+                self.cleaned_data['colonel'].update_config()
         return obj
 
 
 class DaliLampForm(DALIDeviceConfigForm, BaseComponentForm):
-    pass
-
+    fade_time = forms.TypedChoiceField(
+        initial=4, choices=(
+            (1, "0.7 s"), (2, "1.0 s"), (3, "1.4 s"), (4, "2.0 s"), (5, "2.8 s"),
+            (6, "4.0 s"), (7, "5.7 s"), (8, "8.0 s")
+        )
+    )
+    gear_min = forms.IntegerField(
+        min_value=1, max_value=254, initial=90,
+        help_text="Minimum level at which this device starts operating up (1 - 254), "
+                  "Most LED drivers start at 90. "
+    )
     auto_off = forms.FloatField(
         required=False, min_value=0.01, max_value=1000000000,
         help_text="If provided, switch will be turned off after "

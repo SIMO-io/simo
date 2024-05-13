@@ -551,7 +551,7 @@ class DALIDevice(FleeDeviceMixin, ControllerBase):
         )
 
         if form.is_valid():
-            new_component = form.save()
+            new_component = form.save(update_colonel_config=False)
             new_component = Component.objects.get(id=new_component.id)
             new_component.config.update(data.get('result', {}).get('config'))
             # saving it to meta, for repeated delivery
