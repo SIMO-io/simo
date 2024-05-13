@@ -480,7 +480,7 @@ class ZoneSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Zone
-        fields = ['id', 'name', 'components']
+        fields = ['id', 'name', 'order', 'components']
 
     def get_components_qs(self, obj):
         qs = obj.components.all()

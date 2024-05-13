@@ -125,6 +125,22 @@ class ZoneViewSet(InstanceMixin, viewsets.ModelViewSet):
         serializer.validated_data['instance'] = self.instance
         serializer.save()
 
+    @action(detail=False, methods=['post'])
+    def reorder(self, request, pk=None, *args, **kwargs):
+        data = request.data
+        if not isinstance(request.data, dict):
+            data = data.dict()
+        request_data = restore_json(data)
+        zones = {z.id: z for z in Zone.objects.filter(instance=self.instance)}
+        if len(request_data.get('zones')) != len(zones):
+            raise APIValidationError(
+                _('All zones must be provided to perform reorder.'), code=400
+            )
+        for i, id in request_data.get('zones'):
+            zones[id].order = i
+        Zone.objects.bulk_update([z for id, z in zones], fields=['order'])
+        return RESTResponse({'status': 'success'})
+
 
 def get_components_queryset(instance, user):
     qs = Component.objects.filter(zone__instance=instance)
