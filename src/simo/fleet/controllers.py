@@ -614,7 +614,7 @@ class DALIGearGroup(FleeDeviceMixin, BaseDimmer):
         GatewayObjectCommand(
             member.gateway, colonel, id=member.id,
             command='call', method='update_config',
-            args=[member.config]
+            args=[member.controller._get_colonel_config()]
         ).publish()
 
 
