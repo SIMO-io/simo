@@ -588,7 +588,7 @@ class DALILamp(BaseDimmer, DALIDevice):
     config_form = DaliLampForm
 
 
-class DALIGearGroup(BaseDimmer):
+class DALIGearGroup(FleeDeviceMixin, BaseDimmer):
     gateway_class = FleetGatewayHandler
     family = 'dali'
     manual_add = True
