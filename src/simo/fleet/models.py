@@ -398,3 +398,15 @@ def post_interface_delete(sender, instance, *args, **kwargs):
             pin.save()
 
 
+@receiver(pre_delete, sender=Component)
+def destroy_dali_groups(sender, instance, *args, **kwargs):
+    from .controllers import DALIGearGroup
+    if instance.controller_uid != DALIGearGroup.uid:
+        return
+    for comp in Component.objects.filter(
+        id__in=instance.config.get('members', [])
+    ):
+        comp.controller._modify_member_group(
+            comp, instance.config.get('da', 0), remove=True
+        )
+
