@@ -1122,6 +1122,7 @@ class DaliGearGroupForm(DALIDeviceConfigForm, BaseComponentForm):
                     self.add_error(
                         'members', f"{member} belongs to other DALI interface."
                     )
+        self.group_addr = None
         if not self.instance.pk:
             from .controllers import DALIGearGroup
             occupied_addresses = set([
@@ -1130,7 +1131,6 @@ class DaliGearGroupForm(DALIDeviceConfigForm, BaseComponentForm):
                 config__colonel=self.cleaned_data['colonel'].id,
                 config__interface=self.cleaned_data['interface'].id,
             ).values('config')])
-            self.group_addr = None
             for addr in range(16):
                 if addr in occupied_addresses:
                     continue
@@ -1141,6 +1141,8 @@ class DaliGearGroupForm(DALIDeviceConfigForm, BaseComponentForm):
                     'interface',
                     "Already has 16 groups. No more groups are allowed on DALI line."
                 )
+        else:
+            self.group_addr = self.instance.config['da']
         return self.cleaned_data
 
     def save(self, commit=True, update_colonel_config=True):
