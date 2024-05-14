@@ -1152,11 +1152,11 @@ class DaliGearGroupForm(DALIDeviceConfigForm, BaseComponentForm):
         for removed_member in Component.objects.filter(
             id__in=set(old_members) - set(new_members)
         ):
-            obj.controller._modify_member_group(
+            self.controller._modify_member_group(
                 removed_member, self.group_addr, remove=True
             )
         for member in Component.objects.filter(id__in=new_members):
-            obj.controller._modify_member_group(member, self.group_addr)
+            self.controller._modify_member_group(member, self.group_addr)
         if is_new:
             GatewayObjectCommand(
                 obj.gateway, self.cleaned_data['colonel'],
@@ -1166,7 +1166,7 @@ class DaliGearGroupForm(DALIDeviceConfigForm, BaseComponentForm):
                     'permanent_id': obj.id,
                     'comp_config': {
                         'type': obj.controller_uid.split('.')[-1],
-                        'family': obj.controller.family,
+                        'family': self.controller.family,
                         'config': obj.config
                     }
                 }
