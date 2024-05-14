@@ -1060,7 +1060,9 @@ class DALIDeviceConfigForm(ColonelComponentForm):
             if not is_new and update_colonel_config:
                 GatewayObjectCommand(
                     obj.gateway, self.cleaned_data['colonel'], id=obj.id,
-                    command='call', method='update_config', args=[obj.config]
+                    command='call', method='update_config', args=[
+                        obj.controller._get_colonel_config()
+                    ]
                 ).publish()
         return obj
 
@@ -1077,8 +1079,13 @@ class DaliLampForm(DALIDeviceConfigForm, BaseComponentForm):
     )
     gear_min = forms.IntegerField(
         min_value=1, max_value=254, initial=90,
-        help_text="Minimum level at which this device starts operating up (1 - 254), "
-                  "Most LED drivers start at 90. "
+        help_text="Minimum level at which device starts operating up (1 - 254), "
+                  "SIMO.io DALI interface detects this value automatically when "
+                  "pairing a new device. <br>"
+                  "Most LED drivers we tested starts at 86. <br>"
+                  "If you set this value to low, you might start seeing device "
+                  "beings dying out when you hit it with lower value than it "
+                  "is capable of supplying."
     )
     auto_off = forms.FloatField(
         required=False, min_value=0.01, max_value=1000000000,
@@ -1175,8 +1182,11 @@ class DaliGearGroupForm(DALIDeviceConfigForm, BaseComponentForm):
                         }
                     }
                 ).publish()
-
-
+            else:
+                GatewayObjectCommand(
+                    obj.gateway, self.cleaned_data['colonel'], id=obj.id,
+                    command='call', method='update_config', args=[
+                        obj.controller._get_colonel_config()
+                    ]
+                ).publish()
         return obj
-
-
