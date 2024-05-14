@@ -406,7 +406,7 @@ def destroy_dali_groups(sender, instance, *args, **kwargs):
     for comp in Component.objects.filter(
         id__in=instance.config.get('members', [])
     ):
-        comp.controller._modify_member_group(
+        instance.controller._modify_member_group(
             comp, instance.config.get('da', 0), remove=True
         )
 
