@@ -1094,15 +1094,17 @@ class DaliGearGroupForm(DALIDeviceConfigForm, BaseComponentForm):
                   "given amount of seconds after last turn on event."
     )
     members = forms.ModelMultipleChoiceField(
-        required=False,
+        required=True,
         queryset=Component.objects.filter(
-            controller_uid='simo.fleet.DALILamp',
+            controller_uid='simo.fleet.controllers.DALILamp',
         ),
         widget=autocomplete.ModelSelect2Multiple(
             url='autocomplete-component', attrs={'data-html': True},
             forward=(
                 forward.Field('colonel'),
-                forward.Const(['simo.fleet.DALILamp', ], 'controller_uid'),
+                forward.Const(
+                    ['simo.fleet.controllers.DALILamp', ], 'controller_uid'
+                ),
             )
         )
     )
