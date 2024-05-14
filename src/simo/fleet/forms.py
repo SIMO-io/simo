@@ -1101,7 +1101,6 @@ class DaliGearGroupForm(DALIDeviceConfigForm, BaseComponentForm):
         widget=autocomplete.ModelSelect2Multiple(
             url='autocomplete-component', attrs={'data-html': True},
             forward=(
-                forward.Field('colonel'),
                 forward.Const(
                     ['simo.fleet.controllers.DALILamp', ], 'controller_uid'
                 ),
