@@ -587,13 +587,15 @@ class DALILamp(BaseDimmer, DALIDevice):
     manual_add = False
     name = 'DALI Lamp'
     config_form = DaliLampForm
+    default_config = {}
 
 
-class DALIGearGroup(BaseDimmer, DALIDevice):
+class DALIGearGroup(BaseDimmer):
     family = 'dali'
     manual_add = True
     name = 'DALI Gear Group'
     config_form = DaliGearGroupForm
+    default_config = {}
 
     def _modify_member_group(self, member, group, remove=False):
         groups = set(member.config.get('groups', []))
