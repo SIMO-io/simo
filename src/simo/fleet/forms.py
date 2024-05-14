@@ -1125,7 +1125,7 @@ class DaliGearGroupForm(DALIDeviceConfigForm, BaseComponentForm):
         if not self.instance.pk:
             from .controllers import DALIGearGroup
             occupied_addresses = set([
-                int(c.config.get('da', 0)) for c in Component.objects.filter(
+                int(c['config'].get('da', 0)) for c in Component.objects.filter(
                 controller_uid=DALIGearGroup.uid,
                 config__colonel=self.cleaned_data['colonel'].id,
                 config__interface=self.cleaned_data['interface'].id,
