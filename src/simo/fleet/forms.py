@@ -1050,11 +1050,7 @@ class DALIDeviceConfigForm(ColonelComponentForm):
             if not is_new:
                 GatewayObjectCommand(
                     obj.gateway, self.cleaned_data['colonel'], id=obj.id,
-                    command='call', method='update_config', args=[{
-                        'type': obj.controller_uid.split('.')[-1],
-                        'family': 'obj.controller.family',
-                        'config': obj.config
-                    }]
+                    command='call', method='update_config', args=[obj.config]
                 ).publish()
         return obj
 
