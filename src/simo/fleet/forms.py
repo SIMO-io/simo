@@ -1148,29 +1148,33 @@ class DaliGearGroupForm(DALIDeviceConfigForm, BaseComponentForm):
         self.instance.config['da'] = self.group_addr
         is_new = not self.instance.pk
         obj = super().save(commit, update_colonel_config=False)
-        new_members = obj.config.get('members', [])
-        for removed_member in Component.objects.filter(
-            id__in=set(old_members) - set(new_members)
-        ):
-            self.controller._modify_member_group(
-                removed_member, self.group_addr, remove=True
-            )
-        for member in Component.objects.filter(id__in=new_members):
-            self.controller._modify_member_group(member, self.group_addr)
-        if is_new:
-            GatewayObjectCommand(
-                obj.gateway, self.cleaned_data['colonel'],
-                command='finalize',
-                data={
-                    'temp_id': 'none',
-                    'permanent_id': obj.id,
-                    'comp_config': {
-                        'type': obj.controller_uid.split('.')[-1],
-                        'family': self.controller.family,
-                        'config': obj.config
+        if commit:
+            self.cleaned_data['colonel'].components.add(obj)
+            new_members = obj.config.get('members', [])
+            for removed_member in Component.objects.filter(
+                id__in=set(old_members) - set(new_members)
+            ):
+                self.controller._modify_member_group(
+                    removed_member, self.group_addr, remove=True
+                )
+            for member in Component.objects.filter(id__in=new_members):
+                self.controller._modify_member_group(member, self.group_addr)
+            if is_new:
+                GatewayObjectCommand(
+                    obj.gateway, self.cleaned_data['colonel'],
+                    command='finalize',
+                    data={
+                        'temp_id': 'none',
+                        'permanent_id': obj.id,
+                        'comp_config': {
+                            'type': obj.controller_uid.split('.')[-1],
+                            'family': self.controller.family,
+                            'config': obj.config
+                        }
                     }
-                }
-            ).publish()
+                ).publish()
+
+
         return obj
 
 
