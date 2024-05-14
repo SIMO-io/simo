@@ -581,11 +581,9 @@ class StatesViewSet(InstanceMixin, viewsets.GenericViewSet):
             )
 
         return RESTResponse({
-            'zones': [
-                Zone.objects.filter(instance=self.instance).values(
-                    'id', 'name'
-                )
-            ],
+            'zones': Zone.objects.filter(instance=self.instance).values(
+                'id', 'name'
+            ),
             'component_values': component_values,
             'users': UserSerializer(
                 users_qs, many=True, context={
