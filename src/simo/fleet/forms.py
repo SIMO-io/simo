@@ -1036,24 +1036,35 @@ class DALIDeviceConfigForm(ColonelComponentForm):
         )
     )
 
-    def save(self, commit=True, update_colonel_config=True):
+    def save(self, commit=True):
         if 'interface' in self.cleaned_data:
             self.instance.config['dali_interface'] = \
                 self.cleaned_data['interface'].no
 
         # prevent immediate config update on colonel as dali devices are
         # added via pairing process, which uses finalization procedure.
+        is_new = not self.instance.pk
         obj = super(BaseComponentForm, self).save(commit=commit)
         if commit:
             self.cleaned_data['colonel'].components.add(obj)
-            if update_colonel_config:
-                self.cleaned_data['colonel'].update_config()
+            if not is_new:
+                GatewayObjectCommand(
+                    obj.gateway, self.cleaned_data['colonel'], id=obj.id,
+                    command='call', method='update_config', args=[{
+                        'type': obj.controller_uid.split('.')[-1],
+                        'family': obj.controller.family,
+                        'config': obj.controller.config
+                    }]
+                ).publish()
         return obj
 
 
 class DaliLampForm(DALIDeviceConfigForm, BaseComponentForm):
+    boot_update = forms.BooleanField(
+        initial=False, help_text="Update device config on colonel boot."
+    )
     fade_time = forms.TypedChoiceField(
-        initial=4, choices=(
+        initial=3, choices=(
             (1, "0.7 s"), (2, "1.0 s"), (3, "1.4 s"), (4, "2.0 s"), (5, "2.8 s"),
             (6, "4.0 s"), (7, "5.7 s"), (8, "8.0 s")
         )

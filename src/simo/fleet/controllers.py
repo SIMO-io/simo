@@ -551,9 +551,10 @@ class DALIDevice(FleeDeviceMixin, ControllerBase):
         )
 
         if form.is_valid():
-            new_component = form.save(update_colonel_config=False)
+            new_component = form.save()
             new_component = Component.objects.get(id=new_component.id)
             new_component.config.update(data.get('result', {}).get('config'))
+
             # saving it to meta, for repeated delivery
             new_component.meta['finalization_data'] = {
                 'temp_id': data['result']['id'],
@@ -561,9 +562,13 @@ class DALIDevice(FleeDeviceMixin, ControllerBase):
                 'comp_config': {
                     'type': controller_uid.split('.')[-1],
                     'family': new_component.controller.family,
-                    'config': new_component.config
+                    'config': new_component.controller.config
                 }
             }
+            # Perform default config update on initial component setup
+            new_component.meta[
+                'finalization_data'
+            ]['comp_config']['config']['boot_update'] = True
             new_component.save()
             GatewayObjectCommand(
                 new_component.gateway, Colonel(
