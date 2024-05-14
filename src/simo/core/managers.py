@@ -71,11 +71,7 @@ class ComponentsManager(models.Manager):
                 gateway_components[comp.gateway] = {}
             gateway_components[comp.gateway][comp.id] = value
 
-        print("BULK SEND: ", gateway_components)
         for gateway, send_vals in gateway_components.items():
             GatewayObjectCommand(gateway, bulk_send=send_vals).publish(
                 retain=False
             )
-
-
-

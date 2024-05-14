@@ -277,72 +277,6 @@ def post_component_delete(sender, instance, *args, **kwargs):
     transaction.on_commit(update_colonel)
 
 
-i2c_interface_no_choices = (
-    (0, "0 - Main"), (1, "1 - Secondary"),
-    (2, "2 - Software"), (3, "3 - Software")
-)
-
-
-class I2CInterface(models.Model):
-    colonel = models.ForeignKey(
-        Colonel, on_delete=models.CASCADE, related_name='i2c_interfaces'
-    )
-    name = models.CharField(max_length=50)
-    no = models.IntegerField(
-        default=0, choices=i2c_interface_no_choices
-    )
-    scl_pin = models.ForeignKey(
-        ColonelPin, on_delete=models.CASCADE, limit_choices_to={
-            'native': True, 'output': True,
-        },
-        null=True, related_name='i2c_scl'
-    )
-    sda_pin = models.ForeignKey(
-        ColonelPin, on_delete=models.CASCADE, limit_choices_to={
-            'native': True, 'output': True,
-        },
-        null=True, related_name='i2c_sda'
-    )
-    freq = models.IntegerField(
-        default=100000, help_text="100000 - is a good middle point!"
-    )
-
-    objects = InterfacesManager()
-
-    class Meta:
-        unique_together = 'colonel', 'no'
-
-    def __str__(self):
-        return self.name
-
-
-@receiver(post_delete, sender=I2CInterface)
-def post_i2c_interface_delete(sender, instance, *args, **kwargs):
-    with transaction.atomic():
-        ct = ContentType.objects.get_for_model(instance)
-        for pin in ColonelPin.objects.filter(
-            occupied_by_content_type=ct,
-            occupied_by_id=instance.id
-        ):
-            pin.occupied_by_content_type = None
-            pin.occupied_by_content_id = None
-            pin.save()
-
-        # In an event of colonel deletion these pin no longer exist
-        # at this point, therefore this trhows irrelevant exceptions
-        # that we want to fail silenty
-        try:
-            instance.scl_pin.occupied_by = instance
-            instance.scl_pin.save()
-        except ColonelPin.DoesNotExist:
-            pass
-        try:
-            instance.sda_pin.occupied_by = instance
-            instance.sda_pin.save()
-        except ColonelPin.DoesNotExist:
-            pass
-
-
 class Interface(models.Model):
     colonel = models.ForeignKey(
         Colonel, on_delete=models.CASCADE, related_name='interfaces'
@@ -384,6 +318,39 @@ class Interface(models.Model):
         return super().save(*args, **kwargs)
 
 
+class InterfaceAddress(models.Model):
+    interface = models.ForeignKey(
+        Interface, related_name='addresses', on_delete=models.CASCADE
+    )
+    address_type = models.CharField(
+        db_index=True, max_length=100, choices=(
+            ('i2c', "I2C"),
+            ('dali-gear', "DALI Gear"),
+            ('dali-group', "DALI Gear Group")
+        )
+    )
+    address = models.JSONField(db_index=True)
+    occupied_by_content_type = models.ForeignKey(
+        ContentType, on_delete=models.CASCADE, null=True
+    )
+    occupied_by_id = models.PositiveIntegerField(null=True)
+    occupied_by = GenericForeignKey(
+        "occupied_by_content_type", "occupied_by_id"
+    )
+
+    class Meta:
+        unique_together = 'interface', 'address_type', 'address'
+
+    def __str__(self):
+        addr = self.address
+        if self.address_type == 'i2c':
+            try:
+                addr = hex(int(self.address))
+            except:
+                pass
+        return f"{self.get_address_type_display()}: {addr}"
+
+
 @receiver(post_save, sender=Interface)
 def post_interface_save(sender, instance, created, *args, **kwargs):
     if created:
@@ -398,6 +365,24 @@ def post_interface_save(sender, instance, created, *args, **kwargs):
         instance.pin_b.occupied_by = instance
         instance.pin_b.save()
         instance.save()
+
+        if instance.type == 'i2c':
+            for addr in range(128):
+                InterfaceAddress.objects.create(
+                    interface=instance, address_type='i2c',
+                    address=addr,
+                )
+        elif instance.type == 'dali':
+            for addr in range(64):
+                InterfaceAddress.objects.create(
+                    interface=instance, address_type='dali-gear',
+                    address=addr,
+                )
+            for addr in range(16):
+                InterfaceAddress.objects.create(
+                    interface=instance, address_type='dali-group',
+                    address=addr,
+                )
 
 
 @receiver(post_delete, sender=Interface)

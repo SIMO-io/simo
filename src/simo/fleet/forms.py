@@ -1082,6 +1082,14 @@ class DaliLampForm(DALIDeviceConfigForm, BaseComponentForm):
     )
     auto_off = forms.FloatField(
         required=False, min_value=0.01, max_value=1000000000,
-        help_text="If provided, switch will be turned off after "
+        help_text="If provided, lamp will be turned off after "
+                  "given amount of seconds after last turn on event."
+    )
+
+
+class DaliGearGroupForm(DALIDeviceConfigForm, BaseComponentForm):
+    auto_off = forms.FloatField(
+        required=False, min_value=0.01, max_value=1000000000,
+        help_text="If provided, lamp will be turned off after "
                   "given amount of seconds after last turn on event."
     )

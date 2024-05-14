@@ -24,7 +24,7 @@ from .forms import (
     ColonelDHTSensorConfigForm, DS18B20SensorConfigForm,
     BME680SensorConfigForm, MPC9808SensorConfigForm,
     DualMotorValveForm, BlindsConfigForm, BurglarSmokeDetectorConfigForm,
-    TTLockConfigForm, DALIDeviceConfigForm, DaliLampForm
+    TTLockConfigForm, DALIDeviceConfigForm, DaliLampForm, DaliGearGroupForm
 )
 
 
@@ -587,6 +587,13 @@ class DALILamp(BaseDimmer, DALIDevice):
     manual_add = False
     name = 'DALI Lamp'
     config_form = DaliLampForm
+
+
+class DALIGearGroup(BaseDimmer, DALIDevice):
+    family = 'dali'
+    manual_add = True
+    name = 'DALI Gear Group'
+    config_form = DaliGearGroupForm
 
 
 class DALIRelay(BaseSwitch, DALIDevice):
