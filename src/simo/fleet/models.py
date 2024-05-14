@@ -181,13 +181,13 @@ class Colonel(DirtyFieldsMixin, models.Model):
                 pin.occupied_by = component
                 pin.save()
 
-        for interface in self.i2c_interfaces.all():
+        for interface in self.interfaces.all():
             if interface.sda_pin:
-                interface.sda_pin.occupied_by = interface
-                interface.sda_pin.save()
-            if interface.scl_pin:
-                interface.scl_pin.occupied_by = interface
-                interface.scl_pin.save()
+                interface.pin_a.occupied_by = interface
+                interface.pin_a.save()
+            if interface.pin_b:
+                interface.pin_b.occupied_by = interface
+                interface.pin_b.save()
 
 
     def move_to(self, other_colonel):
