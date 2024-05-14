@@ -1046,7 +1046,7 @@ class DALIDeviceConfigForm(ColonelComponentForm):
             )
         return self.cleaned_data['interface']
 
-    def save(self, commit=True):
+    def save(self, commit=True, update_colonel_config=True):
         if 'interface' in self.cleaned_data:
             self.instance.config['dali_interface'] = \
                 self.cleaned_data['interface'].no
@@ -1057,7 +1057,7 @@ class DALIDeviceConfigForm(ColonelComponentForm):
         obj = super(BaseComponentForm, self).save(commit=commit)
         if commit:
             self.cleaned_data['colonel'].components.add(obj)
-            if not is_new:
+            if not is_new and update_colonel_config:
                 GatewayObjectCommand(
                     obj.gateway, self.cleaned_data['colonel'], id=obj.id,
                     command='call', method='update_config', args=[obj.config]
@@ -1093,3 +1093,83 @@ class DaliGearGroupForm(DALIDeviceConfigForm, BaseComponentForm):
         help_text="If provided, lamp will be turned off after "
                   "given amount of seconds after last turn on event."
     )
+    members = forms.ModelMultipleChoiceField(
+        required=False,
+        queryset=Component.objects.filter(
+            controller_uid='simo.fleet.DALILamp',
+        ),
+        widget=autocomplete.ModelSelect2Multiple(
+            url='autocomplete-component', attrs={'data-html': True},
+            forward=(
+                forward.Field('colonel'),
+                forward.Const(['simo.fleet.DALILamp', ], 'controller_uid'),
+            )
+        )
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance.pk:
+            self.fields['members'].initial = self.instance.slaves.all()
+
+    def clean(self):
+        if 'members' in self.cleaned_data:
+            if len(self.cleaned_data['members']) < 2:
+                raise forms.ValidationError("At least two members are required.")
+            for member in self.cleaned_data['members']:
+                if member.config['interface'] != self.cleaned_data['interface'].id:
+                    self.add_error(
+                        'members', f"{member} belongs to other DALI interface."
+                    )
+        if not self.instance.pk:
+            from .controllers import DALIGearGroup
+            occupied_addresses = set([
+                int(c.config.get('address', 0)) for c in Component.objects.filter(
+                controller_uid=DALIGearGroup.uid,
+                config__colonel=self.cleaned_data['colonel'].id,
+                config__interface=self.cleaned_data['interface'].id,
+            ).values('config')])
+            self.group_addr = None
+            for addr in range(16):
+                if addr in occupied_addresses:
+                    continue
+                self.group_addr = addr
+                break
+            if not self.group_addr:
+                self.add_error(
+                    'interface',
+                    "Already has 16 groups. No more groups are allowed on DALI line."
+                )
+        return self.cleaned_data
+
+    def save(self, commit=True, update_colonel_config=True):
+        old_members = self.instance.config.get('members', [])
+        self.instance.config['da'] = self.group_addr
+        is_new = not self.instance.pk
+        obj = super().save(commit, update_colonel_config=False)
+        new_members = obj.config.get('members', [])
+        for removed_member in Component.objects.filter(
+            id__in=set(old_members) - set(new_members)
+        ):
+            obj.controller._modify_member_group(
+                removed_member, self.group_addr, remove=True
+            )
+        for member in Component.objects.filter(id__in=new_members):
+            obj.controller._modify_member_group(member, self.group_addr)
+        if is_new:
+            GatewayObjectCommand(
+                obj.gateway, self.cleaned_data['colonel'],
+                command='finalize',
+                data={
+                    'temp_id': 'none',
+                    'permanent_id': obj.id,
+                    'comp_config': {
+                        'type': obj.controller_uid.split('.')[-1],
+                        'family': obj.controller.family,
+                        'config': obj.config
+                    }
+                }
+            ).publish()
+        return obj
+
+

@@ -187,8 +187,6 @@ class ControllerBase(ABC):
             bulk_send_map = {self.component: value}
             for slave in self.component.slaves.all():
                 bulk_send_map[slave] = value
-
-            print("BULK SEND MAP: ", bulk_send_map)
             from .models import Component
             Component.objects.bulk_send(bulk_send_map)
             return

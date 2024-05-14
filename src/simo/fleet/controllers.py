@@ -562,7 +562,7 @@ class DALIDevice(FleeDeviceMixin, ControllerBase):
                 'comp_config': {
                     'type': controller_uid.split('.')[-1],
                     'family': new_component.controller.family,
-                    'config': new_component.controller.config
+                    'config': new_component.config
                 }
             }
             # Perform default config update on initial component setup
@@ -595,6 +595,27 @@ class DALIGearGroup(BaseDimmer, DALIDevice):
     name = 'DALI Gear Group'
     config_form = DaliGearGroupForm
 
+    def _modify_member_group(self, member, group, remove=False):
+        groups = set(member.config.get('groups', []))
+        if remove:
+            if group in groups:
+                groups.remove(group)
+        else:
+            if group not in groups:
+                groups.add(group)
+        member.config['groups'] = list(groups)
+        member.save()
+        colonel = Colonel.objects.filter(
+            id=member.config.get('colonel', 0)
+        ).first()
+        if not colonel:
+            return
+        print("Modifying member: ", member)
+        GatewayObjectCommand(
+            member.gateway, colonel, id=member.id,
+            command='call', method='update_config',
+            args=[member.config]
+        ).publish()
 
 class DALIRelay(BaseSwitch, DALIDevice):
     family = 'dali'
