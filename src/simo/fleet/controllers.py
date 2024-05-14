@@ -232,7 +232,6 @@ class PWMOutput(FleeDeviceMixin, BasicOutputMixin, BaseDimmer):
             else:
                 pwm_value = 0
         else:
-
             val_amplitude = conf.get('max', 100) - conf.get('min', 0)
             val_relative = value / val_amplitude
             pwm_amplitude = conf.get('duty_max', 1023) - conf.get('duty_min', 0.0)
@@ -591,6 +590,7 @@ class DALILamp(BaseDimmer, DALIDevice):
 
 
 class DALIGearGroup(BaseDimmer):
+    gateway_class = FleetGatewayHandler
     family = 'dali'
     manual_add = True
     name = 'DALI Gear Group'
@@ -618,6 +618,7 @@ class DALIGearGroup(BaseDimmer):
             command='call', method='update_config',
             args=[member.config]
         ).publish()
+
 
 class DALIRelay(BaseSwitch, DALIDevice):
     family = 'dali'

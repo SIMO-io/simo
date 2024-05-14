@@ -468,7 +468,6 @@ class Dimmer(ControllerBase, TimerMixin, OnOffPokerMixin):
     default_config = {'min': 0.0, 'max': 100.0, 'inverse': False}
     default_value = 0
 
-
     def _prepare_for_send(self, value):
         if isinstance(value, bool):
             if value:
