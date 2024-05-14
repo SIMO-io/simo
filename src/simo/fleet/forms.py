@@ -1052,8 +1052,8 @@ class DALIDeviceConfigForm(ColonelComponentForm):
                     obj.gateway, self.cleaned_data['colonel'], id=obj.id,
                     command='call', method='update_config', args=[{
                         'type': obj.controller_uid.split('.')[-1],
-                        'family': obj.controller.family,
-                        'config': obj.controller.config
+                        'family': 'obj.controller.family',
+                        'config': obj.config
                     }]
                 ).publish()
         return obj
