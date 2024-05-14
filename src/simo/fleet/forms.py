@@ -1036,6 +1036,16 @@ class DALIDeviceConfigForm(ColonelComponentForm):
         )
     )
 
+    def clean_interface(self):
+        if not self.instance.pk:
+            return self.cleaned_data['interface']
+        if 'interface' in self.changed_data:
+            raise forms.ValidationError(
+                "Changing interface after component is created "
+                "it is not allowed!"
+            )
+        return self.cleaned_data['interface']
+
     def save(self, commit=True):
         if 'interface' in self.cleaned_data:
             self.instance.config['dali_interface'] = \
