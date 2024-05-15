@@ -1,3 +1,4 @@
+import json
 from django.utils.translation import gettext_lazy as _
 from simo.core.events import GatewayObjectCommand
 from simo.core.controllers import (
@@ -561,7 +562,7 @@ class DALIDevice(FleeDeviceMixin, ControllerBase):
                 'comp_config': {
                     'type': controller_uid.split('.')[-1],
                     'family': new_component.controller.family,
-                    'config': new_component.config
+                    'config': json.loads(json.dumps(new_component.config))
                 }
             }
             # Perform default config update on initial component setup

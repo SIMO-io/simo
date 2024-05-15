@@ -1069,7 +1069,8 @@ class DALIDeviceConfigForm(ColonelComponentForm):
 
 class DaliLampForm(DALIDeviceConfigForm, BaseComponentForm):
     boot_update = forms.BooleanField(
-        initial=False, required=False, help_text="Update device config on colonel boot."
+        initial=False, required=False,
+        help_text="Update device config on colonel boot."
     )
     fade_time = forms.TypedChoiceField(
         initial=3, choices=(
