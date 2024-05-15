@@ -35,6 +35,7 @@ class ControllerBase(ABC):
     default_meta = {}
     discovery_msg = None
     manual_add = True # Can be added manually
+    family = None
 
     @property
     @abstractmethod
