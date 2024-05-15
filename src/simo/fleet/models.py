@@ -182,7 +182,7 @@ class Colonel(DirtyFieldsMixin, models.Model):
                 pin.save()
 
         for interface in self.interfaces.all():
-            if interface.sda_pin:
+            if interface.pin_a:
                 interface.pin_a.occupied_by = interface
                 interface.pin_a.save()
             if interface.pin_b:
