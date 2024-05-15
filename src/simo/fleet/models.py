@@ -266,15 +266,34 @@ def post_component_delete(sender, instance, *args, **kwargs):
     if not instance.controller_uid.startswith('simo.fleet'):
         return
 
-    affected_colonels = list(Colonel.objects.filter(components=instance))
+    from .controllers import DALIGearGroup
+    if instance.controller_uid == DALIGearGroup.uid:
+        for comp in Component.objects.filter(
+                id__in=instance.config.get('members', [])
+        ):
+            instance.controller._modify_member_group(
+                comp, instance.config.get('da', 0), remove=True
+            )
 
-    def update_colonel():
-        for colonel in affected_colonels:
-            print("Rebuild occupied pins for :", colonel)
-            colonel.rebuild_occupied_pins()
-            colonel.update_config()
+    elif instance.controller.family == 'dali':
+        colonel = Colonel.objects.filter(id=instance.config['colonel']).first()
+        if colonel:
+            GatewayObjectCommand(
+                instance.gateway, colonel, id=instance.id,
+                command='call', method='destroy',
+            ).publish()
 
-    transaction.on_commit(update_colonel)
+    else:
+
+        affected_colonels = list(Colonel.objects.filter(components=instance))
+
+        def update_colonel():
+            for colonel in affected_colonels:
+                print("Rebuild occupied pins for :", colonel)
+                colonel.rebuild_occupied_pins()
+                colonel.update_config()
+
+        transaction.on_commit(update_colonel)
 
 
 class Interface(models.Model):
@@ -394,26 +413,3 @@ def post_interface_delete(sender, instance, *args, **kwargs):
             occupied_by_id=instance.id
         ):
             pin.occupied_by_content_type = None
-            pin.occupied_by_content_id = None
-            pin.save()
-
-
-@receiver(pre_delete, sender=Component)
-def destroy_dali_devices(sender, instance, *args, **kwargs):
-    from .controllers import DALIGearGroup
-    if instance.controller_uid == DALIGearGroup.uid:
-        for comp in Component.objects.filter(
-            id__in=instance.config.get('members', [])
-        ):
-            instance.controller._modify_member_group(
-                comp, instance.config.get('da', 0), remove=True
-            )
-
-    elif instance.controller.family == 'dali':
-        colonel = Colonel.objects.filter(id=instance.config['colonel']).first()
-        if colonel:
-            GatewayObjectCommand(
-                instance.gateway, colonel, id=instance.id,
-                command='call', method='destroy',
-            ).publish()
-
