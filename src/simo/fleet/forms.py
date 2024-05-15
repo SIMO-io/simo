@@ -1116,11 +1116,6 @@ class DaliGearGroupForm(DALIDeviceConfigForm, BaseComponentForm):
         )
     )
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        if self.instance.pk:
-            self.fields['members'].initial = self.instance.slaves.all()
-
     def clean(self):
         if 'members' in self.cleaned_data:
             if len(self.cleaned_data['members']) < 2:
