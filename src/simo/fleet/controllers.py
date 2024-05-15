@@ -610,7 +610,6 @@ class DALIGearGroup(FleeDeviceMixin, BaseDimmer):
         ).first()
         if not colonel:
             return
-        print("Modifying member: ", member)
         GatewayObjectCommand(
             member.gateway, colonel, id=member.id,
             command='call', method='update_config',
