@@ -337,6 +337,16 @@ class Interface(models.Model):
         return super().save(*args, **kwargs)
 
 
+    def broadcast_reset(self):
+        gw = Gateway.objects.filter(type=FleetGatewayHandler.uid).first()
+        if not gw:
+            return
+        GatewayObjectCommand(
+            gw, self.colonel, command='broadcast_reset',
+            data={'interface': self.no}
+        ).publish()
+
+
 class InterfaceAddress(models.Model):
     interface = models.ForeignKey(
         Interface, related_name='addresses', on_delete=models.CASCADE

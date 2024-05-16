@@ -168,10 +168,29 @@ class ColonelAdmin(admin.ModelAdmin):
         return mark_safe('<img src="%s" alt="False">' % static('admin/img/icon-no.svg'))
 
 
+@admin.register(Interface)
+class InterfaceAdmin(admin.ModelAdmin):
+    list_filter = 'colonel', 'type'
+    actions = 'broadcast_reset'
 
+    def broadcast_reset(self, request, queryset):
+        broadcasted = 0
+        for interface in queryset.filter(
+            colonel__socket_connected=True
+        ):
+            interface.broadcast_reset()
+            broadcasted += 1
 
-# @admin.register(BLEDevice)
-# class BLEDeviceAdmin(admin.ModelAdmin):
-#     list_display = ['name', 'mac', 'type', 'last_seen']
-#     readonly_fields = list_display + ['addr']
-#     fields = readonly_fields
+        if broadcasted:
+            self.message_user(
+                request,
+                f"Reset command was broadcased to {broadcasted} interfaces."
+            )
+        else:
+            self.message_user(
+                request,
+                f"No reset command was broadcasted, "
+                f"probably because they are out of reach at the moment."
+            )
+
+    broadcast_reset.short_description = "Broadcast RESET command"
