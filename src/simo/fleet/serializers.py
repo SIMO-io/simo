@@ -22,7 +22,14 @@ class ColonelPinSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
     def get_occupied(self, obj):
-        return bool(obj.occupied_by)
+        try:
+            return bool(obj.occupied_by)
+        except AttributeError:
+            # apparently the item type that this pin was occupied by
+            # was deleted from the codebase, so we quickly fix it here. :)
+            obj.occupied_by = None
+            obj.save()
+            return False
 
 
 class ColonelInterfaceSerializer(serializers.ModelSerializer):
