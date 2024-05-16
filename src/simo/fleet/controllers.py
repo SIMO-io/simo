@@ -581,6 +581,18 @@ class DALIDevice(FleeDeviceMixin, ControllerBase):
         # Literally impossible, but just in case...
         return {'error': 'INVALID INITIAL DISCOVERY FORM!'}
 
+    def replace(self):
+        """
+        Hook up brand new replacement device to the dali line
+        and execute this command on existing (dead) component instance,
+        so that it can be replaced by the new physical device.
+        """
+        GatewayObjectCommand(
+            self.component.gateway,
+            Colonel(id=self.component.config['colonel']),
+            id=self.component.id, command='call', method='replace'
+        ).publish()
+
 
 class DALILamp(BaseDimmer, DALIDevice):
     family = 'dali'
