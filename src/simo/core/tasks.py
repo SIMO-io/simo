@@ -162,13 +162,17 @@ def sync_with_remote():
         print("Faled! Response code: ", response.status_code)
         return
 
-    print("Responded with: ", json.dumps(response.json()))
+    r_json = response.json()
+
+    print("Responded with: ", json.dumps(r_json))
+
+    if 'hub_uid' in response:
+        dynamic_settings['core__hub_uid'] = r_json['hub_uid']
 
     for instance in instances:
         instance.cover_image_synced = True
         instance.save()
 
-    r_json = response.json()
     dynamic_settings['core__remote_http'] = r_json.get('hub_remote_http')
     if 'new_secret' in r_json:
         dynamic_settings['core__hub_secret'] = r_json['new_secret']
