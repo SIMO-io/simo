@@ -1,19 +1,15 @@
 import datetime
 import requests
 import subprocess
-import sys
 from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 from django.db import models
-from django.db.models import Q
 from django.db import transaction
 from django.db.models.signals import post_save, post_delete, m2m_changed
 from django.dispatch import receiver
-from model_utils import FieldTracker
 from dirtyfields import DirtyFieldsMixin
 from django.contrib.gis.geos import Point
 from geopy.distance import distance
-from django.core.exceptions import ValidationError
 from django.contrib.auth.models import (
     AbstractBaseUser, PermissionsMixin, UserManager as DefaultUserManager
 )
@@ -577,3 +573,5 @@ class InstanceInvitation(models.Model):
 
     def get_absolute_url(self):
         return reverse('accept_invitation', kwargs={'token': self.token})
+
+

@@ -4,29 +4,30 @@ from django.db import migrations
 
 
 def create_objects(apps, schema_editor):
-
-    PermissionsRole = apps.get_model("users", "PermissionsRole")
-    User = apps.get_model("users", "User")
-
-    admin_role, new = PermissionsRole.objects.get_or_create(
-        is_superuser=True, name='Admin'
-    )
-    user_role, new = PermissionsRole.objects.get_or_create(
-        name='User', can_manage_users=False, is_default=True
-    )
-    PermissionsRole.objects.get_or_create(
-        name='Guest'
-    )
-    User.objects.get_or_create(
-        email='system@simo.io', defaults={
-            'role': admin_role, 'name': "System"
-        }
-    )
-    User.objects.get_or_create(
-        email='device@simo.io', defaults={
-            'role': user_role, 'name': "Device"
-        }
-    )
+    pass
+    # legacy
+    # PermissionsRole = apps.get_model("users", "PermissionsRole")
+    # User = apps.get_model("users", "User")
+    #
+    # admin_role, new = PermissionsRole.objects.get_or_create(
+    #     is_superuser=True, name='Admin'
+    # )
+    # user_role, new = PermissionsRole.objects.get_or_create(
+    #     name='User', can_manage_users=False, is_default=True
+    # )
+    # PermissionsRole.objects.get_or_create(
+    #     name='Guest'
+    # )
+    # User.objects.get_or_create(
+    #     email='system@simo.io', defaults={
+    #         'role': admin_role, 'name': "System"
+    #     }
+    # )
+    # User.objects.get_or_create(
+    #     email='device@simo.io', defaults={
+    #         'role': user_role, 'name': "Device"
+    #     }
+    #)
 
 def delete_objects(apps, schema_editor):
     pass

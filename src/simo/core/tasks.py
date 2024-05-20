@@ -143,8 +143,7 @@ def sync_with_remote():
         ).order_by('-date').first()
         if last_event:
             instance_data['last_event'] = last_event.date.timestamp()
-        if instance.share_location:
-            instance_data['location'] = instance.location
+
         if instance.cover_image and not instance.cover_image_synced:
             thumbnailer = get_thumbnailer(instance.cover_image.path)
             cover_imb_path = thumbnailer.get_thumbnail(

@@ -259,6 +259,10 @@ def after_colonel_save(sender, instance, created, *args, **kwargs):
                 capacitive=data.get('capacitive'), adc=data.get('adc'),
                 native=data.get('native'), note=data.get('note')
             )
+        fleet_gateway, new = Gateway.objects.get_or_create(
+            type='simo.fleet.gateways.FleetGatewayHandler'
+        )
+        fleet_gateway.run()
 
 
 @receiver(pre_delete, sender=Component)

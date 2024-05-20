@@ -4,14 +4,15 @@ from django.db import migrations
 
 
 def forwards_func(apps, schema_editor):
-
-    PermissionsRole = apps.get_model("users", "PermissionsRole")
-
-    for role in PermissionsRole.objects.filter(instance=None):
-        for iu in role.instanceuser_set.all():
-            iu.user.is_god = True
-            iu.user.save()
-        role.delete()
+    pass
+    # legacy
+    # PermissionsRole = apps.get_model("users", "PermissionsRole")
+    #
+    # for role in PermissionsRole.objects.filter(instance=None):
+    #     for iu in role.instanceuser_set.all():
+    #         iu.user.is_god = True
+    #         iu.user.save()
+    #     role.delete()
 
 def reverse_func(apps, schema_editor):
     pass

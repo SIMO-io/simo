@@ -4,27 +4,28 @@ from django.db import migrations
 
 
 def create_objects(apps, schema_editor):
-
-    Icon = apps.get_model("core", "Icon")
-    Zone = apps.get_model("core", "Zone")
-    Category = apps.get_model("core", "Category")
-    Gateway = apps.get_model("core", "Gateway")
-    Component = apps.get_model("core", "Component")
-
-    generic, new = Gateway.objects.get_or_create(
-        type='simo.generic.gateways.GenericGatewayHandler'
-    )
-    weather_icon = Icon.objects.get(slug='cloud-bolt-sun')
-    other_zone = Zone.objects.get(name='Other')
-    climate_category = Category.objects.get(name='Climate')
-    Component.objects.create(
-        name='Weather', icon=weather_icon,
-        zone=other_zone,
-        category=climate_category,
-        gateway=generic, base_type='weather-forecast',
-        controller_uid='simo.generic.controllers.WeatherForecast',
-        config={'is_main': True}
-    )
+    pass
+    # legacy
+    # Icon = apps.get_model("core", "Icon")
+    # Zone = apps.get_model("core", "Zone")
+    # Category = apps.get_model("core", "Category")
+    # Gateway = apps.get_model("core", "Gateway")
+    # Component = apps.get_model("core", "Component")
+    #
+    # generic, new = Gateway.objects.get_or_create(
+    #     type='simo.generic.gateways.GenericGatewayHandler'
+    # )
+    # weather_icon = Icon.objects.get(slug='cloud-bolt-sun')
+    # other_zone = Zone.objects.get(name='Other')
+    # climate_category = Category.objects.get(name='Climate')
+    # Component.objects.create(
+    #     name='Weather', icon=weather_icon,
+    #     zone=other_zone,
+    #     category=climate_category,
+    #     gateway=generic, base_type='weather-forecast',
+    #     controller_uid='simo.generic.controllers.WeatherForecast',
+    #     config={'is_main': True}
+    # )
 
 
 def delete_objects(apps, schema_editor):

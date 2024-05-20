@@ -1,11 +1,7 @@
 import sys
-import os
-import pwd
-import grp
 import traceback
 import subprocess
 from django.template.loader import render_to_string
-from django.conf import settings
 
 
 def get_system_user():

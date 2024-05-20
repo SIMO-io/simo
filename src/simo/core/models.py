@@ -1,33 +1,23 @@
-import os
-import sys
 import inspect
 import time
 from collections.abc import Iterable
 from django.utils.text import slugify
-from django.core.cache import cache
 from django.utils.functional import cached_property
 from django.urls import reverse_lazy
 from django.utils.translation import gettext_lazy as _
 from django.db import models
-from django.contrib.auth import get_user_model
-from django.conf import settings
 from django.db.models.signals import post_delete
 from django.dispatch import receiver
-from django.utils import timezone
 from timezone_utils.choices import ALL_TIMEZONES_CHOICES
 from location_field.models.plain import PlainLocationField
 from model_utils import FieldTracker
 from dirtyfields import DirtyFieldsMixin
-from easy_thumbnails.fields import ThumbnailerImageField
-from taggit.managers import TaggableManager
 from simo.core.utils.mixins import SimoAdminMixin
 from simo.core.storage import OverwriteStorage
 from simo.core.utils.validators import validate_svg
+from simo.users.models import User
 from .managers import ZonesManager, CategoriesManager, ComponentsManager
 from .events import GatewayObjectCommand, OnChangeMixin
-
-
-User = get_user_model()
 
 
 class Icon(DirtyFieldsMixin, models.Model, SimoAdminMixin):
@@ -92,12 +82,6 @@ class Instance(models.Model, SimoAdminMixin):
     units_of_measure = models.CharField(
         max_length=100, default='metric',
         choices=(('metric', "Metric"), ('imperial', "Imperial"))
-    )
-    share_location = models.BooleanField(
-        default=True,
-        help_text="Share exact instance location with SIMO.io remote or not?"
-                  "Sharing it helps better identify if user is at home or not."
-
     )
     indoor_climate_sensor = models.ForeignKey(
         'Component', null=True, blank=True, on_delete=models.SET_NULL,

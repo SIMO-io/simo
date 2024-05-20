@@ -4,22 +4,24 @@ from django.db import migrations
 
 
 def forwards_func(apps, schema_editor):
-    Instance = apps.get_model("core", "Instance")
-    GlobalPreferenceModel = apps.get_model(
-        'dynamic_preferences', "GlobalPreferenceModel"
-    )
-
-    instance = Instance.objects.all().first()
-    GlobalPreferenceModel.objects.update_or_create(
-        section='core', name='hub_uid', defaults={
-            'raw_value': instance.uid
-        }
-    )
-    GlobalPreferenceModel.objects.update_or_create(
-        section='core', name='hub_secret', defaults={
-            'raw_value': instance.secret_key
-        }
-    )
+    pass
+    # legacy
+    # Instance = apps.get_model("core", "Instance")
+    # GlobalPreferenceModel = apps.get_model(
+    #     'dynamic_preferences', "GlobalPreferenceModel"
+    # )
+    #
+    # instance = Instance.objects.all().first()
+    # GlobalPreferenceModel.objects.update_or_create(
+    #     section='core', name='hub_uid', defaults={
+    #         'raw_value': instance.uid
+    #     }
+    # )
+    # GlobalPreferenceModel.objects.update_or_create(
+    #     section='core', name='hub_secret', defaults={
+    #         'raw_value': instance.secret_key
+    #     }
+    # )
 
 def reverse_func(apps, schema_editor):
     pass
