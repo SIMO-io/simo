@@ -26,7 +26,7 @@ from .forms import (
     BME680SensorConfigForm, MPC9808SensorConfigForm,
     DualMotorValveForm, BlindsConfigForm, BurglarSmokeDetectorConfigForm,
     TTLockConfigForm, DALIDeviceConfigForm, DaliLampForm, DaliGearGroupForm,
-    DaliOccupancySensorConfigForm
+    DaliOccupancySensorConfigForm, DALILightSensorConfigForm
 )
 
 
@@ -649,3 +649,4 @@ class DALILightSensor(BaseNumericSensor, DALIDevice):
     manual_add = False
     name = 'DALI Light Sensor'
     default_value_units = 'lux'
+    config_form = DALILightSensorConfigForm

@@ -1189,10 +1189,21 @@ class DaliGearGroupForm(DALIDeviceConfigForm, BaseComponentForm):
 
 
 class DaliOccupancySensorConfigForm(DALIDeviceConfigForm, BaseComponentForm):
+    boot_update = forms.BooleanField(
+        initial=False, required=False,
+        help_text="Update device config on colonel boot."
+    )
     hold_time = forms.TypedChoiceField(
         initial=3, coerce=int, choices=(
             (1, "10 s"), (2, "20 s"), (3, "30 s"), (4, "40 s"), (5, "50 s"),
             (6, "1 min"), (9, "1.5 min"), (12, "2 min"), (18, "3 min"),
             (30, "5 min"), (60, "10 min"), (120, "20 min"),
         )
+    )
+
+
+class DALILightSensorConfigForm(DALIDeviceConfigForm, BaseComponentForm):
+    boot_update = forms.BooleanField(
+        initial=False, required=False,
+        help_text="Update device config on colonel boot."
     )
