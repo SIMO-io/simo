@@ -323,6 +323,7 @@ class ComponentAdminForm(forms.ModelForm):
                 self.instance.controller_uid = ControllerClass.uid
                 self.instance.base_type = self.controller.base_type
                 self.instance.value = self.controller.default_value
+                self.instance.value_units = self.controller.default_value_units
                 self.instance.value_previous = self.controller.default_value
                 self.instance.config = self.controller.default_config
                 self.instance.meta = self.controller.default_meta

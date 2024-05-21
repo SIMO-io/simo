@@ -33,6 +33,7 @@ class ControllerBase(ABC):
     admin_widget_template = 'admin/controller_widgets/generic.html'
     default_config = {}
     default_meta = {}
+    default_value_units = None
     discovery_msg = None
     manual_add = True # Can be added manually
     family = None
@@ -468,6 +469,7 @@ class Dimmer(ControllerBase, TimerMixin, OnOffPokerMixin):
     admin_widget_template = 'admin/controller_widgets/knob.html'
     default_config = {'min': 0.0, 'max': 100.0, 'inverse': False}
     default_value = 0
+    default_value_units = '%'
 
     def _prepare_for_send(self, value):
         if isinstance(value, bool):
