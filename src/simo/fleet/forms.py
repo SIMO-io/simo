@@ -1073,7 +1073,7 @@ class DaliLampForm(DALIDeviceConfigForm, BaseComponentForm):
         help_text="Update device config on colonel boot."
     )
     fade_time = forms.TypedChoiceField(
-        initial=3, choices=(
+        initial=3, coerce=int, choices=(
             (1, "0.7 s"), (2, "1.0 s"), (3, "1.4 s"), (4, "2.0 s"), (5, "2.8 s"),
             (6, "4.0 s"), (7, "5.7 s"), (8, "8.0 s")
         )
@@ -1186,3 +1186,13 @@ class DaliGearGroupForm(DALIDeviceConfigForm, BaseComponentForm):
                     ]
                 ).publish()
         return obj
+
+
+class DaliOccupancySensorConfigForm(DALIDeviceConfigForm, BaseComponentForm):
+    hold_time = forms.TypedChoiceField(
+        initial=3, coerce=int, choices=(
+            (1, "10 s"), (2, "20 s"), (3, "30 s"), (4, "40 s"), (5, "50 s"),
+            (6, "1 min"), (9, "1.5 min"), (12, "2 min"), (18, "3 min"),
+            (30, "5 min"), (60, "10 min"), (120, "20 min"),
+        )
+    )

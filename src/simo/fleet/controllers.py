@@ -25,7 +25,8 @@ from .forms import (
     ColonelDHTSensorConfigForm, DS18B20SensorConfigForm,
     BME680SensorConfigForm, MPC9808SensorConfigForm,
     DualMotorValveForm, BlindsConfigForm, BurglarSmokeDetectorConfigForm,
-    TTLockConfigForm, DALIDeviceConfigForm, DaliLampForm, DaliGearGroupForm
+    TTLockConfigForm, DALIDeviceConfigForm, DaliLampForm, DaliGearGroupForm,
+    DaliOccupancySensorConfigForm
 )
 
 
@@ -634,3 +635,17 @@ class DALIRelay(BaseSwitch, DALIDevice):
     family = 'dali'
     manual_add = False
     name = 'DALI Relay'
+
+
+class DALIOccupancySensor(BaseBinarySensor, DALIDevice):
+    family = 'dali'
+    manual_add = False
+    name = 'DALI Occupancy Sensor'
+    config_form = DaliOccupancySensorConfigForm
+
+
+class DALILightSensor(BaseNumericSensor, DALIDevice):
+    family = 'dali'
+    manual_add = False
+    name = 'DALI Light Sensor'
+    default_value_units = 'lux'
