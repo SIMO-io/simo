@@ -141,13 +141,11 @@ class Category(DirtyFieldsMixin, models.Model, SimoAdminMixin):
         upload_to='categories', null=True, blank=True,
         help_text="Will be cropped down to: 830x430"
     )
-    header_image_last_change = models.DateTimeField(
-        auto_now_add=True, editable=False
-    )
     all = models.BooleanField(
         default=False,
         help_text=_("All components automatically belongs to this category")
     )
+    last_modified = models.DateTimeField(auto_now=True, editable=False)
     order = models.PositiveIntegerField(
         blank=False, null=False, db_index=True
     )

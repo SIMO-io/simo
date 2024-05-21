@@ -43,11 +43,14 @@ class IconSerializer(serializers.ModelSerializer):
 
 class CategorySerializer(serializers.ModelSerializer):
     header_image_thumb = serializers.SerializerMethodField()
+    last_modified = TimestampField()
 
     class Meta:
         model = Category
         fields = (
-            'id', 'name', 'all', 'icon', 'header_image', 'header_image_thumb'
+            'id', 'name', 'all', 'icon',
+            'header_image', 'header_image_thumb',
+            'last_modified'
         )
 
     def get_header_image_thumb(self, obj):
@@ -60,10 +63,7 @@ class CategorySerializer(serializers.ModelSerializer):
             request = get_current_request()
             if request:
                 url = request.build_absolute_uri(url)
-            return {
-                'url': url,
-                'last_change': obj.header_image_last_change.timestamp()
-            }
+            return url
         return
 
 

@@ -580,10 +580,20 @@ class StatesViewSet(InstanceMixin, viewsets.GenericViewSet):
                 vals['last_modified']
             )
 
+        categories = []
+        for cat in Category.objects.filter(instance=self.instance).values(
+            'id', 'last_modified'
+        ):
+            cat['last_modified'] = datetime.datetime.timestamp(
+                cat['last_modified']
+            )
+            categories.append(categories)
+
         return RESTResponse({
             'zones': Zone.objects.filter(instance=self.instance).values(
                 'id', 'name'
             ),
+            'categories': categories,
             'component_values': component_values,
             'users': UserSerializer(
                 users_qs, many=True, context={
