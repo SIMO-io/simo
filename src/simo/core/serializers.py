@@ -34,7 +34,7 @@ class TimestampField(serializers.Field):
 
 
 class IconSerializer(serializers.ModelSerializer):
-    last_modified = TimestampField()
+    last_modified = TimestampField(read_only=True)
 
     class Meta:
         model = Icon
@@ -43,7 +43,7 @@ class IconSerializer(serializers.ModelSerializer):
 
 class CategorySerializer(serializers.ModelSerializer):
     header_image_thumb = serializers.SerializerMethodField()
-    last_modified = TimestampField()
+    last_modified = TimestampField(read_only=True)
 
     class Meta:
         model = Category
@@ -52,6 +52,7 @@ class CategorySerializer(serializers.ModelSerializer):
             'header_image', 'header_image_thumb',
             'last_modified'
         )
+
 
     def get_header_image_thumb(self, obj):
         if obj.header_image:
