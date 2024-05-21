@@ -166,7 +166,7 @@ def sync_with_remote():
 
     print("Responded with: ", json.dumps(r_json))
 
-    if 'hub_uid' in response:
+    if 'hub_uid' in r_json:
         dynamic_settings['core__hub_uid'] = r_json['hub_uid']
 
     for instance in instances:
