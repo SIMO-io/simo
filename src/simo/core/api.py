@@ -657,10 +657,18 @@ class RunningDiscoveries(InstanceMixin, viewsets.GenericViewSet):
     def list(self, request, *args, **kwargs):
         return RESTResponse(self.get_data(self.get_gateways(request)))
 
-    @action(detail=False, methods=['get'])
+    @action(detail=False, methods=['get', 'post'])
     def retry(self, request, *args, **kwargs):
         gateways = self.get_gateways(request)
         if 'controller_uid' in request.GET:
             for gateway in gateways:
                 gateway.retry_discovery()
+        return RESTResponse(self.get_data(gateways))
+
+    @action(detail=False, methods=['get', 'post'])
+    def finish(self, request, *args, **kwargs):
+        gateways = self.get_gateways(request)
+        if 'controller_uid' in request.GET:
+            for gateway in gateways:
+                gateway.finish_discovery()
         return RESTResponse(self.get_data(gateways))
