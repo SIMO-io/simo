@@ -761,6 +761,7 @@ class Lock(Switch):
     base_type = 'lock'
     app_widget = LockWidget
     admin_widget_template = 'admin/controller_widgets/lock.html'
+    default_value = 'unlocked'
 
     UNLOCKED = 0
     LOCKED = 1
