@@ -262,7 +262,8 @@ def after_colonel_save(sender, instance, created, *args, **kwargs):
         fleet_gateway, new = Gateway.objects.get_or_create(
             type='simo.fleet.gateways.FleetGatewayHandler'
         )
-        fleet_gateway.run()
+        if fleet_gateway.status != 'running':
+            fleet_gateway.start()
 
 
 @receiver(pre_delete, sender=Component)
