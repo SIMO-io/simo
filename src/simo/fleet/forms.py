@@ -184,6 +184,9 @@ class ControlPinForm(forms.Form):
             ('momentary', "Momentary"), ('toggle', "Toggle"),
         ),
     )
+    debounce = forms.IntegerField(
+        required=False, help_text="Add debounce value in ms (10 - 200ms)"
+    )
     prefix = 'controls'
 
 
@@ -205,11 +208,11 @@ class ColonelBinarySensorConfigForm(ColonelComponentForm):
                   "you deliver GND to the input and OFF when you cut it out."
     )
     debounce = forms.IntegerField(
-        min_value=0, max_value=1000 * 60 * 60, required=False, initial=0,
+        min_value=0, max_value=1000 * 60 * 60, required=False, initial=50,
         help_text="Some sensors are unstable and quickly transition "
                   "between ON/OFF states when engaged. <br>"
                   "Set debounce value in milliseconds, to remediate this. "
-                  "100ms offers a good starting point!"
+                  "50ms offers a good starting point!"
     )
 
     def clean(self):

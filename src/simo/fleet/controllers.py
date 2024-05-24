@@ -223,12 +223,12 @@ class PWMOutput(FleeDeviceMixin, BasicOutputMixin, BaseDimmer):
         elif value < conf.get('min', 0):
             value = conf.get('min', 0)
 
-        if value == conf.get('max', 100):
+        if value >= conf.get('max', 100):
             if conf.get('inverse'):
                 pwm_value = 0
             else:
                 pwm_value = 1023
-        elif value == conf.get('min', 100):
+        elif value <= conf.get('min', 100):
             if conf.get('inverse'):
                 pwm_value = 1023
             else:
