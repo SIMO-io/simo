@@ -896,6 +896,10 @@ class BlindsConfigForm(ColonelComponentForm):
             ('click', "Click"), ('hold', "Hold"), ('slide', "Slide")
         ),
     )
+    buttons_mode = forms.TypedChoiceField(
+        label="Physical control mode",
+        coerce=int, initial=1, choices=((1, "Click"), (2, "Hold")),
+    )
     controls = FormsetField(
         formset_factory(
             ControlPinForm, can_delete=True, can_order=True, extra=0, max_num=2
