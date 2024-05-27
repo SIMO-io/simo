@@ -164,7 +164,10 @@ class FormsetField(forms.Field):
                 elif isinstance(field, forms.fields.BooleanField):
                     form_data[field_name] = form_data[field_name] == 'on'
                 elif isinstance(field, forms.fields.IntegerField):
-                    form_data[field_name] = int(form_data[field_name])
+                    try:
+                        form_data[field_name] = int(form_data[field_name])
+                    except:
+                        form_data[field_name] = None
             if self.widget.formset.can_order:
                 form_data['order'] = int(formset_data.get(
                     '%s-%d-ORDER' % (prefix, i), 0
