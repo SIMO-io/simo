@@ -592,6 +592,7 @@ class ColonelPWMOutputConfigForm(ColonelComponentForm):
         required=True, initial=100,
         help_text="Maximum component value"
     )
+    value_units = forms.CharField(required=False)
     duty_min = forms.IntegerField(
         min_value=0, max_value=1023, required=True, initial=0,
         help_text="Minumum PWM signal output duty (0 - 1023)"
@@ -621,6 +622,7 @@ class ColonelPWMOutputConfigForm(ColonelComponentForm):
         required=True, initial=100,
         help_text="Component ON value when used with toggle switch"
     )
+
     slaves = forms.ModelMultipleChoiceField(
         required=False,
         queryset=Component.objects.filter(
@@ -639,7 +641,10 @@ class ColonelPWMOutputConfigForm(ColonelComponentForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.basic_fields.extend(['turn_on_time', 'turn_off_time', 'skew'])
+        self.fields['value_units'].initial = self.controller.default_value_units
+        self.basic_fields.extend(
+            ['value_units', 'turn_on_time', 'turn_off_time', 'skew']
+        )
         if self.instance.pk and 'slaves' in self.fields:
             self.fields['slaves'].initial = self.instance.slaves.all()
 
@@ -895,10 +900,6 @@ class BlindsConfigForm(ColonelComponentForm):
         label="App control mode", required=True, choices=(
             ('click', "Click"), ('hold', "Hold"), ('slide', "Slide")
         ),
-    )
-    buttons_mode = forms.TypedChoiceField(
-        label="Physical control mode",
-        coerce=int, initial=1, choices=((1, "Click"), (2, "Hold")),
     )
     controls = FormsetField(
         formset_factory(

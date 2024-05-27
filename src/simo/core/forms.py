@@ -291,7 +291,7 @@ class ComponentAdminForm(forms.ModelForm):
 
     class Meta:
         model = Component
-        fields = 'name', 'icon', 'zone', 'category', 'show_in_app', 'notes'
+        fields = 'name', 'icon', 'zone', 'category', 'show_in_app', 'notes',
         widgets = {
             'icon': autocomplete.ModelSelect2(
                 url='autocomplete-icon', attrs={'data-html': True}
@@ -466,6 +466,13 @@ class NumericSensorForm(BaseComponentForm):
             ValueLimitForm, can_delete=True, can_order=True, extra=0, max_num=3
         ), label="Graph Limits"
     )
+    value_units = forms.CharField(required=False)
+
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['value_units'].initial = self.controller.default_value_units
+
 
 
 class MultiSensorConfigForm(BaseComponentForm):
@@ -660,6 +667,7 @@ class DimmerConfigForm(BaseComponentForm):
     max = forms.FloatField(
         initial=1.0, help_text="Maximum component value."
     )
+    value_units = forms.CharField(required=False)
     inverse = forms.BooleanField(
         label=_("Inverse dimmer signal"), required=False
     )
@@ -676,6 +684,7 @@ class DimmerConfigForm(BaseComponentForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields['value_units'].initial = self.controller.default_value_units
         if self.instance.pk:
             self.fields['slaves'].initial = self.instance.slaves.all()
 
@@ -704,6 +713,11 @@ class DimmerPlusConfigForm(BaseComponentForm):
     secondary_max = forms.FloatField(
         initial=1.0, help_text="Maximum secondary value."
     )
+    value_units = forms.CharField(required=False)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['value_units'].initial = self.controller.default_value_units
 
 
 class RGBWConfigForm(BaseComponentForm):

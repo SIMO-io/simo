@@ -375,7 +375,6 @@ class ComponentSerializer(FormSerializer):
             user_role = self.context['request'].user.get_role(
                 self.context['instance']
             )
-            print("FORM BASIC FIELDS: ", form.basic_fields)
             if not user_role.is_superuser and user_role.is_owner:
                 for field_name in list(form.fields.keys()):
                     if field_name not in form.basic_fields:
