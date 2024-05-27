@@ -84,8 +84,7 @@ class InterfaceAdminForm(forms.ModelForm):
 
 class ColonelComponentForm(BaseComponentForm):
     colonel = forms.ModelChoiceField(
-        label="Colonel", queryset=Colonel.objects.all(),
-        help_text="ATENTION! Changing Colonel after component creation is not recommended!"
+        label="Colonel", queryset=Colonel.objects.all()
     )
 
     def clean_colonel(self):
