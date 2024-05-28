@@ -132,6 +132,7 @@ class ColonelComponentForm(BaseComponentForm):
                     updated_vals[key] = int(val)
             self.cleaned_data['controls'][i] = updated_vals
 
+        pins_in_use = []
         formset_errors = {}
         for i, control in enumerate(self.cleaned_data['controls']):
             if pin_instances[i].colonel != self.cleaned_data['colonel']:
@@ -143,6 +144,11 @@ class ColonelComponentForm(BaseComponentForm):
                 formset_errors[i] = {
                     'pin': f"{pin_instances[i]} is already occupied by {pin_instances[i].occupied_by}!"
                 }
+            elif pin_instances[i].no in pins_in_use:
+                formset_errors[i] = {
+                    'pin': f"{pin_instances[i].no} is already in use!"
+                }
+            pins_in_use.append(pin_instances[i].no)
 
         errors_list = []
         if formset_errors:
@@ -559,6 +565,14 @@ class ColonelSwitchConfigForm(ColonelComponentForm):
         if self.cleaned_data.get('controls'):
             self._clean_controls()
 
+        if self.cleaned_data.get('output_pin') and self.cleaned_data.get('controls'):
+            for ctrl in self.cleaned_data['controls']:
+                if ctrl['pin'] == self.cleaned_data['output_pin']:
+                    self.add_error(
+                        "output_pin",
+                        "Can't be used as control pin at the same time!"
+                    )
+
         return self.cleaned_data
 
 
@@ -658,6 +672,13 @@ class ColonelPWMOutputConfigForm(ColonelComponentForm):
             self._clean_pin('output_pin')
         if 'controls' in self.cleaned_data:
             self._clean_controls()
+        if self.cleaned_data.get('output_pin') and self.cleaned_data.get('controls'):
+            for ctrl in self.cleaned_data['controls']:
+                if ctrl['pin'] == self.cleaned_data['output_pin']:
+                    self.add_error(
+                        "output_pin",
+                        "Can't be used as control pin at the same time!"
+                    )
         return self.cleaned_data
 
 
@@ -758,6 +779,14 @@ class ColonelRGBLightConfigForm(ColonelComponentForm):
         if self.cleaned_data.get('controls'):
             self._clean_controls()
 
+        if self.cleaned_data.get('output_pin') and self.cleaned_data.get('controls'):
+            for ctrl in self.cleaned_data['controls']:
+                if ctrl['pin'] == self.cleaned_data['output_pin']:
+                    self.add_error(
+                        "output_pin",
+                        "Can't be used as control pin at the same time!"
+                    )
+
         if 'color_order' in self.cleaned_data:
             if self.cleaned_data.get('color_order'):
                 if self.cleaned_data['has_white']:
@@ -822,6 +851,12 @@ class DualMotorValveForm(ColonelComponentForm):
             self._clean_pin('open_pin')
         if self.cleaned_data.get('close_pin'):
             self._clean_pin('close_pin')
+        if self.cleaned_data.get('open_pin') \
+        and self.cleaned_data.get('close_pin') \
+        and self.cleaned_data['open_pin'] == self.cleaned_data['close_pin']:
+            self.add_error(
+                'close_pin', "Can't be the same as open pin!"
+            )
         return self.cleaned_data
 
     def save(self, commit=True):
@@ -909,6 +944,13 @@ class BlindsConfigForm(ColonelComponentForm):
     def clean(self):
         super().clean()
 
+        if self.cleaned_data.get('open_pin') \
+        and self.cleaned_data.get('close_pin') \
+        and self.cleaned_data['open_pin'] == self.cleaned_data['close_pin']:
+            self.add_error(
+                'close_pin', "Can't be the same as open pin!"
+            )
+
         if self.cleaned_data.get('open_pin'):
             self._clean_pin('open_pin')
         if self.cleaned_data.get('close_pin'):
@@ -930,6 +972,23 @@ class BlindsConfigForm(ColonelComponentForm):
                             return self.cleaned_data
 
             self._clean_controls()
+
+            if self.cleaned_data.get('open_pin'):
+                for ctrl in self.cleaned_data['controls']:
+                    if ctrl['pin'] == self.cleaned_data['output_pin']:
+                        self.add_error(
+                            "open_pin",
+                            "Can't be used as control pin at the same time!"
+                        )
+
+            if self.cleaned_data.get('close_pin'):
+                for ctrl in self.cleaned_data['controls']:
+                    if ctrl['pin'] == self.cleaned_data['close_pin']:
+                        self.add_error(
+                            "close_pin",
+                            "Can't be used as control pin at the same time!"
+                        )
+
         return self.cleaned_data
 
     def save(self, commit=True):
@@ -977,6 +1036,13 @@ class BurglarSmokeDetectorConfigForm(ColonelComponentForm):
             self._clean_pin('sensor_pin')
         if 'power_pin' in self.cleaned_data:
             self._clean_pin('power_pin')
+
+        if self.cleaned_data.get('sensor_pin') \
+        and self.cleaned_data.get('power_pin') \
+        and self.cleaned_data['sensor_pin'] == self.cleaned_data['power_pin']:
+            self.add_error(
+                'power_pin', "Can't be the same as sensor pin!"
+            )
 
         return self.cleaned_data
 
