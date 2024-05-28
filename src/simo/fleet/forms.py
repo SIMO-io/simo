@@ -429,6 +429,17 @@ class BME680SensorConfigForm(ColonelComponentForm):
 
     )
 
+    def clean(self):
+        if not self.cleaned_data.get('colonel'):
+            return self.cleaned_data
+        if self.cleaned_data['interface'].colonel != self.cleaned_data['colonel']:
+            self.add_error(
+                'interface',
+                f"This interface is on {self.cleaned_data['interface'].colonel}, "
+                f"however we need an interface from {self.cleaned_data['colonel']}."
+            )
+        return self.cleaned_data
+
     def save(self, commit=True):
         if 'interface' in self.cleaned_data:
             self.instance.config['i2c_interface'] = self.cleaned_data['interface'].no
@@ -459,6 +470,17 @@ class MPC9808SensorConfigForm(ColonelComponentForm):
                   'Can not be less than 1s.'
 
     )
+
+    def clean(self):
+        if not self.cleaned_data.get('colonel'):
+            return self.cleaned_data
+        if self.cleaned_data['interface'].colonel != self.cleaned_data['colonel']:
+            self.add_error(
+                'interface',
+                f"This interface is on {self.cleaned_data['interface'].colonel}, "
+                f"however we need an interface from {self.cleaned_data['colonel']}."
+            )
+        return self.cleaned_data
 
     def save(self, commit=True):
         if 'interface' in self.cleaned_data:
@@ -1118,6 +1140,17 @@ class DALIDeviceConfigForm(ColonelComponentForm):
                 "it is not allowed!"
             )
         return self.cleaned_data['interface']
+
+    def clean(self):
+        if not self.cleaned_data.get('colonel'):
+            return self.cleaned_data
+        if self.cleaned_data['interface'].colonel != self.cleaned_data['colonel']:
+            self.add_error(
+                'interface',
+                f"This interface is on {self.cleaned_data['interface'].colonel}, "
+                f"however we need an interface from {self.cleaned_data['colonel']}."
+            )
+        return self.cleaned_data
 
     def save(self, commit=True, update_colonel_config=True):
         if 'interface' in self.cleaned_data:
