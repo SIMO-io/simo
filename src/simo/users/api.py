@@ -35,7 +35,9 @@ class UsersViewSet(mixins.RetrieveModelMixin,
             email__in=('system@simo.io', 'device@simo.io')
         ) # Exclude system user
 
-        return queryset.filter(roles__instance=self.instance)
+        return queryset.filter(
+            Q(roles__instance=self.instance) | Q(id=self.request.user.id)
+        )
 
 
     def check_permission_to_change(self, request, target_user):
