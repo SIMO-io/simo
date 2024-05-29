@@ -24,11 +24,12 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = (
-            'id', 'email', 'name', 'avatar', 'role', 'is_active',
+            'id', 'email', 'name', 'avatar', 'role', 'is_master', 'is_active',
             'at_home', 'last_action'
         )
         read_only_fields = (
-            'id', 'email', 'name', 'avatar', 'at_home', 'last_action', 'ssh_key'
+            'id', 'email', 'name', 'avatar', 'at_home', 'last_action', 'ssh_key',
+            'is_master'
         )
 
     def get_is_active(self, obj):
