@@ -232,6 +232,10 @@ class ColonelBinarySensorConfigForm(ColonelComponentForm):
                   "lights or other means of automation."
     )
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.basic_fields.append('hold_time')
+
     def clean(self):
         super().clean()
         if 'colonel' not in self.cleaned_data:
