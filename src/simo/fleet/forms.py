@@ -225,7 +225,7 @@ class ColonelBinarySensorConfigForm(ColonelComponentForm):
             (1, "10 s"), (2, "20 s"), (3, "30 s"), (4, "40 s"), (5, "50 s"),
             (6, "1 min"), (9, "1.5 min"), (12, "2 min"), (18, "3 min"),
             (30, "5 min"), (60, "10 min"), (120, "20 min"),
-        ),
+        ), required=False,
         help_text="Holds positive value for given amount of time "
                   "after last negative value has been observed. "
                   "Super useful with regular motion detectors for controlling "
