@@ -15,6 +15,7 @@ from simo.users.utils import get_system_user
 from simo.core.events import GatewayObjectCommand
 from simo.core.models import RUN_STATUS_CHOICES_MAP, Component
 from simo.core.utils.helpers import get_random_string
+from simo.core.utils.operations import OPERATIONS
 from simo.core.controllers import (
     BEFORE_SEND, BEFORE_SET, ControllerBase,
     BinarySensor, NumericSensor, MultiSensor, Switch, Dimmer, DimmerPlus,
@@ -35,7 +36,8 @@ from .app_widgets import (
     WateringWidget, StateSelectWidget, AlarmClockWidget
 )
 from .forms import (
-    ScriptConfigForm, ThermostatConfigForm, AlarmGroupConfigForm,
+    ScriptConfigForm, PresenceLightingConfigForm,
+    ThermostatConfigForm, AlarmGroupConfigForm,
     IPCameraConfigForm, WeatherForecastForm, GateConfigForm,
     BlindsConfigForm, WateringConfigForm, StateSelectForm,
     AlarmClockConfigForm
@@ -97,6 +99,104 @@ class Script(ControllerBase, TimerMixin):
             self.send('stop')
         else:
             self.send('start')
+
+
+class PresenceLighting(Script):
+    name = _("Presence lighting")
+    config_form = PresenceLightingConfigForm
+
+    # script specific variables
+    sensors = {}
+    light_org_values = {}
+    is_on = None
+    turn_off_task = None
+
+    def _run(self):
+        while True:
+            self._on_sensor()
+            time.sleep(10)
+
+    def _on_sensor(self, sensor=None):
+
+        self.component.refresh_from_db()
+        for id in self.component.config['presence_sensors']:
+            if id not in self.sensors:
+                sensor = Component.objects.filter(id=id).first()
+                if sensor:
+                    sensor.on_change(self._on_sensor)
+                    self.sensors[id] = sensor
+
+        if sensor:
+            self.sensors[sensor.id] = sensor
+
+        presence_values = [s.value for id, s in self.sensors.items()]
+        if self.component.config.get('act_on', 0):
+            must_on = any(presence_values)
+        else:
+            must_on = all(presence_values)
+
+        additional_conditions_met = True
+        for condition in self.component.config.get('conditions', []):
+            if not additional_conditions_met:
+                continue
+            comp = Component.objects.filter(
+                id=condition.get('component', 0)
+            ).first()
+            if not comp:
+                continue
+            op = OPERATIONS.get(condition.get('op'))
+            if not op:
+                continue
+            if condition['op'] == 'in':
+                if comp.value not in self._string_to_vals(condition['value']):
+                    additional_conditions_met = False
+                continue
+
+            if not op(comp.value, condition['value']):
+                additional_conditions_met = False
+
+        if must_on and not additional_conditions_met:
+            print("Presence detected, but additional conditions not met!")
+
+        if must_on and additional_conditions_met and not self.is_on:
+            print("Turn the lights ON!")
+            self.is_on = True
+            if self.turn_off_task:
+                self.turn_off_task.cancel()
+                self.turn_off_task = None
+            self.light_org_values = {}
+            for id in self.component.config['lights']:
+                comp = Component.objects.filter(id=id).first()
+                if not comp or not comp.controller:
+                    continue
+                self.light_org_values[comp.id] = comp.value
+                comp.controller.send(self.component.config['on_value'])
+            return
+
+        if self.is_on or self.is_on is None:
+            if not additional_conditions_met:
+                return self._turn_it_off()
+            if not any(presence_values):
+                if not self.component.config.get('hold_time', 0):
+                    return self._turn_it_off()
+                if not self.turn_off_task:
+                    self.turn_off_task = threading.Timer(
+                        self.component.config['hold_time'] * 10,
+                        self._turn_it_off
+                    )
+
+    def _turn_it_off(self):
+        print("Turn the lights OFF!")
+        self.is_on = False
+        self.turn_off_task = None
+        for id in self.component.config['lights']:
+            comp = Component.objects.filter(id=id).first()
+            if not comp or not comp.controller:
+                continue
+            if self.component.config['off_value'] == 0:
+                comp.send(0)
+            else:
+                comp.send(self.light_org_values.get(comp.id, 0))
 
 
 class Thermostat(ControllerBase):

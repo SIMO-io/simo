@@ -180,6 +180,16 @@ class ControllerBase(ABC):
             else:
                 return self.component.change_init_by
 
+    def _string_to_vals(self, v):
+        '''
+        Convert a string containing list of values to approporiate list of component values
+        :param v:
+        :return:
+        '''
+        val_type = type(self.default_value)
+        v = str(v).strip('(').strip('[').rstrip(')').rstrip(']')
+        return [val_type(val.strip()) for val in v.split(',')]
+
     def send(self, value):
         self.component.refresh_from_db()
 

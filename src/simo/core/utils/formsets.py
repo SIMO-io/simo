@@ -1,4 +1,3 @@
-import copy
 from django import forms
 from django.db import models
 from django.template.loader import render_to_string
@@ -148,10 +147,21 @@ class FormsetField(forms.Field):
             if formset_data.get('%s-%d-DELETE' % (prefix, i)) == 'on':
                 continue
             form_data = {}
+
             for field_name, field in self.formset_cls().form.declared_fields.items():
                 form_data[field_name] = formset_data.get(
                     '%s-%d-%s' % (prefix, i, field_name)
                 )
+
+            f_data = {}
+            for key, val in form_data.items():
+                f_data[f"{self.formset_cls.form.prefix}-{key}"] = val
+            form = self.formset_cls.form(f_data)
+            if form.is_valid():
+                form_data = form.cleaned_data
+
+            for field_name, field in self.formset_cls().form.declared_fields.items():
+
                 if isinstance(field, forms.models.ModelChoiceField):
                     if isinstance(form_data[field_name], models.Model):
                         form_data[field_name] = form_data[field_name].pk
@@ -168,11 +178,16 @@ class FormsetField(forms.Field):
                         form_data[field_name] = int(form_data[field_name])
                     except:
                         form_data[field_name] = None
+
             if self.widget.formset.can_order:
                 form_data['order'] = int(formset_data.get(
                     '%s-%d-ORDER' % (prefix, i), 0
                 ))
+
+
             cleaned_value.append(form_data)
+
+
 
         if self.widget.formset.can_order:
             cleaned_value = sorted(cleaned_value, key=lambda d: d['order'])

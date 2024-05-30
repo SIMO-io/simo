@@ -136,14 +136,22 @@ class ScriptRunHandler(multiprocessing.Process):
         sys.stderr = StreamToLogger(self.logger, logging.ERROR)
         self.component.value = 'running'
         self.component.save(update_fields=['value'])
-        code = self.component.config.get('code')
-        if not code:
-            self.component.value = 'finished'
-            self.component.save(update_fields=['value'])
-            return
+
+        if hasattr(self.component.controller, '_run'):
+            def run_code():
+                self.component.controller._run()
+        else:
+            code = self.component.config.get('code')
+            def run_code():
+                exec(code, globals())
+
+            if not code:
+                self.component.value = 'finished'
+                self.component.save(update_fields=['value'])
+                return
         print("------START-------")
         try:
-            exec(code, globals())
+            run_code()
         except:
             print("------ERROR------")
             self.component.value = 'error'
@@ -259,7 +267,7 @@ class GenericGatewayHandler(BaseObjectCommandsGatewayHandler):
         # as well as those who are designed to be kept alive, but
         # got terminated unexpectedly
         for script in Component.objects.filter(
-            controller_uid=Script.uid,
+            base_type='script',
         ).filter(
             Q(config__autostart=True) |
             Q(value='error', config__keep_alive=True)
@@ -302,6 +310,7 @@ class GenericGatewayHandler(BaseObjectCommandsGatewayHandler):
 
         if isinstance(component.controller, Script):
             if payload.get('set_val') == 'start':
+                print("START THIS SCRIPT!!!", component)
                 self.start_script(component)
             elif payload.get('set_val') == 'stop':
                 self.stop_script(component)

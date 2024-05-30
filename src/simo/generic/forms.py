@@ -7,7 +7,7 @@ from django.contrib.contenttypes.models import ContentType
 from simo.core.forms import HiddenField, BaseComponentForm
 from simo.core.models import Icon, Component
 from simo.core.controllers import (
-    BinarySensor, NumericSensor, MultiSensor, Switch
+    BEFORE_SET, BinarySensor, NumericSensor, MultiSensor, Switch
 )
 from simo.core.widgets import PythonCode, LogOutputWidget
 from dal import autocomplete, forward
@@ -70,6 +70,145 @@ class ScriptConfigForm(BaseComponentForm):
             }),
         ]
         return fieldsets
+
+
+class ConditionForm(forms.Form):
+    component = forms.ModelChoiceField(
+        Component.objects.all(),
+        widget=autocomplete.ModelSelect2(
+            url='autocomplete-component', attrs={'data-html': True},
+        ),
+    )
+    op = forms.ChoiceField(
+        initial="==", choices=(
+            ('==', "is equal to"),
+            ('>', "is greather than"), ('>=', "Is greather or equal to"),
+            ('<', "is lower than"), ('<=', "is lower or equal to"),
+            ('in', "is one of")
+        )
+    )
+    value = forms.CharField()
+    prefix = 'breach_events'
+
+    def clean(self):
+        if not self.cleaned_data.get('component'):
+            return self.cleaned_data
+        if not self.cleaned_data.get('op'):
+            return self.cleaned_data
+        component = self.cleaned_data.get('component')
+
+        if self.cleaned_data['op'] == 'in':
+            self.cleaned_data['value'] = self.cleaned_data['value']\
+                .strip('(').strip('[').rstrip(')').rstrip(']').strip()
+            values = self.cleaned_data['value'].split(',')
+        else:
+            values = [self.cleaned_data['value']]
+
+        final_values = []
+        controller_val_type = type(component.controller.default_value)
+        for val in values:
+            val = val.strip()
+            if controller_val_type == 'bool':
+                if val.lower() in ('0', 'false', 'none', 'null'):
+                    final_val = False
+                else:
+                    final_val = True
+            else:
+                try:
+                    final_val = controller_val_type(val)
+                except:
+                    self.add_error(
+                        'value', f"{val} bad value type for selected component."
+                    )
+                    continue
+            try:
+                component.controller._validate_val(final_val, BEFORE_SET)
+            except Exception as e:
+                self.add_error(
+                    'value', f"{val} is not compatible with selected component."
+                )
+                continue
+            final_values.append(final_val)
+
+        if self.cleaned_data['op'] == 'in':
+            self.cleaned_data['value'] = ', '.join(str(v) for v in final_values)
+        else:
+            self.cleaned_data['value'] = final_values[0]
+
+        return self.cleaned_data
+
+
+class PresenceLightingConfigForm(BaseComponentForm):
+    lights = forms.ModelMultipleChoiceField(
+        Component.objects.filter(
+            base_type__in=('switch', 'dimmer', 'rgbw-light', 'rgb-light')
+        ),
+        required=True,
+        widget=autocomplete.ModelSelect2Multiple(
+            url='autocomplete-component', attrs={'data-html': True},
+            forward=(
+                forward.Const(['switch', 'dimmer', 'rgbw-light', 'rgb-light'],
+                              'base_type'),
+            )
+        )
+    )
+    on_value = forms.IntegerField(
+        min_value=0, initial=100,
+        help_text="Value applicable for dimmers. "
+                  "Switches will receive tunrn on command."
+    )
+    off_value = forms.TypedChoiceField(
+        coerce=int, initial=1, choices=(
+            (0, "0"), (1, "Original value before turning the lights on.")
+        )
+    )
+    presence_sensors = forms.ModelMultipleChoiceField(
+        Component.objects.filter(base_type='binary-sensor'),
+        required=True,
+        widget=autocomplete.ModelSelect2Multiple(
+            url='autocomplete-component', attrs={'data-html': True},
+            forward=(forward.Const(['binary-sensor'], 'base_type'),)
+        )
+    )
+    act_on = forms.TypedChoiceField(
+        coerce=int, initial=0, choices=(
+            (0, "At least one sensor detects presence"),
+            (1, "All sensors detect presence"),
+        )
+    )
+    hold_time = forms.TypedChoiceField(
+        initial=3, coerce=int, required=False, choices=(
+            (0, '----'),
+            (1, "10 s"), (2, "20 s"), (3, "30 s"), (4, "40 s"), (5, "50 s"),
+            (6, "1 min"), (9, "1.5 min"), (12, "2 min"), (18, "3 min"),
+            (30, "5 min"), (60, "10 min"), (120, "20 min"),
+        ),
+        help_text="Hold off time after last presence detector is deactivated."
+    )
+    conditions = FormsetField(
+        formset_factory(
+            ConditionForm, can_delete=True, can_order=True, extra=0
+        ), label='Additional conditions'
+    )
+    log = forms.CharField(
+        widget=forms.HiddenInput, required=False
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance.pk:
+            prefix = get_script_prefix()
+            if prefix == '/':
+                prefix = ''
+            self.fields['log'].widget = LogOutputWidget(
+                prefix + '/ws/log/%d/%d/' % (
+                    ContentType.objects.get_for_model(Component).id,
+                    self.instance.id
+                )
+            )
+
+
+
 
 
 class ThermostatConfigForm(BaseComponentForm):
