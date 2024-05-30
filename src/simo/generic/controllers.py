@@ -199,6 +199,14 @@ class PresenceLighting(Script):
                 comp.send(self.light_org_values.get(comp.id, 0))
 
 
+# TODO: Night lighting
+#
+# Lights: components (switches, dimmers)
+# On value: 40
+# Sunset offset (mins): negative = earlier, positive = later
+# Save energy at night: 1 - 6 turn the lights completely off at night.
+
+
 class Thermostat(ControllerBase):
     name = _("Thermostat")
     base_type = 'thermostat'

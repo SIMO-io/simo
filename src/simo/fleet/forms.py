@@ -578,7 +578,7 @@ class ColonelSwitchConfigForm(ColonelComponentForm):
 
     controls = FormsetField(
         formset_factory(
-            ControlPinForm, can_delete=True, can_order=True, extra=0, max_num=1
+            ControlPinForm, can_delete=True, can_order=True, extra=0, max_num=10
         )
     )
 
@@ -686,7 +686,7 @@ class ColonelPWMOutputConfigForm(ColonelComponentForm):
     )
     controls = FormsetField(
         formset_factory(
-            ControlPinForm, can_delete=True, can_order=True, extra=0, max_num=1
+            ControlPinForm, can_delete=True, can_order=True, extra=0, max_num=10
         )
     )
 
