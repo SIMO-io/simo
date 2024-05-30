@@ -132,7 +132,7 @@ class ConditionForm(forms.Form):
 
         if self.cleaned_data['op'] == 'in':
             self.cleaned_data['value'] = ', '.join(str(v) for v in final_values)
-        else:
+        elif final_values:
             self.cleaned_data['value'] = final_values[0]
 
         return self.cleaned_data
@@ -189,6 +189,14 @@ class PresenceLightingConfigForm(BaseComponentForm):
         formset_factory(
             ConditionForm, can_delete=True, can_order=True, extra=0
         ), label='Additional conditions'
+    )
+    autostart = forms.BooleanField(
+        initial=True, required=False,
+        help_text="Start automatically on system boot."
+    )
+    keep_alive = forms.BooleanField(
+        initial=True, required=False,
+        help_text="Restart the script if it fails. "
     )
     log = forms.CharField(
         widget=forms.HiddenInput, required=False
