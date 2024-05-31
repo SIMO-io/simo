@@ -1122,8 +1122,9 @@ class TTLockConfigForm(ColonelComponentForm):
         return self.cleaned_data
 
     def save(self, commit=True):
-        # TODO: after inclusion it was not assigned to proper colonel!
         obj = super(ColonelComponentForm, self).save(commit)
+        if commit:
+            self.cleaned_data['colonel'].components.add(obj)
         if commit and 'door_sensor' in self.cleaned_data:
             GatewayObjectCommand(
                 self.instance.gateway, self.cleaned_data['door_sensor'],
