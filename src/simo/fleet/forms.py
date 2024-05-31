@@ -159,9 +159,9 @@ class ColonelComponentForm(BaseComponentForm):
             if 'controls' in self.cleaned_data:
                 del self.cleaned_data['controls']
 
-    def save(self, commit=True):
+    def save(self, commit=True, update_colonel=True):
         obj = super().save(commit)
-        if commit and 'colonel' in self.cleaned_data:
+        if commit and 'colonel' in self.cleaned_data and update_colonel:
             self.cleaned_data['colonel'].components.add(obj)
             self.cleaned_data['colonel'].rebuild_occupied_pins()
             self.cleaned_data['colonel'].save()
@@ -723,9 +723,25 @@ class ColonelPWMOutputConfigForm(ColonelComponentForm):
     def save(self, commit=True):
         if 'output_pin' in self.cleaned_data:
             self.instance.config['output_pin_no'] = self.cleaned_data['output_pin'].no
-        obj = super().save(commit=commit)
+        update_colonel = False
+        if not self.pk:
+            update_colonel = True
+        elif 'output_pin' in self.changed_data:
+            update_colonel = True
+        elif 'controls' in self.changed_data:
+            update_colonel = True
+        elif 'slaves' in self.changed_data:
+            update_colonel = True
+        obj = super().save(commit=commit, update_colonel=update_colonel)
         if commit and 'slaves' in self.cleaned_data:
             obj.slaves.set(self.cleaned_data['slaves'])
+        if not update_colonel:
+            GatewayObjectCommand(
+                obj.gateway, self.cleaned_data['colonel'], id=obj.id,
+                command='call', method='update_config', args=[
+                    obj.controller._get_colonel_config()
+                ]
+            ).publish()
         return obj
 
 
