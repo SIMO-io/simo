@@ -649,7 +649,7 @@ class ColonelPWMOutputConfigForm(ColonelComponentForm):
         help_text="Minumum PWM signal output duty (0 - 1023)"
     )
     duty_max = forms.IntegerField(
-        min_value=0, max_value=1023, required=True, initial=1023,
+        min_value=0, max_value=1023, required=True, initial=900,
         help_text="Maximum PWM signal output duty (0 - 1023)"
     )
     turn_on_time = forms.IntegerField(
