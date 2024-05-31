@@ -262,7 +262,9 @@ class ComponentViewSet(
         if not isinstance(request.data, dict):
             data = data.dict()
         request_data = restore_json(data)
-        return self.perform_controller_method(request_data, component)
+        resp = self.perform_controller_method(request_data, component)
+        print(f"Command executed in : {time.time() - start}s")
+        return resp
 
     @action(detail=False, methods=['post'])
     def control(self, request, *args, **kwargs):
