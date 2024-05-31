@@ -220,7 +220,9 @@ class User(AbstractBaseUser, SimoAdminMixin):
         if instance.id not in self._instance_roles:
             self._instance_roles[instance.id] = self.roles.filter(
                 instance=instance
-            ).prefetch_related('component_permissions').first()
+            ).prefetch_related(
+                'component_permissions', 'component_permissions__component'
+            ).first()
         return self._instance_roles[instance.id]
 
     def set_instance(self, instance):

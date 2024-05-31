@@ -147,6 +147,8 @@ def get_components_queryset(instance, user):
     if user.is_superuser:
         return qs
 
+    c_ids = set()
+
     from simo.generic.controllers import WeatherForecast
     general_components = []
     if instance.indoor_climate_sensor:
@@ -156,22 +158,21 @@ def get_components_queryset(instance, user):
         controller_uid=WeatherForecast.uid, config__is_main=True
     ).values('id').first()
     if wf_c:
-        general_components.append(wf_c['id'])
+        c_ids.add(wf_c['id'])
     main_alarm_group = Component.objects.filter(
         zone__instance=instance,
         base_type='alarm-group', config__is_main=True
     ).values('id').first()
     if main_alarm_group:
-        general_components.append(main_alarm_group['id'])
+        c_ids.add(main_alarm_group['id'])
 
-    c_ids = [
-        cp.component.id for cp in
-        user.get_role(instance).component_permissions.filter(
-            read=True
-        ).select_related('component')
-    ]
-    qs = qs.filter(Q(id__in=c_ids) | Q(id__in=general_components))
-    return qs
+    user_role = user.get_role(instance)
+
+    for cp in user_role.component_permissions.all():
+        if cp.read:
+            c_ids.add(cp.id)
+
+    return qs.filter(id__in=c_ids)
 
 
 class ComponentViewSet(
@@ -188,9 +189,7 @@ class ComponentViewSet(
         return permissions
 
     def get_queryset(self):
-        return get_components_queryset(self.instance, self.request.user).filter(
-            zone__instance=self.instance
-        )
+        return get_components_queryset(self.instance, self.request.user)
 
     def get_view_name(self):
         singular = "Component"
