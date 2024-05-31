@@ -108,7 +108,7 @@ class PresenceLighting(Script):
     # script specific variables
     sensors = {}
     light_org_values = {}
-    is_on = None
+    is_on = False
     turn_off_task = None
 
     def _run(self):
@@ -173,7 +173,7 @@ class PresenceLighting(Script):
                 comp.controller.send(self.component.config['on_value'])
             return
 
-        if self.is_on or self.is_on is None:
+        if self.is_on:
             if not additional_conditions_met:
                 return self._turn_it_off()
             if not any(presence_values):
