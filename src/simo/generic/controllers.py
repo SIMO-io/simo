@@ -130,7 +130,7 @@ class PresenceLighting(Script):
             self.sensors[sensor.id] = sensor
 
         presence_values = [s.value for id, s in self.sensors.items()]
-        if self.component.config.get('act_on', 0):
+        if self.component.config.get('act_on', 0) == 0:
             must_on = any(presence_values)
         else:
             must_on = all(presence_values)
