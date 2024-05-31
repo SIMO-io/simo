@@ -1,20 +1,21 @@
 
 def restore_json(data):
+    clean_data = {}
     for key, val in data.items():
         if not isinstance(val, str):
-            continue
+            clean_data[key] = val
         try:
-            data[key] = int(val)
+            clean_data[key] = int(val)
             continue
         except:
             pass
         try:
-            data[key] = float(val)
+            clean_data[key] = float(val)
             continue
         except:
             pass
         if val.lower() == 'true':
-            data[key] = True
+            clean_data[key] = True
         elif val.lower() == 'false':
-            data[key] = False
-    return data
+            clean_data[key] = False
+    return clean_data
