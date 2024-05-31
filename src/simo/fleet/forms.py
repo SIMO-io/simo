@@ -692,7 +692,8 @@ class ColonelPWMOutputConfigForm(ColonelComponentForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['value_units'].initial = self.controller.default_value_units
+        if 'value_units' in self.fields:
+            self.fields['value_units'].initial = self.controller.default_value_units
         self.basic_fields.extend(
             ['value_units', 'turn_on_time', 'turn_off_time', 'skew']
         )
@@ -723,15 +724,19 @@ class ColonelPWMOutputConfigForm(ColonelComponentForm):
     def save(self, commit=True):
         if 'output_pin' in self.cleaned_data:
             self.instance.config['output_pin_no'] = self.cleaned_data['output_pin'].no
+
         update_colonel = False
         if not self.instance.pk:
             update_colonel = True
         elif 'output_pin' in self.changed_data:
             update_colonel = True
-        elif 'controls' in self.changed_data:
-            update_colonel = True
         elif 'slaves' in self.changed_data:
             update_colonel = True
+        if not update_colonel:
+            old = Component.objects.get(id=self.instance.id)
+            if old.config.get('controls') != self.cleaned_data.get('controls'):
+                update_colonel = True
+
         obj = super().save(commit=commit, update_colonel=update_colonel)
         if commit and 'slaves' in self.cleaned_data:
             obj.slaves.set(self.cleaned_data['slaves'])
