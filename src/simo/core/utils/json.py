@@ -4,6 +4,7 @@ def restore_json(data):
     for key, val in data.items():
         if not isinstance(val, str):
             clean_data[key] = val
+            continue
         try:
             clean_data[key] = int(val)
             continue
