@@ -204,6 +204,10 @@ class PresenceLightingConfigForm(BaseComponentForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.basic_fields.extend(
+            ['lights', 'on_value', 'off_value', 'presence_sensors',
+             'act_on', 'hold_time', 'conditions', 'autostart', 'keep_alive']
+        )
         if self.instance.pk:
             prefix = get_script_prefix()
             if prefix == '/':
@@ -214,9 +218,6 @@ class PresenceLightingConfigForm(BaseComponentForm):
                     self.instance.id
                 )
             )
-
-
-
 
 
 class ThermostatConfigForm(BaseComponentForm):

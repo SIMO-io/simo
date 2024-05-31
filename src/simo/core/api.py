@@ -150,9 +150,9 @@ def get_components_queryset(instance, user):
     c_ids = set()
 
     from simo.generic.controllers import WeatherForecast
-    general_components = []
+
     if instance.indoor_climate_sensor:
-        general_components.append(instance.indoor_climate_sensor_id)
+        c_ids.add(instance.indoor_climate_sensor.id)
     wf_c = Component.objects.filter(
         zone__instance=instance,
         controller_uid=WeatherForecast.uid, config__is_main=True
@@ -170,7 +170,7 @@ def get_components_queryset(instance, user):
 
     for cp in user_role.component_permissions.all():
         if cp.read:
-            c_ids.add(cp.id)
+            c_ids.add(cp.component.id)
 
     return qs.filter(id__in=c_ids)
 
