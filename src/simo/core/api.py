@@ -209,7 +209,7 @@ class ComponentViewSet(
                      _('"%s" method not found on controller') % method_name,
                     code=400
                 )
-            print("VARYSIM: ", method_name, param, type(param))
+
             call = getattr(component, method_name)
 
             if not isinstance(param, list) and not isinstance(param, dict):
@@ -255,14 +255,14 @@ class ComponentViewSet(
 
     @action(detail=True, methods=['post'])
     def controller(self, request, pk=None, *args, **kwargs):
+        start = time.time()
         component = self.get_object()
+        print(f"Component retrieved in : {time.time() - start}s")
         data = request.data
         if not isinstance(request.data, dict):
             data = data.dict()
         request_data = restore_json(data)
-        return self.perform_controller_method(
-            restore_json(request_data), component
-        )
+        return self.perform_controller_method(request_data, component)
 
     @action(detail=False, methods=['post'])
     def control(self, request, *args, **kwargs):
