@@ -724,7 +724,7 @@ class ColonelPWMOutputConfigForm(ColonelComponentForm):
         if 'output_pin' in self.cleaned_data:
             self.instance.config['output_pin_no'] = self.cleaned_data['output_pin'].no
         update_colonel = False
-        if not self.pk:
+        if not self.instance.pk:
             update_colonel = True
         elif 'output_pin' in self.changed_data:
             update_colonel = True
