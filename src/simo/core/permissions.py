@@ -78,8 +78,8 @@ class ComponentPermission(BasePermission):
             return True
         if user_role.is_owner and request.method != 'DELETE':
             return True
-        if request.method == 'POST' and user_role.component_permissions.filter(
-            write=True, component=obj
-        ).count():
-            return True
+        if request.method == 'POST':
+            for perm in user_role.component_permissions.all():
+                if perm.component == obj:
+                    return perm.write
         return False

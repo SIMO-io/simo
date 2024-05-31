@@ -1,6 +1,7 @@
 import datetime
 import requests
 import subprocess
+from django.utils.functional import cached_property
 from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 from django.db import models
@@ -165,6 +166,7 @@ class User(AbstractBaseUser, SimoAdminMixin):
 
     _instances = None
     _instance = None
+    _instance_roles = {}
 
     class Meta:
         verbose_name = _('user')
@@ -215,7 +217,11 @@ class User(AbstractBaseUser, SimoAdminMixin):
         return self.is_active and self.ssh_key and self.is_master
 
     def get_role(self, instance):
-        return self.roles.filter(instance=instance).first()
+        if instance.id not in self._instance_roles:
+            self._instance_roles[instance.id] = self.roles.filter(
+                instance=instance
+            ).prefetch_related('component_permissions').first()
+        return self._instance_roles[instance.id]
 
     def set_instance(self, instance):
         self._instance = instance
