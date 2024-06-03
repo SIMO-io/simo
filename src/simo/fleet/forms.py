@@ -1034,7 +1034,7 @@ class BlindsConfigForm(ColonelComponentForm):
 
             if self.cleaned_data.get('open_pin'):
                 for ctrl in self.cleaned_data['controls']:
-                    if ctrl['pin'] == self.cleaned_data['output_pin']:
+                    if ctrl['pin'] == self.cleaned_data['open_pin']:
                         self.add_error(
                             "open_pin",
                             "Can't be used as control pin at the same time!"
