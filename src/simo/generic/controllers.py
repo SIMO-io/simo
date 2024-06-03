@@ -681,31 +681,46 @@ class Blinds(ControllerBase, TimerMixin):
 
     @property
     def default_value(self):
-        # target and current positions in milliseconds
-        return {'target': 0, 'position': 0}
+        # target and current positions in milliseconds, angle in degrees (0 - 180)
+        return {'target': 0, 'position': 0, 'angle': 0}
 
     def _validate_val(self, value, occasion=None):
+
         if occasion == BEFORE_SEND:
-            if type(value) not in (float, int):
+            if 'target' not in value:
+                raise ValidationError("Target value is required!")
+            target = value.get('target')
+            if type(target) not in (float, int):
                 raise ValidationError(
-                    "target position for blinds to go."
+                    "Bad target position for blinds to go."
                 )
-            if value > self.component.config.get('open_duration') * 1000:
+            if target > self.component.config.get('open_duration') * 1000:
                 raise ValidationError(
                     "Target value lower than %d expected, "
                     "%d received instead" % (
                         self.component.config['open_duration'] * 1000,
-                        value
+                        target
                     )
                 )
+            if 'angle' in value:
+                try:
+                    angle = int(value['angle'])
+                except:
+                    raise ValidationError(
+                        "Integer between 0 - 180 is required for blinds angle."
+                    )
+                if angle < 0 or angle > 180:
+                    raise ValidationError(
+                        "Integer between 0 - 180 is required for blinds angle."
+                    )
 
         elif occasion == BEFORE_SET:
             if not isinstance(value, dict):
                 raise ValidationError("Dictionary is expected")
             for key, val in value.items():
-                if key not in ('target', 'position'):
+                if key not in ('target', 'position', 'angle'):
                     raise ValidationError(
-                        "'target' or 'position' parameter expected."
+                        "'target', 'position' or 'angle' parameters are expected."
                     )
                 if key == 'position':
                     if val < 0:
@@ -725,17 +740,22 @@ class Blinds(ControllerBase, TimerMixin):
                 value['target'] = self.component.value.get('target')
             if 'position' not in value:
                 value['position'] = self.component.value.get('position')
+            if 'angle' not in value:
+                value['angle'] = self.component.value.get('angle')
 
         return value
 
     def open(self):
-        self.send(0)
+        self.send({'target': 0, 'angle': self.component.value.get('angle', 0)})
 
     def close(self):
-        self.send(self.component.config['open_duration'] * 1000)
+        self.send({
+            'target': self.component.config['open_duration'] * 1000,
+            'angle': self.component.value.get('angle', 0)
+        })
 
     def stop(self):
-        self.send(-1)
+        self.send({'target': -1, 'angle': self.component.value.get('angle', 0)})
 
 
 class Watering(ControllerBase):
