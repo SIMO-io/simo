@@ -102,7 +102,7 @@ class FleetConsumer(AsyncWebsocketConsumer):
                 )
                 if not new:
                     for key, val in defaults.items():
-                        if key in ('new', ):
+                        if key == 'name':
                             continue
                         setattr(colonel, key, val)
                     colonel.save()
