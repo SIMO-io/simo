@@ -3,6 +3,7 @@ from django.utils.translation import gettext_lazy as _
 from simo.core.events import GatewayObjectCommand
 from simo.core.controllers import (
     BinarySensor as BaseBinarySensor,
+    Button as BaseButton,
     NumericSensor as BaseNumericSensor,
     Switch as BaseSwitch, Dimmer as BaseDimmer,
     MultiSensor as BaseMultiSensor, RGBWLight as BaseRGBWLight
@@ -19,7 +20,7 @@ from .models import Colonel
 from .gateways import FleetGatewayHandler
 from .forms import (
     ColonelPinChoiceField,
-    ColonelBinarySensorConfigForm, ColonelTouchSensorConfigForm,
+    ColonelBinarySensorConfigForm, ColonelButtonConfigForm,
     ColonelSwitchConfigForm, ColonelPWMOutputConfigForm,
     ColonelNumericSensorConfigForm, ColonelRGBLightConfigForm,
     ColonelDHTSensorConfigForm, DS18B20SensorConfigForm,
@@ -75,6 +76,15 @@ class BasicSensorMixin:
 
 class BinarySensor(FleeDeviceMixin, BasicSensorMixin, BaseBinarySensor):
     config_form = ColonelBinarySensorConfigForm
+
+    def _get_occupied_pins(self):
+        return [
+            self.component.config['pin_no'],
+        ]
+
+
+class Button(FleeDeviceMixin, BasicSensorMixin, BaseButton):
+    config_form = ColonelButtonConfigForm
 
     def _get_occupied_pins(self):
         return [

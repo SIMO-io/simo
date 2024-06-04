@@ -23,6 +23,12 @@ class BinarySensorWidget(BaseAppWidget):
     size = [2, 1]
 
 
+class ButtonWidget(BaseAppWidget):
+    uid = 'button'
+    name = _("Button")
+    size = [2, 1]
+
+
 class NumericSensorWidget(BaseAppWidget):
     uid = 'numeric-sensor'
     name = _("Numeric sensor")

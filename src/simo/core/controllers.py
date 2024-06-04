@@ -459,6 +459,22 @@ class BinarySensor(ControllerBase):
         return value
 
 
+class Button(ControllerBase):
+    name = _("Button")
+    base_type = 'button'
+    app_widget = ButtonWidget
+    admin_widget_template = 'admin/controller_widgets/button.html'
+    default_value = 'up'
+
+    def _validate_val(self, value, occasion=None):
+        if value not in ('down', 'up', 'hold', 'release', 'click', 'dobule-click'):
+            raise ValidationError("Bad button value!")
+        return value
+
+    def is_down(self):
+        return self.component.value in ('down', 'hold')
+
+
 class OnOffPokerMixin:
     _poke_toggle = False
 

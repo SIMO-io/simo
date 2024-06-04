@@ -284,6 +284,38 @@ class ColonelBinarySensorConfigForm(ColonelComponentForm):
         return super().save(commit=commit)
 
 
+class ColonelButtonConfigForm(ColonelComponentForm):
+    pin = ColonelPinChoiceField(
+        queryset=ColonelPin.objects.filter(input=True),
+        widget=autocomplete.ListSelect2(
+            url='autocomplete-colonel-pins',
+            forward=[
+                forward.Self(),
+                forward.Field('colonel'),
+                forward.Const({'input': True}, 'filters')
+            ]
+        )
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def clean(self):
+        super().clean()
+        if 'colonel' not in self.cleaned_data:
+            return self.cleaned_data
+        if 'pin' not in self.cleaned_data:
+            return self.cleaned_data
+        self._clean_pin('pin')
+        return self.cleaned_data
+
+
+    def save(self, commit=True):
+        if 'pin' in self.cleaned_data:
+            self.instance.config['pin_no'] = self.cleaned_data['pin'].no
+        return super().save(commit=commit)
+
+
 class ColonelNumericSensorConfigForm(ColonelComponentForm, NumericSensorForm):
     pin = ColonelPinChoiceField(
         queryset=ColonelPin.objects.filter(adc=True, input=True, native=True),
