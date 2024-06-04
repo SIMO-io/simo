@@ -474,6 +474,9 @@ class Button(ControllerBase):
     def is_down(self):
         return self.component.value in ('down', 'hold')
 
+    def is_held(self):
+        return self.component.value == 'hold'
+
 
 class OnOffPokerMixin:
     _poke_toggle = False
