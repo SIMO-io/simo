@@ -360,7 +360,8 @@ class InterfaceAddress(models.Model):
         db_index=True, max_length=100, choices=(
             ('i2c', "I2C"),
             ('dali-gear', "DALI Gear"),
-            ('dali-group', "DALI Gear Group")
+            ('dali-group', "DALI Gear Group"),
+            ('dali-device', "DALI Control Device"),
         )
     )
     address = models.JSONField(db_index=True)

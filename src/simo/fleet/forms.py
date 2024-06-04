@@ -181,17 +181,18 @@ class ControlPinForm(forms.Form):
             ]
         )
     )
-    active = forms.ChoiceField(required=True, choices=(
-        ('LOW', 'LOW'), ('HIGH', 'HIGH')
-    ), initial='LOW')
+    # active = forms.ChoiceField(required=True, choices=(
+    #     ('LOW', 'LOW'), ('HIGH', 'HIGH')
+    # ), initial='LOW')
     method = forms.ChoiceField(
+        label="Button type",
         required=True, choices=(
             ('momentary', "Momentary"), ('toggle', "Toggle"),
         ),
     )
-    debounce = forms.IntegerField(
-        required=False, help_text="Add debounce value in ms (10 - 200ms)"
-    )
+    # debounce = forms.IntegerField(
+    #     required=False, help_text="Add debounce value in ms (10 - 200ms)"
+    # )
     prefix = 'controls'
 
 
@@ -1016,8 +1017,8 @@ class BlindsConfigForm(ColonelComponentForm):
             self._clean_pin('close_pin')
 
         if 'controls' in self.cleaned_data:
-            if len(self.cleaned_data['controls']) not in (0, 2):
-                self.add_error('controls', "Must have 0 or 2 controls")
+            if len(self.cleaned_data['controls']) not in (0, 1, 2):
+                self.add_error('controls', "Must have 0, 1 or 2 controls")
                 return self.cleaned_data
 
             if len(self.cleaned_data['controls']) == 2:
