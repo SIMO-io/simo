@@ -467,7 +467,7 @@ class Button(ControllerBase):
     default_value = 'up'
 
     def _validate_val(self, value, occasion=None):
-        if value not in ('down', 'up', 'hold', 'release', 'click', 'dobule-click'):
+        if value not in ('down', 'up', 'hold', 'click', 'double-click'):
             raise ValidationError("Bad button value!")
         return value
 
