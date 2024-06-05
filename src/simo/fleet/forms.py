@@ -15,8 +15,9 @@ from simo.core.utils.easing import EASING_CHOICES
 from simo.core.utils.validators import validate_slaves
 from simo.core.utils.admin import AdminFormActionForm
 from simo.core.events import GatewayObjectCommand
+from simo.core.form_fields import Select2ModelChoiceField, Select2ListChoiceField
 from .models import Colonel, ColonelPin, Interface
-from .utils import INTERFACES_PINS_MAP
+from .utils import INTERFACES_PINS_MAP, get_all_control_input_choices
 
 
 class ColonelPinChoiceField(forms.ModelChoiceField):
@@ -128,6 +129,17 @@ class ColonelComponentForm(BaseComponentForm):
                     )
                     pin_instances[i] = pin
                     updated_vals['pin_no'] = pin.no
+                elif key == 'input':
+                    if val.startswith('pin'):
+                        pin = ColonelPin.objects.get(
+                            id=int(self.cleaned_data['controls'][i]['input'][4:])
+                        )
+                        pin_instances[i] = pin
+                        updated_vals['pin_no'] = pin.no
+                    elif val.startswith('button'):
+                        updated_vals['button'] = int(
+                            self.cleaned_data['controls'][i]['input'][7:]
+                        )
                 elif key == 'touch_threshold':
                     updated_vals[key] = int(val)
             self.cleaned_data['controls'][i] = updated_vals
@@ -135,6 +147,8 @@ class ColonelComponentForm(BaseComponentForm):
         pins_in_use = []
         formset_errors = {}
         for i, control in enumerate(self.cleaned_data['controls']):
+            if not control['input'].startswith('pin'):
+                continue
             if pin_instances[i].colonel != self.cleaned_data['colonel']:
                 formset_errors[i] = {
                     'pin': f"{pin_instances[i]} must be from the same Colonel!"
@@ -169,30 +183,20 @@ class ColonelComponentForm(BaseComponentForm):
         return obj
 
 
-class ControlPinForm(forms.Form):
-    pin = ColonelPinChoiceField(
-        queryset=ColonelPin.objects.filter(input=True),
-        widget=autocomplete.ListSelect2(
-            url='autocomplete-colonel-pins',
-            forward=[
-                forward.Self(),
-                forward.Field('colonel'),
-                forward.Const({'input': True}, 'filters')
-            ]
-        )
+class ControlForm(forms.Form):
+    input = Select2ListChoiceField(
+        choices=get_all_control_input_choices,
+        url='autocomplete-control_inputs', forward=[
+            forward.Self(), forward.Field('colonel'),
+            forward.Const({'input': True}, 'pin_filters')
+        ]
     )
-    # active = forms.ChoiceField(required=True, choices=(
-    #     ('LOW', 'LOW'), ('HIGH', 'HIGH')
-    # ), initial='LOW')
     method = forms.ChoiceField(
         label="Button type",
         required=True, choices=(
             ('momentary', "Momentary"), ('toggle', "Toggle"),
         ),
     )
-    # debounce = forms.IntegerField(
-    #     required=False, help_text="Add debounce value in ms (10 - 200ms)"
-    # )
     prefix = 'controls'
 
 
@@ -577,16 +581,14 @@ class ColonelTouchSensorConfigForm(ColonelComponentForm):
 
 
 class ColonelSwitchConfigForm(ColonelComponentForm):
-    output_pin = ColonelPinChoiceField(
+    output_pin = Select2ModelChoiceField(
         queryset=ColonelPin.objects.filter(output=True),
-        widget=autocomplete.ListSelect2(
-            url='autocomplete-colonel-pins',
-            forward=[
-                forward.Self(),
-                forward.Field('colonel'),
-                forward.Const({'output': True}, 'filters')
-            ]
-        )
+        url='autocomplete-colonel-pins',
+        forward=[
+            forward.Self(),
+            forward.Field('colonel'),
+            forward.Const({'output': True}, 'filters')
+        ]
     )
     auto_off = forms.FloatField(
         required=False, min_value=0.01, max_value=1000000000,
@@ -611,7 +613,7 @@ class ColonelSwitchConfigForm(ColonelComponentForm):
 
     controls = FormsetField(
         formset_factory(
-            ControlPinForm, can_delete=True, can_order=True, extra=0, max_num=10
+            ControlForm, can_delete=True, can_order=True, extra=0, max_num=10
         )
     )
 
@@ -638,7 +640,9 @@ class ColonelSwitchConfigForm(ColonelComponentForm):
 
         if self.cleaned_data.get('output_pin') and self.cleaned_data.get('controls'):
             for ctrl in self.cleaned_data['controls']:
-                if ctrl['pin'] == self.cleaned_data['output_pin']:
+                if not ctrl['input'].startswith('pin'):
+                    continue
+                if int(ctrl['input'][4:]) == self.cleaned_data['output_pin'].id:
                     self.add_error(
                         "output_pin",
                         "Can't be used as control pin at the same time!"
@@ -719,7 +723,7 @@ class ColonelPWMOutputConfigForm(ColonelComponentForm):
     )
     controls = FormsetField(
         formset_factory(
-            ControlPinForm, can_delete=True, can_order=True, extra=0, max_num=10
+            ControlForm, can_delete=True, can_order=True, extra=0, max_num=10
         )
     )
 
@@ -744,9 +748,12 @@ class ColonelPWMOutputConfigForm(ColonelComponentForm):
             self._clean_pin('output_pin')
         if 'controls' in self.cleaned_data:
             self._clean_controls()
+
         if self.cleaned_data.get('output_pin') and self.cleaned_data.get('controls'):
             for ctrl in self.cleaned_data['controls']:
-                if ctrl['pin'] == self.cleaned_data['output_pin']:
+                if not ctrl['input'].startswith('pin'):
+                    continue
+                if int(ctrl['input'][4:]) == self.cleaned_data['output_pin'].id:
                     self.add_error(
                         "output_pin",
                         "Can't be used as control pin at the same time!"
@@ -833,7 +840,7 @@ class ColonelRGBLightConfigForm(ColonelComponentForm):
     )
     controls = FormsetField(
         formset_factory(
-            ControlPinForm, can_delete=True, can_order=True, extra=0, max_num=2
+            ControlForm, can_delete=True, can_order=True, extra=0, max_num=2
         )
     )
 
@@ -873,7 +880,9 @@ class ColonelRGBLightConfigForm(ColonelComponentForm):
 
         if self.cleaned_data.get('output_pin') and self.cleaned_data.get('controls'):
             for ctrl in self.cleaned_data['controls']:
-                if ctrl['pin'] == self.cleaned_data['output_pin']:
+                if not ctrl['input'].startswith('pin'):
+                    continue
+                if int(ctrl['input'][4:]) == self.cleaned_data['output_pin'].id:
                     self.add_error(
                         "output_pin",
                         "Can't be used as control pin at the same time!"
@@ -1029,7 +1038,7 @@ class BlindsConfigForm(ColonelComponentForm):
     )
     controls = FormsetField(
         formset_factory(
-            ControlPinForm, can_delete=True, can_order=True, extra=0, max_num=2
+            ControlForm, can_delete=True, can_order=True, extra=0, max_num=2
         )
     )
 
@@ -1065,22 +1074,25 @@ class BlindsConfigForm(ColonelComponentForm):
 
             self._clean_controls()
 
-            if self.cleaned_data.get('open_pin'):
+            if self.cleaned_data.get('open_pin') and self.cleaned_data.get('controls'):
                 for ctrl in self.cleaned_data['controls']:
-                    if ctrl['pin'] == self.cleaned_data['open_pin']:
+                    if not ctrl['input'].startswith('pin'):
+                        continue
+                    if int(ctrl['input'][4:]) == self.cleaned_data['open_pin'].id:
                         self.add_error(
                             "open_pin",
                             "Can't be used as control pin at the same time!"
                         )
 
-            if self.cleaned_data.get('close_pin'):
+            if self.cleaned_data.get('close_pin') and self.cleaned_data.get('controls'):
                 for ctrl in self.cleaned_data['controls']:
-                    if ctrl['pin'] == self.cleaned_data['close_pin']:
+                    if not ctrl['input'].startswith('pin'):
+                        continue
+                    if int(ctrl['input'][4:]) == self.cleaned_data['close_pin'].id:
                         self.add_error(
                             "close_pin",
                             "Can't be used as control pin at the same time!"
                         )
-
         return self.cleaned_data
 
     def save(self, commit=True):

@@ -203,7 +203,7 @@ class ColonelPin(models.Model):
     colonel = models.ForeignKey(
         Colonel, related_name='pins', on_delete=models.CASCADE
     )
-    no = models.PositiveIntegerField()
+    no = models.PositiveIntegerField(db_index=True)
     label = models.CharField(db_index=True, max_length=200)
     input = models.BooleanField(default=False, db_index=True)
     output = models.BooleanField(default=False, db_index=True)
@@ -227,6 +227,7 @@ class ColonelPin(models.Model):
 
     class Meta:
         unique_together = 'colonel', 'no'
+        ordering = 'colonel', 'no'
         indexes = [
             models.Index(
                 fields=["occupied_by_content_type", "occupied_by_id"]
@@ -255,9 +256,11 @@ def after_colonel_save(sender, instance, created, *args, **kwargs):
         for no, data in GPIO_PINS.get(instance.type).items():
             ColonelPin.objects.get_or_create(
                 colonel=instance, no=no,
-                input=data.get('input'), output=data.get('output'),
-                capacitive=data.get('capacitive'), adc=data.get('adc'),
-                native=data.get('native'), note=data.get('note')
+                defaults = {
+                    'input': data.get('input'), 'output': data.get('output'),
+                    'capacitive': data.get('capacitive'), 'adc': data.get('adc'),
+                    'native': data.get('native'), 'note': data.get('note')
+                }
             )
         fleet_gateway, new = Gateway.objects.get_or_create(
             type='simo.fleet.gateways.FleetGatewayHandler'

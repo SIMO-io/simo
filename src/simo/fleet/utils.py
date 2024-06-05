@@ -1,3 +1,6 @@
+from simo.core.utils.cache import get_cached_data
+from simo.core.middleware import get_current_instance
+
 GPIO_PIN_DEFAULTS = {
     'output': True, 'input': True, 'default_pull': 'FLOATING',
     'native': True, 'adc': False,
@@ -119,3 +122,30 @@ for no, data in BASE_ESP32_GPIO_PINS.items():
 INTERFACES_PINS_MAP = {
     1: [13, 23], 2: [32, 33]
 }
+
+
+def get_all_control_input_choices():
+    '''
+    This is called multiple times by component form,
+    so we cache the data to speed things up!
+    '''
+    def get_control_input_choices():
+        from .models import ColonelPin
+        from simo.core.models import Component
+        pins_qs = ColonelPin.objects.all()
+
+        buttons_qs = Component.objects.filter(
+            base_type='button'
+        ).select_related('zone')
+
+        return [(f'pin-{pin.id}', str(pin)) for pin in pins_qs] + \
+               [(f'button-{button.id}',
+                 f"{button.zone.name} | {button.name}"
+                 if button.zone else button.name)
+                for button in buttons_qs]
+
+    instance = get_current_instance()
+
+    return get_cached_data(
+        f'{instance.id}-fleet-control-inputs', get_control_input_choices, 10
+    )

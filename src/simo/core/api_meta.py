@@ -1,4 +1,5 @@
 from collections import OrderedDict
+from django.urls import reverse
 from django.utils.encoding import force_str
 from rest_framework import serializers
 from rest_framework.metadata import SimpleMetadata
@@ -51,6 +52,7 @@ class SIMOAPIMetadata(SimpleMetadata):
 
         form_field = field.style.get('form_field')
         if form_field:
+            #TODO: Delete these completely once autocomplete fields are fully implemented
             if hasattr(form_field, 'queryset'):
                 model = form_field.queryset.model
                 field_info['related_object'] = ".".join(
@@ -58,6 +60,10 @@ class SIMOAPIMetadata(SimpleMetadata):
                 )
             if hasattr(form_field, 'filter_by'):
                 field_info['filter_by'] = form_field.filter_by
+
+            if hasattr(form_field, 'forward'):
+                field_info['autocomplete_url'] = reverse(form_field.url)
+                field_info['forward'] = form_field.forward
 
         attrs = [
             'read_only', 'label', 'help_text',
@@ -82,6 +88,7 @@ class SIMOAPIMetadata(SimpleMetadata):
             if queryset and queryset.count() > 1000:
                 add_choices = False
             if add_choices:
+                print("Choices on: ", field)
                 field_info['choices'] = [
                     {
                         'value': choice_value,

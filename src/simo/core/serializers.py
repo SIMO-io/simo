@@ -1,9 +1,8 @@
 import inspect
 import datetime
-import json
+import re
 from django import forms
 from collections import OrderedDict
-from django.forms.utils import ErrorDict
 from django.conf import settings
 from collections.abc import Iterable
 from easy_thumbnails.files import get_thumbnailer
@@ -12,6 +11,11 @@ from rest_framework import serializers
 from rest_framework.fields import SkipField
 from rest_framework.relations import Hyperlink, PKOnlyObject
 from simo.core.forms import HiddenField, FormsetField
+from simo.core.form_fields import (
+    Select2ListChoiceField, Select2ListChoiceField,
+    Select2ModelChoiceField, Select2ListMultipleChoiceField
+)
+from simo.core.models import Component
 from rest_framework.relations import PrimaryKeyRelatedField, ManyRelatedField
 from .drf_braces.serializers.form_serializer import (
     FormSerializer, FormSerializerBase, reduce_attr_dict_from_instance,
@@ -106,6 +110,7 @@ class ComponentFormsetField(FormSerializer):
         form = forms.Form
         field_mapping = {
             HiddenField: HiddenSerializerField,
+            Select2ListChoiceField: serializers.ChoiceField,
             forms.ModelChoiceField: FormsetPrimaryKeyRelatedField,
             forms.TypedChoiceField: serializers.ChoiceField,
             forms.FloatField: serializers.FloatField,
@@ -258,9 +263,24 @@ class ComponentSerializer(FormSerializer):
             forms.FloatField: serializers.FloatField,
             forms.SlugField: serializers.CharField,
             forms.ModelChoiceField: ComponentPrimaryKeyRelatedField,
+            Select2ModelChoiceField: ComponentPrimaryKeyRelatedField,
             forms.ModelMultipleChoiceField: ComponentManyToManyRelatedField,
+            Select2ListMultipleChoiceField: ComponentManyToManyRelatedField,
             FormsetField: ComponentFormsetField,
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Set proper instance for OPTIONS request
+        if not self.instance:
+            res = re.findall(
+                r'.*\/core\/components\/(?P<component_id>[0-9]+)\/',
+                self.context['request'].path
+            )
+            if res:
+                self.instance = Component.objects.filter(id=res[0]).first()
+
+
 
     def get_fields(self):
         self.set_form_cls()
@@ -426,7 +446,6 @@ class ComponentSerializer(FormSerializer):
         a_data = self.accomodate_formsets(form, validated_data)
         form = self.get_form(instance=instance, data=a_data)
         if form.is_valid():
-            print("FORM FIELDS", form.fields)
             instance = form.save(commit=True)
             return instance
         raise serializers.ValidationError(form.errors)
