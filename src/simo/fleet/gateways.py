@@ -117,7 +117,7 @@ class FleetGatewayHandler(BaseObjectCommandsGatewayHandler):
                 ).publish()
 
     def watch_buttons(self, component):
-        for i, ctrl in enumerate(component.config.get('controls')):
+        for i, ctrl in enumerate(component.config.get('controls', [])):
             if not ctrl.get('input', '').startswith('button'):
                 continue
             button = Component.objects.filter(id=ctrl['input'][7:]).first()
