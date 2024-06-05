@@ -58,7 +58,7 @@ INSTALLED_APPS = [
     'dynamic_preferences',
     'easy_thumbnails',
     'django_filters',
-    'adminsortable2',
+
     'bootstrap4',
     'taggit',
 
@@ -70,6 +70,8 @@ INSTALLED_APPS = [
     'simo.fleet',
 
     'django.contrib.admin',
+
+    'adminsortable2',
 ]
 
 

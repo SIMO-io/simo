@@ -1,3 +1,4 @@
+import json
 from django import forms
 from django.db import models
 from django.template.loader import render_to_string
@@ -26,21 +27,12 @@ class FormsetWidget(forms.Widget):
     use_cached = False
 
     class Media:
-        pass
-        # No longer works with adminsortable2-2
-        # css = {
-        #     'all': ['adminsortable2/css/sortable.css']
-        # }
+        css = {
+            'all': ['adminsortable2/css/sortable.css']
+        }
         js = (
             'admin/js/inlines.js',
-            # 'adminsortable2/js/plugins/admincompat.js',
-            # 'adminsortable2/js/libs/jquery.ui.core-1.11.4.js',
-            # 'adminsortable2/js/libs/jquery.ui.widget-1.11.4.js',
-            # 'adminsortable2/js/libs/jquery.ui.mouse-1.11.4.js',
-            # 'adminsortable2/js/libs/jquery.ui.touch-punch-0.2.3.js',
-            # 'adminsortable2/js/libs/jquery.ui.sortable-1.11.4.js',
-            # 'adminsortable2/js/inline-tabular.js',
-            # 'adminsortable2/js/inline-sortable.js',
+            'adminsortable2/js/adminsortable2.js',
         )
 
     def render(self, name, value, attrs=None, renderer=None):
@@ -80,14 +72,15 @@ class FormsetWidget(forms.Widget):
             attrs = {'id': 'id_%s-__prefix__-%s' % (prefix, name)}
             if name == "ORDER":
                 field.initial = 9999
-                field.widget = forms.HiddenInput()
+                field.widget = forms.HiddenInput(attrs={"class": '_reorder_'})
             set_field_html_name_and_id(
                 field, '%s-__prefix__-%s' % (prefix, name), attrs
             )
 
-        if self.formset.can_order:
-            for form in self.formset:
-                form.fields['ORDER'].widget = forms.HiddenInput()
+        for form in self.formset:
+            form.fields['ORDER'].widget = forms.HiddenInput(
+                attrs={"class": '_reorder_'}
+            )
 
         cell_count = len(list(self.formset.form.declared_fields.keys())) + 1
         if self.formset.can_order:
@@ -99,7 +92,7 @@ class FormsetWidget(forms.Widget):
             render_to_string(
                 'admin/formset_widget.html', {
                     'formset': self.formset,
-                    'inline_formset_data': str(inline_formset_data).replace("'", '"'),
+                    'inline_formset_data': json.dumps(inline_formset_data),
                     'cell_count': cell_count,
                     'empty_form': empty_form,
                     'total_org_forms': total_org_forms

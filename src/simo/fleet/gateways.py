@@ -125,6 +125,7 @@ class FleetGatewayHandler(BaseObjectCommandsGatewayHandler):
                 continue
             if button.id in self.buttons_on_watch:
                 continue
+            # TODO: remove this once development phase is complete!
             # if button.config.get('colonel') == component.config.get('colonel'):
             #     # button is on a same colonel, therefore colonel handles
             #     # all control actions and we do not need to do it here

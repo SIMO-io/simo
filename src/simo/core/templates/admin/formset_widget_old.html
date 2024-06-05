@@ -1,0 +1,122 @@
+{% load i18n admin_urls static admin_modify %}
+<style>
+    .formset-table th, .formset-table th .label{
+        font-weight: normal;
+        color: var(--body-quiet-color);
+    }
+    .formset-table .label.required{
+        font-weight: bold;
+    }
+    form .aligned .formset-table ul{
+        margin-left:0;
+    }
+    .errors .formset-table input, .errors .formset-table select,
+    .errors .formset-table textarea{
+        border: 1px solid var(--border-color);
+    }
+    .errors .formset-table .select2-selection{
+        border-color: #aaa;
+    }
+    .formset-table td.errors input, .formset-table td.errors select,
+    .formset-table td.errors textarea{
+        border: 1px solid var(--error-fg);
+    }
+    .formset-table td.errors .select2-selection{
+        border-color: var(--error-fg);
+    }
+    .formset-table td.drag {
+        cursor: pointer;
+        background-image: url(/static/adminsortable2/icons/drag.png);
+        background-repeat: repeat;
+        width: 20px;
+    }
+    .formset-table .inline-deletelink{
+        float: left
+    }
+</style>
+
+
+<div class="inline-group sortable" id="{{ formset.prefix }}-group">
+  <div class="tabular inline-related">
+{{ formset.management_form }}
+<fieldset class="module">
+   {{ formset.non_form_errors }}
+   <table class="formset-table">
+     <thead><tr>
+         <th>{% trans "Sort" %}</th>
+     {% for field in empty_form %}
+       {% if not field.is_hidden and not field.name == 'DELETE' %}
+         <th{% if field.required %} class="required"{% endif %}>{{ field.label|capfirst }}
+         {% if field.help_text %}&nbsp;<img src="{% static "admin/img/icon-unknown.svg" %}" class="help help-tooltip" width="10" height="10" alt="({{ field.help_text|striptags }})" title="{{ field.help_text|striptags }}" />{% endif %}
+         </th>
+       {% endif %}
+     {% endfor %}
+     {% if formset.can_delete %}<th>{% trans "Delete?" %}</th>{% endif %}
+     </tr></thead>
+
+     <tbody>
+     {% for form in formset %}
+        {% if form.non_field_errors %}
+          <tr><td colspan="{{ total_org_forms }}">{{ form.non_field_errors }}</td></tr>
+        {% endif %}
+
+        <tr class="form-row has_original" id="{{ formset.prefix }}-{{ forloop.counter0 }}">
+            <td class="drag">&nbsp;</td>
+            <td class="original hidden">
+              {% for field in form %}
+                {% if field.is_hidden %} {{ field }} {% endif %}
+              {% endfor %}
+            </td>
+
+            {% for field in form %}
+              {% if not field.is_hidden and not field.name == 'DELETE' %}
+              <td{% if field.name %} class="field-{{ field.name }}"{% endif %}>
+                  {{ field }}
+                  {{ field.errors.as_ul }}
+              </td>
+              {% endif %}
+            {% endfor %}
+
+            {% if formset.can_delete %}
+              <td class="delete">{% if total_org_forms >= forloop.counter0 %}{{ form.DELETE }}{% endif %}</td>
+            {% endif %}
+        </tr>
+
+     {% endfor %}
+
+     <tr class="form-row empty-form" id="{{ formset.prefix }}-empty">
+        <td class="drag">&nbsp;</td>
+        <td class="original hidden">
+          {% for field in empty_form %}
+            {% if field.is_hidden %} {{ field }} {% endif %}
+          {% endfor %}
+        </td>
+
+        {% for field in empty_form %}
+          {% if not field.is_hidden and not field.name == 'DELETE' %}
+          <td{% if field.name %} class="field-{{ field.name }}"{% endif %}>
+              {{ field }}
+              {{ field.errors.as_ul }}
+          </td>
+          {% endif %}
+        {% endfor %}
+
+        {% if formset.can_delete %}
+          <td class="delete"></td>
+        {% endif %}
+     </tr>
+
+     </tbody>
+   </table>
+</fieldset>
+  </div>
+</div>
+
+<script type="application/json" class="inline-tabular-config">
+{
+  "prefix": "{{ formset.prefix|escapejs }}",
+  "addText": "{% filter escapejs %}Add another{% endfilter %}",
+  "deleteText": "{% filter escapejs %}{% trans 'Remove' %}{% endfilter %}"
+}
+</script>
+<div class="default_order_field" default_order_field="ORDER" default_order_direction=""></div>
