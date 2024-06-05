@@ -124,14 +124,14 @@ class FleetGatewayHandler(BaseObjectCommandsGatewayHandler):
                 continue
             if button.id in self.buttons_on_watch:
                 continue
-            if button.config.get('colonel') == component.config.get('colonel'):
-                # button is on a same colonel, therefore colonel handles
-                # all control actions and we do not need to do it here
-                continue
+            # if button.config.get('colonel') == component.config.get('colonel'):
+            #     # button is on a same colonel, therefore colonel handles
+            #     # all control actions and we do not need to do it here
+            #     continue
 
             def button_action(btn):
                 self.button_action(component, btn)
-
+            print(f"Binding button {button} to {component}!")
             button.on_change(button_action)
             self.buttons_on_watch.add(button.id)
 
