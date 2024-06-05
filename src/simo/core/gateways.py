@@ -74,7 +74,7 @@ class BaseObjectCommandsGatewayHandler(BaseGatewayHandler):
     def _run_periodic_task(self, exit, task, period):
         while not exit.is_set():
             try:
-                print(f"Run periodic task {task}!")
+                #print(f"Run periodic task {task}!")
                 getattr(self, task)()
             except Exception as e:
                 self.logger.error(e, exc_info=True)

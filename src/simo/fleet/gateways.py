@@ -23,13 +23,14 @@ class FleetGatewayHandler(BaseObjectCommandsGatewayHandler):
 
     def run(self, exit):
         from simo.fleet.controllers import (
-            Switch, PWMOutput, RGBLight, DALIGearGroup, DALILamp, TTLock
+            Switch, PWMOutput, RGBLight, Blinds, DALIGearGroup, DALILamp, TTLock
         )
 
         self.buttons_on_watch = set()
         for component in Component.objects.filter(
             controller_uid__in=(
-                Switch, PWMOutput, RGBLight, DALIGearGroup, DALILamp
+                Switch.uid, PWMOutput.uid, RGBLight.uid, Blinds.uid,
+                DALIGearGroup.uid, DALILamp.uid
             )
         ):
             self.watch_buttons(component)
