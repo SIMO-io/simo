@@ -123,13 +123,7 @@ class ColonelComponentForm(BaseComponentForm):
             updated_vals = {}
             for key, val in control.items():
                 updated_vals[key] = val
-                if key == 'pin':
-                    pin = ColonelPin.objects.get(
-                        id=self.cleaned_data['controls'][i]['pin']
-                    )
-                    pin_instances[i] = pin
-                    updated_vals['pin_no'] = pin.no
-                elif key == 'input':
+                if key == 'input':
                     if val.startswith('pin'):
                         pin = ColonelPin.objects.get(
                             id=int(self.cleaned_data['controls'][i]['input'][4:])
@@ -657,6 +651,10 @@ class ColonelSwitchConfigForm(ColonelComponentForm):
         obj = super().save(commit=commit)
         if commit and 'slaves' in self.cleaned_data:
             obj.slaves.set(self.cleaned_data['slaves'])
+        if commit and self.cleaned_data.get('controls'):
+            GatewayObjectCommand(
+                self.instance.gateway, obj, command='watch_buttons'
+            ).publish()
         return obj
 
 
@@ -787,6 +785,10 @@ class ColonelPWMOutputConfigForm(ColonelComponentForm):
                     obj.controller._get_colonel_config()
                 ]
             ).publish()
+        if commit and self.cleaned_data.get('controls'):
+            GatewayObjectCommand(
+                self.instance.gateway, obj, command='watch_buttons'
+            ).publish()
         return obj
 
 
@@ -848,7 +850,12 @@ class ColonelRGBLightConfigForm(ColonelComponentForm):
         if 'output_pin' in self.cleaned_data:
             self.instance.config['output_pin_no'] = \
                 self.cleaned_data['output_pin'].no
-        return super().save(commit)
+        obj = super().save(commit)
+        if commit and self.cleaned_data.get('controls'):
+            GatewayObjectCommand(
+                self.instance.gateway, obj, command='watch_buttons'
+            ).publish()
+        return obj
 
     def clean_custom_timing(self):
         custom_timing = self.cleaned_data.get('custom_timing')
@@ -967,7 +974,8 @@ class DualMotorValveForm(ColonelComponentForm):
         if 'close_pin' in self.cleaned_data:
             self.instance.config['close_pin_no'] = \
                 self.cleaned_data['close_pin'].no
-        return super().save(commit=commit)
+        obj = super().save(commit=commit)
+        return obj
 
 
 class BlindsConfigForm(ColonelComponentForm):
@@ -1102,7 +1110,12 @@ class BlindsConfigForm(ColonelComponentForm):
         if 'close_pin' in self.cleaned_data:
             self.instance.config['close_pin_no'] = \
                 self.cleaned_data['close_pin'].no
-        return super().save(commit=commit)
+        obj = super().save(commit=commit)
+        if commit and self.cleaned_data.get('controls'):
+            GatewayObjectCommand(
+                self.instance.gateway, obj, command='watch_buttons'
+            ).publish()
+        return obj
 
 
 class BurglarSmokeDetectorConfigForm(ColonelComponentForm):
@@ -1283,6 +1296,14 @@ class DaliLampForm(DALIDeviceConfigForm, BaseComponentForm):
                   "given amount of seconds after last turn on event."
     )
 
+    def save(self, commit=True):
+        obj = super().save(commit=commit)
+        if commit and self.cleaned_data.get('controls'):
+            GatewayObjectCommand(
+                self.instance.gateway, obj, command='watch_buttons'
+            ).publish()
+        return obj
+
 
 class DaliGearGroupForm(DALIDeviceConfigForm, BaseComponentForm):
     auto_off = forms.FloatField(
@@ -1374,6 +1395,10 @@ class DaliGearGroupForm(DALIDeviceConfigForm, BaseComponentForm):
                         obj.controller._get_colonel_config()
                     ]
                 ).publish()
+        if commit and self.cleaned_data.get('controls'):
+            GatewayObjectCommand(
+                self.instance.gateway, obj, command='watch_buttons'
+            ).publish()
         return obj
 
 

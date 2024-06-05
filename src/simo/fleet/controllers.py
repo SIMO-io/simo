@@ -194,6 +194,14 @@ class BasicOutputMixin:
             pins.append(control_unit['pin_no'])
         return pins
 
+    def _ctrl(self, ctrl_no, ctrl_event, method):
+        GatewayObjectCommand(
+            self.component.gateway,
+            Colonel(id=self.component.config['colonel']),
+            id=self.component.id, command='call', method='ctrl',
+            args=[ctrl_no, ctrl_event, method]
+        ).publish()
+
 
 class Switch(FleeDeviceMixin, BasicOutputMixin, BaseSwitch):
     config_form = ColonelSwitchConfigForm
@@ -221,8 +229,37 @@ class Switch(FleeDeviceMixin, BasicOutputMixin, BaseSwitch):
         ).publish()
 
 
+class FadeMixin:
 
-class PWMOutput(FleeDeviceMixin, BasicOutputMixin, BaseDimmer):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.component.last_fade_direction = 0
+
+    def fade_up(self):
+        self.component.last_fade_direction = 1
+        GatewayObjectCommand(
+            self.component.gateway,
+            Colonel(id=self.component.config['colonel']),
+            id=self.component.id, command='call', method='fade_up'
+        ).publish()
+
+    def fade_down(self):
+        self.component.last_fade_direction = -1
+        GatewayObjectCommand(
+            self.component.gateway,
+            Colonel(id=self.component.config['colonel']),
+            id=self.component.id, command='call', method='fade_down'
+        ).publish()
+
+    def fade_stop(self):
+        GatewayObjectCommand(
+            self.component.gateway,
+            Colonel(id=self.component.config['colonel']),
+            id=self.component.id, command='call', method='fade_stop'
+        ).publish()
+
+
+class PWMOutput(FadeMixin, FleeDeviceMixin, BasicOutputMixin, BaseDimmer):
     name = "Dimmer"
     config_form = ColonelPWMOutputConfigForm
 
@@ -270,6 +307,7 @@ class PWMOutput(FleeDeviceMixin, BasicOutputMixin, BaseDimmer):
             value = conf.get('max', 100) - value + conf.get('min', 0)
 
         return value
+
 
 
 class RGBLight(FleeDeviceMixin, BasicOutputMixin, BaseRGBWLight):
@@ -605,14 +643,14 @@ class DALIDevice(FleeDeviceMixin, ControllerBase):
         ).publish()
 
 
-class DALILamp(BaseDimmer, DALIDevice):
+class DALILamp(FadeMixin, BaseDimmer, DALIDevice):
     family = 'dali'
     manual_add = False
     name = 'DALI Lamp'
     config_form = DaliLampForm
 
 
-class DALIGearGroup(FleeDeviceMixin, BaseDimmer):
+class DALIGearGroup(FadeMixin, FleeDeviceMixin, BaseDimmer):
     gateway_class = FleetGatewayHandler
     family = 'dali'
     manual_add = True
