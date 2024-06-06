@@ -626,7 +626,8 @@ class ControllerTypes(InstanceMixin, viewsets.GenericViewSet):
                 'name': cls.name,
                 'is_discoverable': cls.is_discoverable,
                 'manual_add': cls.manual_add,
-                'discovery_msg': cls.discovery_msg
+                'discovery_msg': cls.discovery_msg,
+                'info': cls.info(cls)
             })
 
         return RESTResponse(data)
