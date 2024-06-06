@@ -1,6 +1,8 @@
+import markdown
 from django.utils.translation import gettext_lazy as _
 from django.contrib import admin
 from django.urls import reverse
+from django.utils.safestring import mark_safe
 from easy_thumbnails.fields import ThumbnailerField
 from adminsortable2.admin import SortableAdminMixin
 from django.template.loader import render_to_string
@@ -261,7 +263,7 @@ class ComponentAdmin(admin.ModelAdmin):
         'alarm_category', 'show_in_app',
     )
     readonly_fields = (
-        'id', 'controller_uid', 'base_type', 'gateway', 'config',
+        'id', 'controller_uid', 'base_type', 'info', 'gateway', 'config',
         'alive', 'error_msg', 'battery_level',
         'control', 'value', 'arm_status', 'history', 'meta'
     )
@@ -274,6 +276,9 @@ class ComponentAdmin(admin.ModelAdmin):
     list_per_page = 100
     change_list_template = 'admin/component_change_list.html'
     inlines = ComponentPermissionInline,
+    # standard django admin change_form.html template + adds side panel
+    # for displaying component controller info.
+    #change_form_template = 'admin/core/component_change_form.html'
 
     def get_fieldsets(self, request, obj=None):
         form = self._get_form_for_get_fields(request, obj)
@@ -346,6 +351,7 @@ class ComponentAdmin(admin.ModelAdmin):
                 ctx['selected_type'] = ALL_BASE_TYPES.get(
                     controller_cls.base_type, controller_cls.base_type
                 )
+                ctx['info'] = controller_cls.info(controller_cls)
                 if request.method == 'POST':
                     ctx['form'] = add_form(
                         request=request,
@@ -356,7 +362,6 @@ class ComponentAdmin(admin.ModelAdmin):
                     pop_fields_from_form(ctx['form'])
                     if ctx['form'].is_valid():
                         if ctx['form'].controller.is_discoverable:
-                            print("INIT DISCOVERY!!!")
                             ctx['form'].controller.init_discovery(
                                 ctx['form'].cleaned_data
                             )
@@ -395,7 +400,6 @@ class ComponentAdmin(admin.ModelAdmin):
                     if ctx['form'].is_valid():
                         request.session['add_comp_type'] = \
                             ctx['form'].cleaned_data['controller_type']
-                        print("Session controller type: ", request.session['add_comp_type'])
                         return redirect(request.path)
 
                 else:
@@ -473,6 +477,18 @@ class ComponentAdmin(admin.ModelAdmin):
             obj.controller.admin_widget_template, {
                 'obj': obj, 'global_preferences': dynamic_settings
             }
+        )
+
+    def info(self, obj):
+        if not obj.controller:
+            return
+        info = obj.controller.info()
+        if not info:
+            return
+        return mark_safe(
+            f'<div style="padding: 15px; background-color: #cfefff;">'
+            f'{markdown.markdown(info)}'
+            f'</div>'
         )
 
     def history(self, obj):

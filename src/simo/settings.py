@@ -58,6 +58,7 @@ INSTALLED_APPS = [
     'dynamic_preferences',
     'easy_thumbnails',
     'django_filters',
+    'markdownify.apps.MarkdownifyConfig',
 
     'bootstrap4',
     'taggit',

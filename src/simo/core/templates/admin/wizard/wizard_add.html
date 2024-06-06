@@ -1,5 +1,5 @@
 {% extends "admin/base_site.html" %}
-{% load i18n admin_urls static admin_modify %}
+{% load i18n admin_urls static admin_modify markdownify %}
 
 {% block extrahead %}{{ block.super }}
 <script type="text/javascript" src="{% url 'admin:jsi18n' %}"></script>
@@ -49,18 +49,25 @@
   <h3 style="margin-bottom: 20px; text-align: center">Step {{ current_step }} of {{ total_steps }}</h3>
 
   <fieldset class="module aligned">
-    {% if selected_gateway %}
-      <div class="form-row ">
-        <label class="required"><label for="id_gateway">Gateway:</label></label>
-        <div class="readonly" style="font-weight:bold;">{{ selected_gateway }}</div>
+    {% if selected_gateway or selected_type %}
+      <div class="form-row">
+        {% if selected_gateway %}
+          Gateway: <strong>{{ selected_gateway }}</strong>
+        {% endif %}
+        {% if selected_type %}
+          | Base type: <strong>{{ selected_type }}</strong>
+        {% endif %}
       </div>
     {% endif %}
-    {% if selected_type %}
+    
+    {% if info %}
       <div class="form-row ">
-        <label class="required"><label for="id_base_type">Base type:</label></label>
-        <div class="readonly" style="font-weight:bold;">{{ selected_type }}</div>
+        <div style="padding: 15px; background-color: #cfefff;">
+          {{ info|markdownify }}
+        </div>
       </div>
     {% endif %}
+    
     {% if error %}
         <ul class="messagelist">
             <li class="error">{{ error }}</li>

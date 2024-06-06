@@ -254,6 +254,7 @@ class ComponentSerializer(FormSerializer):
     arm_status = ObjectSerializerMethodField()
     battery_level = ObjectSerializerMethodField()
     controller_methods = serializers.SerializerMethodField()
+    info = serializers.SerializerMethodField()
 
     class Meta:
         form = ComponentAdminForm
@@ -279,8 +280,6 @@ class ComponentSerializer(FormSerializer):
             )
             if res:
                 self.instance = Component.objects.filter(id=res[0]).first()
-
-
 
     def get_fields(self):
         self.set_form_cls()
@@ -468,6 +467,10 @@ class ComponentSerializer(FormSerializer):
         if obj.alarm_category:
             c_methods.extend(['arm', 'disarm'])
         return c_methods
+
+    def get_info(self, obj):
+        if obj.controller:
+            return obj.controller.info()
 
     def get_read_only(self, obj):
         user = self.context.get('user')

@@ -1458,10 +1458,8 @@ class AlarmClock(ControllerBase):
         return current_value
 
 
-# ----------- Dummy controllers -----------------------------
-
 class StateSelect(ControllerBase):
-    gateway_class = DummyGatewayHandler
+    gateway_class = GenericGatewayHandler
     name = _("State select")
     base_type = 'state-select'
     app_widget = StateSelectWidget
@@ -1477,40 +1475,51 @@ class StateSelect(ControllerBase):
         return value
 
 
+# ----------- Dummy controllers -----------------------------
+
 class DummyBinarySensor(BinarySensor):
     gateway_class = DummyGatewayHandler
+    info_template_path = 'generic/controllers_info/dummy.md'
 
 
 class DummyNumericSensor(NumericSensor):
     gateway_class = DummyGatewayHandler
+    info_template_path = 'generic/controllers_info/dummy.md'
 
 
 class DummyMultiSensor(MultiSensor):
     gateway_class = DummyGatewayHandler
+    info_template_path = 'generic/controllers_info/dummy.md'
 
 
 class DummySwitch(Switch):
     gateway_class = DummyGatewayHandler
+    info_template_path = 'generic/controllers_info/dummy.md'
 
 
 class DummyDoubleSwitch(DoubleSwitch):
     gateway_class = DummyGatewayHandler
+    info_template_path = 'generic/controllers_info/dummy.md'
 
 
 class DummyTripleSwitch(TripleSwitch):
     gateway_class = DummyGatewayHandler
+    info_template_path = 'generic/controllers_info/dummy.md'
 
 
 class DummyQuadrupleSwitch(QuadrupleSwitch):
     gateway_class = DummyGatewayHandler
+    info_template_path = 'generic/controllers_info/dummy.md'
 
 
 class DummyQuintupleSwitch(QuintupleSwitch):
     gateway_class = DummyGatewayHandler
+    info_template_path = 'generic/controllers_info/dummy.md'
 
 
 class DummyDimmer(Dimmer):
     gateway_class = DummyGatewayHandler
+    info_template_path = 'generic/controllers_info/dummy.md'
 
     def _prepare_for_send(self, value):
         if self.component.config.get('inverse'):
@@ -1520,7 +1529,9 @@ class DummyDimmer(Dimmer):
 
 class DummyDimmerPlus(DimmerPlus):
     gateway_class = DummyGatewayHandler
+    info_template_path = 'generic/controllers_info/dummy.md'
 
 
 class DummyRGBWLight(RGBWLight):
     gateway_class = DummyGatewayHandler
+    info_template_path = 'generic/controllers_info/dummy.md'

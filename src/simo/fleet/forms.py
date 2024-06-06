@@ -196,6 +196,7 @@ class ControlForm(forms.Form):
 
 class ColonelBinarySensorConfigForm(ColonelComponentForm):
     pin = ColonelPinChoiceField(
+        label='Port',
         queryset=ColonelPin.objects.filter(input=True),
         widget=autocomplete.ListSelect2(
             url='autocomplete-colonel-pins',
@@ -284,6 +285,7 @@ class ColonelBinarySensorConfigForm(ColonelComponentForm):
 
 class ColonelButtonConfigForm(ColonelComponentForm):
     pin = ColonelPinChoiceField(
+        label="Port",
         queryset=ColonelPin.objects.filter(input=True),
         widget=autocomplete.ListSelect2(
             url='autocomplete-colonel-pins',
@@ -316,6 +318,7 @@ class ColonelButtonConfigForm(ColonelComponentForm):
 
 class ColonelNumericSensorConfigForm(ColonelComponentForm, NumericSensorForm):
     pin = ColonelPinChoiceField(
+        label="Port",
         queryset=ColonelPin.objects.filter(adc=True, input=True, native=True),
         widget=autocomplete.ListSelect2(
             url='autocomplete-colonel-pins',
@@ -368,6 +371,7 @@ class ColonelNumericSensorConfigForm(ColonelComponentForm, NumericSensorForm):
 
 class DS18B20SensorConfigForm(ColonelComponentForm, NumericSensorForm):
     pin = ColonelPinChoiceField(
+        label="Port",
         queryset=ColonelPin.objects.filter(input=True, native=True),
         widget=autocomplete.ListSelect2(
             url='autocomplete-colonel-pins',
@@ -407,6 +411,7 @@ class DS18B20SensorConfigForm(ColonelComponentForm, NumericSensorForm):
 
 class ColonelDHTSensorConfigForm(ColonelComponentForm):
     pin = ColonelPinChoiceField(
+        label="Port",
         queryset=ColonelPin.objects.filter(input=True, native=True),
         widget=autocomplete.ListSelect2(
             url='autocomplete-colonel-pins',
@@ -537,6 +542,7 @@ class MPC9808SensorConfigForm(ColonelComponentForm):
 
 class ColonelTouchSensorConfigForm(ColonelComponentForm):
     pin = ColonelPinChoiceField(
+        label="Port",
         queryset=ColonelPin.objects.filter(input=True, capacitive=True),
         widget=autocomplete.ListSelect2(
             url='autocomplete-colonel-pins',
@@ -576,6 +582,7 @@ class ColonelTouchSensorConfigForm(ColonelComponentForm):
 
 class ColonelSwitchConfigForm(ColonelComponentForm):
     output_pin = Select2ModelChoiceField(
+        label="Port",
         queryset=ColonelPin.objects.filter(output=True),
         url='autocomplete-colonel-pins',
         forward=[
@@ -659,6 +666,7 @@ class ColonelSwitchConfigForm(ColonelComponentForm):
 
 class ColonelPWMOutputConfigForm(ColonelComponentForm):
     output_pin = ColonelPinChoiceField(
+        label="Port",
         queryset=ColonelPin.objects.filter(output=True),
         widget=autocomplete.ListSelect2(
             url='autocomplete-colonel-pins',
@@ -793,6 +801,7 @@ class ColonelPWMOutputConfigForm(ColonelComponentForm):
 
 class ColonelRGBLightConfigForm(ColonelComponentForm):
     output_pin = ColonelPinChoiceField(
+        label="Port",
         queryset=ColonelPin.objects.filter(output=True, native=True),
         widget=autocomplete.ListSelect2(
             url='autocomplete-colonel-pins',
@@ -915,6 +924,7 @@ class ColonelRGBLightConfigForm(ColonelComponentForm):
 
 class DualMotorValveForm(ColonelComponentForm):
     open_pin = ColonelPinChoiceField(
+        label="Port",
         queryset=ColonelPin.objects.filter(output=True),
         widget=autocomplete.ListSelect2(
             url='autocomplete-colonel-pins',
@@ -933,6 +943,7 @@ class DualMotorValveForm(ColonelComponentForm):
         initial=2, help_text="Time in seconds to open."
     )
     close_pin = ColonelPinChoiceField(
+        label="Port",
         queryset=ColonelPin.objects.filter(output=True),
         widget=autocomplete.ListSelect2(
             url='autocomplete-colonel-pins',
@@ -979,6 +990,7 @@ class DualMotorValveForm(ColonelComponentForm):
 
 class BlindsConfigForm(ColonelComponentForm):
     open_pin = ColonelPinChoiceField(
+        label="Port",
         queryset=ColonelPin.objects.filter(output=True),
         widget=autocomplete.ListSelect2(
             url='autocomplete-colonel-pins',
@@ -993,6 +1005,7 @@ class BlindsConfigForm(ColonelComponentForm):
         choices=(('HIGH', "HIGH"), ('LOW', "LOW")),
     )
     close_pin = ColonelPinChoiceField(
+        label="Port",
         queryset=ColonelPin.objects.filter(output=True),
         widget=autocomplete.ListSelect2(
             url='autocomplete-colonel-pins',
@@ -1119,6 +1132,7 @@ class BlindsConfigForm(ColonelComponentForm):
 
 class BurglarSmokeDetectorConfigForm(ColonelComponentForm):
     power_pin = ColonelPinChoiceField(
+        label="Port",
         queryset=ColonelPin.objects.filter(output=True),
         widget=autocomplete.ListSelect2(
             url='autocomplete-colonel-pins',
@@ -1130,6 +1144,7 @@ class BurglarSmokeDetectorConfigForm(ColonelComponentForm):
         )
     )
     sensor_pin = ColonelPinChoiceField(
+        label="Port",
         queryset=ColonelPin.objects.filter(input=True),
         widget=autocomplete.ListSelect2(
             url='autocomplete-colonel-pins',

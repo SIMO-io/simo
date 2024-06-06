@@ -425,13 +425,13 @@ def is_in_alarm(self):
         )
         self._meta.get_field('controller_uid').choices = CONTROLLER_TYPES_CHOICES
         if self.controller_uid:
-            controller_cls = None
-            if not controller_cls:
-                controller_cls = CONTROLLERS_BY_GATEWAY.get(
+            self.controller_cls = None
+            if not self.controller_cls:
+                self.controller_cls = CONTROLLERS_BY_GATEWAY.get(
                     self.gateway.type, {}
                 ).get(self.controller_uid)
-            if controller_cls:
-                return controller_cls(self)
+            if self.controller_cls:
+                return self.controller_cls(self)
 
     def prepare_controller(self):
         if self.controller:

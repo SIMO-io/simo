@@ -8,6 +8,7 @@ from abc import ABC, ABCMeta, abstractmethod
 from django.utils.functional import cached_property
 from django.core.exceptions import ValidationError
 from django.utils import timezone
+from django.template.loader import render_to_string
 from django.utils.translation import gettext_lazy as _
 from simo.users.middleware import introduce, get_current_user
 from simo.users.utils import get_device_user
@@ -74,6 +75,11 @@ class ControllerBase(ABC):
         :return: Default value of this base component type
         """
 
+    @property
+    def info_template_path(self) -> str:
+        return f"{self.__class__.__module__.split('.')[-2]}/" \
+               f"controllers_info/{self.__class__.__name__.lower()}.md"
+
     @abstractmethod
     def _validate_val(self, value, occasion=None):
         """
@@ -113,6 +119,24 @@ class ControllerBase(ABC):
         ) and hasattr(
             cls, '_process_discovery'
         )
+
+    def info(self):
+        '''
+        Override this to give users help on how to use this component type,
+        after you do that, include any component instance specific information
+        if you see it necessary.
+        :return: Markdown component info on how to set it up and use it
+        along with any other relative information,
+         regarding this particular component instance
+        '''
+        try:
+            return render_to_string(
+                self.info_template_path, {
+                    'component': self.component if hasattr(self, 'component') else None
+                }
+            )
+        except:
+            return
 
     def _aggregate_values(self, values):
         if type(values[0]) in (float, int):
@@ -305,6 +329,8 @@ class ControllerBase(ABC):
 
     def _prepare_for_set(self, value):
         return value
+
+
 
 
 class TimerMixin:
