@@ -32,7 +32,7 @@ class ComponentsManager(models.Manager):
         instance = get_current_instance()
         if instance:
             qs = qs.filter(zone__instance=instance)
-        return qs
+        return qs.select_related('zone')
 
     def bulk_send(self, data):
         """
