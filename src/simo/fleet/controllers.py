@@ -190,8 +190,9 @@ class BasicOutputMixin:
 
     def _get_occupied_pins(self):
         pins = [self.component.config['output_pin_no']]
-        for control_unit in self.component.config.get('controls', []):
-            pins.append(control_unit['pin_no'])
+        for ctrl in self.component.config.get('controls', []):
+            if 'pin_no' in ctrl:
+                pins.append(ctrl['pin_no'])
         return pins
 
     def _ctrl(self, ctrl_no, ctrl_event, method):
@@ -336,8 +337,9 @@ class Blinds(FleeDeviceMixin, BasicOutputMixin, GenericBlinds):
             self.component.config['open_pin_no'],
             self.component.config['close_pin_no']
         ]
-        for p in self.component.config.get('controls', []):
-            pins.append(p['pin'])
+        for ctrl in self.component.config.get('controls', []):
+            if 'pin_no' in ctrl:
+                pins.append(ctrl['pin_no'])
         return pins
 
 
