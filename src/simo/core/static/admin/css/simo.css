@@ -363,3 +363,17 @@ body .submit-row a.deletelink{
   }
 }
 
+.markdownified-info{
+  padding: 15px;
+  background-color: #cfefff;
+}
+
+form .aligned .markdownified-info ul{
+    margin-left: 30px;
+}
+form .aligned .markdownified-info ul li {
+    list-style-type: square;
+}
+.markdownified-info hr {
+    background-color: #9f9f9f;
+}

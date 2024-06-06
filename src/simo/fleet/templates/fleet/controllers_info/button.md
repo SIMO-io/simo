@@ -10,7 +10,7 @@ However, if you want to control something that is connected to a different colon
 ---
 ### Bonded gear:
 
-{% for comp in component.bonded_gear.bonded_gear %}
-- {{ comp }}
+{% for comp in component.controller.bonded_gear %}
+- [{{comp.id}}] {{ comp }}
 {% endfor %}
 {% endif %}

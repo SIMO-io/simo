@@ -486,7 +486,7 @@ class ComponentAdmin(admin.ModelAdmin):
         if not info:
             return
         return mark_safe(
-            f'<div style="padding: 15px; background-color: #cfefff;">'
+            f'<div class="markdownified-info">'
             f'{markdown.markdown(info)}'
             f'</div>'
         )
