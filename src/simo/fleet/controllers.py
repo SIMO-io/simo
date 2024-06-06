@@ -87,9 +87,7 @@ class Button(FleeDeviceMixin, BasicSensorMixin, BaseButton):
     config_form = ColonelButtonConfigForm
 
     def _get_occupied_pins(self):
-        return [
-            self.component.config['pin_no'],
-        ]
+        return [self.component.config['pin_no'],]
 
 
 class BurglarSmokeDetector(BinarySensor):

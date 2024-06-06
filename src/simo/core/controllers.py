@@ -5,6 +5,7 @@ import statistics
 import threading
 from decimal import Decimal as D
 from abc import ABC, ABCMeta, abstractmethod
+from django.utils.functional import cached_property
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
@@ -476,6 +477,17 @@ class Button(ControllerBase):
 
     def is_held(self):
         return self.component.value == 'hold'
+
+    @cached_property
+    def bonded_gear(self):
+        from simo.core.models import Component
+        gear = []
+        for comp in Component.objects.filter(config__has_key='controls'):
+            for ctrl in comp.config['controls']:
+                if ctrl.get('button') == self.component.id:
+                    gear.append(comp)
+                    break
+        return gear
 
 
 class OnOffPokerMixin:

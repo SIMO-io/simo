@@ -644,7 +644,6 @@ class ColonelSwitchConfigForm(ColonelComponentForm):
 
         return self.cleaned_data
 
-
     def save(self, commit=True):
         if 'output_pin' in self.cleaned_data:
             self.instance.config['output_pin_no'] = self.cleaned_data['output_pin'].no
