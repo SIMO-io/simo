@@ -12,6 +12,11 @@ class InstancePermission(BasePermission):
 
         instance = getattr(view, 'instance', None)
         if not instance:
+            instance = Instance.objects.filter(
+                slug=request.resolver_match.kwargs.get('instance_slug')
+            ).first()
+
+        if not instance:
             raise Http404()
 
         if instance not in request.user.instances:
