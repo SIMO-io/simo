@@ -1309,6 +1309,16 @@ class DaliLampForm(DALIDeviceConfigForm, BaseComponentForm):
         help_text="If provided, lamp will be turned off after "
                   "given amount of seconds after last turn on event."
     )
+    controls = FormsetField(
+        formset_factory(
+            ControlForm, can_delete=True, can_order=True, extra=0, max_num=999
+        )
+    )
+
+    def clean(self):
+        if 'controls' in self.cleaned_data:
+            self._clean_controls()
+        return self.cleaned_data
 
     def save(self, commit=True):
         obj = super().save(commit=commit)
@@ -1337,6 +1347,11 @@ class DaliGearGroupForm(DALIDeviceConfigForm, BaseComponentForm):
                     ['simo.fleet.controllers.DALILamp', ], 'controller_uid'
                 ),
             )
+        )
+    )
+    controls = FormsetField(
+        formset_factory(
+            ControlForm, can_delete=True, can_order=True, extra=0, max_num=999
         )
     )
 
@@ -1370,6 +1385,8 @@ class DaliGearGroupForm(DALIDeviceConfigForm, BaseComponentForm):
                 )
         else:
             self.group_addr = self.instance.config['da']
+        if 'controls' in self.cleaned_data:
+            self._clean_controls()
         return self.cleaned_data
 
     def save(self, commit=True, update_colonel_config=True):
