@@ -10,10 +10,11 @@ class InstancePermission(BasePermission):
         if not request.user.is_active:
             return False
 
-        if not view.instance:
+        instance = getattr(view, 'instance', None)
+        if not instance:
             raise Http404()
 
-        if view.instance not in request.user.instances:
+        if instance not in request.user.instances:
             return False
 
         return True
