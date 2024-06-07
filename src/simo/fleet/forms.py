@@ -1290,6 +1290,7 @@ class DaliLampForm(DALIDeviceConfigForm, BaseComponentForm):
     )
     fade_time = forms.TypedChoiceField(
         initial=3, coerce=int, choices=(
+            (0, "Instant"),
             (1, "0.7 s"), (2, "1.0 s"), (3, "1.4 s"), (4, "2.0 s"), (5, "2.8 s"),
             (6, "4.0 s"), (7, "5.7 s"), (8, "8.0 s")
         )
