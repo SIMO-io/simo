@@ -10,13 +10,10 @@ class InstancePermission(BasePermission):
         if not request.user.is_active:
             return False
 
-        instance = Instance.objects.filter(
-            slug=request.resolver_match.kwargs.get('instance_slug')
-        ).first()
-        if not instance:
+        if not view.instance:
             raise Http404()
 
-        if instance not in request.user.instances:
+        if view.instance not in request.user.instances:
             return False
 
         return True

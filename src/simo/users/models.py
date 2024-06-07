@@ -68,6 +68,10 @@ class PermissionsRole(models.Model):
 
 class UserManager(DefaultUserManager):
 
+    def get_queryset(self):
+        qs = super().get_queryset()
+        return qs.prefetch_related('instance_roles')
+
     def _create_user(self, name, email, password, **extra_fields):
         if not name:
             raise ValueError('The given name must be set')
@@ -291,9 +295,8 @@ class User(AbstractBaseUser, SimoAdminMixin):
                     instance=self._instance, is_active=True
                 ).first()
             )
-        return bool(
-            self.instance_roles.filter(is_active=True).first()
-        )
+        return any([ir.is_active for ir in self.instance_roles.all()])
+
 
     @is_active.setter
     def is_active(self, val):

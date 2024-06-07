@@ -1,9 +1,10 @@
 from collections import OrderedDict
 from django.urls import reverse
 from django.utils.encoding import force_str
-from rest_framework import serializers
 from rest_framework.metadata import SimpleMetadata
+from rest_framework import serializers
 from rest_framework.utils.field_mapping import ClassLookupDict
+from simo.core.models import Icon
 from .serializers import (
     HiddenSerializerField, ComponentManyToManyRelatedField,
     TextAreaSerializerField
@@ -41,7 +42,9 @@ class SIMOAPIMetadata(SimpleMetadata):
         TextAreaSerializerField: 'textarea',
     })
 
+
     def get_field_info(self, field):
+
         """
         Given an instance of a serializer field, return a dictionary
         of metadata about it.
@@ -82,18 +85,18 @@ class SIMOAPIMetadata(SimpleMetadata):
         elif getattr(field, 'fields', None):
             field_info['children'] = self.get_serializer_info(field)
 
+        if form_field and hasattr(form_field, 'queryset') \
+        and form_field.queryset.model == Icon:
+            return field_info
+
         if not field_info.get('read_only') and hasattr(field, 'choices'):
-            add_choices = True
-            queryset = getattr(field, 'queryset', None)
-            if queryset and queryset.count() > 1000:
-                add_choices = False
-            if add_choices:
-                print("Choices on: ", field)
-                field_info['choices'] = [
-                    {
-                        'value': choice_value,
-                        'display_name': force_str(choice_name, strings_only=True)
-                    }
-                    for choice_value, choice_name in field.choices.items()
-                ]
+            print(f"DO choices for: {field.label}")
+            field_info['choices'] = [
+                {
+                    'value': choice_value,
+                    'display_name': force_str(choice_name, strings_only=True)
+                }
+                for choice_value, choice_name in field.choices.items()
+            ]
+
         return field_info

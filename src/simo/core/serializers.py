@@ -256,6 +256,8 @@ class ComponentSerializer(FormSerializer):
     controller_methods = serializers.SerializerMethodField()
     info = serializers.SerializerMethodField()
 
+    _forms = {}
+
     class Meta:
         form = ComponentAdminForm
         field_mapping = {
@@ -270,6 +272,8 @@ class ComponentSerializer(FormSerializer):
             FormsetField: ComponentFormsetField,
         }
 
+
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # Set proper instance for OPTIONS request
@@ -282,6 +286,7 @@ class ComponentSerializer(FormSerializer):
                 self.instance = Component.objects.filter(id=res[0]).first()
 
     def get_fields(self):
+
         self.set_form_cls()
 
         ret = OrderedDict()
@@ -341,6 +346,7 @@ class ComponentSerializer(FormSerializer):
             if name in ret:
                 continue
             ret[name] = field
+
         return ret
 
     def _get_field_kwargs(self, form_field, serializer_field_class):
@@ -378,7 +384,15 @@ class ComponentSerializer(FormSerializer):
                 if controller:
                     self.Meta.form = controller.config_form
 
-    def get_form(self, data=None, **kwargs):
+    def get_form(self, data=None, instance=None, **kwargs):
+        form_key = None
+        if not data:
+            form_key = 0
+            if instance:
+                form_key = instance.id
+        if form_key in self._forms:
+            return self._forms[form_key]
+
         self.set_form_cls()
         if not self.instance or isinstance(self.instance, Iterable):
             #controller_uid = 'simo.generic.controllers.AlarmClock'
@@ -387,7 +401,7 @@ class ComponentSerializer(FormSerializer):
             controller_uid = self.instance.controller_uid
         form = self.Meta.form(
             data=data, request=self.context['request'],
-            controller_uid=controller_uid,
+            controller_uid=controller_uid, instance=instance,
             **kwargs
         )
         if not self.context['request'].user.is_master:
@@ -399,6 +413,10 @@ class ComponentSerializer(FormSerializer):
                     if field_name not in form.basic_fields:
                         print("DELETE FIELD: ", field_name)
                         del form.fields[field_name]
+
+        if form_key is not None:
+            self._forms[form_key] = form
+
         return form
 
     def accomodate_formsets(self, form, data):

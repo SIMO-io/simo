@@ -399,6 +399,8 @@ def is_in_alarm(self):
 
     controller_cls = None
 
+    _controller_initiated = False
+
     _mqtt_client = None
     _on_change_function = None
     _obj_ct_id = 0
@@ -408,14 +410,20 @@ def is_in_alarm(self):
         verbose_name_plural = _("Components")
         ordering = 'zone', 'base_type', 'name'
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.prepare_controller()
-
     def __str__(self):
         if self.zone:
             return '%s | %s' % (self.zone.name, self.name)
         return self.name
+
+    def __getattribute__(self, attr):
+        try:
+            return super().__getattribute__(attr)
+        except Exception as e:
+            if not attr.startswith('_') and not self._controller_initiated:
+                self._controller_initiated = True
+                self.prepare_controller()
+                return super().__getattribute__(attr)
+            raise e
 
     @cached_property
     def controller(self):
