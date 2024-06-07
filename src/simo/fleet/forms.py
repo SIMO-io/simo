@@ -713,7 +713,7 @@ class ColonelPWMOutputConfigForm(ColonelComponentForm):
     )
     on_value = forms.FloatField(
         required=True, initial=100,
-        help_text="Component ON value when used with toggle switch"
+        help_text="ON value when used with toggle switch"
     )
 
     slaves = forms.ModelMultipleChoiceField(
@@ -1304,6 +1304,10 @@ class DaliLampForm(DALIDeviceConfigForm, BaseComponentForm):
                   "beings dying out when you hit it with lower value than it "
                   "is capable of supplying."
     )
+    on_value = forms.FloatField(
+        required=True, initial=100,
+        help_text="ON value when used with toggle switch"
+    )
     auto_off = forms.FloatField(
         required=False, min_value=0.01, max_value=1000000000,
         help_text="If provided, lamp will be turned off after "
@@ -1348,6 +1352,10 @@ class DaliGearGroupForm(DALIDeviceConfigForm, BaseComponentForm):
                 ),
             )
         )
+    )
+    on_value = forms.FloatField(
+        required=True, initial=100,
+        help_text="ON value when used with toggle switch"
     )
     controls = FormsetField(
         formset_factory(
