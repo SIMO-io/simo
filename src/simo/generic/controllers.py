@@ -687,9 +687,9 @@ class Blinds(ControllerBase, TimerMixin):
     def _validate_val(self, value, occasion=None):
 
         if occasion == BEFORE_SEND:
-            if isinstance(value, int):
+            if isinstance(value, int) or isinstance(value, float):
                 # legacy support
-                value = {'target': value}
+                value = {'target': int(value)}
             if 'target' not in value:
                 raise ValidationError("Target value is required!")
             target = value.get('target')
