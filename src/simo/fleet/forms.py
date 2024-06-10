@@ -1464,4 +1464,7 @@ class DALILightSensorConfigForm(DALIDeviceConfigForm, BaseComponentForm):
 
 
 class DALIButtonConfigForm(DALIDeviceConfigForm, BaseComponentForm):
-    pass
+    boot_update = forms.BooleanField(
+        initial=False, required=False,
+        help_text="Update device config on colonel boot."
+    )
