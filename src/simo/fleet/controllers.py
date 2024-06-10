@@ -1,5 +1,6 @@
 import json
 from django.utils.translation import gettext_lazy as _
+from django.db.transaction import atomic
 from simo.core.events import GatewayObjectCommand
 from simo.core.controllers import (
     BinarySensor as BaseBinarySensor,
@@ -16,7 +17,7 @@ from simo.core.utils.serialization import (
     serialize_form_data, deserialize_form_data
 )
 from simo.generic.controllers import Blinds as GenericBlinds
-from .models import Colonel
+from .models import Colonel, ColonelPin
 from .gateways import FleetGatewayHandler
 from .forms import (
     ColonelPinChoiceField,
@@ -69,26 +70,39 @@ class FleeDeviceMixin:
                 config[key] = val
         return config
 
+    def _fix_pin_relations(self):
+        pass
+
 
 class BasicSensorMixin:
     gateway_class = FleetGatewayHandler
-
-
-
-class BinarySensor(FleeDeviceMixin, BasicSensorMixin, BaseBinarySensor):
-    config_form = ColonelBinarySensorConfigForm
 
     def _get_occupied_pins(self):
         return [
             self.component.config['pin_no'],
         ]
 
+    @atomic
+    def _fix_pin_relations(self):
+        colonel = Colonel.objects.filter(
+            id=self.component.config.get('colonel', 0)
+        ).first()
+        if not colonel:
+            return
+        cp = ColonelPin.objects.filter(
+            colonel=colonel, no=self.component.config['pin_no']
+        ).first()
+        if self.component.config.get('pin') != cp.id:
+            self.component.config['pin'] = cp.id
+            self.component.save()
+
+
+class BinarySensor(FleeDeviceMixin, BasicSensorMixin, BaseBinarySensor):
+    config_form = ColonelBinarySensorConfigForm
+
 
 class Button(FleeDeviceMixin, BasicSensorMixin, BaseButton):
     config_form = ColonelButtonConfigForm
-
-    def _get_occupied_pins(self):
-        return [self.component.config['pin_no'],]
 
 
 class BurglarSmokeDetector(BinarySensor):
@@ -100,6 +114,26 @@ class BurglarSmokeDetector(BinarySensor):
             self.component.config['power_pin_no'],
             self.component.config['sensor_pin_no']
         ]
+
+    @atomic
+    def _fix_pin_relations(self):
+        colonel = Colonel.objects.filter(
+            id=self.component.config.get('colonel', 0)
+        ).first()
+        if not colonel:
+            return
+        cp = ColonelPin.objects.filter(
+            colonel=colonel, no=self.component.config['power_pin_no']
+        ).first()
+        if self.component.config.get('power_pin') != cp.id:
+            self.component.config['power_pin'] = cp.id
+            self.component.save()
+        cp = ColonelPin.objects.filter(
+            colonel=colonel, no=self.component.config['sensor_pin_no']
+        ).first()
+        if self.component.config.get('sensor_pin') != cp.id:
+            self.component.config['sensor_pin'] = cp.id
+            self.component.save()
 
 
 # class AnalogSensor(FleeDeviceMixin, BasicSensorMixin, BaseNumericSensor):
@@ -115,11 +149,6 @@ class BurglarSmokeDetector(BinarySensor):
 class DS18B20Sensor(FleeDeviceMixin, BasicSensorMixin, BaseNumericSensor):
     config_form = DS18B20SensorConfigForm
     name = "DS18B20 Temperature sensor"
-
-    def _get_occupied_pins(self):
-        return [
-            self.component.config['pin_no'],
-        ]
 
 
 class BaseClimateSensor(FleeDeviceMixin, BasicSensorMixin, BaseMultiSensor):
@@ -167,18 +196,15 @@ class DHTSensor(BaseClimateSensor):
     config_form = ColonelDHTSensorConfigForm
     name = "DHT climate sensor"
 
-    def _get_occupied_pins(self):
-        return [
-            self.component.config['pin_no'],
-        ]
 
-
-class BME680Sensor(BaseClimateSensor):
+class BME680Sensor(FleeDeviceMixin, BaseMultiSensor):
+    gateway_class = FleetGatewayHandler
     config_form = BME680SensorConfigForm
     name = "BME680 Climate Sensor (I2C)"
 
 
-class MPC9808TempSensor(FleeDeviceMixin, BasicSensorMixin, BaseNumericSensor):
+class MPC9808TempSensor(FleeDeviceMixin, BaseNumericSensor):
+    gateway_class = FleetGatewayHandler
     config_form = MPC9808SensorConfigForm
     name = "MPC9808 Temperature Sensor (I2C)"
 
@@ -193,6 +219,34 @@ class BasicOutputMixin:
             if 'pin_no' in ctrl:
                 pins.append(ctrl['pin_no'])
         return pins
+
+    @atomic
+    def _fix_pin_relations(self):
+        colonel = Colonel.objects.filter(
+            id=self.component.config.get('colonel', 0)
+        ).first()
+        if not colonel:
+            return
+        cp = ColonelPin.objects.filter(
+            colonel=colonel, no=self.component.config['output_pin_no']
+        ).first()
+        if self.component.config.get('output_pin') != cp.id:
+            self.component.config['output_pin'] = cp.id
+
+        for ctrl in self.component.config.get('controls', []):
+            if 'pin_no' not in ctrl:
+                continue
+            if not ctrl.get('input').startswith('pin-'):
+                continue
+            cp = ColonelPin.objects.filter(
+                colonel=colonel, no=self.component.config['pin_no']
+            ).first()
+            if not cp:
+                continue
+            ctrl['input'] = f'pin-{cp.id}'
+
+        self.component.save()
+
 
     def _ctrl(self, ctrl_no, ctrl_event, method):
         GatewayObjectCommand(
@@ -326,6 +380,26 @@ class DualMotorValve(FleeDeviceMixin, BasicOutputMixin, BaseSwitch):
             self.component.config['close_pin_no']
         ]
 
+    @atomic
+    def _fix_pin_relations(self):
+        colonel = Colonel.objects.filter(
+            id=self.component.config.get('colonel', 0)
+        ).first()
+        if not colonel:
+            return
+        cp = ColonelPin.objects.filter(
+            colonel=colonel, no=self.component.config['open_pin_no']
+        ).first()
+        if self.component.config.get('open_pin') != cp.id:
+            self.component.config['open_pin'] = cp.id
+            self.component.save()
+        cp = ColonelPin.objects.filter(
+            colonel=colonel, no=self.component.config['close_pin_no']
+        ).first()
+        if self.component.config.get('close_pin') != cp.id:
+            self.component.config['close_pin'] = cp.id
+            self.component.save()
+
 
 class Blinds(FleeDeviceMixin, BasicOutputMixin, GenericBlinds):
     gateway_class = FleetGatewayHandler
@@ -340,6 +414,37 @@ class Blinds(FleeDeviceMixin, BasicOutputMixin, GenericBlinds):
             if 'pin_no' in ctrl:
                 pins.append(ctrl['pin_no'])
         return pins
+
+    @atomic
+    def _fix_pin_relations(self):
+        colonel = Colonel.objects.filter(
+            id=self.component.config.get('colonel', 0)
+        ).first()
+        if not colonel:
+            return
+        cp = ColonelPin.objects.filter(
+            colonel=colonel, no=self.component.config['open_pin_no']
+        ).first()
+        if self.component.config.get('open_pin') != cp.id:
+            self.component.config['open_pin'] = cp.id
+
+        cp = ColonelPin.objects.filter(
+            colonel=colonel, no=self.component.config['close_pin_no']
+        ).first()
+        if self.component.config.get('close_pin') != cp.id:
+            self.component.config['close_pin'] = cp.id
+
+        for ctrl in self.component.config.get('controls', []):
+            if 'pin_no' not in ctrl:
+                continue
+            if not ctrl.get('input').startswith('pin-'):
+                continue
+            cp = ColonelPin.objects.filter(
+                colonel=colonel, no=self.component.config['pin_no']
+            ).first()
+            if not cp:
+                continue
+            ctrl['input'] = f'pin-{cp.id}'
 
 
 class TTLock(FleeDeviceMixin, Lock):
