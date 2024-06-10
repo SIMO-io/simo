@@ -392,13 +392,13 @@ class DualMotorValve(FleeDeviceMixin, BasicOutputMixin, BaseSwitch):
         ).first()
         if self.component.config.get('open_pin') != cp.id:
             self.component.config['open_pin'] = cp.id
-            self.component.save()
         cp = ColonelPin.objects.filter(
             colonel=colonel, no=self.component.config['close_pin_no']
         ).first()
         if self.component.config.get('close_pin') != cp.id:
             self.component.config['close_pin'] = cp.id
-            self.component.save()
+
+        self.component.save()
 
 
 class Blinds(FleeDeviceMixin, BasicOutputMixin, GenericBlinds):
@@ -427,13 +427,11 @@ class Blinds(FleeDeviceMixin, BasicOutputMixin, GenericBlinds):
         ).first()
         if self.component.config.get('open_pin') != cp.id:
             self.component.config['open_pin'] = cp.id
-
         cp = ColonelPin.objects.filter(
             colonel=colonel, no=self.component.config['close_pin_no']
         ).first()
         if self.component.config.get('close_pin') != cp.id:
             self.component.config['close_pin'] = cp.id
-
         for ctrl in self.component.config.get('controls', []):
             if 'pin_no' not in ctrl:
                 continue
@@ -445,6 +443,7 @@ class Blinds(FleeDeviceMixin, BasicOutputMixin, GenericBlinds):
             if not cp:
                 continue
             ctrl['input'] = f'pin-{cp.id}'
+        self.component.save()
 
 
 class TTLock(FleeDeviceMixin, Lock):
