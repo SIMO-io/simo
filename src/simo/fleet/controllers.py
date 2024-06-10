@@ -28,6 +28,7 @@ from .forms import (
     BME680SensorConfigForm, MPC9808SensorConfigForm,
     DualMotorValveForm, BlindsConfigForm, BurglarSmokeDetectorConfigForm,
     TTLockConfigForm, DALIDeviceConfigForm, DaliLampForm, DaliGearGroupForm,
+    DaliSwitchConfigForm,
     DaliOccupancySensorConfigForm, DALILightSensorConfigForm,
     DALIButtonConfigForm
 )
@@ -721,10 +722,6 @@ class DALIDevice(FleeDeviceMixin, ControllerBase):
                     'config': json.loads(json.dumps(new_component.config))
                 }
             }
-            # Perform default config update on initial component setup
-            new_component.meta[
-                'finalization_data'
-            ]['comp_config']['config']['boot_update'] = True
             new_component.save()
             GatewayObjectCommand(
                 new_component.gateway, Colonel(
@@ -787,9 +784,11 @@ class DALIGearGroup(FadeMixin, FleeDeviceMixin, BaseDimmer):
 
 
 class DALIRelay(BaseSwitch, DALIDevice):
+    '''Not tested with a real device yet'''
     family = 'dali'
     manual_add = False
     name = 'DALI Relay'
+    config_form = DaliSwitchConfigForm
 
 
 class DALIOccupancySensor(BaseBinarySensor, DALIDevice):

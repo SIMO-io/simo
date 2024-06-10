@@ -1,3 +1,4 @@
+import time
 from django import forms
 from django.utils.translation import gettext_lazy as _
 from django.forms import formset_factory
@@ -1240,12 +1241,6 @@ class DALIDeviceConfigForm(ColonelComponentForm):
             ]
         )
     )
-    boot_update = forms.BooleanField(
-        initial=False, required=False,
-        help_text="Update device config on colonel boot."
-                  "Enable this only if you are doing some serious system overhaul. "
-                  "Once you are done with it, disable it back again."
-    )
 
     def clean_interface(self):
         if not self.instance.pk:
@@ -1329,10 +1324,50 @@ class DaliLampForm(DALIDeviceConfigForm, BaseComponentForm):
 
     def save(self, commit=True):
         obj = super().save(commit=commit)
-        if commit and self.cleaned_data.get('controls'):
-            GatewayObjectCommand(
-                self.instance.gateway, obj, command='watch_buttons'
-            ).publish()
+        if commit:
+            if self.cleaned_data.get('controls'):
+                GatewayObjectCommand(
+                    self.instance.gateway, obj, command='watch_buttons'
+                ).publish()
+            if self.instance.pk:
+                old_controls = Component.objects.get(
+                    pk=self.instance.pk
+                ).config.get('controls')
+                if old_controls != self.cleaned_data['controls']:
+                    self.cleaned_data['colonel'].update_config()
+        return obj
+
+
+class DaliSwitchConfigForm(DALIDeviceConfigForm, BaseComponentForm):
+    auto_off = forms.FloatField(
+        required=False, min_value=0.01, max_value=1000000000,
+        help_text="If provided, lamp will be turned off after "
+                  "given amount of seconds after last turn on event."
+    )
+    controls = FormsetField(
+        formset_factory(
+            ControlForm, can_delete=True, can_order=True, extra=0, max_num=999
+        )
+    )
+
+    def clean(self):
+        if 'controls' in self.cleaned_data:
+            self._clean_controls()
+        return self.cleaned_data
+
+    def save(self, commit=True):
+        obj = super().save(commit=commit)
+        if commit:
+            if self.cleaned_data.get('controls'):
+                GatewayObjectCommand(
+                    self.instance.gateway, obj, command='watch_buttons'
+                ).publish()
+            if self.instance.pk:
+                old_controls = Component.objects.get(
+                    pk=self.instance.pk
+                ).config.get('controls')
+                if old_controls != self.cleaned_data['controls']:
+                    self.cleaned_data['colonel'].update_config()
         return obj
 
 
@@ -1437,10 +1472,18 @@ class DaliGearGroupForm(DALIDeviceConfigForm, BaseComponentForm):
                         obj.controller._get_colonel_config()
                     ]
                 ).publish()
-        if commit and self.cleaned_data.get('controls'):
-            GatewayObjectCommand(
-                self.instance.gateway, obj, command='watch_buttons'
-            ).publish()
+
+        if commit:
+            if self.cleaned_data.get('controls'):
+                GatewayObjectCommand(
+                    self.instance.gateway, obj, command='watch_buttons'
+                ).publish()
+            if self.instance.pk:
+                old_controls = Component.objects.get(
+                    pk=self.instance.pk
+                ).config.get('controls')
+                if old_controls != self.cleaned_data['controls']:
+                    self.cleaned_data['colonel'].update_config()
         return obj
 
 
