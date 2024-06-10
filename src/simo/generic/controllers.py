@@ -751,16 +751,25 @@ class Blinds(ControllerBase, TimerMixin):
         return value
 
     def open(self):
-        self.send({'target': 0, 'angle': self.component.value.get('angle', 0)})
+        send_val = {'target': 0}
+        angle = self.component.value.get('angle')
+        if angle is not None and 0 <= angle <= 180:
+            send_val['angle'] = angle
+        self.send(send_val)
 
     def close(self):
-        self.send({
-            'target': self.component.config['open_duration'] * 1000,
-            'angle': self.component.value.get('angle', 0)
-        })
+        send_val = {'target': self.component.config['open_duration'] * 1000}
+        angle = self.component.value.get('angle')
+        if angle is not None and 0 <= angle <= 180:
+            send_val['angle'] = angle
+        self.send(send_val)
 
     def stop(self):
-        self.send({'target': -1, 'angle': self.component.value.get('angle', 0)})
+        send_val = {'target': -1}
+        angle = self.component.value.get('angle')
+        if angle is not None and 0 <= angle <= 180:
+            send_val['angle'] = angle
+        self.send(send_val)
 
 
 class Watering(ControllerBase):

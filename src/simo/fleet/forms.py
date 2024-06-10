@@ -924,7 +924,7 @@ class ColonelRGBLightConfigForm(ColonelComponentForm):
 
 class DualMotorValveForm(ColonelComponentForm):
     open_pin = ColonelPinChoiceField(
-        label="Port",
+        label="Open Relay Port",
         queryset=ColonelPin.objects.filter(output=True),
         widget=autocomplete.ListSelect2(
             url='autocomplete-colonel-pins',
@@ -943,7 +943,7 @@ class DualMotorValveForm(ColonelComponentForm):
         initial=2, help_text="Time in seconds to open."
     )
     close_pin = ColonelPinChoiceField(
-        label="Port",
+        label="Close Relay Port",
         queryset=ColonelPin.objects.filter(output=True),
         widget=autocomplete.ListSelect2(
             url='autocomplete-colonel-pins',
@@ -990,7 +990,7 @@ class DualMotorValveForm(ColonelComponentForm):
 
 class BlindsConfigForm(ColonelComponentForm):
     open_pin = ColonelPinChoiceField(
-        label="Port",
+        label="Open Relay Port",
         queryset=ColonelPin.objects.filter(output=True),
         widget=autocomplete.ListSelect2(
             url='autocomplete-colonel-pins',
@@ -1005,7 +1005,7 @@ class BlindsConfigForm(ColonelComponentForm):
         choices=(('HIGH', "HIGH"), ('LOW', "LOW")),
     )
     close_pin = ColonelPinChoiceField(
-        label="Port",
+        label="Close Relay Port",
         queryset=ColonelPin.objects.filter(output=True),
         widget=autocomplete.ListSelect2(
             url='autocomplete-colonel-pins',
