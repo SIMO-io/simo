@@ -1240,6 +1240,12 @@ class DALIDeviceConfigForm(ColonelComponentForm):
             ]
         )
     )
+    boot_update = forms.BooleanField(
+        initial=False, required=False,
+        help_text="Update device config on colonel boot."
+                  "Enable this only if you are doing some serious system overhaul. "
+                  "Once you are done with it, disable it back again."
+    )
 
     def clean_interface(self):
         if not self.instance.pk:
@@ -1284,10 +1290,6 @@ class DALIDeviceConfigForm(ColonelComponentForm):
 
 
 class DaliLampForm(DALIDeviceConfigForm, BaseComponentForm):
-    boot_update = forms.BooleanField(
-        initial=False, required=False,
-        help_text="Update device config on colonel boot."
-    )
     fade_time = forms.TypedChoiceField(
         initial=1, coerce=int, choices=(
             (0, "Instant"),
@@ -1443,10 +1445,6 @@ class DaliGearGroupForm(DALIDeviceConfigForm, BaseComponentForm):
 
 
 class DaliOccupancySensorConfigForm(DALIDeviceConfigForm, BaseComponentForm):
-    boot_update = forms.BooleanField(
-        initial=False, required=False,
-        help_text="Update device config on colonel boot."
-    )
     hold_time = forms.TypedChoiceField(
         initial=3, coerce=int, choices=(
             (1, "10 s"), (2, "20 s"), (3, "30 s"), (4, "40 s"), (5, "50 s"),
@@ -1457,14 +1455,8 @@ class DaliOccupancySensorConfigForm(DALIDeviceConfigForm, BaseComponentForm):
 
 
 class DALILightSensorConfigForm(DALIDeviceConfigForm, BaseComponentForm):
-    boot_update = forms.BooleanField(
-        initial=False, required=False,
-        help_text="Update device config on colonel boot."
-    )
+    pass
 
 
 class DALIButtonConfigForm(DALIDeviceConfigForm, BaseComponentForm):
-    boot_update = forms.BooleanField(
-        initial=False, required=False,
-        help_text="Update device config on colonel boot."
-    )
+    pass
