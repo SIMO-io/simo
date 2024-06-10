@@ -239,7 +239,7 @@ class BasicOutputMixin:
             if not ctrl.get('input').startswith('pin-'):
                 continue
             cp = ColonelPin.objects.filter(
-                colonel=colonel, no=self.component.config['pin_no']
+                colonel=colonel, no=ctrl['pin_no']
             ).first()
             if not cp:
                 continue
@@ -440,7 +440,7 @@ class Blinds(FleeDeviceMixin, BasicOutputMixin, GenericBlinds):
             if not ctrl.get('input').startswith('pin-'):
                 continue
             cp = ColonelPin.objects.filter(
-                colonel=colonel, no=self.component.config['pin_no']
+                colonel=colonel, no=ctrl['pin_no']
             ).first()
             if not cp:
                 continue
