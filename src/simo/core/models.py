@@ -12,6 +12,7 @@ from timezone_utils.choices import ALL_TIMEZONES_CHOICES
 from location_field.models.plain import PlainLocationField
 from model_utils import FieldTracker
 from dirtyfields import DirtyFieldsMixin
+from actstream import action
 from simo.core.utils.mixins import SimoAdminMixin
 from simo.core.storage import OverwriteStorage
 from simo.core.utils.validators import validate_svg
@@ -491,12 +492,22 @@ def is_in_alarm(self):
                     component=self, type='value', value=self.value,
                     user=actor
                 )
+                action.send(
+                    actor, target=self, verb="value change",
+                    instance_id=self.zone.instance.id,
+                    action_type='comp_value', value=self.value
+                )
                 action_performed = True
                 self.last_change = timezone.now()
             if 'arm_status' in dirty_fields:
                 ComponentHistory.objects.create(
                     component=self, type='security',
                     value=self.arm_status, user=actor
+                )
+                action.send(
+                    actor, target=self, verb="security event",
+                    instance_id=self.zone.instance.id,
+                    action_type='security', value=self.value
                 )
                 action_performed = True
                 self.last_change = timezone.now()

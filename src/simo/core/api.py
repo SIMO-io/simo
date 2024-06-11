@@ -9,6 +9,7 @@ from django.utils import timezone
 from django.http import HttpResponse, Http404
 from simo.core.utils.helpers import get_self_ip, search_queryset
 from rest_framework import status
+from actstream.models import Action
 from rest_framework.pagination import PageNumberPagination
 from rest_framework import viewsets
 from django_filters.rest_framework import DjangoFilterBackend
@@ -23,7 +24,8 @@ from .models import (
 )
 from .serializers import (
     IconSerializer, CategorySerializer, ZoneSerializer,
-    ComponentSerializer, ComponentHistorySerializer
+    ComponentSerializer, ComponentHistorySerializer,
+    ActionSerializer
 )
 from .permissions import (
     IsInstanceSuperuser, InstanceSuperuserCanEdit, ComponentPermission
@@ -492,6 +494,22 @@ class ComponentHistoryViewSet(InstanceMixin, viewsets.ReadOnlyModelViewSet):
                 current += datetime.timedelta(days=1)
 
         return vectors
+
+
+class ActionsViewset(InstanceMixin, viewsets.ReadOnlyModelViewSet):
+    url = 'core/actions'
+    basename = 'actions'
+    serializer_class = ActionSerializer
+    pagination_class = HistoryResultsSetPagination
+
+    def get_queryset(self):
+        qs = Action.objects.filter(data__instance_id=self.instance.id)
+        if self.request.user.is_superuser:
+            return qs
+        user_role = self.request.user.get_role(self.instance)
+        if user_role.is_owner:
+            return qs
+        Action.objects.none()
 
 
 class SettingsViewSet(InstanceMixin, viewsets.GenericViewSet):

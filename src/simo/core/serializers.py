@@ -10,6 +10,7 @@ from simo.core.middleware import get_current_request
 from rest_framework import serializers
 from rest_framework.fields import SkipField
 from rest_framework.relations import Hyperlink, PKOnlyObject
+from actstream.models import Action
 from simo.core.forms import HiddenField, FormsetField
 from simo.core.form_fields import (
     Select2ListChoiceField, Select2ListChoiceField,
@@ -547,3 +548,34 @@ class ComponentHistorySerializer(serializers.ModelSerializer):
     class Meta:
         model = ComponentHistory
         fields = '__all__'
+
+
+class ActionSerializer(serializers.ModelSerializer):
+    timestamp = TimestampField()
+    actor = serializers.SerializerMethodField()
+    target = serializers.SerializerMethodField()
+    action_type = serializers.SerializerMethodField()
+    value = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Action
+        fields = (
+            'id', 'timestamp', 'actor', 'target', 'verb',
+            'action_type', 'value'
+        )
+
+    def get_actor(self, obj):
+        if obj.actor:
+            return str(obj.actor)
+
+    def get_target(self, obj):
+        if obj.target:
+            return str(obj.target)
+
+
+    def get_action_type(self, obj):
+        return obj.data.get('action_type')
+
+    def get_value(self, obj):
+        return obj.data.get('value')
+

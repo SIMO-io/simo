@@ -11,6 +11,7 @@ from django.dispatch import receiver
 from dirtyfields import DirtyFieldsMixin
 from django.contrib.gis.geos import Point
 from geopy.distance import distance
+from actstream import action
 from django.contrib.auth.models import (
     AbstractBaseUser, PermissionsMixin, UserManager as DefaultUserManager
 )
@@ -119,6 +120,15 @@ def post_instance_user_save(sender, instance, created, **kwargs):
     dirty_fields = instance.get_dirty_fields()
     if 'at_home' in dirty_fields:
         def post_update():
+            if instance.at_home:
+                verb = 'came home'
+            else:
+                verb = 'left'
+            action.send(
+                instance.user, verb=verb,
+                instance_id=instance.instance.id,
+                action_type='user_presence', value=instance.at_home
+            )
             ObjectChangeEvent(
                 instance.instance, instance,  dirty_fields=dirty_fields
             ).publish()

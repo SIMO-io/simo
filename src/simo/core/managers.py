@@ -1,8 +1,19 @@
 import sys
 import traceback
+from actstream.managers import ActionManager as OrgActionManager
 from .middleware import get_current_instance
 from django.utils import timezone
 from django.db import models
+
+
+class ActionManager(OrgActionManager):
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        instance = get_current_instance()
+        if instance:
+            qs = qs.filter(data__instance_id=instance.id)
+        return qs
 
 
 class ZonesManager(models.Manager):
@@ -32,7 +43,7 @@ class ComponentsManager(models.Manager):
         instance = get_current_instance()
         if instance:
             qs = qs.filter(zone__instance=instance)
-        return qs.select_related('zone', 'gateway')
+        return qs.select_related('zone', 'zone__instance', 'gateway')
 
     def bulk_send(self, data):
         """
@@ -50,6 +61,8 @@ class ComponentsManager(models.Manager):
 
         gateway_components = {}
         for comp, value in data.items():
+            if not comp.controller:
+                continue
             try:
                 value = comp.controller._validate_val(value, BEFORE_SEND)
             except:

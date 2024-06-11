@@ -5,6 +5,7 @@ from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
 from django.utils import timezone
 from django.conf import settings
+from actstream import action
 from simo.users.models import PermissionsRole
 from .models import Instance, Gateway, Component, Icon, Zone, Category
 
@@ -13,6 +14,14 @@ from .models import Instance, Gateway, Component, Icon, Zone, Category
 def create_instance_defaults(sender, instance, created, **kwargs):
     if not created:
         return
+
+    from simo.users.middleware import get_current_user
+    actor = get_current_user()
+    action.send(
+        actor, target=instance, verb="instance created",
+        instance_id=instance.id,
+        action_type='management_event'
+    )
 
     # Create default zones
 
@@ -83,6 +92,22 @@ def create_instance_defaults(sender, instance, created, **kwargs):
     )
     PermissionsRole.objects.create(
         instance=instance, name="Guest", is_owner=True
+    )
+
+
+@receiver(post_save, sender=Zone)
+@receiver(post_save, sender=Category)
+def post_save_actions_dispatcher(sender, instance, created, **kwargs):
+    from simo.users.middleware import get_current_user
+    actor = get_current_user()
+    if created:
+        verb = 'created'
+    else:
+        verb = 'modified'
+    action.send(
+        actor, target=instance, verb=verb,
+        instance_id=instance.instance.id,
+        action_type='management_event'
     )
 
 

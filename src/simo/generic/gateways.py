@@ -12,6 +12,7 @@ from django.db import connection as db_connection
 from django.db.models import Q
 import paho.mqtt.client as mqtt
 from simo.core.models import Component
+from simo.core.middleware import introduce_instance
 from simo.core.gateways import BaseObjectCommandsGatewayHandler
 from simo.core.forms import BaseGatewayForm
 from simo.core.utils.logs import StreamToLogger
@@ -131,6 +132,7 @@ class ScriptRunHandler(multiprocessing.Process):
         self.component = Component.objects.get(id=self.component_id)
         tz = pytz.timezone(self.component.zone.instance.timezone)
         timezone.activate(tz)
+        introduce_instance(self.component.zone.instance)
         self.logger = get_component_logger(self.component)
         sys.stdout = StreamToLogger(self.logger, logging.INFO)
         sys.stderr = StreamToLogger(self.logger, logging.ERROR)

@@ -12,6 +12,7 @@ from django.urls.base import get_script_prefix
 from django.utils.safestring import mark_safe
 from django.utils.translation import gettext_lazy as _
 from django.contrib.contenttypes.models import ContentType
+from actstream import action
 from timezone_utils.choices import ALL_TIMEZONES_CHOICES
 from dal import autocomplete
 from .models import (
@@ -431,7 +432,20 @@ class ComponentAdminForm(forms.ModelForm):
             raise forms.ValidationError(mark_safe(error))
         return self.cleaned_data['instance_methods']
 
-
+    def save(self, commit=True):
+        if commit:
+            from simo.users.middleware import get_current_user
+            actor = get_current_user()
+            if self.instance.pk:
+                verb = 'modified'
+            else:
+                verb = 'created'
+            action.send(
+                actor, target=self.instance, verb=verb,
+                instance_id=self.instance.zone.instance,
+                action_type='management_event'
+            )
+        super().save(commit=commit)
 
 
 class BaseComponentForm(ConfigFieldsMixin, ComponentAdminForm):

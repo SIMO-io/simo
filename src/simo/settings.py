@@ -40,12 +40,14 @@ MEDIA_ROOT = os.path.join(VAR_DIR, 'media')
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
 INSTALLED_APPS = [
-    'channels',
+    'daphne',
+    #'channels',
     'dal',
     'dal_select2',
     'django.forms',
 
     'django.contrib.auth',
+    'django.contrib.sites',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.gis',
@@ -62,6 +64,7 @@ INSTALLED_APPS = [
 
     'bootstrap4',
     'taggit',
+    'actstream',
 
     'simo.core',
     'simo.users',
@@ -71,7 +74,6 @@ INSTALLED_APPS = [
     'simo.fleet',
 
     'django.contrib.admin',
-
     'adminsortable2',
 ]
 
@@ -93,7 +95,7 @@ MIDDLEWARE = [
 FILE_UPLOAD_MAX_MEMORY_SIZE = 20971520 # 20Mb
 
 ROOT_URLCONF = 'urls'
-WSGI_APPLICATION = 'simo.wsgi.application'
+#WSGI_APPLICATION = 'simo.wsgi.application'
 
 CHANNELS_URLCONF = 'simo.asgi'
 ASGI_APPLICATION = "asgi.application"
@@ -226,6 +228,8 @@ DEFAULT_FILE_STORAGE = 'simo.core.storage.ProxyingFileSystemStorage'
 THUMBNAIL_DEFAULT_STORAGE = DEFAULT_FILE_STORAGE
 
 
+SITE_ID = 1
+
 LOGGING = {
    'version': 1,
    'disable_existing_loggers': False,
@@ -276,5 +280,14 @@ LOCATION_FIELD = {
     'search.provider': 'nominatim',
 }
 
-
 TAGGIT_CASE_INSENSITIVE = True
+
+
+
+ACTSTREAM_SETTINGS = {
+    'MANAGER': 'simo.core.managers.ActionManager',
+    'FETCH_RELATIONS': True,
+    'USE_PREFETCH': True,
+    'USE_JSONFIELD': True,
+    'GFK_FETCH_DEPTH': 1,
+}
