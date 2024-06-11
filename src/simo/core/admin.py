@@ -10,6 +10,7 @@ from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_protect
 from django.shortcuts import redirect, render
 from simo.users.models import ComponentPermission
+from simo.core.utils.admin import EasyObjectsDeleteMixin
 from .utils.type_constants import (
     ALL_BASE_TYPES, GATEWAYS_MAP, CONTROLLERS_BY_GATEWAY
 )
@@ -29,7 +30,7 @@ csrf_protect_m = method_decorator(csrf_protect)
 
 
 @admin.register(Icon)
-class IconAdmin(admin.ModelAdmin):
+class IconAdmin(EasyObjectsDeleteMixin, admin.ModelAdmin):
     form = IconForm
     list_display = 'slug', 'preview', 'copyright'
     search_fields = 'slug', 'keywords',
@@ -59,8 +60,9 @@ class IconAdmin(admin.ModelAdmin):
 
 
 
+
 @admin.register(Instance)
-class InstanceAdmin(admin.ModelAdmin):
+class InstanceAdmin(EasyObjectsDeleteMixin, admin.ModelAdmin):
     list_display = 'name', 'timezone', 'uid'
     exclude = 'learn_fingerprints_start', 'learn_fingerprints'
 
@@ -77,7 +79,7 @@ class InstanceAdmin(admin.ModelAdmin):
 
 
 @admin.register(Zone)
-class ZoneAdmin(SortableAdminMixin, admin.ModelAdmin):
+class ZoneAdmin(EasyObjectsDeleteMixin, SortableAdminMixin, admin.ModelAdmin):
     list_display = 'name', 'instance'
     search_fields = 'name',
     list_filter = 'instance',
@@ -93,7 +95,7 @@ class ZoneAdmin(SortableAdminMixin, admin.ModelAdmin):
 
 
 @admin.register(Category)
-class CategoryAdmin(SortableAdminMixin, admin.ModelAdmin):
+class CategoryAdmin(EasyObjectsDeleteMixin, SortableAdminMixin, admin.ModelAdmin):
     form = CategoryAdminForm
     list_display = 'name_display', 'all'
     search_fields = 'name',
@@ -120,7 +122,7 @@ class CategoryAdmin(SortableAdminMixin, admin.ModelAdmin):
 
 
 @admin.register(Gateway)
-class GatewayAdmin(admin.ModelAdmin):
+class GatewayAdmin(EasyObjectsDeleteMixin, admin.ModelAdmin):
     list_display = 'type', 'status'
     readonly_fields = ('type', 'control')
 
@@ -256,7 +258,7 @@ class ComponentPermissionInline(admin.TabularInline):
 
 
 @admin.register(Component)
-class ComponentAdmin(admin.ModelAdmin):
+class ComponentAdmin(EasyObjectsDeleteMixin, admin.ModelAdmin):
     form = BaseComponentForm
     list_display = (
         'id', 'name_display', 'value_display', 'base_type', 'alive', 'battery_level',

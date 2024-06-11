@@ -1,6 +1,11 @@
 from django import forms
 from django.shortcuts import render, redirect
 from django.contrib.admin.helpers import Fieldset
+from django.db import models, router
+from django.utils.text import capfirst
+from django.urls import NoReverseMatch, reverse
+from django.contrib.admin.utils import NestedObjects, quote
+from django.utils.html import format_html
 
 
 class AdminFormActionForm(forms.Form):
@@ -55,3 +60,9 @@ class FormAction:
             'fieldset': Fieldset(form, fields=form.fields.keys())
         }
         return render(request, 'admin/action_intermediate_form.html', context)
+
+
+class EasyObjectsDeleteMixin:
+
+    def get_deleted_objects(self, objs, request):
+        return [], [], [], []
