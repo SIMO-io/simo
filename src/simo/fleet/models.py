@@ -275,7 +275,7 @@ def post_component_save(sender, instance, created, *args, **kwargs):
         return
     if 'config' not in instance.get_dirty_fields():
         return
-    colonel = Colonel.objects.filter(id=instance.config.get('colonel', 0))
+    colonel = Colonel.objects.filter(id=instance.config.get('colonel', 0)).first()
     if not colonel:
         return
     colonel.components.add(instance)
