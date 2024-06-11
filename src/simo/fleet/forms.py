@@ -168,15 +168,6 @@ class ColonelComponentForm(BaseComponentForm):
             if 'controls' in self.cleaned_data:
                 del self.cleaned_data['controls']
 
-    def save(self, commit=True, update_colonel=True):
-        obj = super().save(commit)
-        if commit and 'colonel' in self.cleaned_data and update_colonel:
-            self.cleaned_data['colonel'].components.add(obj)
-            self.cleaned_data['colonel'].rebuild_occupied_pins()
-            self.cleaned_data['colonel'].save()
-            self.cleaned_data['colonel'].update_config()
-        return obj
-
 
 class ControlForm(forms.Form):
     input = Select2ListChoiceField(
@@ -1217,8 +1208,6 @@ class TTLockConfigForm(ColonelComponentForm):
 
     def save(self, commit=True):
         obj = super(ColonelComponentForm, self).save(commit)
-        if commit:
-            self.cleaned_data['colonel'].components.add(obj)
         if commit and 'door_sensor' in self.cleaned_data:
             GatewayObjectCommand(
                 self.instance.gateway, self.cleaned_data['door_sensor'],
@@ -1273,7 +1262,6 @@ class DALIDeviceConfigForm(ColonelComponentForm):
         is_new = not self.instance.pk
         obj = super(BaseComponentForm, self).save(commit=commit)
         if commit:
-            self.cleaned_data['colonel'].components.add(obj)
             if not is_new and update_colonel_config:
                 GatewayObjectCommand(
                     obj.gateway, self.cleaned_data['colonel'], id=obj.id,
@@ -1441,7 +1429,6 @@ class DaliGearGroupForm(DALIDeviceConfigForm, BaseComponentForm):
         is_new = not self.instance.pk
         obj = super().save(commit, update_colonel_config=False)
         if commit:
-            self.cleaned_data['colonel'].components.add(obj)
             new_members = obj.config.get('members', [])
             for removed_member in Component.objects.filter(
                 id__in=set(old_members) - set(new_members)

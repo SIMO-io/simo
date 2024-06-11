@@ -269,6 +269,31 @@ def after_colonel_save(sender, instance, created, *args, **kwargs):
             fleet_gateway.start()
 
 
+@receiver(post_save, sender=Component)
+def post_component_save(sender, instance, created, *args, **kwargs):
+    if not instance.controller_uid.startswith('simo.fleet'):
+        return
+    if 'config' not in instance.get_dirty_fields():
+        return
+    colonel = Colonel.objects.filter(id=instance.config.get('colonel', 0))
+    if not colonel:
+        return
+    colonel.components.add(instance)
+    from .controllers import (
+        TTLock, DALILamp, DALIGearGroup, DALIRelay, DALIOccupancySensor,
+        DALILightSensor, DALIButton
+    )
+    if instance.controller and instance.controller_cls in (
+        TTLock, DALILamp, DALIGearGroup, DALIRelay, DALIOccupancySensor,
+        DALILightSensor, DALIButton
+    ):
+        return
+    colonel.rebuild_occupied_pins()
+    colonel.save()
+    colonel.update_config()
+
+
+
 @receiver(pre_delete, sender=Component)
 def post_component_delete(sender, instance, *args, **kwargs):
     if not instance.controller_uid.startswith('simo.fleet'):
@@ -277,7 +302,7 @@ def post_component_delete(sender, instance, *args, **kwargs):
     from .controllers import DALIGearGroup
     if instance.controller_uid == DALIGearGroup.uid:
         for comp in Component.objects.filter(
-                id__in=instance.config.get('members', [])
+            id__in=instance.config.get('members', [])
         ):
             instance.controller._modify_member_group(
                 comp, instance.config.get('da', 0), remove=True
