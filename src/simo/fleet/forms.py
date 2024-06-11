@@ -1319,7 +1319,7 @@ class DaliLampForm(DALIDeviceConfigForm, BaseComponentForm):
                 old_controls = Component.objects.get(
                     pk=self.instance.pk
                 ).config.get('controls')
-                if old_controls != self.cleaned_data['controls']:
+                if old_controls != self.cleaned_data.get('controls'):
                     self.cleaned_data['colonel'].update_config()
         return obj
 
@@ -1352,7 +1352,7 @@ class DaliSwitchConfigForm(DALIDeviceConfigForm, BaseComponentForm):
                 old_controls = Component.objects.get(
                     pk=self.instance.pk
                 ).config.get('controls')
-                if old_controls != self.cleaned_data['controls']:
+                if old_controls != self.cleaned_data.get('controls'):
                     self.cleaned_data['colonel'].update_config()
         return obj
 
@@ -1467,7 +1467,7 @@ class DaliGearGroupForm(DALIDeviceConfigForm, BaseComponentForm):
                 old_controls = Component.objects.get(
                     pk=self.instance.pk
                 ).config.get('controls')
-                if old_controls != self.cleaned_data['controls']:
+                if old_controls != self.cleaned_data.get('controls'):
                     self.cleaned_data['colonel'].update_config()
         return obj
 
