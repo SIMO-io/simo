@@ -442,7 +442,7 @@ class ComponentAdminForm(forms.ModelForm):
                 verb = 'created'
             action.send(
                 actor, target=self.instance, verb=verb,
-                instance_id=self.instance.zone.instance,
+                instance_id=self.instance.zone.instance.id,
                 action_type='management_event'
             )
         super().save(commit=commit)
