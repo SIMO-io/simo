@@ -774,7 +774,7 @@ class ColonelPWMOutputConfigForm(ColonelComponentForm):
             if old.config.get('controls') != self.cleaned_data.get('controls'):
                 update_colonel = True
 
-        obj = super().save(commit=commit, update_colonel=update_colonel)
+        obj = super().save(commit=commit)
         if commit and 'slaves' in self.cleaned_data:
             obj.slaves.set(self.cleaned_data['slaves'])
         if not update_colonel:
@@ -1252,17 +1252,15 @@ class DALIDeviceConfigForm(ColonelComponentForm):
             )
         return self.cleaned_data
 
-    def save(self, commit=True, update_colonel_config=True):
+    def save(self, commit=True):
         if 'interface' in self.cleaned_data:
             self.instance.config['dali_interface'] = \
                 self.cleaned_data['interface'].no
 
-        # prevent immediate config update on colonel as dali devices are
-        # added via pairing process, which uses finalization procedure.
         is_new = not self.instance.pk
-        obj = super(BaseComponentForm, self).save(commit=commit)
+        obj = super().save(commit=commit)
         if commit:
-            if not is_new and update_colonel_config:
+            if not is_new:
                 GatewayObjectCommand(
                     obj.gateway, self.cleaned_data['colonel'], id=obj.id,
                     command='call', method='update_config', args=[
@@ -1423,11 +1421,11 @@ class DaliGearGroupForm(DALIDeviceConfigForm, BaseComponentForm):
             self._clean_controls()
         return self.cleaned_data
 
-    def save(self, commit=True, update_colonel_config=True):
+    def save(self, commit=True):
         old_members = self.instance.config.get('members', [])
         self.instance.config['da'] = self.group_addr
         is_new = not self.instance.pk
-        obj = super().save(commit, update_colonel_config=False)
+        obj = super().save(commit)
         if commit:
             new_members = obj.config.get('members', [])
             for removed_member in Component.objects.filter(
