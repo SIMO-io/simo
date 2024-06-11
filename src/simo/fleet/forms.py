@@ -1256,7 +1256,6 @@ class DALIDeviceConfigForm(ColonelComponentForm):
         if 'interface' in self.cleaned_data:
             self.instance.config['dali_interface'] = \
                 self.cleaned_data['interface'].no
-
         is_new = not self.instance.pk
         obj = super().save(commit=commit)
         if commit:

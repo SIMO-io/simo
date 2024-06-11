@@ -469,6 +469,7 @@ class TTLock(FleeDeviceMixin, Lock):
         ).publish()
 
     @classmethod
+    @atomic
     def _process_discovery(cls, started_with, data):
         if data['discovery-result'] == 'fail':
             if data['result'] == 0:
@@ -664,6 +665,7 @@ class DALIDevice(FleeDeviceMixin, ControllerBase):
         ).publish()
 
     @classmethod
+    @atomic
     def _process_discovery(cls, started_with, data):
         if data['discovery-result'] == 'fail':
             if data['result'] == 1:

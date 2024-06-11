@@ -210,6 +210,19 @@ class ConfigFieldsMixin:
                 self.instance.config[field_name] = \
                     self.cleaned_data[field_name]
 
+        if commit:
+            from simo.users.middleware import get_current_user
+            actor = get_current_user()
+            if self.instance.pk:
+                verb = 'modified'
+            else:
+                verb = 'created'
+            action.send(
+                actor, target=self.instance, verb=verb,
+                instance_id=self.instance.zone.instance.id,
+                action_type='management_event'
+            )
+
         return super().save(commit)
 
 
@@ -431,21 +444,6 @@ class ComponentAdminForm(forms.ModelForm):
             error = error.replace('\n', '<br>').replace(' ', '&nbsp;')
             raise forms.ValidationError(mark_safe(error))
         return self.cleaned_data['instance_methods']
-
-    def save(self, commit=True):
-        if commit:
-            from simo.users.middleware import get_current_user
-            actor = get_current_user()
-            if self.instance.pk:
-                verb = 'modified'
-            else:
-                verb = 'created'
-            action.send(
-                actor, target=self.instance, verb=verb,
-                instance_id=self.instance.zone.instance.id,
-                action_type='management_event'
-            )
-        super().save(commit=commit)
 
 
 class BaseComponentForm(ConfigFieldsMixin, ComponentAdminForm):
