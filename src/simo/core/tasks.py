@@ -321,8 +321,18 @@ def vacuum_full():
 
 @celery_app.task
 def update():
-    from simo.auto_update import perform_update
+    from simo.management.auto_update import perform_update
     perform_update()
+
+
+@celery_app.task
+def auto_update():
+    if not dynamic_settings['core__auto_update']:
+        return
+    if dynamic_settings['core__latest_version_available'] != \
+        pkg_resources.get_distribution('simo').version:
+        return update()
+
 
 
 @celery_app.task
@@ -397,7 +407,8 @@ def setup_periodic_tasks(sender, **kwargs):
     sender.add_periodic_task(1, watch_timers.s())
     sender.add_periodic_task(20, sync_with_remote.s())
     sender.add_periodic_task(60 * 60, clear_history.s())
-    sender.add_periodic_task(60 * 60 * 6, update_latest_version_available.s())
+    sender.add_periodic_task(60 * 60, update_latest_version_available.s())
+    sender.add_periodic_task(60 * 60, auto_update.s())
     sender.add_periodic_task(60, drop_fingerprints_learn.s())
     sender.add_periodic_task(60 * 60 * 24, restart_postgresql.s())
     sender.add_periodic_task(60 * 60, low_battery_notifications.s())
