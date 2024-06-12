@@ -1,28 +1,19 @@
-import os
 import traceback
-import requests
 from dal import forward
-from django import forms
 from django.contrib.admin.forms import AdminAuthenticationForm as OrgAdminAuthenticationForm
 from django.db import models
 from django import forms
 from django.forms import formset_factory
-from django.conf import settings
 from django.urls.base import get_script_prefix
 from django.utils.safestring import mark_safe
 from django.utils.translation import gettext_lazy as _
 from django.contrib.contenttypes.models import ContentType
 from actstream import action
-from timezone_utils.choices import ALL_TIMEZONES_CHOICES
 from dal import autocomplete
 from .models import (
     Icon, Category, Gateway, Component
 )
-from .widgets import LocationWidget
-from simo.conf import dynamic_settings
-from .widgets import SVGFileWidget, PythonCode, LogOutputWidget
-from .widgets import ImageWidget
-from .utils.helpers import get_random_string
+from .widgets import SVGFileWidget, LogOutputWidget
 from .utils.formsets import FormsetField
 from .utils.validators import validate_slaves
 
@@ -33,94 +24,6 @@ class HiddenField(forms.CharField):
     '''
     def __init__(self, *args, **kwargs):
         super().__init__(widget=forms.HiddenInput())
-
-
-class HubConfigForm(forms.Form):
-    name = forms.CharField(
-        label=_("Hub Name"), required=True,
-        widget=forms.TextInput(attrs={'placeholder': "Home Sweet Home"})
-    )
-    uid = forms.CharField(
-        label=_('Unique Identifier (UID)'), required=False,
-        widget=forms.TextInput(attrs={'placeholder': "Df5Hd8v1"}),
-        help_text="Leave blank if this is a new instance."
-    )
-    time_zone = forms.ChoiceField(
-        label=_("Time zone"), required=True,
-        choices=ALL_TIMEZONES_CHOICES
-    )
-    units_of_measure = forms.ChoiceField(
-        label=_("Units of Measure"), required=True,
-        choices=(('metric', 'Metric'), ('imperial', 'Imperial'))
-    )
-    cover_image = forms.FileField(
-        label=_("Cover image"), required=True, widget=ImageWidget
-    )
-
-    def __init__(self, *args, **kwargs):
-        self.user = kwargs.pop('user')
-        super().__init__(*args, **kwargs)
-
-    def clean(self):
-        cleaned_data = super().clean()
-        post_data = cleaned_data.copy()
-        post_data.pop('cover_image')
-        if not dynamic_settings['core__hub_secret']:
-            dynamic_settings['core__hub_secret'] = get_random_string(20)
-        post_data['secret'] = dynamic_settings['core__hub_secret']
-        post_data['email'] = self.user.email
-        try:
-            resp = requests.post(
-                'https://simo.io/hubs/sync-initial-config/', json=post_data,
-            )
-        except Exception as e:
-            raise forms.ValidationError(
-                "Connection error. "
-                "Make sure your hub can reach https://simo.io and try again."
-            )
-
-        if resp.status_code == 400:
-            resp_json = resp.json()
-            resp_json.pop('status', None)
-            for field_name, msg in resp_json.items():
-                self.add_error(field_name, msg)
-        elif resp.status_code == 200:
-            cleaned_data['uid'] = resp.json()['uid']
-        else:
-            raise forms.ValidationError(
-                "Bad response from https://simo.io. Please try again. "
-            )
-        return cleaned_data
-
-
-class CoordinatesForm(forms.Form):
-    location = forms.CharField(
-        label=_("Where is your hub located?"),
-        widget=LocationWidget(based_fields=[])
-    )
-    share_location = forms.BooleanField(
-        label="Share exact location with SIMO.io for "
-              "better accuracy of location related services.",
-        required=False
-    )
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        if not self.initial['location']:
-            self.fields['location'].widget = LocationWidget(
-                based_fields=[], zoom=2
-            )
-
-
-
-
-class TermsAndConditionsForm(forms.Form):
-    accept = forms.BooleanField(required=False)
-
-    def clean_accept(self):
-        if not self.cleaned_data['accept']:
-            raise forms.ValidationError(_("You must accept SIMO.io Terms & Conditions if you want to continue."))
-        return self.cleaned_data['accept']
 
 
 class AdminAuthenticationForm(OrgAdminAuthenticationForm):

@@ -21,7 +21,7 @@ for name, app in apps.app_configs.items():
         if isinstance(item, list) and var_name == 'urlpatterns':
             urlpatterns.extend(item)
 
-from .on_http_start import *
+from .management.on_http_start import *
 
 application = ProtocolTypeRouter({
     "http": get_asgi_application(),

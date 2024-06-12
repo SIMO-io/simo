@@ -2,17 +2,19 @@ import time
 import os
 import io
 import json
-import base64
 import datetime
 import requests
 import subprocess
 import threading
 import pkg_resources
+import sys
+import traceback
 from django.db.models import Q
 from django.db import connection, transaction
 from django.template.loader import render_to_string
 from celeryc import celery_app
 from django.utils import timezone
+from actstream.models import Action
 from easy_thumbnails.files import get_thumbnailer
 from simo.conf import dynamic_settings
 from simo.core.utils.helpers import get_self_ip
@@ -244,7 +246,10 @@ def watch_timers():
         component.meta['timer_to'] = 0
         component.meta['timer_start'] = 0
         component.save()
-        component.controller._on_timer_end()
+        try:
+            component.controller._on_timer_end()
+        except Exception as e:
+            print(traceback.format_exc(), file=sys.stderr)
 
 
 @celery_app.task
@@ -253,8 +258,15 @@ def clear_history():
         old_times = timezone.now() - datetime.timedelta(
             days=instance.history_days
         )
-        ComponentHistory.objects.filter(date__lt=old_times).delete()
-        HistoryAggregate.objects.filter(start__lt=old_times).delete()
+        ComponentHistory.objects.filter(
+            component__zone__instance=instance, date__lt=old_times
+        ).delete()
+        HistoryAggregate.objects.filter(
+            component__zone__instance=instance, start__lt=old_times
+        ).delete()
+        Action.objects.filter(
+            data__instance_id=instance.id, timestamp__lt=old_times
+        )
 
 
 @celery_app.task
@@ -321,6 +333,7 @@ def update_latest_version_available():
         return
     latest = list(resp.json()['releases'].keys())[-1]
     dynamic_settings['core__latest_version_available'] = latest
+    print("Got the latest version available!")
 
 
 @celery_app.task

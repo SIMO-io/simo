@@ -43,14 +43,6 @@ class RemoteConnectionVersion(IntegerPreference):
                 "when hub get's synced up to the simo.io."
 
 
-@global_preferences_registry.register
-class UnitsOfMeasure(ChoicePreference):
-    section = core
-    name = 'units_of_measure'
-    choices = (('metric', "Metric"), ('imperial', "Imperial"))
-    default = 'metric'
-    required = True
-
 
 @global_preferences_registry.register
 class LatestHubOSVersionAvailable(StringPreference):

@@ -1,6 +1,7 @@
 from django.apps import AppConfig
 
 
+
 class SIMOCoreAppConfig(AppConfig):
     name = 'simo.core'
 
@@ -8,3 +9,5 @@ class SIMOCoreAppConfig(AppConfig):
         from actstream import registry
         registry.register(self.get_model('Component'))
         registry.register(self.get_model('Gateway'))
+
+

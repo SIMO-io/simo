@@ -158,7 +158,7 @@ class BaseClimateSensor(FleeDeviceMixin, BasicSensorMixin, BaseMultiSensor):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.sys_temp_units = 'C'
-        if dynamic_settings['core__units_of_measure'] == 'imperial':
+        if self.component.zone.instance.units_of_measure == 'imperial':
             self.sys_temp_units = 'F'
 
     @property

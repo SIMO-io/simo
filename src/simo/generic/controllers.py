@@ -223,7 +223,7 @@ class Thermostat(ControllerBase):
     def default_config(self):
         min = 3
         max = 36
-        if dynamic_settings['core__units_of_measure'] == 'imperial':
+        if self.component.zone.instance.units_of_measure == 'imperial':
             min = 36
             max = 100
         return {
@@ -237,7 +237,7 @@ class Thermostat(ControllerBase):
         raise ValidationError("This component type does not accept set value!")
 
     def _get_default_user_config(self):
-        if dynamic_settings['core__units_of_measure'] == 'imperial':
+        if self.component.zone.instance.units_of_measure == 'imperial':
             target_temp = 70
             low_target = 60
             high_target = 75

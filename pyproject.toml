@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "simo"
-version = "2.1.0"
+version = "2.1.2"
 authors = [
   { name="Simanas Venčkauskas", email="simanas@simo.io" },
 ]
@@ -20,7 +20,10 @@ dynamic = ["dependencies"]
 [tool.setuptools.dynamic]
 dependencies = {file = ["requirements.txt"]}
 
+[project.scripts]
+simo-install = "management.install:install"
 
 [project.urls]
 Homepage = "https://simo.io"
 Issues = "https://github.com/pypa/sampleproject/issues"
+

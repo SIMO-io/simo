@@ -2,6 +2,7 @@ import os
 import pwd
 import grp
 import subprocess
+import pkg_resources
 from django.conf import settings
 from django.template.loader import render_to_string
 
@@ -58,7 +59,8 @@ prepare_mosquitto()
 def update_auto_update():
     import simo
     auto_update_file_path = os.path.join(
-        os.path.dirname(simo.__file__), 'auto_update.py'
+        os.path.dirname(simo.__file__), 'management',
+        'auto_update.py'
     )
     st = os.stat(auto_update_file_path)
     os.chmod(auto_update_file_path, st.st_mode | 0o111)
@@ -76,3 +78,21 @@ def update_auto_update():
 
 
 update_auto_update()
+
+
+def maybe_update_to_latest_immediately():
+    from simo.core.tasks import update_latest_version_available, update
+    from simo.core.models import Instance
+    from simo.conf import dynamic_settings
+    update_latest_version_available()
+    if dynamic_settings['core__latest_version_available'] != \
+            pkg_resources.get_distribution('simo').version:
+        print("There is newer version, we should probably update!")
+        if not Instance.objects.all().count():
+            print("Yes let's do it asynchronously!")
+            return update.s()
+        print("Nope, we already have some instances running, "
+              "so we leave that for hub owners.")
+
+
+maybe_update_to_latest_immediately()

@@ -1,6 +1,5 @@
-"""Console script for simo."""
+#!/usr/bin/env python
 import sys
-import click
 import os
 import shutil
 import simo
@@ -8,7 +7,7 @@ from django.template import Context, Engine
 from django.core.management.utils import get_random_secret_key
 
 
-def copy_default_template(to_directory='/etc/SIMO'):
+def copy_template(to_directory='/etc/SIMO'):
     template_file_extensions = ['.py', '.conf']
 
     context = Context({
@@ -49,18 +48,6 @@ def copy_default_template(to_directory='/etc/SIMO'):
                 os.makedirs(os.path.join(root, dirname), exist_ok=True)
 
 
-@click.command()
-def init():
-    copy_default_template()
-
-
-@click.group()
-def main(args=None):
-    pass
-
-
-main.add_command(init)
-
 
 if __name__ == "__main__":
-    sys.exit(main())  # pragma: no cover
+    sys.exit(copy_template())

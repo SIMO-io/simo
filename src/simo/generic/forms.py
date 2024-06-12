@@ -273,9 +273,6 @@ class ThermostatConfigForm(BaseComponentForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        if dynamic_settings['core__units_of_measure'] == 'imperial':
-            self.fields['min'].initial = 36
-            self.fields['max'].initial = 100
         if self.instance.pk:
             self.fields['mode'].initial = \
                 self.instance.config['user_config']['mode']

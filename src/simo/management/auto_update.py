@@ -26,6 +26,9 @@ def perform_update():
     if proc.returncode:
         raise Exception(err.decode())
 
+    from simo.management.install import install_dependencies
+    install_dependencies()
+
     proc = subprocess.Popen(
         [os.path.join(HUB_DIR, 'manage.py'), 'migrate'],
         cwd=HUB_DIR,
