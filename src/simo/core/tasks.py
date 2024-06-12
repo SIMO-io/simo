@@ -161,7 +161,7 @@ def sync_with_remote():
     if 'hub_uid' in r_json:
         dynamic_settings['core__hub_uid'] = r_json['hub_uid']
 
-    dynamic_settings['core__remote_http'] = r_json.get('hub_remote_http')
+    dynamic_settings['core__remote_http'] = r_json.get('hub_remote_http', '')
     if 'new_secret' in r_json:
         dynamic_settings['core__hub_secret'] = r_json['new_secret']
 
