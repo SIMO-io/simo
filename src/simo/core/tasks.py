@@ -9,6 +9,7 @@ import threading
 import pkg_resources
 import sys
 import traceback
+import uuid
 from django.db.models import Q
 from django.db import connection, transaction
 from django.template.loader import render_to_string
@@ -102,9 +103,15 @@ def save_config(data):
 def sync_with_remote():
     from simo.users.models import User
 
+    try:
+        mac = str(hex(uuid.getnode()))
+    except:
+        mac = ''
+
     report_data = {
         'simo_version': pkg_resources.get_distribution('simo').version,
         'local_http': 'https://%s' % get_self_ip(),
+        'mac': mac,
         'hub_uid': dynamic_settings['core__hub_uid'],
         'hub_secret': dynamic_settings['core__hub_secret'],
         'remote_conn_version': dynamic_settings['core__remote_conn_version'],
@@ -326,16 +333,6 @@ def update():
 
 
 @celery_app.task
-def auto_update():
-    if not dynamic_settings['core__auto_update']:
-        return
-    if dynamic_settings['core__latest_version_available'] != \
-        pkg_resources.get_distribution('simo').version:
-        return update()
-
-
-
-@celery_app.task
 def update_latest_version_available():
     resp = requests.get("https://pypi.org/pypi/simo/json")
     if resp.status_code != 200:
@@ -408,7 +405,6 @@ def setup_periodic_tasks(sender, **kwargs):
     sender.add_periodic_task(20, sync_with_remote.s())
     sender.add_periodic_task(60 * 60, clear_history.s())
     sender.add_periodic_task(60 * 60, update_latest_version_available.s())
-    sender.add_periodic_task(60 * 60, auto_update.s())
     sender.add_periodic_task(60, drop_fingerprints_learn.s())
     sender.add_periodic_task(60 * 60 * 24, restart_postgresql.s())
     sender.add_periodic_task(60 * 60, low_battery_notifications.s())

@@ -86,6 +86,7 @@ def copy_template(to_directory='/etc/SIMO'):
 def install():
     simo_directory = '/etc/SIMO'
     installed_flag_file_path = os.path.join(simo_directory, 'is_installed.json')
+    HUB_DIR = os.path.join(simo_directory, 'hub')
 
     if os.path.exists(installed_flag_file_path):
         print("SIMO.io hub is already installed. ")
@@ -115,21 +116,50 @@ def install():
     step += 1
     print(f"{step}.___________Copy default template__________________")
 
-    if os.path.exists(simo_directory):
-        print("Already exists!")
-    else:
-        try:
-            copy_template(simo_directory)
-        except Exception as e:
-            print(traceback.format_exc(), file=sys.stderr)
-            shutil.rmtree(simo_directory, ignore_errors=True)
-            return
+    shutil.rmtree(simo_directory, ignore_errors=True)
+    try:
+        copy_template(simo_directory)
+    except Exception as e:
+        print(traceback.format_exc(), file=sys.stderr)
+        shutil.rmtree(simo_directory, ignore_errors=True)
+        return
+
+    step += 1
+    print(f"{step}.___________Create database__________________")
+    subprocess.call(
+        'sudo -u postgres createuser -s -i -d -r -l -w root',
+        shell=True
+    )
+    subprocess.call('createdb SIMO', shell=True)
+
+    step += 1
+    print(f"{step}.___________Apply migrations__________________")
+
+    proc = subprocess.Popen(
+        [os.path.join(HUB_DIR, 'manage.py'), 'migrate'],
+        cwd=HUB_DIR,
+        stderr=subprocess.PIPE
+    )
+    out, err = proc.communicate()
+    if proc.returncode:
+        raise Exception(err.decode())
+
+    step += 1
+    print(f"{step}.___________Collect statics__________________")
+    proc = subprocess.Popen(
+        [os.path.join(HUB_DIR, 'manage.py'), 'collectstatic',
+         '--noinput'],
+        cwd=HUB_DIR, stderr=subprocess.PIPE
+    )
+    out, err = proc.communicate()
+    if proc.returncode:
+        raise Exception(err.decode())
 
     step += 1
     print(f"{step}.___________Configure supervisor__________________")
 
     try:
-        os.remove('/etc/supervisor/conf.d/SIMO.conf', ignore_errors=True)
+        os.remove('/etc/supervisor/conf.d/SIMO.conf')
     except:
         pass
     os.symlink(
@@ -139,7 +169,6 @@ def install():
     status = subprocess.call(['supervisorctl', 'update', 'all'])
     if status != 0:
         sys.exit("INSTALLATION FAILED! Unable to start supervisord")
-
 
 
     step += 1

@@ -68,6 +68,11 @@ def update_auto_update():
     executable_path = '/usr/local/bin/simo-auto-update'
     if os.geteuid() == 0:
         # We are running as root!
+        if os.path.exists(executable_path):
+            # refresh the link if it already exists
+            os.remove(executable_path)
+            os.symlink(auto_update_file_path, executable_path)
+
         if not os.path.islink(executable_path):
             # There is no symbolic link yet made for auto updates.
             # Let's make it!
