@@ -105,6 +105,7 @@ def sync_with_remote():
         'local_http': 'https://%s' % get_self_ip(),
         'hub_uid': dynamic_settings['core__hub_uid'],
         'hub_secret': dynamic_settings['core__hub_secret'],
+        'remote_conn_version': dynamic_settings['core__remote_conn_version'],
         'instances': []
     }
     for instance in Instance.objects.all():
