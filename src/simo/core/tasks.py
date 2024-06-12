@@ -9,13 +9,14 @@ import subprocess
 import threading
 import pkg_resources
 from django.db.models import Q
-from django.db import connection
+from django.db import connection, transaction
 from django.template.loader import render_to_string
 from celeryc import celery_app
 from django.utils import timezone
 from easy_thumbnails.files import get_thumbnailer
 from simo.conf import dynamic_settings
 from simo.core.utils.helpers import get_self_ip
+from simo.users.models import PermissionsRole, InstanceUser
 from .models import Instance, Component, ComponentHistory, HistoryAggregate
 
 
@@ -99,11 +100,6 @@ def save_config(data):
 def sync_with_remote():
     from simo.users.models import User
 
-    instances = Instance.objects.all()
-    if not instances:
-        # No initial configuration yet
-        return
-
     report_data = {
         'simo_version': pkg_resources.get_distribution('simo').version,
         'local_http': 'https://%s' % get_self_ip(),
@@ -111,7 +107,7 @@ def sync_with_remote():
         'hub_secret': dynamic_settings['core__hub_secret'],
         'instances': []
     }
-    for instance in instances:
+    for instance in Instance.objects.all():
         instance_data = {
             'uid': instance.uid,
             'name': instance.name,
@@ -131,10 +127,14 @@ def sync_with_remote():
             user_role = user.get_role(instance)
             if user_role and user_role.is_superuser:
                 is_superuser = True
+            is_owner = False
+            if user_role and user_role.is_owner:
+                is_owner = True
             instance_data['users'].append({
                 'email': user.email,
                 'is_hub_master': user.is_master,
                 'is_superuser': is_superuser,
+                'is_owner': is_owner,
                 'device_token': user.primary_device_token
             })
 
@@ -144,15 +144,6 @@ def sync_with_remote():
         if last_event:
             instance_data['last_event'] = last_event.date.timestamp()
 
-        if instance.cover_image and not instance.cover_image_synced:
-            thumbnailer = get_thumbnailer(instance.cover_image.path)
-            cover_imb_path = thumbnailer.get_thumbnail(
-                {'size': (880, 490), 'crop': True}
-            ).path
-            with open(cover_imb_path, 'rb') as img:
-                instance_data['cover_image'] = base64.b64encode(
-                    img.read()
-                ).decode()
         report_data['instances'].append(instance_data)
 
     print("Sync UP with remote: ", json.dumps(report_data))
@@ -169,10 +160,6 @@ def sync_with_remote():
     if 'hub_uid' in r_json:
         dynamic_settings['core__hub_uid'] = r_json['hub_uid']
 
-    for instance in instances:
-        instance.cover_image_synced = True
-        instance.save()
-
     dynamic_settings['core__remote_http'] = r_json.get('hub_remote_http')
     if 'new_secret' in r_json:
         dynamic_settings['core__hub_secret'] = r_json['new_secret']
@@ -182,9 +169,14 @@ def sync_with_remote():
     dynamic_settings['core__remote_conn_version'] = r_json['remote_conn_version']
 
     for data in r_json['instances']:
-        instance = Instance.objects.get(uid=data['uid'])
+        users_data = data.pop('users', {})
+        instance_uid = data.pop('uid')
+        weather_forecast = data.pop('weather_forecast', None)
+        instance, new_instance = Instance.objects.update_or_create(
+            uid=instance_uid, defaults=data
+        )
 
-        if 'weather_forecast' in data:
+        if weather_forecast:
             from simo.generic.controllers import WeatherForecast
             weather_component = Component.objects.filter(
                 zone__instance=instance,
@@ -192,27 +184,55 @@ def sync_with_remote():
             ).first()
             if weather_component:
                 weather_component.track_history = False
-                weather_component.controller.set(data['weather_forecast'])
+                weather_component.controller.set(weather_forecast)
 
-        instance.save()
 
-    for user_data in r_json['users']:
-        try:
-            user = User.objects.get(email=user_data['email'])
-        except User.DoesNotExist:
-            continue
-        user.name = user_data['name']
-        if user_data.get('avatar_url') \
-        and user.avatar_url != user_data.get('avatar_url'):
-            user.avatar_url = user_data.get('avatar_url')
-            resp = requests.get(user.avatar_url)
-            user.avatar.save(
-                os.path.basename(user.avatar_url), io.BytesIO(resp.content)
-            )
-            user.avatar_url = user_data.get('avatar_url')
-            user.avatar_last_change = timezone.now()
-        user.ssh_key = user_data.get('ssh_key')
-        user.save()
+        for email, options in users_data.items():
+            with transaction.atomic():
+                if new_instance:
+                    # Create users for new instance!
+                    user, new_user = User.objects.update_or_create(
+                        email=email, defaults={
+                        'name': options.get('name'),
+                        'is_master': options.get('is_hub_master', False),
+                        'ssh_key': options.get('ssh_key')
+                    })
+                    role = None
+                    if options.get('is_superuser'):
+                        role = PermissionsRole.objects.filter(
+                            instance=new_instance, is_superuser=True
+                        ).first()
+                    elif options.get('is_owner'):
+                        role = PermissionsRole.objects.filter(
+                            instance=new_instance, is_owner=True
+                        ).first()
+                    InstanceUser.objects.update_or_create(
+                        user=user, instance=new_instance, defaults={
+                            'is_active': True, 'role': role
+                        }
+                    )
+                else:
+                    user = User.objects.filter(email=email).first()
+
+                if not user:
+                    continue
+
+                if user.name != options.get('name'):
+                    user.name = options['name']
+                    user.save()
+                if user.ssh_key != options.get('ssh_key'):
+                    user.ssh_key = options['ssh_key']
+                    user.save()
+
+                avatar_url = options.get('avatar_url')
+                if avatar_url and user.avatar_url != avatar_url:
+                    resp = requests.get(avatar_url)
+                    user.avatar.save(
+                        os.path.basename(avatar_url), io.BytesIO(resp.content)
+                    )
+                    user.avatar_url = avatar_url
+                    user.avatar_last_change = timezone.now()
+                    user.save()
 
 
 @celery_app.task
@@ -356,7 +376,6 @@ def low_battery_notifications():
                     f"Low battery ({comp.battery_level}%) on {comp}",
                     component=comp, users=users
                 )
-
 
 
 @celery_app.on_after_finalize.connect

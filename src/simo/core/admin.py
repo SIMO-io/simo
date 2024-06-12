@@ -60,24 +60,6 @@ class IconAdmin(EasyObjectsDeleteMixin, admin.ModelAdmin):
 
 
 
-
-@admin.register(Instance)
-class InstanceAdmin(EasyObjectsDeleteMixin, admin.ModelAdmin):
-    list_display = 'name', 'timezone', 'uid'
-    exclude = 'learn_fingerprints_start', 'learn_fingerprints'
-
-
-    def has_module_permission(self, request):
-        return request.user.is_master
-
-    def has_view_permission(self, request, obj=None):
-        return self.has_module_permission(request)
-
-    def has_change_permission(self, request, obj=None):
-        return self.has_module_permission(request)
-
-
-
 @admin.register(Zone)
 class ZoneAdmin(EasyObjectsDeleteMixin, SortableAdminMixin, admin.ModelAdmin):
     list_display = 'name', 'instance'

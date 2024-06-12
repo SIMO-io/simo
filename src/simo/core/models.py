@@ -16,6 +16,7 @@ from actstream import action
 from simo.core.utils.mixins import SimoAdminMixin
 from simo.core.storage import OverwriteStorage
 from simo.core.utils.validators import validate_svg
+from simo.core.utils.helpers import get_random_string
 from simo.users.models import User
 from .managers import ZonesManager, CategoriesManager, ComponentsManager
 from .events import GatewayObjectCommand, OnChangeMixin
@@ -65,16 +66,10 @@ class Instance(models.Model, SimoAdminMixin):
     # or something of that kind.
     # Usually, there will be only one.
     uid = models.CharField(
-        max_length=50, unique=True,
-        help_text="Issued by SIMO.io"
+        max_length=50, unique=True, help_text="Issued by SIMO.io"
     )
     name = models.CharField(max_length=100, db_index=True, unique=True)
     slug = models.CharField(max_length=100, db_index=True, unique=True)
-    cover_image = models.ImageField(
-        name='cover_image', upload_to='hub_covers', null=True, blank=True
-    )
-    cover_image_synced = models.BooleanField(default=False)
-    secret_key = models.CharField(max_length=100, blank=True)
     date_created = models.DateTimeField(auto_now_add=True)
     location = PlainLocationField(null=True, blank=True, zoom=7)
     timezone = models.CharField(

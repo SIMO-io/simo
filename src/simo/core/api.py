@@ -545,6 +545,7 @@ class SettingsViewSet(InstanceMixin, viewsets.GenericViewSet):
             main_alarm_group_id = main_alarm_group.id
 
         return RESTResponse({
+            'hub_uid': dynamic_settings['core__hub_uid'],
             'instance_name': self.instance.name,
             'instance_uid': self.instance.uid,
             'timezone': self.instance.timezone,
