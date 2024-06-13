@@ -146,7 +146,7 @@ class ColonelComponentForm(BaseComponentForm):
                 continue
             if pin_instances[i].colonel != self.cleaned_data['colonel']:
                 formset_errors[i] = {
-                    'pin': f"{pin_instances[i]} must be from the same Colonel!"
+                    'input': f"{pin_instances[i]} must be from the same Colonel!"
                 }
             elif pin_instances[i].occupied_by \
             and pin_instances[i].occupied_by != self.instance:
