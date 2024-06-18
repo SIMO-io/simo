@@ -222,7 +222,7 @@ def install():
     with open('/etc/ssh/sshd_config', 'r') as ssh_conf:
         line = ssh_conf.readline()
         while line:
-            if line.startswitn('PasswordAuthentication'):
+            if line.startswith('PasswordAuthentication'):
                 line.replace(' yes', ' no')
             new_ssh_conf += line
 
