@@ -41,7 +41,3 @@ class IsAuthenticated(SessionAuthentication):
 
     def authenticate_header(self, request):
         return "None"
-
-
-
-

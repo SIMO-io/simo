@@ -51,7 +51,7 @@ def copy_template(to_directory='/etc/SIMO'):
         'base_dir': to_directory
     }, autoescape=False)
     template_dir = os.path.join(
-        os.path.dirname(simo.__file__), '_hub_template'
+        os.path.dirname(simo.__file__), 'management', '_hub_template'
     )
     prefix_length = len(template_dir) + 1
     for root, dirs, files in os.walk(template_dir):
@@ -82,8 +82,16 @@ def copy_template(to_directory='/etc/SIMO'):
             else:
                 os.makedirs(os.path.join(root, dirname), exist_ok=True)
 
+    manage_py_path = os.path.join(to_directory, 'hub', 'manage.py')
+    st = os.stat(manage_py_path)
+    os.chmod(manage_py_path, st.st_mode | 0o111)
+
 
 def install():
+    # this must be performed on a host machine before simo could be installed.
+    #
+    # apt install python3-pip libpq-dev python3-dev -y
+
     simo_directory = '/etc/SIMO'
     installed_flag_file_path = os.path.join(simo_directory, 'is_installed.json')
     HUB_DIR = os.path.join(simo_directory, 'hub')
@@ -166,6 +174,7 @@ def install():
         f'{simo_directory}/hub/supervisor.conf',
         '/etc/supervisor/conf.d/SIMO.conf'
     )
+    os.makedirs('/var/log/simo')
     status = subprocess.call(['supervisorctl', 'update', 'all'])
     if status != 0:
         sys.exit("INSTALLATION FAILED! Unable to start supervisord")
@@ -213,10 +222,10 @@ def install():
     with open('/etc/ssh/sshd_config', 'r') as ssh_conf:
         line = ssh_conf.readline()
         while line:
-            if 'PasswordAuthentication' in line:
-                new_ssh_conf += 'PasswordAuthentication no'
-            else:
-                new_ssh_conf += line
+            if line.startswitn('PasswordAuthentication'):
+                line.replace(' yes', ' no')
+            new_ssh_conf += line
+
             line = ssh_conf.readline()
     with open('/etc/ssh/sshd_config', 'w') as ssh_conf:
         ssh_conf.write(new_ssh_conf)
@@ -263,17 +272,22 @@ def install():
         timeshift_conf['schedule_monthly'] = "true"
         timeshift_conf['schedule_weekly'] = "true"
         timeshift_conf['schedule_daily'] = "true"
+        timeshift_conf['exclude'] = []
 
-        # Must be copied to /etc/timeshift.json to work
-        with open('/etc/timeshift.json', 'w') as conf_f:
+        # Must be copied to /etc/timeshift/timeshift.json to work
+        with open('/etc/timeshift/timeshift.json', 'w') as conf_f:
             conf_f.write(json.dumps(timeshift_conf))
 
-        status = subprocess.call([
-            '/usr/bin/timeshift', '--create',
-            '--comments', '"Initial backup"', '--tags', 'M'
-        ])
-        if status != 0:
-            print("Unable to start TimeShift")
+        # status = subprocess.call([
+        #     '/usr/bin/timeshift', '--create',
+        #     '--comments', '"Initial backup"', '--tags', 'M'
+        # ])
+        # if status != 0:
+        #     print("Unable to start TimeShift")
+
+
+    step += 1
+    print("%d.__________ PUT UP INSTALL COMPLETE FLAG! _____________________" % step)
 
     with open(installed_flag_file_path, 'w') as f:
         f.write(json.dumps(True))
@@ -284,4 +298,4 @@ def install():
 
 
 if __name__ == "__main__":
-    sys.exit(init())
+    sys.exit(install())
