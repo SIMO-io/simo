@@ -257,8 +257,6 @@ class ComponentSerializer(FormSerializer):
     controller_methods = serializers.SerializerMethodField()
     info = serializers.SerializerMethodField()
 
-    _forms = {}
-
     class Meta:
         form = ComponentAdminForm
         field_mapping = {
@@ -386,13 +384,15 @@ class ComponentSerializer(FormSerializer):
                     self.Meta.form = controller.config_form
 
     def get_form(self, data=None, instance=None, **kwargs):
+        if 'forms' not in self.context:
+            self.context['forms'] = {}
         form_key = None
         if not data:
             form_key = 0
             if instance:
                 form_key = instance.id
-        if form_key in self._forms:
-            return self._forms[form_key]
+        if form_key in self.context['forms']:
+            return self.context['forms'][form_key]
 
         self.set_form_cls()
         if not self.instance or isinstance(self.instance, Iterable):
@@ -412,11 +412,10 @@ class ComponentSerializer(FormSerializer):
             if not user_role.is_superuser and user_role.is_owner:
                 for field_name in list(form.fields.keys()):
                     if field_name not in form.basic_fields:
-                        print("DELETE FIELD: ", field_name)
                         del form.fields[field_name]
 
         if form_key is not None:
-            self._forms[form_key] = form
+            self.context['forms'][form_key] = form
 
         return form
 
