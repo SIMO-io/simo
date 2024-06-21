@@ -167,82 +167,83 @@ def sync_with_remote():
 
     print("Responded with: ", json.dumps(r_json))
 
-    if 'hub_uid' in r_json:
-        dynamic_settings['core__hub_uid'] = r_json['hub_uid']
+    with transaction.atomic():
+        if 'hub_uid' in r_json:
+            dynamic_settings['core__hub_uid'] = r_json['hub_uid']
 
-    dynamic_settings['core__remote_http'] = r_json.get('hub_remote_http', '')
-    if 'new_secret' in r_json:
-        dynamic_settings['core__hub_secret'] = r_json['new_secret']
+        dynamic_settings['core__remote_http'] = r_json.get('hub_remote_http', '')
+        if 'new_secret' in r_json:
+            dynamic_settings['core__hub_secret'] = r_json['new_secret']
 
-    if dynamic_settings['core__remote_conn_version'] < r_json['remote_conn_version']:
-        save_config(r_json)
-    dynamic_settings['core__remote_conn_version'] = r_json['remote_conn_version']
+        if dynamic_settings['core__remote_conn_version'] < r_json['remote_conn_version']:
+            save_config(r_json)
+        dynamic_settings['core__remote_conn_version'] = r_json['remote_conn_version']
 
-    for data in r_json['instances']:
-        users_data = data.pop('users', {})
-        instance_uid = data.pop('uid')
-        weather_forecast = data.pop('weather_forecast', None)
-        instance, new_instance = Instance.objects.update_or_create(
-            uid=instance_uid, defaults=data
-        )
+        for data in r_json['instances']:
+            users_data = data.pop('users', {})
+            instance_uid = data.pop('uid')
+            weather_forecast = data.pop('weather_forecast', None)
+            instance, new_instance = Instance.objects.update_or_create(
+                uid=instance_uid, defaults=data
+            )
 
-        if weather_forecast:
-            from simo.generic.controllers import WeatherForecast
-            weather_component = Component.objects.filter(
-                zone__instance=instance,
-                controller_uid=WeatherForecast.uid
-            ).first()
-            if weather_component:
-                weather_component.track_history = False
-                weather_component.controller.set(weather_forecast)
+            if weather_forecast:
+                from simo.generic.controllers import WeatherForecast
+                weather_component = Component.objects.filter(
+                    zone__instance=instance,
+                    controller_uid=WeatherForecast.uid
+                ).first()
+                if weather_component:
+                    weather_component.track_history = False
+                    weather_component.controller.set(weather_forecast)
 
 
-        for email, options in users_data.items():
-            with transaction.atomic():
-                if new_instance:
-                    # Create users for new instance!
-                    user, new_user = User.objects.update_or_create(
-                        email=email, defaults={
-                        'name': options.get('name'),
-                        'is_master': options.get('is_hub_master', False),
-                        'ssh_key': options.get('ssh_key')
-                    })
-                    role = None
-                    if options.get('is_superuser'):
-                        role = PermissionsRole.objects.filter(
-                            instance=new_instance, is_superuser=True
-                        ).first()
-                    elif options.get('is_owner'):
-                        role = PermissionsRole.objects.filter(
-                            instance=new_instance, is_owner=True
-                        ).first()
-                    InstanceUser.objects.update_or_create(
-                        user=user, instance=new_instance, defaults={
-                            'is_active': True, 'role': role
-                        }
-                    )
-                else:
-                    user = User.objects.filter(email=email).first()
+            for email, options in users_data.items():
+                with transaction.atomic():
+                    if new_instance:
+                        # Create users for new instance!
+                        user, new_user = User.objects.update_or_create(
+                            email=email, defaults={
+                            'name': options.get('name'),
+                            'is_master': options.get('is_hub_master', False),
+                            'ssh_key': options.get('ssh_key')
+                        })
+                        role = None
+                        if options.get('is_superuser'):
+                            role = PermissionsRole.objects.filter(
+                                instance=new_instance, is_superuser=True
+                            ).first()
+                        elif options.get('is_owner'):
+                            role = PermissionsRole.objects.filter(
+                                instance=new_instance, is_owner=True
+                            ).first()
+                        InstanceUser.objects.update_or_create(
+                            user=user, instance=new_instance, defaults={
+                                'is_active': True, 'role': role
+                            }
+                        )
+                    else:
+                        user = User.objects.filter(email=email).first()
 
-                if not user:
-                    continue
+                    if not user:
+                        continue
 
-                if user.name != options.get('name'):
-                    user.name = options['name']
-                    user.save()
-                if user.ssh_key != options.get('ssh_key'):
-                    user.ssh_key = options['ssh_key']
-                    user.save()
+                    if user.name != options.get('name'):
+                        user.name = options['name']
+                        user.save()
+                    if user.ssh_key != options.get('ssh_key'):
+                        user.ssh_key = options['ssh_key']
+                        user.save()
 
-                avatar_url = options.get('avatar_url')
-                if avatar_url and user.avatar_url != avatar_url:
-                    resp = requests.get(avatar_url)
-                    user.avatar.save(
-                        os.path.basename(avatar_url), io.BytesIO(resp.content)
-                    )
-                    user.avatar_url = avatar_url
-                    user.avatar_last_change = timezone.now()
-                    user.save()
+                    avatar_url = options.get('avatar_url')
+                    if avatar_url and user.avatar_url != avatar_url:
+                        resp = requests.get(avatar_url)
+                        user.avatar.save(
+                            os.path.basename(avatar_url), io.BytesIO(resp.content)
+                        )
+                        user.avatar_url = avatar_url
+                        user.avatar_last_change = timezone.now()
+                        user.save()
 
 
 @celery_app.task

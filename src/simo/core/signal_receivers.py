@@ -71,8 +71,8 @@ def create_instance_defaults(sender, instance, created, **kwargs):
     )
     dummy.start()
     weather_icon = Icon.objects.get(slug='cloud-bolt-sun')
-    other_zone = Zone.objects.get(name='Other')
-    climate_category = Category.objects.get(name='Climate')
+    other_zone = Zone.objects.get(name='Other', instance=instance)
+    climate_category = Category.objects.get(name='Climate', instance=instance)
     Component.objects.create(
         name='Weather', icon=weather_icon,
         zone=other_zone,
