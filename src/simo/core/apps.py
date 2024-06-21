@@ -10,5 +10,6 @@ class SIMOCoreAppConfig(AppConfig):
         registry.register(self.get_model('Component'))
         registry.register(self.get_model('Gateway'))
         registry.register(self.get_model('Instance'))
+        registry.register(self.get_model('Zone'))
 
 
