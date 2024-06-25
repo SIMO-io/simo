@@ -215,11 +215,11 @@ def sync_with_remote():
                     role = None
                     if options.get('is_hub_master') or options.get('is_superuser'):
                         role = PermissionsRole.objects.filter(
-                            instance=new_instance, is_superuser=True
+                            instance=instance, is_superuser=True
                         ).first()
                     elif options.get('is_owner'):
                         role = PermissionsRole.objects.filter(
-                            instance=new_instance, is_owner=True
+                            instance=instance, is_owner=True
                         ).first()
                     if role:
                         InstanceUser.objects.update_or_create(
