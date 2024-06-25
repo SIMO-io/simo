@@ -515,7 +515,7 @@ class ActionsViewset(InstanceMixin, viewsets.ReadOnlyModelViewSet):
 class SettingsViewSet(InstanceMixin, viewsets.GenericViewSet):
     url = 'core/settings'
     basename = 'settings'
-    http_method_names = ['get', 'patch']
+    http_method_names = ['GET', 'PATCH']
 
 
     def list(self, request, format=None, *args, **kwargs):
