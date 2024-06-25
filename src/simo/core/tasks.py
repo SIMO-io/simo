@@ -179,13 +179,18 @@ def sync_with_remote():
             save_config(r_json)
         dynamic_settings['core__remote_conn_version'] = r_json['remote_conn_version']
 
+        instance_uids = []
         for data in r_json['instances']:
             users_data = data.pop('users', {})
             instance_uid = data.pop('uid')
+            instance_uids.append(instance_uid)
             weather_forecast = data.pop('weather_forecast', None)
             instance, new_instance = Instance.objects.update_or_create(
                 uid=instance_uid, defaults=data
             )
+            if not instance.is_active:
+                instance.is_active = True
+                instance.save()
 
             if weather_forecast:
                 from simo.generic.controllers import WeatherForecast
@@ -245,6 +250,10 @@ def sync_with_remote():
                     user.avatar_url = avatar_url
                     user.avatar_last_change = timezone.now()
                     user.save()
+
+        Instance.objects.all().exclude(
+            uid__in=instance_uids
+        ).update(is_active=False)
 
 
 @celery_app.task

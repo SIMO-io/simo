@@ -71,6 +71,10 @@ class Instance(models.Model, SimoAdminMixin):
     name = models.CharField(max_length=100, db_index=True, unique=True)
     slug = models.CharField(max_length=100, db_index=True, unique=True)
     date_created = models.DateTimeField(auto_now_add=True)
+    is_active = models.BooleanField(
+        default=True, db_index=True,
+        help_text="Get's deactivated instead of delete."
+    )
     location = PlainLocationField(null=True, blank=True, zoom=7)
     timezone = models.CharField(
         max_length=50, db_index=True, choices=ALL_TIMEZONES_CHOICES

@@ -37,7 +37,8 @@ class InstanceMixin:
     def dispatch(self, request, *args, **kwargs):
         try:
             self.instance = Instance.objects.get(
-                slug=self.request.resolver_match.kwargs.get('instance_slug')
+                slug=self.request.resolver_match.kwargs.get('instance_slug'),
+                is_active=True
             )
         except Instance.DoesNotExist:
             raise Http404()
