@@ -515,6 +515,7 @@ class ActionsViewset(InstanceMixin, viewsets.ReadOnlyModelViewSet):
 class SettingsViewSet(InstanceMixin, viewsets.GenericViewSet):
     url = 'core/settings'
     basename = 'settings'
+    #http_method_names = ['get', 'head', 'options', 'patch']
 
 
     def list(self, request, format=None, *args, **kwargs):
@@ -604,6 +605,13 @@ class SettingsViewSet(InstanceMixin, viewsets.GenericViewSet):
         self.instance.save()
 
         return self.list(request)
+
+    def get_serializer_class(self):
+        from rest_framework.serializers import Serializer
+        return Serializer
+
+    def patch(self, request, *args, **kwargs):
+        return self.update(request, *args, **kwargs)
 
 
 class InfoViewSet(InstanceMixin, viewsets.GenericViewSet):
