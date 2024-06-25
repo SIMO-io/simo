@@ -202,7 +202,6 @@ def sync_with_remote():
                     weather_component.track_history = False
                     weather_component.controller.set(weather_forecast)
 
-
             for email, options in users_data.items():
 
                 if new_instance or not instance.instance_users.count():
@@ -224,7 +223,7 @@ def sync_with_remote():
                         ).first()
                     if role:
                         InstanceUser.objects.update_or_create(
-                            user=user, instance=new_instance, defaults={
+                            user=user, instance=instance, defaults={
                                 'is_active': True, 'role': role
                             }
                         )
