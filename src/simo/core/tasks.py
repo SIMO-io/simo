@@ -213,7 +213,7 @@ def sync_with_remote():
                         'ssh_key': options.get('ssh_key')
                     })
                     role = None
-                    if options.get('is_master') or options.get('is_superuser'):
+                    if options.get('is_hub_master') or options.get('is_superuser'):
                         role = PermissionsRole.objects.filter(
                             instance=new_instance, is_superuser=True
                         ).first()
