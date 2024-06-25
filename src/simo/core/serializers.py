@@ -211,6 +211,16 @@ class ComponentFormsetField(FormSerializer):
 
 class ComponentPrimaryKeyRelatedField(PrimaryKeyRelatedField):
 
+    def get_queryset(self):
+        qs = super().get_queryset()
+        if hasattr(qs.model, 'instance'):
+            return qs.filter(instance=self.context['view'].instance)
+        elif hasattr(qs.model, 'instances'):
+            return qs.filter(instances=self.context['view'].instance)
+        if qs.model == Component:
+            return qs.filter(zone__instance=self.context['view'].instance)
+        return qs
+
     def get_attribute(self, instance):
         if self.queryset.model in (Icon, Zone, Category):
             return super().get_attribute(instance)
@@ -223,9 +233,20 @@ class ComponentManyToManyRelatedField(serializers.Field):
 
     def __init__(self, *args, **kwargs):
         self.queryset = kwargs.pop('queryset')
-        self.choices = {obj.pk: str(obj) for obj in self.queryset}
+        self.choices = {obj.pk: str(obj) for obj in self.get_queryset()}
         self.allow_blank = kwargs.pop('allow_blank', False)
         super().__init__(*args, **kwargs)
+
+    def get_queryset(self):
+        qs = self.queryset
+        if hasattr(qs.model, 'instance'):
+            return qs.filter(instance=self.context['view'].instance)
+        elif hasattr(qs.model, 'instances'):
+            return qs.filter(instances=self.context['view'].instance)
+        if qs.model == Component:
+            return qs.filter(zone__instance=self.context['view'].instance)
+        return qs
+
 
     def to_representation(self, value):
         return [obj.pk for obj in value.all()]

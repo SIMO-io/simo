@@ -4,11 +4,11 @@ from django.utils.encoding import force_str
 from rest_framework.metadata import SimpleMetadata
 from rest_framework import serializers
 from rest_framework.utils.field_mapping import ClassLookupDict
-from simo.core.models import Icon, Instance
+from simo.core.models import Icon, Instance, Category, Zone
 from simo.core.middleware import introduce_instance
 from .serializers import (
     HiddenSerializerField, ComponentManyToManyRelatedField,
-    TextAreaSerializerField
+    TextAreaSerializerField, Component
 )
 
 
@@ -44,13 +44,13 @@ class SIMOAPIMetadata(SimpleMetadata):
     })
 
     def determine_metadata(self, request, view):
-        instance = getattr(view, 'instance', None)
-        if not instance:
-            instance = Instance.objects.filter(
+        self.instance = getattr(view, 'instance', None)
+        if not self.instance:
+            self.instance = Instance.objects.filter(
                 slug=request.resolver_match.kwargs.get('instance_slug')
             ).first()
-        if instance:
-            introduce_instance(instance)
+        if self.instance:
+            introduce_instance(self.instance)
         return super().determine_metadata(request, view)
 
 
@@ -96,12 +96,24 @@ class SIMOAPIMetadata(SimpleMetadata):
         elif getattr(field, 'fields', None):
             field_info['children'] = self.get_serializer_info(field)
 
-        if form_field and hasattr(form_field, 'queryset') \
-        and form_field.queryset.model == Icon:
-            return field_info
+        if form_field and hasattr(form_field, 'queryset'):
+            if form_field.queryset.model == Icon:
+                return field_info
+            elif self.instance:
+                if hasattr(form_field.queryset.model, 'instance'):
+                    form_field.queryset = form_field.queryset.filter(
+                        instance=self.instance
+                    )
+                elif hasattr(form_field.queryset.model, 'instances'):
+                    form_field.queryset = form_field.queryset.filter(
+                        instances=self.instance
+                    )
+                if form_field.queryset.model == Component:
+                    form_field.queryset = form_field.queryset.filter(
+                        zone__instance=self.instance
+                    )
 
         if not field_info.get('read_only') and hasattr(field, 'choices'):
-            print(f"DO choices for: {field.label}")
             field_info['choices'] = [
                 {
                     'value': choice_value,
