@@ -4,7 +4,8 @@ from django.utils.encoding import force_str
 from rest_framework.metadata import SimpleMetadata
 from rest_framework import serializers
 from rest_framework.utils.field_mapping import ClassLookupDict
-from simo.core.models import Icon
+from simo.core.models import Icon, Instance
+from simo.core.middleware import introduce_instance
 from .serializers import (
     HiddenSerializerField, ComponentManyToManyRelatedField,
     TextAreaSerializerField
@@ -41,6 +42,16 @@ class SIMOAPIMetadata(SimpleMetadata):
         HiddenSerializerField: 'hidden',
         TextAreaSerializerField: 'textarea',
     })
+
+    def determine_metadata(self, request, view):
+        instance = getattr(view, 'instance', None)
+        if not instance:
+            instance = Instance.objects.filter(
+                slug=request.resolver_match.kwargs.get('instance_slug')
+            ).first()
+        if instance:
+            introduce_instance(instance)
+        return super().determine_metadata(request, view)
 
 
     def get_field_info(self, field):
