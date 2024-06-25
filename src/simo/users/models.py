@@ -90,7 +90,8 @@ class InstanceUser(DirtyFieldsMixin, models.Model, OnChangeMixin):
         'User', on_delete=models.CASCADE, related_name='instance_roles'
     )
     instance = models.ForeignKey(
-        'core.Instance', on_delete=models.CASCADE, null=True
+        'core.Instance', on_delete=models.CASCADE, null=True,
+        related_name='instance_users',
     )
     role = models.ForeignKey(PermissionsRole, on_delete=models.CASCADE)
     at_home = models.BooleanField(default=False, db_index=True)

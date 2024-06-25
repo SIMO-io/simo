@@ -199,51 +199,52 @@ def sync_with_remote():
 
 
             for email, options in users_data.items():
-                with transaction.atomic():
-                    if new_instance:
-                        # Create users for new instance!
-                        user, new_user = User.objects.update_or_create(
-                            email=email, defaults={
-                            'name': options.get('name'),
-                            'is_master': options.get('is_hub_master', False),
-                            'ssh_key': options.get('ssh_key')
-                        })
-                        role = None
-                        if options.get('is_superuser'):
-                            role = PermissionsRole.objects.filter(
-                                instance=new_instance, is_superuser=True
-                            ).first()
-                        elif options.get('is_owner'):
-                            role = PermissionsRole.objects.filter(
-                                instance=new_instance, is_owner=True
-                            ).first()
+
+                if new_instance or not instance.instance_users.count():
+                    # Create user for new instance!
+                    user, new_user = User.objects.update_or_create(
+                        email=email, defaults={
+                        'name': options.get('name'),
+                        'is_master': options.get('is_hub_master', False),
+                        'ssh_key': options.get('ssh_key')
+                    })
+                    role = None
+                    if options.get('is_superuser'):
+                        role = PermissionsRole.objects.filter(
+                            instance=new_instance, is_superuser=True
+                        ).first()
+                    elif options.get('is_owner'):
+                        role = PermissionsRole.objects.filter(
+                            instance=new_instance, is_owner=True
+                        ).first()
+                    if role:
                         InstanceUser.objects.update_or_create(
                             user=user, instance=new_instance, defaults={
                                 'is_active': True, 'role': role
                             }
                         )
-                    else:
-                        user = User.objects.filter(email=email).first()
+                else:
+                    user = User.objects.filter(email=email).first()
 
-                    if not user:
-                        continue
+                if not user:
+                    continue
 
-                    if user.name != options.get('name'):
-                        user.name = options['name']
-                        user.save()
-                    if user.ssh_key != options.get('ssh_key'):
-                        user.ssh_key = options['ssh_key']
-                        user.save()
+                if user.name != options.get('name'):
+                    user.name = options['name']
+                    user.save()
+                if user.ssh_key != options.get('ssh_key'):
+                    user.ssh_key = options['ssh_key']
+                    user.save()
 
-                    avatar_url = options.get('avatar_url')
-                    if avatar_url and user.avatar_url != avatar_url:
-                        resp = requests.get(avatar_url)
-                        user.avatar.save(
-                            os.path.basename(avatar_url), io.BytesIO(resp.content)
-                        )
-                        user.avatar_url = avatar_url
-                        user.avatar_last_change = timezone.now()
-                        user.save()
+                avatar_url = options.get('avatar_url')
+                if avatar_url and user.avatar_url != avatar_url:
+                    resp = requests.get(avatar_url)
+                    user.avatar.save(
+                        os.path.basename(avatar_url), io.BytesIO(resp.content)
+                    )
+                    user.avatar_url = avatar_url
+                    user.avatar_last_change = timezone.now()
+                    user.save()
 
 
 @celery_app.task
