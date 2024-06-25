@@ -515,6 +515,8 @@ class ActionsViewset(InstanceMixin, viewsets.ReadOnlyModelViewSet):
 class SettingsViewSet(InstanceMixin, viewsets.GenericViewSet):
     url = 'core/settings'
     basename = 'settings'
+    http_method_names = ['get', 'patch']
+
 
     def list(self, request, format=None, *args, **kwargs):
         from simo.conf import dynamic_settings
@@ -544,7 +546,7 @@ class SettingsViewSet(InstanceMixin, viewsets.GenericViewSet):
         if main_alarm_group:
             main_alarm_group_id = main_alarm_group.id
 
-        if request.method == 'POST':
+        if request.method.upper() == 'PATCH':
             data = request.data
             if not isinstance(request.data, dict):
                 data = data.dict()
