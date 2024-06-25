@@ -515,7 +515,6 @@ class ActionsViewset(InstanceMixin, viewsets.ReadOnlyModelViewSet):
 class SettingsViewSet(InstanceMixin, viewsets.GenericViewSet):
     url = 'core/settings'
     basename = 'settings'
-    http_method_names = ['GET', 'PATCH']
 
 
     def list(self, request, format=None, *args, **kwargs):
@@ -546,46 +545,6 @@ class SettingsViewSet(InstanceMixin, viewsets.GenericViewSet):
         if main_alarm_group:
             main_alarm_group_id = main_alarm_group.id
 
-        if request.method.upper() == 'PATCH':
-            data = request.data
-            if not isinstance(request.data, dict):
-                data = data.dict()
-            request_data = restore_json(data)
-            if 'history_days' in request_data:
-                try:
-                    history_days = int(request_data['history_days'])
-                except:
-                    raise APIValidationError(
-                        _('Bad value for history days!'), code=400
-                    )
-                if history_days < 0 or history_days > 365:
-                    raise APIValidationError(
-                        _('History days must be 0 - 365!'), code=400
-                    )
-                self.instance.history_days = history_days
-            if 'device_report_history_days' in request_data:
-                try:
-                    device_report_history_days = int(
-                        request_data['device_report_history_days']
-                    )
-                except:
-                    raise APIValidationError(
-                        _('Bad value for device_report_history_days days!'),
-                        code=400
-                    )
-                if device_report_history_days < 0 \
-                or device_report_history_days > 365:
-                    raise APIValidationError(
-                        _('History days must be 0 - 365!'), code=400
-                    )
-                self.instance.device_report_history_days = device_report_history_days
-
-            self.instance.indoor_climate_sensor = Component.objects.filter(
-                id=request_data.get('indoor_climate_sensor', 0)
-            ).first()
-
-            self.instance.save()
-
         return RESTResponse({
             'hub_uid': dynamic_settings['core__hub_uid'],
             'instance_name': self.instance.name,
@@ -603,6 +562,48 @@ class SettingsViewSet(InstanceMixin, viewsets.GenericViewSet):
             'device_report_history_days': self.instance.device_report_history_days,
             'indoor_climate_sensor': self.instance.indoor_climate_sensor_id,
         })
+
+    def update(self, request, *args, **kwargs):
+        data = request.data
+        if not isinstance(request.data, dict):
+            data = data.dict()
+        request_data = restore_json(data)
+        if 'history_days' in request_data:
+            try:
+                history_days = int(request_data['history_days'])
+            except:
+                raise APIValidationError(
+                    _('Bad value for history days!'), code=400
+                )
+            if history_days < 0 or history_days > 365:
+                raise APIValidationError(
+                    _('History days must be 0 - 365!'), code=400
+                )
+            self.instance.history_days = history_days
+        if 'device_report_history_days' in request_data:
+            try:
+                device_report_history_days = int(
+                    request_data['device_report_history_days']
+                )
+            except:
+                raise APIValidationError(
+                    _('Bad value for device_report_history_days days!'),
+                    code=400
+                )
+            if device_report_history_days < 0 \
+                    or device_report_history_days > 365:
+                raise APIValidationError(
+                    _('History days must be 0 - 365!'), code=400
+                )
+            self.instance.device_report_history_days = device_report_history_days
+
+        self.instance.indoor_climate_sensor = Component.objects.filter(
+            id=request_data.get('indoor_climate_sensor', 0)
+        ).first()
+
+        self.instance.save()
+
+        return self.list(request)
 
 
 class InfoViewSet(InstanceMixin, viewsets.GenericViewSet):
