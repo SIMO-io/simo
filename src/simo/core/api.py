@@ -556,8 +556,8 @@ class SettingsViewSet(InstanceMixin, viewsets.GenericViewSet):
             'last_event': last_event,
             'weather_forecast': wf_comp_id,
             'main_alarm_group': main_alarm_group_id,
-            # 'remote_http': dynamic_settings['core__remote_http'],
-            # 'local_http': 'https://%s' % get_self_ip(),
+            'remote_http': dynamic_settings['core__remote_http'],
+            'local_http': 'https://%s' % get_self_ip(),
             'units_of_measure': self.instance.units_of_measure,
             # editable fields
             'history_days': self.instance.history_days,
