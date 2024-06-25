@@ -213,12 +213,13 @@ class ComponentPrimaryKeyRelatedField(PrimaryKeyRelatedField):
 
     def get_queryset(self):
         qs = super().get_queryset()
-        if hasattr(qs.model, 'instance'):
-            return qs.filter(instance=self.context['view'].instance)
-        elif hasattr(qs.model, 'instances'):
-            return qs.filter(instances=self.context['view'].instance)
-        if qs.model == Component:
-            return qs.filter(zone__instance=self.context['view'].instance)
+        if hasattr(self.context['view'], 'instance'):
+            if hasattr(qs.model, 'instance'):
+                return qs.filter(instance=self.context['view'].instance)
+            elif hasattr(qs.model, 'instances'):
+                return qs.filter(instances=self.context['view'].instance)
+            if qs.model == Component:
+                return qs.filter(zone__instance=self.context['view'].instance)
         return qs
 
     def get_attribute(self, instance):
@@ -239,12 +240,13 @@ class ComponentManyToManyRelatedField(serializers.Field):
 
     def get_queryset(self):
         qs = self.queryset
-        if hasattr(qs.model, 'instance'):
-            return qs.filter(instance=self.context['view'].instance)
-        elif hasattr(qs.model, 'instances'):
-            return qs.filter(instances=self.context['view'].instance)
-        if qs.model == Component:
-            return qs.filter(zone__instance=self.context['view'].instance)
+        if hasattr(self.context['view'], 'instance'):
+            if hasattr(qs.model, 'instance'):
+                return qs.filter(instance=self.context['view'].instance)
+            elif hasattr(qs.model, 'instances'):
+                return qs.filter(instances=self.context['view'].instance)
+            elif qs.model == Component:
+                return qs.filter(zone__instance=self.context['view'].instance)
         return qs
 
 
