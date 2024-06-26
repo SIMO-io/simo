@@ -18,7 +18,9 @@ from simo.core.storage import OverwriteStorage
 from simo.core.utils.validators import validate_svg
 from simo.core.utils.helpers import get_random_string
 from simo.users.models import User
-from .managers import ZonesManager, CategoriesManager, ComponentsManager
+from .managers import (
+    InstanceManager, ZonesManager, CategoriesManager, ComponentsManager
+)
 from .events import GatewayObjectCommand, OnChangeMixin
 
 
@@ -69,7 +71,7 @@ class Instance(models.Model, SimoAdminMixin):
         max_length=50, unique=True, help_text="Issued by SIMO.io"
     )
     name = models.CharField(max_length=100, db_index=True)
-    slug = models.CharField(max_length=100, db_index=True, unique=True)
+    slug = models.CharField(max_length=100, db_index=True)
     date_created = models.DateTimeField(auto_now_add=True)
     is_active = models.BooleanField(
         default=True, db_index=True,
@@ -99,6 +101,8 @@ class Instance(models.Model, SimoAdminMixin):
     learn_fingerprints = models.ForeignKey(
         User, null=True, blank=True, on_delete=models.SET_NULL
     )
+
+    objects = InstanceManager()
 
 
     def __str__(self):

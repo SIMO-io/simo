@@ -35,12 +35,11 @@ from .permissions import (
 class InstanceMixin:
 
     def dispatch(self, request, *args, **kwargs):
-        try:
-            self.instance = Instance.objects.get(
-                slug=self.request.resolver_match.kwargs.get('instance_slug'),
-                is_active=True
-            )
-        except Instance.DoesNotExist:
+        self.instance = Instance.objects.filter(
+            slug=self.request.resolver_match.kwargs.get('instance_slug'),
+            is_active=True
+        ).last()
+        if not self.instance:
             raise Http404()
         return super().dispatch(request, *args, **kwargs)
 

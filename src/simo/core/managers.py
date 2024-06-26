@@ -16,6 +16,12 @@ class ActionManager(OrgActionManager):
         return qs
 
 
+class InstanceManager(models.Manager):
+
+    def get_queryset(self):
+        return super().get_queryset().filter(is_active=True)
+
+
 class ZonesManager(models.Manager):
 
     def get_queryset(self):
