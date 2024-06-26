@@ -117,7 +117,7 @@ def sync_with_remote():
         'remote_conn_version': dynamic_settings['core__remote_conn_version'],
         'instances': []
     }
-    for instance in Instance.objects.all():
+    for instance in Instance.objects.filter(is_active=True):
         instance_data = {
             'uid': instance.uid,
             'name': instance.name,
