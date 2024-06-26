@@ -68,7 +68,7 @@ class Instance(models.Model, SimoAdminMixin):
     uid = models.CharField(
         max_length=50, unique=True, help_text="Issued by SIMO.io"
     )
-    name = models.CharField(max_length=100, db_index=True, unique=True)
+    name = models.CharField(max_length=100, db_index=True)
     slug = models.CharField(max_length=100, db_index=True, unique=True)
     date_created = models.DateTimeField(auto_now_add=True)
     is_active = models.BooleanField(
