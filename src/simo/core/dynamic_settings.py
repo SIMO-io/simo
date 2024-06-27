@@ -67,3 +67,10 @@ class AutoUpdate(BooleanPreference):
             except:
                 pass
         return
+
+
+@global_preferences_registry.register
+class NeedsMqttAclsRebuild(BooleanPreference):
+    section = core
+    name = 'needs_mqtt_acls_rebuild'
+    default = True

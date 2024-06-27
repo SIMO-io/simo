@@ -135,7 +135,7 @@ def post_instance_user_save(sender, instance, created, **kwargs):
             ).publish()
         transaction.on_commit(post_update)
     if 'role' or 'is_active' in instance.dirty_fields:
-        rebuild_mqtt_acls.delay()
+        dynamic_settings['core__needs_mqtt_acls_rebuild'] = True
 
 
 class User(AbstractBaseUser, SimoAdminMixin):
@@ -491,7 +491,7 @@ class ComponentPermission(models.Model):
 @receiver(post_save, sender=ComponentPermission)
 def rebuild_mqtt_acls_on_create(sender, instance, created, **kwargs):
     if not created:
-        rebuild_mqtt_acls.delay()
+        dynamic_settings['core__needs_mqtt_acls_rebuild'] = True
 
 
 
@@ -507,7 +507,7 @@ def create_component_permissions_comp(sender, instance, created, **kwargs):
                     'write': role.is_superuser or role.is_owner
                 }
             )
-        rebuild_mqtt_acls.delay()
+        dynamic_settings['core__needs_mqtt_acls_rebuild'] = True
 
 
 @receiver(post_save, sender=PermissionsRole)

@@ -18,12 +18,14 @@ def clear_device_report_logs():
 
 @celery_app.task
 def rebuild_mqtt_acls():
-    from .utils import update_mqtt_acls
-    update_mqtt_acls()
+    from simo.conf import dynamic_settings
+    if dynamic_settings['core__needs_mqtt_acls_rebuild']:
+        dynamic_settings['core__needs_mqtt_acls_rebuild'] = False
+        from .utils import update_mqtt_acls
+        update_mqtt_acls()
 
 
 @celery_app.on_after_finalize.connect
 def setup_periodic_tasks(sender, **kwargs):
     sender.add_periodic_task(60 * 60, clear_device_report_logs.s())
-    # Just in case we miss on something
-    sender.add_periodic_task(60 * 60 * 24, rebuild_mqtt_acls.s())
+    sender.add_periodic_task(30, rebuild_mqtt_acls.s())
