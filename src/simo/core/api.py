@@ -205,6 +205,9 @@ class ComponentViewSet(
         for method_name, param in json_data.items():
             if method_name in ('id', 'secret'):
                 continue
+
+            component.prepare_controller()
+
             if not hasattr(component, method_name):
                 raise APIValidationError(
                      _('"%s" method not found on controller') % method_name,
@@ -289,8 +292,6 @@ class ComponentViewSet(
             )
         }
         return RESTResponse(resp_data)
-
-
 
 
 class HistoryResultsSetPagination(PageNumberPagination):

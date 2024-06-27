@@ -530,17 +530,32 @@ def is_in_alarm(self):
         return obj
 
     def arm(self):
+        # supports this method override in controller class
+        if not self._controller_initiated:
+            self._controller_initiated = True
+            self.prepare_controller()
+            return self.arm()
         self.refresh_from_db()
         if self.alarm_category:
             self.arm_status = 'pending-arm'
             self.save()
 
     def disarm(self):
+        # supports this method override in controller class
+        if not self._controller_initiated:
+            self._controller_initiated = True
+            self.prepare_controller()
+            return self.disarm()
         self.refresh_from_db()
         self.arm_status = 'disarmed'
         self.save()
 
     def is_in_alarm(self):
+        # supports this method override in controller class
+        if not self._controller_initiated:
+            self._controller_initiated = True
+            self.prepare_controller()
+            return self.is_in_alarm()
         return bool(self.value)
 
     def can_read(self, user):
