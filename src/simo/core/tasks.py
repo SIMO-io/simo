@@ -255,19 +255,6 @@ def sync_with_remote():
         ).update(is_active=False)
 
 
-@celery_app.task
-def watch_timers():
-    for component in Component.objects.filter(
-        meta__timer_to__gt=0
-    ).filter(meta__timer_to__lt=time.time()):
-        component.meta['timer_to'] = 0
-        component.meta['timer_start'] = 0
-        component.save()
-        try:
-            component.controller._on_timer_end()
-        except Exception as e:
-            print(traceback.format_exc(), file=sys.stderr)
-
 
 @celery_app.task
 def clear_history():
@@ -411,7 +398,6 @@ def low_battery_notifications():
 
 @celery_app.on_after_finalize.connect
 def setup_periodic_tasks(sender, **kwargs):
-    sender.add_periodic_task(1, watch_timers.s())
     sender.add_periodic_task(20, sync_with_remote.s())
     sender.add_periodic_task(60 * 60, clear_history.s())
     sender.add_periodic_task(60 * 60, update_latest_version_available.s())

@@ -178,6 +178,7 @@ class GenericGatewayHandler(BaseObjectCommandsGatewayHandler):
         ('watch_scripts', 10),
         ('watch_watering', 60),
         ('watch_alarm_events', 1),
+        ('watch_timers', 1)
     )
 
     def watch_thermostats(self):
@@ -495,6 +496,18 @@ class GenericGatewayHandler(BaseObjectCommandsGatewayHandler):
                 else:
                     alarm.meta['events_triggered'].append(uid)
                 alarm.save(update_fields=['meta'])
+
+    def watch_timers(self):
+        for component in Component.objects.filter(
+            meta__timer_to__gt=0
+        ).filter(meta__timer_to__lt=time.time()):
+            component.meta['timer_to'] = 0
+            component.meta['timer_start'] = 0
+            component.save()
+            try:
+                component.controller._on_timer_end()
+            except Exception as e:
+                print(traceback.format_exc(), file=sys.stderr)
 
 
 class DummyGatewayHandler(BaseObjectCommandsGatewayHandler):
