@@ -306,27 +306,30 @@ class GenericGatewayHandler(BaseObjectCommandsGatewayHandler):
     def on_mqtt_message(self, client, userdata, msg):
         print("Mqtt message: ", msg.payload)
         from simo.generic.controllers import (
-            Script, Blinds, AlarmGroup, StateSelect, Gate
+            Script, Blinds, AlarmGroup, Gate
         )
         payload = json.loads(msg.payload)
         component = get_event_obj(payload, Component)
         if not component:
             return
+        try:
+            if isinstance(component.controller, Script):
+                if payload.get('set_val') == 'start':
+                    self.start_script(component)
+                elif payload.get('set_val') == 'stop':
+                    self.stop_script(component)
+                return
+            elif component.controller_uid == Blinds.uid:
+                self.control_blinds(component, payload.get('set_val'))
+            elif component.controller_uid == AlarmGroup.uid:
+                self.control_alarm_group(component, payload.get('set_val'))
+            elif component.controller_uid == Gate:
+                self.control_gate(component, payload.get('set_val'))
+            else:
+                component.controller.set(payload.get('set_val'))
+        except Exception:
+            print(traceback.format_exc(), file=sys.stderr)
 
-        if isinstance(component.controller, Script):
-            if payload.get('set_val') == 'start':
-                self.start_script(component)
-            elif payload.get('set_val') == 'stop':
-                self.stop_script(component)
-            return
-        elif component.controller_uid == Blinds.uid:
-            self.control_blinds(component, payload.get('set_val'))
-        elif component.controller_uid == AlarmGroup.uid:
-            self.control_alarm_group(component, payload.get('set_val'))
-        elif component.controller_uid == Gate:
-            self.control_gate(component, payload.get('set_val'))
-        else:
-            component.controller.set(payload.get('set_val'))
 
     def start_script(self, component):
         print("START SCRIPT %s" % str(component))
