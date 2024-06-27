@@ -304,7 +304,10 @@ class GenericGatewayHandler(BaseObjectCommandsGatewayHandler):
         mqtt_client.subscribe(command.get_topic())
 
     def on_mqtt_message(self, client, userdata, msg):
-        from simo.generic.controllers import Script, Blinds, AlarmGroup, Gate
+        print("Mqtt message: ", msg.payload)
+        from simo.generic.controllers import (
+            Script, Blinds, AlarmGroup, StateSelect, Gate
+        )
         payload = json.loads(msg.payload)
         component = get_event_obj(payload, Component)
         if not component:
@@ -312,7 +315,6 @@ class GenericGatewayHandler(BaseObjectCommandsGatewayHandler):
 
         if isinstance(component.controller, Script):
             if payload.get('set_val') == 'start':
-                print("START THIS SCRIPT!!!", component)
                 self.start_script(component)
             elif payload.get('set_val') == 'stop':
                 self.stop_script(component)
@@ -323,6 +325,8 @@ class GenericGatewayHandler(BaseObjectCommandsGatewayHandler):
             self.control_alarm_group(component, payload.get('set_val'))
         elif component.controller_uid == Gate:
             self.control_gate(component, payload.get('set_val'))
+        else:
+            component.controller.set(payload.get('set_val'))
 
     def start_script(self, component):
         print("START SCRIPT %s" % str(component))

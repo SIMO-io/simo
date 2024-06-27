@@ -322,7 +322,7 @@ class Thermostat(ControllerBase):
         ).first()
 
         if not temperature_sensor or not temperature_sensor.alive:
-            print(f"No temperature sensor on {self.component}!")
+            self.component.error_msg = "No temperature sensor"
             self.component.alive = False
             self.component.save()
             return
@@ -355,7 +355,7 @@ class Thermostat(ControllerBase):
 
         if mode in ('auto', 'heater'):
             if (not heater or not heater.alive) and mode == 'heater':
-                print(f"No heater on {self.component}!")
+                self.component.error_msg = "No heater"
                 self.component.alive = False
                 self.component.save()
                 return
