@@ -717,7 +717,7 @@ class Blinds(ControllerBase, TimerMixin):
                         "Integer between 0 - 180 is required for blinds angle."
                     )
             else:
-                value['angle'] = self.component.value.ge('angle', 0)
+                value['angle'] = self.component.value.get('angle', 0)
 
         elif occasion == BEFORE_SET:
             if not isinstance(value, dict):
