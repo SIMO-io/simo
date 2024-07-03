@@ -43,6 +43,7 @@ urlpatterns = [
     ),
     path('logout/', LogoutView.as_view(), name='logout'),
     path('admin/', admin_site.urls),
+    path('api-hub-info/', include(rest_router.urls)),
     path('api/<instance_slug>/', include(rest_router.urls)),
 
 ]

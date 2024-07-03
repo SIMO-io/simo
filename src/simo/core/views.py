@@ -1,11 +1,13 @@
 import time
 import threading
 import subprocess
+import re
 from django.contrib.auth.decorators import login_required
 from django.urls import reverse
 from django.shortcuts import redirect
-from django.http import HttpResponse, Http404
+from django.http import HttpResponse, Http404, JsonResponse
 from django.contrib import messages
+from simo.conf import dynamic_settings
 from .models import Instance
 from .tasks import update as update_task, supervisor_restart
 from .middleware import introduce_instance
@@ -69,3 +71,14 @@ def set_instance(request, instance_slug):
     if request.META.get('HTTP_REFERER'):
         return redirect(request.META.get('HTTP_REFERER'))
     return redirect(reverse('admin:index'))
+
+
+def hub_info(request):
+    data = {"hub_uid": dynamic_settings['core__hub_uid']}
+    #if not Instance.objects.filter(is_active=True).count():
+    if 'localhost' in request.get_host() or re.findall(
+        r'[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}',
+        request.get_host()
+    ):
+        data['hub_secret'] = dynamic_settings['core__hub_secret']
+    return JsonResponse(data)

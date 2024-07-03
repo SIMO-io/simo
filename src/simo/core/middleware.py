@@ -1,9 +1,8 @@
 import pytz
 import threading
-import time
-from django.urls import set_script_prefix
+import re
 from django.utils import timezone
-from simo.conf import dynamic_settings
+
 
 _thread_locals = threading.local()
 

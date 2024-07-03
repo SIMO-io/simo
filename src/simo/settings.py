@@ -223,11 +223,6 @@ LOGIN_REDIRECT_URL = "/admin/"
 LOGOUT_REDIRECT_URL = 'https://simo.io/hubs/my-hubs/'
 
 
-STATICFILES_STORAGE = 'simo.core.storage.ProxyingStaticFilesStorage'
-DEFAULT_FILE_STORAGE = 'simo.core.storage.ProxyingFileSystemStorage'
-THUMBNAIL_DEFAULT_STORAGE = DEFAULT_FILE_STORAGE
-
-
 SITE_ID = 1
 
 LOGGING = {
