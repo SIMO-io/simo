@@ -12,6 +12,7 @@ from rest_framework import routers
 from rest_framework.viewsets import GenericViewSet
 from django.contrib.admin import site as admin_site
 from simo.users.views import protected_static
+from simo.core.views import hub_info
 
 
 
@@ -43,7 +44,7 @@ urlpatterns = [
     ),
     path('logout/', LogoutView.as_view(), name='logout'),
     path('admin/', admin_site.urls),
-    path('api-hub-info/', include(rest_router.urls)),
+    path('api-hub-info/', hub_info),
     path('api/<instance_slug>/', include(rest_router.urls)),
 
 ]
