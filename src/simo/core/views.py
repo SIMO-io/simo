@@ -75,10 +75,10 @@ def set_instance(request, instance_slug):
 
 def hub_info(request):
     data = {"hub_uid": dynamic_settings['core__hub_uid']}
-    #if not Instance.objects.filter(is_active=True).count():
-    if 'localhost' in request.get_host() or re.findall(
-        r'[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}',
-        request.get_host()
-    ):
-        data['hub_secret'] = dynamic_settings['core__hub_secret']
+    if not Instance.objects.filter(is_active=True).count():
+        if 'localhost' in request.get_host() or re.findall(
+            r'[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}',
+            request.get_host()
+        ):
+            data['hub_secret'] = dynamic_settings['core__hub_secret']
     return JsonResponse(data)
