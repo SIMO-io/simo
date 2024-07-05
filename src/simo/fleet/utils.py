@@ -83,7 +83,7 @@ for no in range(126, 133):
     }
 
 
-for no in range(101, 133):
+for no in range(101, 139):
     GPIO_PINS['game-changer'][no] = {
         'output': True, 'input': True, 'default_pull': 'LOW',
         'native': False, 'adc': False,
