@@ -383,6 +383,7 @@ class Thermostat(ControllerBase):
                     cooler.turn_off()
                 self.component.value['cooling'] = False
 
+        self.component.error_msg = None
         self.component.alive = True
         self.component.save()
 
