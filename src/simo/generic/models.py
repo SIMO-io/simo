@@ -125,8 +125,14 @@ def bind_controlling_locks_to_alarm_groups(sender, instance, *args, **kwargs):
             base_type=AlarmGroup.base_type,
             config__arming_locks__contains=instance.id
         ):
-            if ag.config.get('arm_on_away') in (None, 'on_away'):
+            if ag.config.get('arm_on_away') in (None, '', 'on_away'):
+                for ag in Component.objects.filter(
+                    base_type=AlarmGroup.base_type,
+                    config__arming_locks__contains=instance.id
+                ):
+                    ag.arm()
                 continue
+
             users_at_home = InstanceUser.objects.filter(
                 instance=instance.instance, at_home=True
             ).exclude(is_active=False).exclude(id=instance.id).count()
