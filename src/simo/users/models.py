@@ -529,12 +529,6 @@ def get_default_inviation_expire_date():
     return timezone.now() + datetime.timedelta(days=14)
 
 
-def get_default_invitation_role():
-    role = PermissionsRole.objects.filter(is_default=True).first()
-    if not role:
-        return PermissionsRole.objects.all().first().id
-    return role.id
-
 
 class InstanceInvitation(models.Model):
     instance = models.ForeignKey('core.Instance', on_delete=models.CASCADE)
@@ -542,8 +536,7 @@ class InstanceInvitation(models.Model):
         max_length=50, default=get_random_string, db_index=True
     )
     role = models.ForeignKey(
-        PermissionsRole, on_delete=models.CASCADE,
-        default=get_default_invitation_role
+        PermissionsRole, on_delete=models.CASCADE
     )
     issue_date = models.DateTimeField(auto_now_add=True)
     expire_date = models.DateTimeField(
