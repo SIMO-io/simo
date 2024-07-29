@@ -212,18 +212,18 @@ class InvitationsViewSet(InstanceMixin, viewsets.ModelViewSet):
         return InstanceInvitation.objects.filter(instance=self.instance)
 
     def perform_create(self, serializer):
-        def get_default_invitation_role():
+        def get_default_invitation_role(instance):
             role = PermissionsRole.objects.filter(
-                instance=self.instance, is_default=True
+                instance=instance, is_default=True
             ).first()
             if not role:
                 return PermissionsRole.objects.filter(
-                    instance=self.instance
+                    instance=instance
                 ).first()
             return role
         serializer.save(
             from_user=self.request.user, instance=self.instance,
-            role=get_default_invitation_role()
+            role=get_default_invitation_role(self.instance)
         )
 
     @action(detail=True, methods=['post'])
