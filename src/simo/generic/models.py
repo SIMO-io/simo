@@ -126,11 +126,7 @@ def bind_controlling_locks_to_alarm_groups(sender, instance, *args, **kwargs):
             config__arming_locks__contains=instance.id
         ):
             if ag.config.get('arm_on_away') in (None, '', 'on_away'):
-                for ag in Component.objects.filter(
-                    base_type=AlarmGroup.base_type,
-                    config__arming_locks__contains=instance.id
-                ):
-                    ag.arm()
+                ag.controller.arm()
                 continue
 
             users_at_home = InstanceUser.objects.filter(
@@ -140,7 +136,7 @@ def bind_controlling_locks_to_alarm_groups(sender, instance, *args, **kwargs):
                 continue
             if ag.config.get('arm_on_away') == 'on_away_and_locked':
                 print(f"Nobody is at home, lock was locked. Arm {ag}!")
-                ag.arm()
+                ag.controller.arm()
                 continue
             locked_states = [
                 True if l['value'] == 'locked' else False
@@ -150,14 +146,14 @@ def bind_controlling_locks_to_alarm_groups(sender, instance, *args, **kwargs):
             ]
             if all(locked_states):
                 print(f"Nobody is at home, all locks are now locked. Arm {ag}!")
-                ag.arm()
+                ag.controller.arm()
 
     elif instance.value == 'unlocked':
         for ag in Component.objects.filter(
             base_type=AlarmGroup.base_type,
             config__arming_locks__contains=instance.id
         ):
-            ag.disarm()
+            ag.controller.disarm()
 
 
 @receiver(post_save, sender=InstanceUser)
@@ -189,10 +185,10 @@ def bind_alarm_groups(sender, instance, created, *args, **kwargs):
             continue
         if ag.config['arm_on_away'] == 'on_away_and_locked':
             print(f"Everybody is away, single lock is locked, arm {ag}!")
-            ag.arm()
+            ag.controller.arm()
             continue
         if ag.config['arm_on_away'] == 'on_away_and_locked_all' \
         and all(locked_states):
             print(f"Everybody is away, all locks are locked, arm {ag}!")
-            ag.arm()
+            ag.controller.arm()
             continue

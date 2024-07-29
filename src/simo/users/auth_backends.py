@@ -1,6 +1,7 @@
 import os
 import io
 import requests
+from django.db import transaction
 from django.utils import timezone
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Permission
@@ -54,6 +55,7 @@ class SIMOUserBackend(ModelBackend):
 
 class SSOBackend(ModelBackend):
 
+    @transaction.atomic
     def authenticate(self, request, user_data=None, **kwargs):
         system_user_emails = ('system@simo.io', 'device@simo.io')
         if not user_data:
@@ -93,9 +95,9 @@ class SSOBackend(ModelBackend):
         if invitation:
             invitation.taken_by = user
             invitation.save()
-            InstanceUser.objects.create(
-                user=user, role=invitation.role,
-                instance=invitation.instance
+            InstanceUser.objects.update_or_create(
+                user=user, instance=invitation.instance,
+                defaults={'role': invitation.role}
             )
 
         if user_data.get('name'):
