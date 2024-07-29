@@ -211,7 +211,7 @@ class InvitationsViewSet(InstanceMixin, viewsets.ModelViewSet):
                 return InstanceInvitation.objects.none()
         return InstanceInvitation.objects.filter(instance=self.instance)
 
-    def perform_create(self, serializer):
+    def create(self, request, *args, **kwargs):
         role = PermissionsRole.objects.filter(
             instance=self.instance, is_default=True
         ).first()
@@ -219,8 +219,15 @@ class InvitationsViewSet(InstanceMixin, viewsets.ModelViewSet):
             role = PermissionsRole.objects.filter(
                 instance=self.instance
             ).first()
-        serializer.save(
-            from_user=self.request.user, instance=self.instance, role=role
+        request.data['role'] = role
+        request.data['from_user'] = self.request.user
+        request.data['instance'] = self.instance
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return RESTResponse(
+            serializer.data, status=status.HTTP_201_CREATED, headers=headers
         )
 
     @action(detail=True, methods=['post'])

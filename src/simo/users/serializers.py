@@ -77,7 +77,6 @@ class InstanceInvitationSerializer(serializers.ModelSerializer):
             'instance', 'token', 'from_user', 'taken_by',
         )
 
-
 class FingerprintSerializer(serializers.ModelSerializer):
     type = serializers.SerializerMethodField()
 
