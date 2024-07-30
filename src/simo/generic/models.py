@@ -6,8 +6,6 @@ from django.db.models.signals import pre_save, post_save, post_delete
 from django.dispatch import receiver
 from simo.core.models import Instance, Component
 from simo.users.models import InstanceUser
-from .controllers import AlarmGroup
-
 
 
 @receiver(post_save, sender=Component)
@@ -19,6 +17,8 @@ def handle_alarm_groups(sender, instance, *args, **kwargs):
     dirty_fields = instance.get_dirty_fields()
     if 'arm_status' not in dirty_fields:
         return
+
+    from .controllers import AlarmGroup
 
     for alarm_group in Component.objects.filter(
         controller_uid=AlarmGroup.uid,
@@ -76,6 +76,8 @@ def handle_alarm_groups(sender, instance, *args, **kwargs):
 
 @receiver(pre_save, sender=Component)
 def manage_alarm_groups(sender, instance, *args, **kwargs):
+    from .controllers import AlarmGroup
+
     if instance.controller_uid != AlarmGroup.uid:
         return
 
@@ -104,6 +106,8 @@ def manage_alarm_groups(sender, instance, *args, **kwargs):
 def clear_alarm_group_config_on_component_delete(
     sender, instance, *args, **kwargs
 ):
+    from .controllers import AlarmGroup
+
     for ag in Component.objects.filter(
         base_type=AlarmGroup.base_type,
         config__components__contains=instance.id
@@ -120,6 +124,9 @@ def bind_controlling_locks_to_alarm_groups(sender, instance, *args, **kwargs):
         return
     if 'value' not in instance.get_dirty_fields():
         return
+
+    from .controllers import AlarmGroup
+
     if instance.value == 'locked':
         for ag in Component.objects.filter(
             base_type=AlarmGroup.base_type,
@@ -169,6 +176,9 @@ def bind_alarm_groups(sender, instance, created, *args, **kwargs):
     ).exclude(is_active=False).exclude(id=instance.id).count()
     if users_at_home:
         return
+
+    from .controllers import AlarmGroup
+
     for ag in Component.objects.filter(
         zone__instance=instance.instance,
         base_type=AlarmGroup.base_type,

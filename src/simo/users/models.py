@@ -48,7 +48,8 @@ class PermissionsRole(models.Model):
     is_default = models.BooleanField(
         default=False, help_text="Default new user role."
     )
-    manager = ActiveInstanceManager()
+
+    objects = ActiveInstanceManager()
 
     class Meta:
         verbose_name = "role"
@@ -98,7 +99,7 @@ class InstanceUser(DirtyFieldsMixin, models.Model, OnChangeMixin):
     at_home = models.BooleanField(default=False, db_index=True)
     is_active = models.BooleanField(default=True, db_index=True)
 
-    manager = ActiveInstanceManager()
+    objects = ActiveInstanceManager()
 
     class Meta:
         unique_together = 'user', 'instance'
@@ -557,7 +558,7 @@ class InstanceInvitation(models.Model):
     )
     taken_date = models.DateTimeField(null=True, blank=True)
 
-    manager = ActiveInstanceManager()
+    objects = ActiveInstanceManager()
 
 
     class Meta:

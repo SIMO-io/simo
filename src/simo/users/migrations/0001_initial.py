@@ -103,7 +103,7 @@ class Migration(migrations.Migration):
                 ('last_sent', models.DateTimeField(blank=True, null=True)),
                 ('taken_date', models.DateTimeField(blank=True, null=True)),
                 ('from_user', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='issued_hub_invitations', to=settings.AUTH_USER_MODEL)),
-                ('role', models.ForeignKey(default=simo.users.models.get_default_invitation_role, on_delete=django.db.models.deletion.CASCADE, to='users.permissionsrole')),
+                ('role', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='users.permissionsrole')),
                 ('taken_by', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='accepted_hub_invitations', to=settings.AUTH_USER_MODEL)),
             ],
             options={

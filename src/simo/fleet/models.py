@@ -11,7 +11,6 @@ from dirtyfields import DirtyFieldsMixin
 from simo.core.models import Instance, Gateway, Component
 from simo.core.utils.helpers import get_random_string
 from simo.core.events import GatewayObjectCommand
-from .gateways import FleetGatewayHandler
 from .managers import ColonelsManager, ColonelPinsManager, InterfacesManager
 from .utils import GPIO_PINS, INTERFACES_PINS_MAP
 
@@ -146,6 +145,7 @@ class Colonel(DirtyFieldsMixin, models.Model):
         return resp.json()
 
     def update_firmware(self, to_version):
+        from .gateways import FleetGatewayHandler
         for gateway in Gateway.objects.filter(type=FleetGatewayHandler.uid):
             GatewayObjectCommand(
                 gateway, self,
@@ -153,12 +153,14 @@ class Colonel(DirtyFieldsMixin, models.Model):
             ).publish()
 
     def restart(self):
+        from .gateways import FleetGatewayHandler
         for gateway in Gateway.objects.filter(type=FleetGatewayHandler.uid):
             GatewayObjectCommand(
                 gateway, self, command='restart'
             ).publish()
 
     def update_config(self):
+        from .gateways import FleetGatewayHandler
         for gateway in Gateway.objects.filter(type=FleetGatewayHandler.uid):
             GatewayObjectCommand(
                 gateway, self, command='update_config'
@@ -371,6 +373,7 @@ class Interface(models.Model):
 
 
     def broadcast_reset(self):
+        from .gateways import FleetGatewayHandler
         gw = Gateway.objects.filter(type=FleetGatewayHandler.uid).first()
         if not gw:
             return
