@@ -219,9 +219,10 @@ class InvitationsViewSet(InstanceMixin, viewsets.ModelViewSet):
             role = PermissionsRole.objects.filter(
                 instance=self.instance
             ).first()
-        request.data['role'] = role
-        request.data['from_user'] = self.request.user
-        request.data['instance'] = self.instance
+        if role:
+            request.data['role'] = role.id
+        request.data['from_user'] = self.request.user.id
+        request.data['instance'] = self.instance.id
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)

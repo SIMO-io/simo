@@ -25,7 +25,7 @@ class InstanceManager(models.Manager):
 class ZonesManager(models.Manager):
 
     def get_queryset(self):
-        qs = super().get_queryset()
+        qs = super().get_queryset().filter(instance__is_active=True)
         instance = get_current_instance()
         if instance:
             qs = qs.filter(instance=instance)
@@ -35,7 +35,7 @@ class ZonesManager(models.Manager):
 class CategoriesManager(models.Manager):
 
     def get_queryset(self):
-        qs = super().get_queryset()
+        qs = super().get_queryset().filter(instance__is_active=True)
         instance = get_current_instance()
         if instance:
             qs = qs.filter(instance=instance)
@@ -45,7 +45,7 @@ class CategoriesManager(models.Manager):
 class ComponentsManager(models.Manager):
 
     def get_queryset(self):
-        qs = super().get_queryset()
+        qs = super().get_queryset().filter(zone__instance__is_active=True)
         instance = get_current_instance()
         if instance:
             qs = qs.filter(zone__instance=instance)

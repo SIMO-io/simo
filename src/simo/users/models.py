@@ -24,7 +24,7 @@ from simo.core.utils.helpers import get_random_string
 from simo.core.events import OnChangeMixin
 from .middleware import get_current_user
 from .utils import rebuild_authorized_keys
-from .tasks import rebuild_mqtt_acls
+from .managers import ActiveInstanceManager
 
 
 class PermissionsRole(models.Model):
@@ -48,6 +48,7 @@ class PermissionsRole(models.Model):
     is_default = models.BooleanField(
         default=False, help_text="Default new user role."
     )
+    manager = ActiveInstanceManager()
 
     class Meta:
         verbose_name = "role"
@@ -96,6 +97,8 @@ class InstanceUser(DirtyFieldsMixin, models.Model, OnChangeMixin):
     role = models.ForeignKey(PermissionsRole, on_delete=models.CASCADE)
     at_home = models.BooleanField(default=False, db_index=True)
     is_active = models.BooleanField(default=True, db_index=True)
+
+    manager = ActiveInstanceManager()
 
     class Meta:
         unique_together = 'user', 'instance'
@@ -553,6 +556,8 @@ class InstanceInvitation(models.Model):
         related_name='accepted_hub_invitations'
     )
     taken_date = models.DateTimeField(null=True, blank=True)
+
+    manager = ActiveInstanceManager()
 
 
     class Meta:
