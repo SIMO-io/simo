@@ -221,11 +221,9 @@ class InvitationsViewSet(InstanceMixin, viewsets.ModelViewSet):
             ).first()
         if role:
             request.data['role'] = role.id
-        request.data['from_user'] = self.request.user.id
-        request.data['instance'] = self.instance.id
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        self.perform_create(serializer)
+        serializer.save(instance=self.instance, from_user=self.request.user)
         headers = self.get_success_headers(serializer.data)
         return RESTResponse(
             serializer.data, status=status.HTTP_201_CREATED, headers=headers
