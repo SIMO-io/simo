@@ -78,7 +78,7 @@ class ControllerBase(ABC):
     @property
     def info_template_path(self) -> str:
         return f"{self.__class__.__module__.split('.')[-2]}/" \
-               f"controllers_info/{self.__class__.__name__.lower()}.md"
+               f"controllers_info/{self.__class__.__name__}.md"
 
     @abstractmethod
     def _validate_val(self, value, occasion=None):
