@@ -25,7 +25,7 @@ from .forms import (
     ColonelSwitchConfigForm, ColonelPWMOutputConfigForm,
     ColonelNumericSensorConfigForm, ColonelRGBLightConfigForm,
     ColonelDHTSensorConfigForm, DS18B20SensorConfigForm,
-    BME680SensorConfigForm, MPC9808SensorConfigForm,
+    BME680SensorConfigForm, MPC9808SensorConfigForm, ENS160SensorConfigForm,
     DualMotorValveForm, BlindsConfigForm, BurglarSmokeDetectorConfigForm,
     TTLockConfigForm, DALIDeviceConfigForm, DaliLampForm, DaliGearGroupForm,
     DaliSwitchConfigForm,
@@ -209,6 +209,41 @@ class MPC9808TempSensor(FleeDeviceMixin, BaseNumericSensor):
     config_form = MPC9808SensorConfigForm
     name = "MPC9808 Temperature Sensor (I2C)"
 
+
+class ENS160AirQualitySensor(FleeDeviceMixin, BaseMultiSensor):
+    gateway_class = FleetGatewayHandler
+    config_form = ENS160SensorConfigForm
+    name = "ENS160 Air Quality Sensor (I2C)"
+
+    default_value = [
+        ["CO2", 0, "ppm"],
+        ["TVOC", 0, "ppb"],
+        ["AQI (UBA)", 0, ""]
+    ]
+
+    def get_co2(self):
+        try:
+            for entry in self.component.value:
+                if entry[0] == 'CO2':
+                    return entry[1]
+        except:
+            return
+
+    def get_tvoc(self):
+        try:
+            for entry in self.component.value:
+                if entry[0] == 'TVOC':
+                    return entry[1]
+        except:
+            return
+
+    def get_aqi(self):
+        try:
+            for entry in self.component.value:
+                if entry[0] == 'AQI (UBA)':
+                    return entry[1]
+        except:
+            return
 
 
 class BasicOutputMixin:
