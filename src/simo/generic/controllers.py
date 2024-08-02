@@ -1048,8 +1048,8 @@ class Watering(ControllerBase):
     def _perform_schedule(self):
         self.component.refresh_from_db()
         next_run = self._get_next_run()
-        if self.component.config['next_run'] != next_run:
-            self.component.config['next_run'] = next_run
+        if self.component.meta['next_run'] != next_run:
+            self.component.meta['next_run'] = next_run
             self.component.save()
 
         if self.component.value['status'] == 'running_program':
@@ -1065,8 +1065,8 @@ class Watering(ControllerBase):
                 str(localtime.weekday() + 1)
             ]
         if not times_to_start:
-            if self.component.config.get('next_run'):
-                self.component.config['next_run'] = None
+            if self.component.meta.get('next_run'):
+                self.component.meta['next_run'] = None
                 self.component.save()
             return
 
