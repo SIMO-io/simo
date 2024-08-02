@@ -793,8 +793,6 @@ class Watering(ControllerBase):
             'ai_assist': True, 'soil_type': 'loamy', 'ai_assist_level': 50,
             'schedule': config_to_dict(self._get_default_schedule()),
             'estimated_moisture': 50,
-            'last_run': None,
-            'next_run': None,
         }
 
 
@@ -836,7 +834,7 @@ class Watering(ControllerBase):
     def start(self):
         self.component.refresh_from_db()
         if not self.component.value.get('program_progress', 0):
-            self.component.config['last_run'] = timezone.now().timestamp()
+            self.component.meta['last_run'] = timezone.now().timestamp()
             self.component.save()
         self.set(
             {'status': 'running_program',
