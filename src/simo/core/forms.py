@@ -23,7 +23,7 @@ class HiddenField(forms.CharField):
         Hidden field used in API
     '''
     def __init__(self, *args, **kwargs):
-        super().__init__(widget=forms.HiddenInput())
+        super().__init__(widget=forms.HiddenInput(), *args, **kwargs)
 
 
 class AdminAuthenticationForm(OrgAdminAuthenticationForm):

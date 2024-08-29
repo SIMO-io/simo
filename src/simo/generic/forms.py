@@ -333,18 +333,20 @@ class AlarmBreachEventForm(forms.Form):
         if not self.cleaned_data.get('breach_action'):
             return self.cleaned_data
         component = self.cleaned_data.get('component')
-        if not hasattr(component, self.cleaned_data['breach_action']):
+        if not getattr(component, self.cleaned_data['breach_action'], None):
             self.add_error(
                 'breach_action',
                 f"{component} has no {self.cleaned_data['breach_action']} action!"
             )
         if self.cleaned_data.get('disarm_action'):
-            if not hasattr(component, self.cleaned_data['disarm_action']):
+            if not getattr(component, self.cleaned_data['disarm_action'], None):
                 self.add_error(
                     'disarm_action',
                     f"{component} has no "
                     f"{self.cleaned_data['disarm_action']} action!"
                 )
+        if not self.cleaned_data.get('uid'):
+            self.cleaned_data['uid'] = get_random_string(6)
         return self.cleaned_data
 
 
@@ -432,14 +434,6 @@ class AlarmGroupConfigForm(BaseComponentForm):
         else:
             if self.instance.config.get('is_main'):
                 self.fields['is_main'].widget.attrs['disabled'] = 'disabled'
-
-
-    def clean_breach_events(self):
-        events = self.cleaned_data['breach_events']
-        for i, cont in enumerate(events):
-            if not cont.get('uid'):
-                cont['uid'] = get_random_string(6)
-        return events
 
 
     def recurse_check_alarm_groups(self, components, start_comp=None):
