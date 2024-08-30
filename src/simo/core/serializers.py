@@ -257,6 +257,7 @@ class ComponentSerializer(FormSerializer):
     battery_level = ObjectSerializerMethodField()
     controller_methods = serializers.SerializerMethodField()
     info = serializers.SerializerMethodField()
+    masters_only = serializers.SerializerMethodField()
 
     class Meta:
         form = ComponentAdminForm
@@ -521,6 +522,9 @@ class ComponentSerializer(FormSerializer):
 
     def get_slaves(self, obj):
         return [c['id'] for c in obj.slaves.all().values('id')]
+
+    def get_masters_only(self, obj):
+        return obj.controller.masters_only
 
 
 class ZoneSerializer(serializers.ModelSerializer):

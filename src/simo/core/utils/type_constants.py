@@ -5,7 +5,7 @@ from ..gateways import BaseGatewayHandler
 from ..app_widgets import BaseAppWidget
 
 
-def get_controller_types_map(gateway=None):
+def get_controller_types_map(gateway=None, user=None):
     from ..controllers import ControllerBase
     controllers_map = {}
     for name, app in apps.app_configs.items():
@@ -38,6 +38,9 @@ def get_controller_types_map(gateway=None):
                     else:
                         if not same:
                             continue
+            if user and not user.is_master and cls.masters_only:
+                continue
+
             controllers_map[cls.uid] = cls
     return controllers_map
 

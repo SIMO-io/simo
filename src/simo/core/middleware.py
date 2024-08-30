@@ -66,7 +66,7 @@ def instance_middleware(get_response):
         if not instance:
             if request.user.is_authenticated:
                 if request.user.instances:
-                    instance = request.user.instances[0]
+                    instance = list(request.user.instances)[0]
 
         if instance:
             introduce_instance(instance, request)

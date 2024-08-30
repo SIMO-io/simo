@@ -39,6 +39,7 @@ class ControllerBase(ABC):
     discovery_msg = None
     manual_add = True # Can be added manually
     family = None
+    masters_only = False # component can be created/modified by hub masters only
 
     @property
     @abstractmethod

@@ -185,10 +185,21 @@ class GatewaySelectForm(forms.Form):
 class CompTypeSelectForm(forms.Form):
     controller_type = forms.ChoiceField(choices=())
 
-    def __init__(self, gateway, *args, **kwargs):
+    def __init__(self, gateway, request, *args, **kwargs):
         super().__init__(*args, **kwargs)
         if gateway:
-            from .utils.type_constants import CONTROLLERS_BY_GATEWAY
+            from .utils.type_constants import (
+                GATEWAYS_MAP, get_controller_types_map
+            )
+
+            CONTROLLERS_BY_GATEWAY = {}
+            for gateway_slug, gateway_cls in GATEWAYS_MAP.items():
+                CONTROLLERS_BY_GATEWAY[gateway_slug] = {}
+                for ctrl_uid, ctrl_cls in get_controller_types_map(
+                    gateway_cls, user=request.user
+                ).items():
+                    CONTROLLERS_BY_GATEWAY[gateway_slug][ctrl_uid] = ctrl_cls
+
             self.fields['controller_type'].choices = [
                 (cls.uid, cls.name) for cls in CONTROLLERS_BY_GATEWAY.get(
                     gateway.handler.uid, {}

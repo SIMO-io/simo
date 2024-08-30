@@ -46,6 +46,7 @@ from .forms import (
 # ----------- Generic controllers -----------------------------
 
 class Script(ControllerBase, TimerMixin):
+    masters_only = True
     name = _("Script")
     base_type = 'script'
     gateway_class = GenericGatewayHandler
@@ -102,6 +103,7 @@ class Script(ControllerBase, TimerMixin):
 
 
 class PresenceLighting(Script):
+    masters_only = False
     name = _("Presence lighting")
     config_form = PresenceLightingConfigForm
 

@@ -690,10 +690,10 @@ class ControllerTypes(InstanceMixin, viewsets.GenericViewSet):
         return permissions
 
     def list(self, request, *args, **kwargs):
-        from .utils.type_constants import CONTROLLER_TYPES_MAP
+        from .utils.type_constants import get_controller_types_map
         data = {}
 
-        for uid, cls in CONTROLLER_TYPES_MAP.items():
+        for uid, cls in get_controller_types_map(user=request.user).items():
             if cls.gateway_class.name not in data:
                 data[cls.gateway_class.name] = []
             data[cls.gateway_class.name].append({

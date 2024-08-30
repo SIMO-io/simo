@@ -264,6 +264,11 @@ class ComponentAdmin(EasyObjectsDeleteMixin, admin.ModelAdmin):
     # for displaying component controller info.
     #change_form_template = 'admin/core/component_change_form.html'
 
+    def has_change_permission(self, request, obj=None):
+        if not obj or not obj.controller or not obj.controller.masters_only:
+            return True
+        return request.user.is_master
+
     def get_fieldsets(self, request, obj=None):
         form = self._get_form_for_get_fields(request, obj)
         fieldsets = form.get_admin_fieldsets(request, obj)
@@ -380,14 +385,14 @@ class ComponentAdmin(EasyObjectsDeleteMixin, admin.ModelAdmin):
 
             else:
                 if request.method == 'POST':
-                    ctx['form'] = CompTypeSelectForm(gateway, data=request.POST)
+                    ctx['form'] = CompTypeSelectForm(gateway, request, data=request.POST)
                     if ctx['form'].is_valid():
                         request.session['add_comp_type'] = \
                             ctx['form'].cleaned_data['controller_type']
                         return redirect(request.path)
 
                 else:
-                    ctx['form'] = CompTypeSelectForm(gateway)
+                    ctx['form'] = CompTypeSelectForm(gateway, request)
         else:
             if request.method == 'POST':
                 ctx['form'] = GatewaySelectForm(data=request.POST)
