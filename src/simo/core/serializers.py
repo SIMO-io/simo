@@ -525,6 +525,8 @@ class ComponentSerializer(FormSerializer):
         return [c['id'] for c in obj.slaves.all().values('id')]
 
     def get_masters_only(self, obj):
+        if not obj.controller:
+            return False
         return obj.controller.masters_only
 
 
