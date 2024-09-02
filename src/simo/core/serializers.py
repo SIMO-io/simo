@@ -250,6 +250,7 @@ class ComponentSerializer(FormSerializer):
     alive = ObjectSerializerMethodField()
     error_msg = ObjectSerializerMethodField()
     value = ObjectSerializerMethodField()
+    value_units = ObjectSerializerMethodField()
     config = ObjectSerializerMethodField()
     meta = ObjectSerializerMethodField()
     alarm_category = ObjectSerializerMethodField()
