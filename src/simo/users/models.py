@@ -361,6 +361,8 @@ class User(AbstractBaseUser, SimoAdminMixin):
         return True
 
     def get_component_permissions(self):
+        if not self.instances:
+            return []
         components = []
         for instance in self.instances:
             for comp in instance.components.all():
