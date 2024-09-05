@@ -515,7 +515,7 @@ class MPC9808SensorConfigForm(ColonelComponentForm):
         coerce=int, initial=24,
         choices=(
             (24, "Default"),
-            (25, "AD0"), (25, "AD1"), (28, "AD2"),
+            (25, "AD0"), (26, "AD1"), (28, "AD2"),
             (27, "AD0 + AD1"), (29, "AD0 + AD2"), (30, "AD1 + AD2"),
             (31, "AD0 + AD1 + AD2")
         ),
