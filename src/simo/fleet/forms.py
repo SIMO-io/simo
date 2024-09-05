@@ -1194,7 +1194,7 @@ class BlindsConfigForm(ColonelComponentForm):
 
 class BurglarSmokeDetectorConfigForm(ColonelComponentForm):
     power_pin = ColonelPinChoiceField(
-        label="Port",
+        label="Power port",
         queryset=ColonelPin.objects.filter(output=True),
         widget=autocomplete.ListSelect2(
             url='autocomplete-colonel-pins',
@@ -1206,7 +1206,7 @@ class BurglarSmokeDetectorConfigForm(ColonelComponentForm):
         )
     )
     sensor_pin = ColonelPinChoiceField(
-        label="Port",
+        label="Sensor port",
         queryset=ColonelPin.objects.filter(input=True),
         widget=autocomplete.ListSelect2(
             url='autocomplete-colonel-pins',
