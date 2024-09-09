@@ -1048,7 +1048,7 @@ class Watering(ControllerBase):
     def _perform_schedule(self):
         self.component.refresh_from_db()
         next_run = self._get_next_run()
-        if self.component.meta['next_run'] != next_run:
+        if self.component.get('next_run') != next_run:
             self.component.meta['next_run'] = next_run
             self.component.save()
 
