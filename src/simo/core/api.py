@@ -174,7 +174,9 @@ def get_components_queryset(instance, user):
         if cp.read:
             c_ids.add(cp.component.id)
 
-    return qs.filter(id__in=c_ids)
+    return qs.filter(id__in=c_ids).select_related(
+        'zone', 'category', 'icon'
+    ).prefetch_related('slaves')
 
 
 class ComponentViewSet(
