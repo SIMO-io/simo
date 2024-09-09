@@ -183,6 +183,14 @@ class ControlForm(forms.Form):
             ('momentary', "Momentary"), ('toggle', "Toggle"),
         ),
     )
+    action_method = forms.ChoiceField(
+        label="Action method (if Momentary)", initial='down',
+        choices=(
+            ('down', "DOWN (On GND delivery)"),
+            ('up', "UP (On +5V delivery)")
+        )
+    )
+
     prefix = 'controls'
 
 
@@ -268,7 +276,6 @@ class ColonelBinarySensorConfigForm(ColonelComponentForm):
 
         return self.cleaned_data
 
-
     def save(self, commit=True):
         if 'pin' in self.cleaned_data:
             self.instance.config['pin_no'] = self.cleaned_data['pin'].no
@@ -288,6 +295,13 @@ class ColonelButtonConfigForm(ColonelComponentForm):
             ]
         )
     )
+    action_method = forms.ChoiceField(
+        label="Action method", initial='down',
+        choices=(
+            ('down', "DOWN (On GND delivery)"),
+            ('up', "UP (On +5V delivery)")
+        )
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -300,7 +314,6 @@ class ColonelButtonConfigForm(ColonelComponentForm):
             return self.cleaned_data
         self._clean_pin('pin')
         return self.cleaned_data
-
 
     def save(self, commit=True):
         if 'pin' in self.cleaned_data:
