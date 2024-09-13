@@ -1,6 +1,7 @@
 import json
 from django.utils.translation import gettext_lazy as _
 from django.db.transaction import atomic
+from simo.core.middleware import get_current_instance
 from simo.core.events import GatewayObjectCommand
 from simo.core.controllers import (
     BinarySensor as BaseBinarySensor,
@@ -209,6 +210,20 @@ class MPC9808TempSensor(FleeDeviceMixin, BaseNumericSensor):
     gateway_class = FleetGatewayHandler
     config_form = MPC9808SensorConfigForm
     name = "MPC9808 Temperature Sensor (I2C)"
+
+    @property
+    def default_value_units(self):
+        instance = get_current_instance()
+        if not instance:
+            return 'C'
+        if instance.units_of_measure == 'imperial':
+            return 'F'
+        return 'C'
+
+    def _prepare_for_set(self, value):
+        if self.component.zone.instance.units_of_measure == 'imperial':
+            return round((value[0][1] * 9 / 5) + 32, 1)
+        return value
 
 
 class ENS160AirQualitySensor(FleeDeviceMixin, BaseMultiSensor):

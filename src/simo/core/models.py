@@ -386,7 +386,9 @@ def is_in_alarm(self):
             ('security', _("Security")), ('fire', _("Fire")),
             ('flood', _("Flood")), ('other', _("Other"))
         ),
-        help_text=_("Enable alarm properties by choosing one of alarm categories.")
+        help_text=_(
+            "Enable alarm properties by choosing one of alarm categories."
+        )
     )
     arm_status = models.CharField(
         max_length=20, db_index=True, default='disarmed', choices=(

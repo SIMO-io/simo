@@ -219,7 +219,10 @@ class ComponentAdminForm(forms.ModelForm):
 
     class Meta:
         model = Component
-        fields = 'name', 'icon', 'zone', 'category', 'show_in_app', 'notes',
+        fields = (
+            'name', 'icon', 'zone', 'category', 'show_in_app', 'notes',
+            'alarm_category'
+        )
         widgets = {
             'icon': autocomplete.ModelSelect2(
                 url='autocomplete-icon', attrs={'data-html': True}
