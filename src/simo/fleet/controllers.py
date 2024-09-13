@@ -153,6 +153,13 @@ class DS18B20Sensor(FleeDeviceMixin, BasicSensorMixin, BaseNumericSensor):
     name = "DS18B20 Temperature sensor"
 
 
+
+# TODO: need to change this to {
+#                 'temp': self.sensor.temperature, 'hum': self.sensor.humidity,
+#                 'pressure': self.sensor.pressure, 'gas': self.sensor.gas
+#             }
+# which is used by BME680Sensor
+
 class BaseClimateSensor(FleeDeviceMixin, BasicSensorMixin, BaseMultiSensor):
     app_widget = NumericSensorWidget
 
@@ -193,6 +200,8 @@ class BaseClimateSensor(FleeDeviceMixin, BasicSensorMixin, BaseMultiSensor):
         )
         new_val[2] = ['real_feel', real_feel, self.sys_temp_units]
         return new_val
+
+
 
 
 class DHTSensor(BaseClimateSensor):

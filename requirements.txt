@@ -36,3 +36,4 @@ daphne==4.1.2
 Pillow==9.5.0 # newer version breaks easy-thumbnails
 django-markdownify==0.9.5
 django-activity-stream==2.0.0
+gunicorn==23.0.0
