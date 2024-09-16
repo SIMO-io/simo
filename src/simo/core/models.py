@@ -12,7 +12,6 @@ from timezone_utils.choices import ALL_TIMEZONES_CHOICES
 from location_field.models.plain import PlainLocationField
 from model_utils import FieldTracker
 from dirtyfields import DirtyFieldsMixin
-from actstream import action
 from simo.core.utils.mixins import SimoAdminMixin
 from simo.core.storage import OverwriteStorage
 from simo.core.utils.validators import validate_svg
