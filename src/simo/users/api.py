@@ -37,7 +37,7 @@ class UsersViewSet(mixins.RetrieveModelMixin,
 
         return queryset.filter(
             Q(roles__instance=self.instance) | Q(id=self.request.user.id)
-        )
+        ).distinct()
 
 
     def check_permission_to_change(self, request, target_user):
