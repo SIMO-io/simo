@@ -456,7 +456,8 @@ def set_user_at_home(sender, instance, created, **kwargs):
             return
         else:
             for item in InstanceUser.objects.filter(
-                user=instance.user_device.user, instance=hub_instance
+                user__in=instance.user_device.users.all(),
+                instance=hub_instance
             ):
                 item.at_home = distance(
                     instance_location, log_location
