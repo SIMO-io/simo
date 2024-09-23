@@ -428,21 +428,15 @@ def set_user_at_home(sender, instance, created, **kwargs):
     if not created:
         return
 
-    if not instance.relay:
-        for item in InstanceUser.objects.filter(user=instance.user_device.user):
+    if not instance.location and not instance.relay:
+        for item in InstanceUser.objects.filter(
+            user__in=instance.user_device.users.all()
+        ):
             item.at_home = True
             item.save()
         return
-    if not instance.location:
-        return
 
-    instance.user_device.last_seen_location = instance.location
-    instance.user_device.save()
-    instance.user_device.user.last_seen_location = instance.location
-    instance.user_device.user.last_seen_location_datetime = timezone.now()
-    instance.user_device.user.save()
-
-    for hub_instance in Instance.objects.all():
+    for hub_instance in Instance.objects.filter(is_active=True):
         try:
             instance_location = Point(
                 [float(hub_instance.location.split(',')[0]),
