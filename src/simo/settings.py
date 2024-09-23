@@ -197,7 +197,6 @@ REST_FRAMEWORK = {
 
 REDIS_DB = {
     'celery': 0, 'default_cache': 1, 'select2_cache': 2,
-    'fleet_rs485': 11, 'fleet_wifi': 12
 }
 
 CACHES = {

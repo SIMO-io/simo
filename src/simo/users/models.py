@@ -390,21 +390,12 @@ class Fingerprint(models.Model):
 
 
 class UserDevice(models.Model, SimoAdminMixin):
-    user = models.ForeignKey(
-        User, on_delete=models.CASCADE, related_name='devices'
-    )
+    users = models.ManyToManyField(User, related_name='devices')
     os = models.CharField(max_length=100, db_index=True)
     token = models.CharField(max_length=1000, db_index=True, unique=True)
     is_primary = models.BooleanField(default=True, db_index=True)
     last_seen = models.DateTimeField(auto_now_add=True, db_index=True)
     last_seen_location = PlainLocationField(zoom=7, null=True, blank=True)
-
-    def save(self, *args, **kwargs):
-        if self.is_primary:
-            UserDevice.objects.filter(user=self.user).exclude(
-                pk=self.pk
-            ).update(is_primary=False)
-        return super().save(*args, **kwargs)
 
     class Meta:
         ordering = '-last_seen',

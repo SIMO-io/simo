@@ -160,14 +160,13 @@ class UserDeviceReport(InstanceMixin, viewsets.GenericViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        defaults = {'os': request.data['os'], 'user': request.user}
+        defaults = {'os': request.data['os']}
         user_device, new = UserDevice.objects.get_or_create(
             token=request.data['device_token'],
             defaults=defaults
         )
-        if not new:
-            for key, val in defaults.items():
-                setattr(user_device, key, val)
+        user_device.users.add(request.user)
+
         try:
             location = Point(
                 *[float(c) for c in request.data.get('location').split(',')],
@@ -181,9 +180,17 @@ class UserDeviceReport(InstanceMixin, viewsets.GenericViewSet):
             user_device.last_seen_location = ','.join(
                 [str(i) for i in location]
             ) if location else None
+
         if request.data.get('app_open', False):
             user_device.is_primary = True
+            UserDevice.objects.filter(
+                users=request.user
+            ).exclude(id=user_device.id).update(is_primary=False)
         user_device.save()
+
+        request.user.last_seen_location = user_device.last_seen_location
+        request.user.last_seen_location_datetime = user_device.last_seen
+        request.user.save()
 
         relay = None
         if request.META.get('HTTP_HOST', '').endswith('.simo.io'):

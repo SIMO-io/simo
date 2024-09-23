@@ -46,22 +46,6 @@ class PermissionsRoleAdmin(admin.ModelAdmin):
         return fields
 
 
-class UserDeviceInline(admin.TabularInline):
-    model = UserDevice
-    extra = 0
-    readonly_fields = 'token', 'os', 'last_seen', 'is_primary', 'more'
-    fields = readonly_fields
-
-    def has_delete_permission(self, request, obj=None):
-        return False
-
-    def has_add_permission(self, request, obj=None):
-        return False
-
-    def more(self, obj):
-        return mark_safe('<a href="%s">more >></a>' % obj.get_admin_url())
-
-
 class InstanceUserInline(admin.TabularInline):
     model = InstanceUser
     extra = 0
@@ -87,7 +71,7 @@ class UserAdmin(OrgUserAdmin):
         'name', 'email', 'avatar',
         'last_action', 'ssh_key', 'is_active'
     )
-    inlines = UserDeviceInline, InstanceUserInline
+    inlines = InstanceUserInline,
 
     def name_display(self, obj=None):
         if not obj:
@@ -129,20 +113,18 @@ admin.site.unregister(Group)
 @admin.register(UserDeviceReportLog)
 class UserDeviceLogInline(admin.ModelAdmin):
     model = UserDeviceReportLog
-    readonly_fields = 'datetime', 'app_open', 'location', 'relay', 'user'
-    list_display = 'datetime', 'app_open', 'location', 'relay', 'user'
+    readonly_fields = 'datetime', 'app_open', 'location', 'relay', 'users'
+    list_display = 'datetime', 'app_open', 'location', 'relay', 'users'
     fields = readonly_fields
-    list_filter = 'user_device__user',
 
     def has_add_permission(self, request, obj=None):
         return False
 
-    def user(self, obj):
-        return mark_safe(
-            f'<a href="{obj.user_device.user.get_admin_url()}">'
-            f'{obj.user_device.user}'
-            f'</a>'
-        )
+    def users(self, obj):
+        return mark_safe(', '.join([
+            f'<a href="{user.get_admin_url()}">{user}</a>'
+            for user in obj.user_device.users.all()
+        ]))
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
@@ -155,9 +137,9 @@ class UserDeviceLogInline(admin.ModelAdmin):
 
 @admin.register(UserDevice)
 class UserDeviceAdmin(admin.ModelAdmin):
-    list_display = 'token', 'os', 'last_seen', 'is_primary', 'user'
+    list_display = 'token', 'os', 'last_seen', 'is_primary', 'users_display'
     readonly_fields = (
-        'user', 'token', 'os', 'last_seen',
+        'users_display', 'token', 'os', 'last_seen',
     )
     fields = readonly_fields + ('last_seen_location', 'is_primary')
 
@@ -166,6 +148,11 @@ class UserDeviceAdmin(admin.ModelAdmin):
         if request.user.is_master:
             return qs
         return qs.filter(user__role__instance__in=request.user.instances)
+
+    def users_display(self, obj):
+        return ', '.join([str(u) for u in obj.users.all()])
+    users_display.short_description = 'Users'
+
 
 
 @admin.register(InstanceInvitation)
