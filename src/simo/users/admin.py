@@ -68,8 +68,7 @@ class UserAdmin(OrgUserAdmin):
         'last_seen_location',
     )
     readonly_fields = (
-        'name', 'email', 'avatar',
-        'last_action', 'ssh_key', 'is_active'
+        'name', 'email', 'avatar', 'last_action', 'is_active'
     )
     inlines = InstanceUserInline,
 

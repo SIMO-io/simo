@@ -210,7 +210,6 @@ def sync_with_remote():
                         email=email, defaults={
                         'name': options.get('name'),
                         'is_master': options.get('is_hub_master', False),
-                        'ssh_key': options.get('ssh_key')
                     })
                     role = None
                     if options.get('is_hub_master') or options.get('is_superuser'):
@@ -235,9 +234,6 @@ def sync_with_remote():
 
                 if user.name != options.get('name'):
                     user.name = options['name']
-                    user.save()
-                if user.ssh_key != options.get('ssh_key'):
-                    user.ssh_key = options['ssh_key']
                     user.save()
 
                 avatar_url = options.get('avatar_url')

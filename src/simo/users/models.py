@@ -164,9 +164,8 @@ class User(AbstractBaseUser, SimoAdminMixin):
     )
     ssh_key = models.TextField(
         null=True, blank=True,
-        help_text="DO NOT EDIT IT MANUALLY! Comes from SIMO.io. <br>"
-                  "Will be placed in /root/.ssh/authorized_keys "
-                  "if user is active and has superuser rights."
+        help_text="Will be placed in /root/.ssh/authorized_keys "
+                  "if user is active and is master of a hub."
     )
     last_seen_location = PlainLocationField(
         zoom=7, null=True, blank=True, help_text="Sent by user mobile app"
