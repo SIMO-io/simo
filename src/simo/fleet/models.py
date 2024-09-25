@@ -58,6 +58,7 @@ class Colonel(DirtyFieldsMixin, models.Model):
             ('4-relays', "4 Relay"),
             ('ample-wall', "Ample Wall"),
             ('game-changer', "Game Changer"),
+            ('game-changer-mini', "Game Changer Mini"),
         )
     )
     firmware_version = models.CharField(

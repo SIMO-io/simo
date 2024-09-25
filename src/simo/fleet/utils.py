@@ -90,6 +90,13 @@ for no in range(101, 139):
         'capacitive': False, 'note': ''
     }
 
+for no in range(101, 105):
+    GPIO_PINS['game-changer-mini'][no] = {
+        'output': True, 'input': True, 'default_pull': 'LOW',
+        'native': False, 'adc': False,
+        'capacitive': False, 'note': ''
+    }
+
 
 #4-relays
 for no, data in BASE_ESP32_GPIO_PINS.items():
