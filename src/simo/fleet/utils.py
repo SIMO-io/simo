@@ -54,7 +54,10 @@ BASE_ESP32_GPIO_PINS = {
     39: {'output': False, 'adc': True},
 }
 
-GPIO_PINS = {'generic': {}, '4-relays': {}, 'ample-wall': {}, 'game-changer': {}}
+GPIO_PINS = {
+    'generic': {}, '4-relays': {}, 'ample-wall': {},
+    'game-changer': {}, 'game-changer-mini': {}
+}
 
 for no, data in BASE_ESP32_GPIO_PINS.items():
     GPIO_PINS['generic'][no] = GPIO_PIN_DEFAULTS.copy()
