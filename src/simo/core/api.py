@@ -235,7 +235,6 @@ class ComponentViewSet(
 
             return RESTResponse(result)
 
-    # TODO: remove post when app is updated for all users
     @action(detail=True, methods=['post'])
     def subcomponent(self, request, pk=None, *args, **kwargs):
         component = self.get_object()
