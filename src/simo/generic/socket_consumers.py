@@ -1,5 +1,5 @@
 import asyncio
-import cv2
+#import cv2
 import base64
 import time
 from asgiref.sync import sync_to_async
@@ -39,8 +39,8 @@ class CamStreamConsumer(AsyncWebsocketConsumer):
         if not can_read:
             return self.close()
 
-        self.video = cv2.VideoCapture(self.component.config['rtsp_address'])
-        asyncio.create_task(self.send_cam())
+        # self.video = cv2.VideoCapture(self.component.config['rtsp_address'])
+        # asyncio.create_task(self.send_cam())
 
 
     async def send_cam(self):
@@ -48,7 +48,7 @@ class CamStreamConsumer(AsyncWebsocketConsumer):
         current_frame = 0
         while self.live:
             _, frame = self.video.read()
-            _, jpeg = cv2.imencode('.jpg', frame)
+            #_, jpeg = cv2.imencode('.jpg', frame)
             current_frame += 1
             if current_frame >= every_frame:
                 await self.send(

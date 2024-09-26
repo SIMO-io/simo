@@ -21,7 +21,6 @@ redis==3.5.3
 django-redis==4.12.1
 webservices==0.7
 numpy==1.26.4
-opencv-python==4.5.4.60
 geopy==2.2.0
 requests==2.26.0
 suntime==1.2.5
