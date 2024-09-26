@@ -57,17 +57,6 @@ class AutoUpdate(BooleanPreference):
     name = 'auto_update'
     default = True
 
-    def validate(self, value):
-        if value:
-            with open(os.path.join(settings.VAR_DIR, 'auto_update'), 'w') as f:
-                f.write("YES!")
-        else:
-            try:
-                os.remove(os.path.join(settings.VAR_DIR, 'auto_update'))
-            except:
-                pass
-        return
-
 
 @global_preferences_registry.register
 class NeedsMqttAclsRebuild(BooleanPreference):

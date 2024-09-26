@@ -325,15 +325,6 @@ def update():
     perform_update()
 
 
-@celery_app.task
-def update_latest_version_available():
-    resp = requests.get("https://pypi.org/pypi/simo/json")
-    if resp.status_code != 200:
-        print("Bad response from server")
-        return
-    latest = list(resp.json()['releases'].keys())[-1]
-    dynamic_settings['core__latest_version_available'] = latest
-    print("Got the latest version available!")
 
 
 @celery_app.task
@@ -392,11 +383,33 @@ def low_battery_notifications():
                 )
 
 
+@celery_app.task
+def maybe_update_to_latest():
+    from simo.core.models import Instance
+    from simo.conf import dynamic_settings
+    resp = requests.get("https://pypi.org/pypi/simo/json")
+    if resp.status_code != 200:
+        print("Bad response from server")
+        return
+    latest = list(resp.json()['releases'].keys())[-1]
+    dynamic_settings['core__latest_version_available'] = latest
+    if dynamic_settings['core__latest_version_available'] == \
+    pkg_resources.get_distribution('simo').version:
+        print("Up to date!")
+        return
+
+    if not Instance.objects.all().count() or dynamic_settings['auto_update']:
+        print("Need to update!!")
+        return update.s()
+
+    print("New version is available, but auto update is disabled.")
+
+
 @celery_app.on_after_finalize.connect
 def setup_periodic_tasks(sender, **kwargs):
     sender.add_periodic_task(20, sync_with_remote.s())
     sender.add_periodic_task(60 * 60, clear_history.s())
-    sender.add_periodic_task(60 * 60, update_latest_version_available.s())
+    sender.add_periodic_task(60 * 60, maybe_update_to_latest.s())
     sender.add_periodic_task(60, drop_fingerprints_learn.s())
     sender.add_periodic_task(60 * 60 * 24, restart_postgresql.s())
     sender.add_periodic_task(60 * 60, low_battery_notifications.s())

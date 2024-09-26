@@ -19,7 +19,7 @@ def install_dependencies():
         'postgresql-client-common python3-pip redis-server supervisor '
         'mosquitto libopenjp2-7 libtiff5 pkg-config libcairo2-dev '
         'libgirepository1.0-dev libcairo2 libudev-dev gdal-bin net-tools '
-        'timeshift nginx postgis openvpn ffmpeg libsm6 libxext6 ssh keychain -y',
+        'nginx postgis openvpn ffmpeg libsm6 libxext6 ssh keychain -y',
         shell=True
     )
     if status != 0:
@@ -48,7 +48,8 @@ def copy_template(to_directory='/etc/SIMO'):
     context = Context({
         'secret_key': get_random_secret_key(),
         'project_dir': to_directory,
-        'base_dir': to_directory
+        'base_dir': to_directory,
+        'venv_path': os.path.dirname(sys.executable),
     }, autoescape=False)
     template_dir = os.path.join(
         os.path.dirname(simo.__file__), 'management', '_hub_template'
@@ -170,6 +171,7 @@ def install():
         os.remove('/etc/supervisor/conf.d/SIMO.conf')
     except:
         pass
+
     os.symlink(
         f'{simo_directory}/hub/supervisor.conf',
         '/etc/supervisor/conf.d/SIMO.conf'
@@ -246,45 +248,6 @@ def install():
     status = subprocess.call('echo y | ufw enable', shell=True)
     if status != 0:
         sys.exit("INSTALLATION FAILED! Unable to enable UFW")
-
-
-    step += 1
-    print("%d.__________ CONFIGURE TIMESHIFT _____________________" % step)
-
-    default_timeshift_file_path = '/etc/timeshift/default.json'
-    if not os.path.exists(default_timeshift_file_path):
-        default_timeshift_file_path = '/etc/timeshift/timeshift.json'
-    if not os.path.exists(default_timeshift_file_path):
-        default_timeshift_file_path = '/etc/default/timeshift.json'
-
-    if not os.path.exists(default_timeshift_file_path):
-        print("Unable to find default TimeShift config! Skip TimeShift configuration.")
-
-    else:
-
-        with open(default_timeshift_file_path, 'r') as conf_f:
-            timeshift_conf = json.loads(conf_f.read())
-
-        timeshift_conf['backup_device_uuid'] = subprocess.check_output(
-            "lsblk -no UUID $(df -P /etc/SIMO/hub/settings.py | awk 'END{print $1}')",
-            shell=True
-        ).decode()[:-1]
-        timeshift_conf['schedule_monthly'] = "true"
-        timeshift_conf['schedule_weekly'] = "true"
-        timeshift_conf['schedule_daily'] = "true"
-        timeshift_conf['exclude'] = []
-
-        # Must be copied to /etc/timeshift/timeshift.json to work
-        with open('/etc/timeshift/timeshift.json', 'w') as conf_f:
-            conf_f.write(json.dumps(timeshift_conf))
-
-        # status = subprocess.call([
-        #     '/usr/bin/timeshift', '--create',
-        #     '--comments', '"Initial backup"', '--tags', 'M'
-        # ])
-        # if status != 0:
-        #     print("Unable to start TimeShift")
-
 
     step += 1
     print("%d.__________ PUT UP INSTALL COMPLETE FLAG! _____________________" % step)
