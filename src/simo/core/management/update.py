@@ -13,7 +13,7 @@ def install_dependencies():
     status = subprocess.call(
         'apt install postgresql libpq-dev postgresql-client '
         'postgresql-client-common python3-pip redis-server supervisor '
-        'mosquitto libopenjp2-7 libtiff5 pkg-config libcairo2-dev '
+        'mosquitto libopenjp2-7 libtiff5-dev pkg-config libcairo2-dev '
         'libgirepository1.0-dev libcairo2 libudev-dev gdal-bin net-tools '
         'nginx postgis openvpn ffmpeg libsm6 libxext6 ssh keychain -y',
         shell=True
