@@ -1,22 +1,31 @@
-#!/usr/bin/python3
-# -*- coding: utf-8 -*-
 import requests
 import sys
 import os
 import subprocess
 import pkg_resources
 
+
 HUB_DIR = '/etc/SIMO/hub'
 
 
-def perform_update():
+def install_dependencies():
 
-    proc = subprocess.Popen(
-        ['pip', 'install', 'setuptools==65.7.0']
+    status = subprocess.call(
+        'apt install postgresql libpq-dev postgresql-client '
+        'postgresql-client-common python3-pip redis-server supervisor '
+        'mosquitto libopenjp2-7 libtiff5 pkg-config libcairo2-dev '
+        'libgirepository1.0-dev libcairo2 libudev-dev gdal-bin net-tools '
+        'nginx postgis openvpn ffmpeg libsm6 libxext6 ssh keychain -y',
+        shell=True
     )
-    out, err = proc.communicate()
-    if proc.returncode:
-        raise Exception(err.decode())
+    if status != 0:
+        print("Unable install required packages.")
+        return
+
+    return True
+
+
+def perform_update():
 
     proc = subprocess.Popen(
         ['pip', 'install', 'simo', '--upgrade'],
@@ -26,7 +35,6 @@ def perform_update():
     if proc.returncode:
         raise Exception(err.decode())
 
-    from simo.management.install import install_dependencies
     install_dependencies()
 
     proc = subprocess.Popen(
@@ -59,7 +67,7 @@ def perform_update():
     print("Update completed!")
 
 
-if __name__ == "__main__":
+def maybe_update():
     if not os.path.exists('/etc/SIMO/_var/auto_update'):
         print("Auto updates are disabled")
     else:

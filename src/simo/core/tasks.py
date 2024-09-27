@@ -321,10 +321,8 @@ def vacuum_full():
 
 @celery_app.task
 def update():
-    from simo.management.auto_update import perform_update
+    from simo.core.management.update import perform_update
     perform_update()
-
-
 
 
 @celery_app.task

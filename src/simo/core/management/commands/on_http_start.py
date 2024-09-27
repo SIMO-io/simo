@@ -2,8 +2,9 @@ from django.core.management.base import BaseCommand
 import os
 import pwd
 import grp
+import sys
 import subprocess
-import pkg_resources
+from crontab import CronTab
 from django.conf import settings
 from django.template.loader import render_to_string
 
@@ -53,6 +54,25 @@ def prepare_mosquitto():
     subprocess.run(
         ['service', 'mosquitto', 'reload'], stdout=subprocess.PIPE
     )
+
+
+def update_auto_update():
+
+    if os.geteuid() != 0:
+        print("You are not a root user!")
+        return
+
+    executable_path = f'{os.path.dirname(sys.executable)}/simo-auto-update'
+    cron = CronTab(user='root')
+    for item in cron:
+        if executable_path in str(item):
+            return
+
+    job = cron.new(command=executable_path)
+    job.hour.every(1)
+    job.enable()
+    cron.write()
+
 
 
 

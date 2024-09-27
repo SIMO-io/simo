@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "simo"
-version = "2.2.13"
+version = "2.3.1"
 authors = [
   { name="Simanas Venčkauskas", email="simanas@simo.io" },
 ]
@@ -21,7 +21,8 @@ dynamic = ["dependencies"]
 dependencies = {file = ["requirements.txt"]}
 
 [project.scripts]
-simo-install = "simo.management.install:install"
+simo-update = "simo.core.management.update:perform_update"
+simo-auto-update = "simo.core.management.update:maybe_update"
 
 [project.urls]
 Homepage = "https://simo.io"
