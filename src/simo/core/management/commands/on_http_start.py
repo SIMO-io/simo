@@ -74,11 +74,10 @@ def update_auto_update():
     cron.write()
 
 
-
-
 class Command(BaseCommand):
 
     def handle(self, *args, **options):
         prepare_mosquitto()
         from simo.core.tasks import maybe_update_to_latest
         maybe_update_to_latest.delay()
+        update_auto_update()
