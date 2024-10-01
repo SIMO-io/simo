@@ -31,8 +31,8 @@ For that you will need a PC or MiniPC which has at least 2 CPU cores,
 4GB of RAM memory and 64GB of storage space.
 
 You start by installing `Ubuntu Server 24.*.* LTS <https://ubuntu.com/download/server>`_
-on to it. Please install it with LVM management, because it allows us to
-have a serious backuping system later on.
+on to it. Please install it with LVM with at least 5GB of free space in LVM group,
+this allows for a best possible backup system later on.
 
 Once your home Ubuntu Server is up and running,
 you will have to use command line to log in to it.

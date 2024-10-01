@@ -7,8 +7,6 @@ import requests
 import subprocess
 import threading
 import pkg_resources
-import sys
-import traceback
 import uuid
 from django.db.models import Q
 from django.db import connection, transaction

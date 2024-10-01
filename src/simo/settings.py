@@ -72,6 +72,7 @@ INSTALLED_APPS = [
     'simo.generic',
     'simo.multimedia',
     'simo.fleet',
+    'simo.backups',
 
     'django.contrib.admin',
     'adminsortable2',
