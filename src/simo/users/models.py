@@ -1,13 +1,13 @@
 import datetime
 import requests
 import subprocess
-from django.utils.functional import cached_property
 from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 from django.db import models
 from django.db import transaction
 from django.db.models.signals import post_save, post_delete, m2m_changed
 from django.dispatch import receiver
+from django.core.cache import cache
 from dirtyfields import DirtyFieldsMixin
 from django.contrib.gis.geos import Point
 from geopy.distance import distance
@@ -182,9 +182,7 @@ class User(AbstractBaseUser, SimoAdminMixin):
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['name']
 
-    _instances = None
     _instance = None
-    _instance_roles = {}
 
     class Meta:
         verbose_name = _('user')
@@ -235,13 +233,16 @@ class User(AbstractBaseUser, SimoAdminMixin):
         return self.is_active and self.ssh_key and self.is_master
 
     def get_role(self, instance):
-        if instance.id not in self._instance_roles:
-            self._instance_roles[instance.id] = self.roles.filter(
+        cache_key = f'user-{self.id}_instance-{instance.id}_role'
+        role = cache.get(cache_key, 'expired')
+        if role == 'expired':
+            role = self.roles.filter(
                 instance=instance
             ).prefetch_related(
                 'component_permissions', 'component_permissions__component'
             ).first()
-        return self._instance_roles[instance.id]
+            cache.set(cache_key, role, 20)
+        return role
 
     def set_instance(self, instance):
         self._instance = instance
@@ -274,22 +275,23 @@ class User(AbstractBaseUser, SimoAdminMixin):
 
     @property
     def instances(self):
-        if self._instances != None:
-            return self._instances
         from simo.core.models import Instance
-
-        self._instances = set()
         if not self.is_active:
-            return self._instance
-        if self.is_master:
-            self._instances = set(Instance.objects.all())
-            return self._instances
-
-        for instance_role in self.instance_roles.filter(
-            is_active=True, instance__isnull=False
-        ):
-            self._instances.add(instance_role.instance)
-        return self._instances
+            return Instance.objects.none()
+        cache_key = f'user-{self.id}_instances'
+        instances = cache.get(cache_key, 'expired')
+        if instances == 'expired':
+            if self.is_master:
+                instances = Instance.objects.all()
+            else:
+                instances = Instance.objects.filter(id__in=[
+                    r.instance.id for r in self.instance_roles.filter(
+                        is_active=True, instance__isnull=False
+                    )
+                ])
+            cache.set(cache_key, instances, 10)
+        print("INSTANCES: ", instances)
+        return instances
 
     @property
     def component_permissions(self):
