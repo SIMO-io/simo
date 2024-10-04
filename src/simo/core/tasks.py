@@ -394,7 +394,7 @@ def maybe_update_to_latest():
         print("Up to date!")
         return
 
-    if not Instance.objects.all().count() or dynamic_settings['auto_update']:
+    if not Instance.objects.all().count() or dynamic_settings['core__auto_update']:
         print("Need to update!!")
         return update.s()
 
