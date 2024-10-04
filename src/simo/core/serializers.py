@@ -416,11 +416,13 @@ class ComponentSerializer(FormSerializer):
             controller_uid=controller_uid, instance=instance,
             **kwargs
         )
+        # only masters and superusers can fully manage components via app
+        # others can only change basic fields
         if not self.context['request'].user.is_master:
             user_role = self.context['request'].user.get_role(
                 self.context['instance']
             )
-            if not user_role.is_superuser and user_role.is_owner:
+            if not user_role.is_superuser:
                 for field_name in list(form.fields.keys()):
                     if field_name not in form.basic_fields:
                         del form.fields[field_name]
