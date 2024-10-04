@@ -10,12 +10,16 @@ from simo.core.middleware import get_current_instance
 
 
 def additional_templates_context(request):
+    if not request.user.is_authenticated:
+        instances = Instance.objects.none()
+    else:
+        instances = request.user.instances
     ctx = {
         'hub_ip': get_self_ip(),
         'dynamic_settings': dynamic_settings,
         'current_version': pkg_resources.get_distribution('simo').version,
         'update_available': is_update_available(True),
-        'instances': request.user.instances,
+        'instances': instances,
         'current_instance': get_current_instance()
     }
 
