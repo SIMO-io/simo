@@ -1109,6 +1109,12 @@ class BlindsConfigForm(ColonelComponentForm):
         help_text="Time in seconds it takes for your blinds to go "
                   "from fully closed to fully open."
     )
+    close_duration = forms.FloatField(
+        label='Close duration', min_value=1, max_value=360000,
+        initial=30,
+        help_text="Time in seconds it takes for your blinds to go "
+                  "from fully open to fully closed."
+    )
     control_type = forms.ChoiceField(
         initial=0, required=True, choices=(
             ('hold', "Hold"), ('click', 'Click')

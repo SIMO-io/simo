@@ -7,7 +7,7 @@ from django.contrib.contenttypes.models import ContentType
 from simo.core.forms import HiddenField, BaseComponentForm
 from simo.core.models import Icon, Component
 from simo.core.controllers import (
-    BEFORE_SET, BinarySensor, NumericSensor, MultiSensor, Switch
+    BEFORE_SET, BinarySensor, NumericSensor, MultiSensor, Switch, Dimmer
 )
 from simo.core.widgets import PythonCode, LogOutputWidget
 from dal import autocomplete, forward
@@ -615,7 +615,9 @@ class ContourForm(forms.Form):
 
     name = forms.CharField()
     switch = forms.ModelChoiceField(
-        Component.objects.filter(base_type=Switch.base_type),
+        Component.objects.filter(
+            base_type__in=(Switch.base_type, Dimmer.base_type)
+        ),
         widget=autocomplete.ModelSelect2(
             url='autocomplete-component', attrs={'data-html': True},
             forward=(

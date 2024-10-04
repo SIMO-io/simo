@@ -424,12 +424,11 @@ class PWMOutput(FadeMixin, FleeDeviceMixin, BasicOutputMixin, BaseDimmer):
         return value
 
 
-
 class RGBLight(FleeDeviceMixin, BasicOutputMixin, BaseRGBWLight):
     config_form = ColonelRGBLightConfigForm
 
 
-class DualMotorValve(FleeDeviceMixin, BasicOutputMixin, BaseSwitch):
+class DualMotorValve(FleeDeviceMixin, BasicOutputMixin, BaseDimmer):
     gateway_class = FleetGatewayHandler
     config_form = DualMotorValveForm
     name = "Dual Motor Valve"
