@@ -16,7 +16,7 @@ def get_current_request():
 
 
 def introduce_instance(instance, request=None):
-    if request.user.is_authenticated \
+    if request and request.user.is_authenticated \
     and instance not in request.user.instances:
         return
     _thread_locals.instance = instance
