@@ -25,16 +25,20 @@ class ComponentPermissionInline(admin.TabularInline):
 
 @admin.register(PermissionsRole)
 class PermissionsRoleAdmin(admin.ModelAdmin):
-    list_display = 'name', 'instance', 'is_superuser', 'is_default'
+    list_display = 'name', 'is_superuser', 'is_default'
     search_fields = 'name',
-    list_filter = 'instance',
     inlines = ComponentPermissionInline,
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
         if request.user.is_master:
             return qs
-        return qs.filter(instance__in=request.user.instances)
+        return qs.filter(instance=request.instance)
+
+    def save_model(self, request, obj, form, change):
+        if not obj.id:
+            obj.instance = request.instance
+        obj.save()
 
     def get_fields(self, request, obj=None):
         if request.user.is_master:
@@ -49,7 +53,7 @@ class PermissionsRoleAdmin(admin.ModelAdmin):
 class InstanceUserInline(admin.TabularInline):
     model = InstanceUser
     extra = 0
-    readonly_fields = 'instance', 'at_home'
+    readonly_fields = 'at_home',
 
 
 @admin.register(User)
@@ -102,7 +106,7 @@ class UserAdmin(OrgUserAdmin):
         qs = super().get_queryset(request)
         if request.user.is_master:
             return qs
-        return qs.filter(instance_roles__instance__in=request.user.instances)
+        return qs.filter(instance_roles__instance=request.instance)
 
 
 from django.contrib.auth.models import Group
@@ -127,11 +131,9 @@ class UserDeviceLogInline(admin.ModelAdmin):
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
-        if request.user.is_master:
-            return qs
         return qs.filter(
-            user_device__user__role__instance__in=request.user.instances
-        )
+            user_device__users__roles__instance=request.instance
+        ).distinct()
 
 
 @admin.register(UserDevice)
@@ -144,9 +146,7 @@ class UserDeviceAdmin(admin.ModelAdmin):
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
-        if request.user.is_master:
-            return qs
-        return qs.filter(user__role__instance__in=request.user.instances)
+        return qs.filter(users__roles__instance=request.instance).distinct()
 
     def users_display(self, obj):
         return ', '.join([str(u) for u in obj.users.all()])
@@ -157,13 +157,12 @@ class UserDeviceAdmin(admin.ModelAdmin):
 @admin.register(InstanceInvitation)
 class InstanceInvitationAdmin(admin.ModelAdmin):
     list_display = (
-        'token', 'instance', 'from_user', 'to_email', 'role',
+        'token', 'from_user', 'to_email', 'role',
         'issue_date', 'taken_by', 'taken_date'
     )
     readonly_fields = (
         'token', 'issue_date', 'from_user', 'taken_by', 'taken_date'
     )
-    list_filter = 'instance',
 
     actions = ['send', ]
 
@@ -171,7 +170,7 @@ class InstanceInvitationAdmin(admin.ModelAdmin):
         qs = super().get_queryset(request)
         if request.user.is_master:
             return qs
-        return qs.filter(instance__in=request.user.instances)
+        return qs.filter(instance=request.instance)
 
     def send(self, request, queryset):
         invitations_sent = 0

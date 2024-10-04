@@ -2,6 +2,7 @@ import pytz
 import threading
 import re
 from django.utils import timezone
+from django.shortcuts import render
 
 
 _thread_locals = threading.local()
@@ -15,9 +16,13 @@ def get_current_request():
 
 
 def introduce_instance(instance, request=None):
+    if request.user.is_authenticated \
+    and instance not in request.user.instances:
+        return
     _thread_locals.instance = instance
     if request:
         request.session['instance_id'] = instance.id
+        request.instance = instance
 
 
 def get_current_instance(request=None):
@@ -51,6 +56,17 @@ def simo_router_middleware(get_response):
 def instance_middleware(get_response):
 
     def middleware(request):
+
+        if request.path.startswith('/admin'):
+            if not (request.user.is_authenticated and request.user.is_master):
+                return render(request, 'admin/msg_page.html', {
+                    'page_title': "You are not allowed in here",
+                    'msg': "Page you are trying to access is only for hub masters.",
+                    'suggestion': "Try switching your user to the one who has proper "
+                                  "rights to come here or ask for somebody who already has "
+                                  "master rights enable these rights for you."
+                })
+
         from simo.core.models import Instance
 
         instance = None

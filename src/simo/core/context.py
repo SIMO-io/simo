@@ -15,11 +15,11 @@ def additional_templates_context(request):
         'dynamic_settings': dynamic_settings,
         'current_version': pkg_resources.get_distribution('simo').version,
         'update_available': is_update_available(True),
-        'instances': Instance.objects.all(),
+        'instances': request.user.instances,
         'current_instance': get_current_instance()
     }
 
-    if request.path.endswith('/admin/'):
+    if request.path == '/admin/':
         ctx['todos'] = []
         for app_name, app in apps.app_configs.items():
             try:
