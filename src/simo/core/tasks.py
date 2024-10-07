@@ -92,6 +92,12 @@ def save_config(data):
             )
         except:
             pass
+        try:
+            subprocess.run(
+                ['service', 'openvpn', 'reload']
+            )
+        except:
+            pass
 
     if vpn_change:
         threading.Thread(target=restart_openvpn).start()

@@ -58,7 +58,7 @@ def instance_middleware(get_response):
     def middleware(request):
 
         if request.path.startswith('/admin'):
-            if not (request.user.is_authenticated and request.user.is_master):
+            if request.user.is_authenticated and not request.user.is_master:
                 return render(request, 'admin/msg_page.html', {
                     'page_title': "You are not allowed in here",
                     'msg': "Page you are trying to access is only for hub masters.",
