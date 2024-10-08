@@ -539,6 +539,14 @@ class Dimmer(ControllerBase, TimerMixin, OnOffPokerMixin):
     default_value = 0
     default_value_units = '%'
 
+    def _receive_from_device(self, value, *args, **kwargs):
+        if isinstance(value, bool):
+            if value:
+                value = self.component.config.get('max', 100.0)
+            else:
+                value = self.component.config.get('min', 0)
+        return super()._receive_from_device(value, *args, **kwargs)
+
     def _prepare_for_send(self, value):
         if isinstance(value, bool):
             if value:
@@ -577,7 +585,6 @@ class Dimmer(ControllerBase, TimerMixin, OnOffPokerMixin):
             self.turn_off()
         else:
             self.turn_on()
-
 
 
 class DimmerPlus(ControllerBase, TimerMixin, OnOffPokerMixin):
