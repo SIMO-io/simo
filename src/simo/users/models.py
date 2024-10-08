@@ -295,7 +295,6 @@ class User(AbstractBaseUser, SimoAdminMixin):
                     )
                 ])
             cache.set(cache_key, instances, 10)
-        print("INSTANCES: ", instances)
         return instances
 
     @property
@@ -306,7 +305,7 @@ class User(AbstractBaseUser, SimoAdminMixin):
 
     @property
     def is_active(self):
-        if self._instance:
+        if not self._instance:
             cache_key = f'user-{self.id}_is_active'
         else:
             cache_key = f'user-{self.id}_is_active_instance-{self._instance.id}'
