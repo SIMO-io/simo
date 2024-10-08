@@ -14,17 +14,24 @@ from django.template.loader import render_to_string
 from celeryc import celery_app
 from django.utils import timezone
 from actstream.models import Action
-from easy_thumbnails.files import get_thumbnailer
 from simo.conf import dynamic_settings
 from simo.core.utils.helpers import get_self_ip
 from simo.users.models import PermissionsRole, InstanceUser
 from .models import Instance, Component, ComponentHistory, HistoryAggregate
 
 
+@celery_app.task
 def supervisor_restart():
     time.sleep(2)
     subprocess.run(['redis-cli', 'flushall'])
     subprocess.run(['supervisorctl', 'restart', 'all'])
+
+
+@celery_app.task
+def hardware_reboot():
+    time.sleep(2)
+    print("Reboot system")
+    subprocess.run(['reboot'])
 
 
 def save_config(data):

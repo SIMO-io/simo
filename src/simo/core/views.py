@@ -1,6 +1,4 @@
 import time
-import threading
-import subprocess
 import re
 from django.contrib.auth.decorators import login_required
 from django.urls import reverse
@@ -9,7 +7,7 @@ from django.http import HttpResponse, Http404, JsonResponse
 from django.contrib import messages
 from simo.conf import dynamic_settings
 from .models import Instance
-from .tasks import update as update_task, supervisor_restart
+from .tasks import update as update_task, supervisor_restart, hardware_reboot
 from .middleware import introduce_instance
 
 
@@ -21,7 +19,7 @@ def update(request):
     if not request.user.is_superuser:
         raise Http404()
     messages.warning(request, "Hub update initiated. ")
-    threading.Thread(target=update_task).start()
+    update_task.delay()
     if request.META.get('HTTP_REFERER'):
         return redirect(request.META.get('HTTP_REFERER'))
     return redirect(reverse('admin:index'))
@@ -35,7 +33,7 @@ def restart(request):
         request, "Hub restart initiated. "
                  "Your hub will be out of operation for next few seconds."
     )
-    threading.Thread(target=supervisor_restart).start()
+    supervisor_restart.delay()
     if request.META.get('HTTP_REFERER'):
         return redirect(request.META.get('HTTP_REFERER'))
     return redirect(reverse('admin:index'))
@@ -50,13 +48,7 @@ def reboot(request):
         request,
         "Hub reboot initiated. Hub will be out of reach for a minute or two."
     )
-
-    def hardware_reboot():
-        time.sleep(2)
-        print("Reboot system")
-        subprocess.run(['reboot'])
-
-    threading.Thread(target=hardware_reboot).start()
+    hardware_reboot.delay()
     if request.META.get('HTTP_REFERER'):
         return redirect(request.META.get('HTTP_REFERER'))
     return redirect(reverse('admin:index'))
