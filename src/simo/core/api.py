@@ -646,8 +646,8 @@ class StatesViewSet(InstanceMixin, viewsets.GenericViewSet):
             self.instance, request.user
         ).filter(zone__instance=self.instance).values(
             'id', 'last_change', 'last_modified',
-            # 'arm_status', 'battery_level', 'alive', 'error_msg',
-            # 'value', 'meta'
+            'arm_status', 'battery_level', 'alive', 'error_msg',
+            'value', 'meta'
         )
         for vals in component_values:
             vals['last_change'] = datetime.datetime.timestamp(
