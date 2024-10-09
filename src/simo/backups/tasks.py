@@ -2,6 +2,7 @@ import os, subprocess, json, uuid, datetime, shutil
 from datetime import datetime, timezone
 from celeryc import celery_app
 from simo.conf import dynamic_settings
+from simo.core.utils.helpers import get_random_string
 
 
 @celery_app.task
@@ -9,7 +10,7 @@ def check_backups():
     '''
     syncs up backups on external medium to the database
     '''
-    from .models import Backup
+    from simo.backups.models import Backup, BackupLog
 
     try:
         lv_group, lv_name, mountpoint = get_partitions()
@@ -35,38 +36,39 @@ def check_backups():
                 continue
             for filename in os.listdir(os.path.join(hub_dir, month_folder)):
                 try:
-                    day, time, back = filename.split('.')
+                    day, time, level, back = filename.split('.')
                     hour, minute, second = time.split('-')
-                    day, hour, minute, second = \
-                        int(day), int(hour), int(minute), int(second)
+                    day, hour, minute, second, level = \
+                        int(day), int(hour), int(minute), int(second), int(level)
                 except:
                     continue
 
+                filepath = os.path.join(hub_dir, month_folder, filename)
+                file_stats = os.stat(filepath)
                 obj, new = Backup.objects.update_or_create(
                     datetime=datetime(
                         year, month, day, hour, minute, second,
                         tzinfo=timezone.utc
                     ), mac=hub_mac, defaults={
-                        'filepath': os.path.join(
-                            hub_dir, month_folder, filename
-                        )
+                        'filepath': filepath, 'level': level,
+                        'size': file_stats.st_size
                     }
                 )
                 backups_mentioned.append(obj.id)
 
     Backup.objects.all().exclude(id__in=backups_mentioned).delete()
 
-    dynamic_settings['backups__last_check'] = datetime.now()
+    dynamic_settings['backups__last_check'] = int(datetime.now().timestamp())
 
 
 def create_snap(lv_group, lv_name):
     try:
         return subprocess.check_output(
-            f'lvcreate -s -n {lv_name}-snap {lv_group}/{lv_name} -L 3G',
+            f'lvcreate -s -n {lv_name}-snap {lv_group}/{lv_name} -L 5G',
             shell=True
         ).decode()
     except:
-        return ''
+        return
 
 
 def get_lvm_partition(lsblk_data):
@@ -93,6 +95,7 @@ def get_backup_device(lsblk_data):
 
 
 def get_partitions():
+    from simo.backups.models import BackupLog
 
     lsblk_data = json.loads(subprocess.check_output(
         'lsblk --output NAME,HOTPLUG,MOUNTPOINT,FSTYPE,TYPE,LABEL,PARTLABEL  --json',
@@ -104,7 +107,9 @@ def get_partitions():
     lvm_partition = get_lvm_partition(lsblk_data)
     if not lvm_partition:
         print("No LVM partition!")
-        dynamic_settings['backups__last_error'] = 'No LVM partition!'
+        BackupLog.objects.create(
+            level='warning', msg="Can't backup. No LVM partition!"
+        )
         return
 
     try:
@@ -114,14 +119,17 @@ def get_partitions():
         lv_name = name[split_at + 1:].replace('--', '-')
     except:
         print("Failed to identify LVM partition")
-        dynamic_settings['backups__last_error'] = \
-            'Failed to identify LVM partition'
+        BackupLog.objects.create(
+            level='warning', msg="Can't backup. Failed to identify LVM partition."
+        )
         return
 
     if not lv_name:
         print("LVM was not found on this system. Abort!")
-        dynamic_settings['backups__last_error'] = \
-            'Failed to identify LVM partition name'
+        BackupLog.objects.create(
+            level='warning',
+            msg="Can't backup. Failed to identify LVM partition name."
+        )
         return
 
 
@@ -130,8 +138,10 @@ def get_partitions():
     backup_device = get_backup_device(lsblk_data)
 
     if not backup_device:
-        dynamic_settings['backups__last_error'] = \
-            'No external exFAT backup device on this machine'
+        BackupLog.objects.create(
+            level='warning',
+            msg="Can't backup. No external exFAT backup device on this machine."
+        )
         return
 
     if lvm_partition.get('partlabel'):
@@ -159,18 +169,21 @@ def get_partitions():
 
 @celery_app.task
 def perform_backup():
-
+    from simo.backups.models import BackupLog
     try:
         lv_group, lv_name, mountpoint = get_partitions()
     except:
         return
 
     output = create_snap(lv_group, lv_name)
-    if not output:
-        subprocess.check_output(
-            f'lvremove -f {lv_group}/{lv_name}-snap',
-            shell=True
-        )
+    if not output or f'Logical volume "{lv_name}-snap" created' not in output:
+        try:
+            subprocess.check_output(
+                f'lvremove -f {lv_group}/{lv_name}-snap',
+                shell=True
+            )
+        except:
+            pass
         output = create_snap(lv_group, lv_name)
 
     if f'Logical volume "{lv_name}-snap" created' not in output:
@@ -183,7 +196,7 @@ def perform_backup():
     if not os.path.exists(device_backups_path):
         os.makedirs(device_backups_path)
 
-    now = datetime.datetime.now()
+    now = datetime.now()
     level = now.day
     month_folder = os.path.join(
         device_backups_path, f'{now.year}-{now.month}'
@@ -213,7 +226,7 @@ def perform_backup():
             level = 0
 
     time_mark = now.strftime("%H-%M-%S")
-    backup_file = f"{month_folder}/{now.day}.{time_mark}.back"
+    backup_file = f"{month_folder}/{now.day}.{time_mark}.{level}.back"
     snap_mapper = f"/dev/mapper/{lv_group}-{lv_name.replace('-', '--')}--snap"
     label = f"simo {now.strftime('%Y-%m-%d')}"
     dumpdates_file = os.path.join(month_folder, 'dumpdates')
@@ -253,6 +266,9 @@ def perform_backup():
     except:
         try:
             os.remove(backup_file)
+            BackupLog.objects.create(
+                level='error', msg="Can't backup. Dump failed."
+            )
             print("Dump failed!")
         except:
             pass
@@ -263,7 +279,67 @@ def perform_backup():
     )
     if success:
         print("DONE!")
-        dynamic_settings['backups__last_error'] = ''
+        BackupLog.objects.create(
+            level='info', msg="Backup success!"
+        )
+
+
+@celery_app.task
+def restore_backup(backup_id):
+    from simo.backups.models import Backup, BackupLog
+    backup = Backup.objects.get(id=backup_id)
+
+    try:
+        lv_group, lv_name, mpt = get_partitions()
+    except:
+        BackupLog.objects.create(
+            level='error',
+            msg="Can't restore. LVM group is not present on this machine."
+        )
+        return
+
+    snap_name = f'{lv_name}-{get_random_string(5)}'
+    output = create_snap(lv_group, snap_name)
+    if not output or f'Logical volume "{lv_name}-snap" created' not in output:
+        BackupLog.objects.create(
+            level='error',
+            msg="Can't restore. Can't create LVM snapshot\n\n" + output
+        )
+        return
+
+    if not os.path.exists('/var/backups/simo-main'):
+        os.makedirs('/var/backups/simo-main')
+
+    subprocess.call('umount /var/backup/simo-main', shell=True)
+
+    subprocess.call('rm -rf /var/backup/simo-main/*', shell=True)
+
+    subprocess.call(
+        f"mount /dev/mapper/{lv_group}-{snap_name.replace('-', '--')} /var/backup/simo-main",
+        shell=True, stdout=subprocess.PIPE
+    )
+    try:
+        subprocess.call(
+            f"restore -C -v -b 1024 -f {backup.filepath} -D /var/backup/simo-main",
+            shell=True
+        )
+        subprocess.call(
+            f"lvconvert --mergesnapshot {lv_group}/{snap_name}",
+            shell=True
+        )
+    except Exception as e:
+        BackupLog.objects.create(
+            level='error',
+            msg="Can't restore. \n\n" + str(e)
+        )
+        subprocess.call('umount /var/backup/simo-main', shell=True)
+        subprocess.call(
+            f"lvremove -f {lv_group}/{snap_name}", shell=True,
+            stdout=subprocess.PIPE
+        )
+    else:
+        print("All good! REBOOT!")
+        subprocess.call('reboot')
 
 
 @celery_app.on_after_finalize.connect

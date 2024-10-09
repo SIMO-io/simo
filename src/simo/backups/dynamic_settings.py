@@ -8,13 +8,6 @@ backups = Section('backups')
 
 
 @global_preferences_registry.register
-class LastBackupError(StringPreference):
-    section = backups
-    name = 'last_error'
-    default = ''
-
-
-@global_preferences_registry.register
 class LastBackupCheck(IntegerPreference):
     section = backups
     name = 'last_check'

@@ -65,6 +65,7 @@ INSTALLED_APPS = [
     'bootstrap4',
     'taggit',
     'actstream',
+    'django_object_actions',
 
     'simo.core',
     'simo.users',

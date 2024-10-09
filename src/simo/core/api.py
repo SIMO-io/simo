@@ -262,13 +262,11 @@ class ComponentViewSet(
     def controller(self, request, pk=None, *args, **kwargs):
         start = time.time()
         component = self.get_object()
-        print(f"Component retrieved in : {time.time() - start}s")
         data = request.data
         if not isinstance(request.data, dict):
             data = data.dict()
         request_data = restore_json(data)
         resp = self.perform_controller_method(request_data, component)
-        print(f"Command executed in : {time.time() - start}s")
         return resp
 
     @action(detail=False, methods=['post'])
@@ -358,8 +356,6 @@ class ComponentHistoryViewSet(InstanceMixin, viewsets.ReadOnlyModelViewSet):
                     days=days_to_to_detract, hours=start_from.hour,
                     minutes=start_from.minute, seconds=start_from.second
                 )
-
-            print("START FROM: ", start_from)
 
             return RESTResponse(
                 self.get_aggregated_data(
