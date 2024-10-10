@@ -1,4 +1,4 @@
-import os, subprocess, json, uuid, datetime, shutil
+import os, subprocess, json, uuid, datetime, shutil, pytz
 from datetime import datetime, timezone
 from celeryc import celery_app
 from simo.conf import dynamic_settings
@@ -13,12 +13,12 @@ def check_backups():
     from simo.backups.models import Backup, BackupLog
 
     try:
-        lv_group, lv_name, mountpoint = get_partitions()
+        lv_group, lv_name, sd_mountpoint = get_partitions()
     except:
         return Backup.objects.all().delete()
 
 
-    backups_dir = os.path.join(mountpoint, 'simo_backups')
+    backups_dir = os.path.join(sd_mountpoint, 'simo_backups')
     if not os.path.exists(backups_dir):
         return Backup.objects.all().delete()
 
@@ -34,24 +34,25 @@ def check_backups():
                 year, month = int(year), int(month)
             except:
                 continue
-            for filename in os.listdir(os.path.join(hub_dir, month_folder)):
-                try:
-                    day, time, level, back = filename.split('.')
-                    hour, minute, second = time.split('-')
-                    day, hour, minute, second, level = \
-                        int(day), int(hour), int(minute), int(second), int(level)
-                except:
-                    continue
 
-                filepath = os.path.join(hub_dir, month_folder, filename)
-                file_stats = os.stat(filepath)
+            month_folder_path = os.path.join(hub_dir, month_folder)
+            res = subprocess.run(
+                f"borg list {month_folder_path} --json",
+                shell=True, stdout=subprocess.PIPE
+            )
+            try:
+                archives = json.loads(res.stdout.decode())['archives']
+            except Exception as e:
+                continue
+
+            for archive in archives:
+                make_datetime = datetime.fromisoformat(archive['start'])
+                make_datetime = make_datetime.replace(tzinfo=pytz.UTC)
+                filepath = f"{month_folder_path}::{archive['name']}"
+
                 obj, new = Backup.objects.update_or_create(
-                    datetime=datetime(
-                        year, month, day, hour, minute, second,
-                        tzinfo=timezone.utc
-                    ), mac=hub_mac, defaults={
-                        'filepath': filepath, 'level': level,
-                        'size': file_stats.st_size
+                    datetime=make_datetime, mac=hub_mac, defaults={
+                        'filepath': f"{month_folder_path}::{archive['name']}",
                     }
                 )
                 backups_mentioned.append(obj.id)
@@ -61,14 +62,80 @@ def check_backups():
     dynamic_settings['backups__last_check'] = int(datetime.now().timestamp())
 
 
-def create_snap(lv_group, lv_name):
+def clean_backup_snaps(lv_group, lv_name):
+    res = subprocess.run(
+        'lvs --report-format json', shell=True, stdout=subprocess.PIPE
+    )
+    lvs_data = json.loads(res.stdout.decode())
+    for volume in lvs_data['report'][0]['lv']:
+        if volume['vg_name'] != lv_group:
+            continue
+        if volume['origin'] != lv_name:
+            continue
+        if not volume['lv_name'].startswith(f"{lv_name}-bk-"):
+            continue
+        subprocess.run(
+            f"lvremove -f {lv_group}/{volume['lv_name']}", shell=True
+        )
+
+
+
+def create_snap(lv_group, lv_name, snap_name=None, size=None, try_no=1):
+    '''
+    :param lv_group:
+    :param lv_name:
+    :param snap_name: random snap name will be generated if not provided
+    :param size: Size in GB. If not provided, maximum available space in lvm will be used.
+    :return: snap_name
+    '''
+    if not snap_name:
+        snap_name = f"{lv_name}-bk-{get_random_string(5)}"
+
+    clean_backup_snaps(lv_group, lv_name)
+
+    res = subprocess.run(
+        'vgs --report-format json', shell=True, stdout=subprocess.PIPE
+    )
     try:
-        return subprocess.check_output(
-            f'lvcreate -s -n {lv_name}-snap {lv_group}/{lv_name} -L 5G',
-            shell=True
-        ).decode()
+        vgs_data = json.loads(res.stdout.decode())
+        free_space = vgs_data['report'][0]['vg'][0]['vg_free']
     except:
-        return
+        if try_no < 3:
+            clean_backup_snaps(lv_group, lv_name)
+            return create_snap(lv_group, lv_name, snap_name, size, try_no+1)
+        raise Exception("Unable to find free space on LVM!")
+
+    if not free_space.lower().endswith('g'):
+        if try_no < 3:
+            clean_backup_snaps(lv_group, lv_name)
+            return create_snap(lv_group, lv_name, snap_name, size, try_no+1)
+        raise Exception("Not enough free space on LVM!")
+
+    free_space = int(float(
+        vgs_data['report'][0]['vg'][0]['vg_free'].strip('g').strip('<')
+    ))
+
+    if not size:
+        size = free_space
+    else:
+        if size > free_space:
+            if try_no < 3:
+                clean_backup_snaps(lv_group, lv_name)
+                return create_snap(lv_group, lv_name, snap_name, size, try_no + 1)
+            raise Exception(
+                f"There's only {free_space}G available on LVM, "
+                f"but you asked for {size}G"
+            )
+
+    res = subprocess.run(
+        f'lvcreate -s -n {snap_name} {lv_group}/{lv_name} -L {size}G',
+        shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+    )
+    if res.returncode:
+        raise Exception(res.stderr)
+
+    return snap_name
+
 
 
 def get_lvm_partition(lsblk_data):
@@ -145,140 +212,131 @@ def get_partitions():
         return
 
     if lvm_partition.get('partlabel'):
-        mountpoint = f"/media/{backup_device['partlabel']}"
+        sd_mountpoint = f"/media/{backup_device['partlabel']}"
     elif lvm_partition.get('label'):
-        mountpoint = f"/media/{backup_device['label']}"
+        sd_mountpoint = f"/media/{backup_device['label']}"
     else:
-        mountpoint = f"/media/{backup_device['name']}"
+        sd_mountpoint = f"/media/{backup_device['name']}"
 
-    if not os.path.exists(mountpoint):
-        os.makedirs(mountpoint)
+    if not os.path.exists(sd_mountpoint):
+        os.makedirs(sd_mountpoint)
 
-    if backup_device.get('mountpoint') != mountpoint:
+    if backup_device.get('mountpoint') != sd_mountpoint:
 
         if backup_device.get('mountpoint'):
             subprocess.call(f"umount {backup_device['mountpoint']}", shell=True)
 
         subprocess.call(
-            f'mount /dev/{backup_device["name"]} {mountpoint}', shell=True,
+            f'mount /dev/{backup_device["name"]} {sd_mountpoint}', shell=True,
             stdout=subprocess.PIPE
         )
 
-    return lv_group, lv_name, mountpoint
+    return lv_group, lv_name, sd_mountpoint
 
 
 @celery_app.task
 def perform_backup():
     from simo.backups.models import BackupLog
     try:
-        lv_group, lv_name, mountpoint = get_partitions()
+        lv_group, lv_name, sd_mountpoint = get_partitions()
     except:
         return
 
-    output = create_snap(lv_group, lv_name)
-    if not output or f'Logical volume "{lv_name}-snap" created' not in output:
-        try:
-            subprocess.check_output(
-                f'lvremove -f {lv_group}/{lv_name}-snap',
-                shell=True
-            )
-        except:
-            pass
-        output = create_snap(lv_group, lv_name)
+    snap_mount_point = '/var/backups/simo-main'
+    subprocess.run(f'umount {snap_mount_point}', shell=True)
 
-    if f'Logical volume "{lv_name}-snap" created' not in output:
-        print(output)
-        print(f"Unable to create {lv_name}-snap.")
+    try:
+        snap_name = create_snap(lv_group, lv_name)
+    except Exception as e:
+        print("Error creating temporary snap\n" + str(e))
+        BackupLog.objects.create(
+            level='error',
+            msg="Backup error. Unable to create temporary snap\n" + str(e)
+        )
         return
 
+    shutil.rmtree(snap_mount_point, ignore_errors=True)
+    os.makedirs(snap_mount_point)
+    subprocess.run([
+        "mount",
+         f"/dev/mapper/{lv_group}-{snap_name.replace('-', '--')}",
+         snap_mount_point
+    ])
+
     mac = str(hex(uuid.getnode()))
-    device_backups_path = f'{mountpoint}/simo_backups/hub-{mac}'
-    if not os.path.exists(device_backups_path):
-        os.makedirs(device_backups_path)
+    device_backups_path = f'{sd_mountpoint}/simo_backups/hub-{mac}'
+
 
     now = datetime.now()
-    level = now.day
     month_folder = os.path.join(
         device_backups_path, f'{now.year}-{now.month}'
     )
     if not os.path.exists(month_folder):
         os.makedirs(month_folder)
-        level = 0
-
-    if level != 0:
-        # check if level 0 exists
-        level_0_exists = False
-        for filename in os.listdir(month_folder):
-            if '-' not in filename:
-                continue
-            try:
-                level, date = filename.split('-')
-                level = int(level)
-                if level == 0:
-                    level_0_exists = True
-                    break
-            except:
-                continue
-        if not level_0_exists:
-            print("Level 0 does not exist! Backups must be started from 0!")
+        subprocess.run(
+            f'borg init --encryption=none {month_folder}', shell=True
+        )
+    else:
+        res = subprocess.run(
+            f'borg info --json {month_folder}',
+            shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        )
+        if res.returncode:
             shutil.rmtree(month_folder)
-            os.makedirs(month_folder)
-            level = 0
+            subprocess.run(
+                f'borg init --encryption=none {month_folder}', shell=True
+            )
 
-    time_mark = now.strftime("%H-%M-%S")
-    backup_file = f"{month_folder}/{now.day}.{time_mark}.{level}.back"
-    snap_mapper = f"/dev/mapper/{lv_group}-{lv_name.replace('-', '--')}--snap"
-    label = f"simo {now.strftime('%Y-%m-%d')}"
-    dumpdates_file = os.path.join(month_folder, 'dumpdates')
+    exclude_dirs = (
+        'tmp', 'lost+found', 'proc', 'cdrom', 'dev', 'mnt', 'sys', 'run',
+        'var/tmp', 'var/cache', 'var/log', 'media',
+    )
+    backup_command = 'borg create --compression lz4'
+    for dir in exclude_dirs:
+        backup_command += f' --exclude={dir}'
 
-    estimated_size = int(subprocess.check_output(
-        f'dump -{level} -Squz9 -b 1024 {snap_mapper}',
-        shell=True
-    )) * 0.5
 
-    folders = []
+    other_month_folders = []
     for item in os.listdir(device_backups_path):
         if not os.path.isdir(os.path.join(device_backups_path, item)):
             continue
+        if os.path.join(device_backups_path, item) == month_folder:
+            continue
         try:
             year, month = item.split('-')
-            folders.append([
+            other_month_folders.append([
                 os.path.join(device_backups_path, item),
                 int(year) * 12 + int(month)
             ])
         except:
             continue
-    folders.sort(key=lambda v: v[1])
+    other_month_folders.sort(key=lambda v: v[1])
 
-    # delete old backups to free up space required for this backup to take place
-    while shutil.disk_usage('/media/backup').free < estimated_size:
-        remove_folder = folders.pop()[0]
-        print(f"REMOVE: {remove_folder}")
-        shutil.rmtree(remove_folder)
+    if other_month_folders:
+        # delete old backups to free up at least 20G of space
+        while shutil.disk_usage('/media/backup').free < 20 * 1024 * 1024 * 1024:
+            remove_folder = other_month_folders.pop()[0]
+            print(f"REMOVE: {remove_folder}")
+            shutil.rmtree(remove_folder)
 
-    success = False
-    try:
-        subprocess.check_call(
-            f'dump -{level} -quz9 -b 1024 -L "{label}" -D {dumpdates_file} -f {backup_file} {snap_mapper}',
-            shell=True,
-        )
-        success = True
-    except:
-        try:
-            os.remove(backup_file)
-            BackupLog.objects.create(
-                level='error', msg="Can't backup. Dump failed."
-            )
-            print("Dump failed!")
-        except:
-            pass
-
-    subprocess.call(
-        f"lvremove -f {lv_group}/{lv_name}-snap", shell=True,
-        stdout=subprocess.PIPE
+    backup_command += f' {month_folder}::{get_random_string()} .'
+    res = subprocess.run(
+        backup_command, shell=True, cwd=snap_mount_point,
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE
     )
-    if success:
-        print("DONE!")
+
+    subprocess.run(["umount", snap_mount_point])
+    subprocess.run(
+        f"lvremove -f {lv_group}/{snap_name}", shell=True
+    )
+
+    if res.returncode:
+        print("Backup error!")
+        BackupLog.objects.create(
+            level='error', msg="Backup error: \n" + res.stderr.decode()
+        )
+    else:
+        print("Backup done!")
         BackupLog.objects.create(
             level='info', msg="Backup success!"
         )
@@ -290,7 +348,7 @@ def restore_backup(backup_id):
     backup = Backup.objects.get(id=backup_id)
 
     try:
-        lv_group, lv_name, mpt = get_partitions()
+        lv_group, lv_name, sd_mountpoint = get_partitions()
     except:
         BackupLog.objects.create(
             level='error',
@@ -298,51 +356,59 @@ def restore_backup(backup_id):
         )
         return
 
-    snap_name = f'{lv_name}-{get_random_string(5)}'
-    output = create_snap(lv_group, snap_name)
-    if not output or f'Logical volume "{lv_name}-snap" created' not in output:
-        BackupLog.objects.create(
-            level='error',
-            msg="Can't restore. Can't create LVM snapshot\n\n" + output
-        )
-        return
+    snap_mount_point = '/var/backups/simo-main'
+    subprocess.run(f'umount {snap_mount_point}', shell=True)
 
-    if not os.path.exists('/var/backups/simo-main'):
-        os.makedirs('/var/backups/simo-main')
-
-    subprocess.call('umount /var/backup/simo-main', shell=True)
-
-    subprocess.call('rm -rf /var/backup/simo-main/*', shell=True)
-
-    subprocess.call(
-        f"mount /dev/mapper/{lv_group}-{snap_name.replace('-', '--')} /var/backup/simo-main",
-        shell=True, stdout=subprocess.PIPE
-    )
     try:
-        subprocess.call(
-            f"restore -C -v -b 1024 -f {backup.filepath} -D /var/backup/simo-main",
-            shell=True
-        )
-        subprocess.call(
-            f"lvconvert --mergesnapshot {lv_group}/{snap_name}",
-            shell=True
-        )
+        snap_name = create_snap(lv_group, lv_name)
     except Exception as e:
+        print("Error creating temporary snap\n" + str(e))
         BackupLog.objects.create(
             level='error',
             msg="Can't restore. \n\n" + str(e)
         )
-        subprocess.call('umount /var/backup/simo-main', shell=True)
-        subprocess.call(
-            f"lvremove -f {lv_group}/{snap_name}", shell=True,
-            stdout=subprocess.PIPE
+        return
+
+    shutil.rmtree(snap_mount_point, ignore_errors=True)
+    os.makedirs(snap_mount_point)
+    subprocess.run([
+        "mount",
+        f"/dev/mapper/{lv_group}-{snap_name.replace('-', '--')}",
+        snap_mount_point
+    ])
+
+    # delete current contents of a snap
+    print("Delete original files and folders")
+    for f in os.listdir(snap_mount_point):
+        shutil.rmtree(os.path.join(snap_mount_point, f), ignore_errors=True)
+
+    print("Perform restoration")
+    res = subprocess.run(
+        f"borg extract {backup.filepath}", shell=True, cwd=snap_mount_point,
+        stderr=subprocess.PIPE
+    )
+
+    subprocess.run(["umount", snap_mount_point])
+    subprocess.run(
+        f"lvremove -f {lv_group}/{snap_name}", shell=True
+    )
+
+    if res.returncode:
+        BackupLog.objects.create(
+            level='error',
+            msg="Can't restore. \n\n" + res.stderr.decode()
         )
     else:
-        print("All good! REBOOT!")
-        subprocess.call('reboot')
+        print("Restore successful! Merge snapshot and reboot!")
+        subprocess.call(
+            f"lvconvert --mergesnapshot {lv_group}/{snap_name}",
+            shell=True
+        )
+        subprocess.run('reboot', shell=True)
 
 
 @celery_app.on_after_finalize.connect
 def setup_periodic_tasks(sender, **kwargs):
     sender.add_periodic_task(60 * 60, check_backups.s())
-    sender.add_periodic_task(60 * 60 * 8, perform_backup.s()) # perform auto backup every 8 hours
+    # perform auto backup every 12 hours
+    sender.add_periodic_task(60 * 60 * 12, perform_backup.s())

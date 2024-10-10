@@ -7,10 +7,10 @@ from .models import Backup, BackupLog
 
 @admin.register(Backup)
 class BackupAdmin(DjangoObjectActions, admin.ModelAdmin):
-    list_display = 'datetime', 'device', 'level', 'size_display'
-    fields = 'datetime', 'device', 'level', 'size_display', 'filepath'
-    readonly_fields = 'datetime', 'device', 'level', 'size_display', 'filepath'
-    list_filter = 'datetime', 'mac', 'level'
+    list_display = 'datetime', 'device', 'filepath'
+    fields = 'datetime', 'device', 'filepath'
+    readonly_fields = 'datetime', 'device', 'filepath'
+    list_filter = 'datetime', 'mac',
     actions = 'restore',
     changelist_actions = ('backup',)
 
@@ -22,16 +22,6 @@ class BackupAdmin(DjangoObjectActions, admin.ModelAdmin):
 
     def has_delete_permission(self, request, obj=None):
         return False
-
-    def size_display(self, obj):
-        if obj.size > 1024 * 1024 * 1024 * 1024:
-            return f'{round(obj.size / (1024 * 1024 * 1024), 2)} Gb'
-        elif obj.size > 1024 * 1024 * 1024:
-            return f'{round(obj.size / (1024 * 1024), 2)} Mb'
-        elif obj.size > 1024 * 1024:
-            return f'{round(obj.size / (1024 * 1024), 2)} Kb'
-        return f'{obj.size} bytes'
-    size_display.short_description = 'size'
 
     def restore(self, request, queryset):
         if queryset.count() > 1:
@@ -69,6 +59,7 @@ class BackupAdmin(DjangoObjectActions, admin.ModelAdmin):
 @admin.register(BackupLog)
 class BackupLogAdmin(admin.ModelAdmin):
     fields = 'datetime', 'level', 'msg'
+    list_display = fields
     readonly_fields = fields
     list_fields = fields
     list_filter = 'datetime', 'level'

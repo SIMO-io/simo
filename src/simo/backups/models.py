@@ -6,12 +6,9 @@ class Backup(models.Model):
     datetime = models.DateTimeField(db_index=True)
     mac = models.CharField(max_length=100, db_index=True)
     filepath = models.CharField(max_length=200)
-    level = models.IntegerField(default=0, db_index=True)
-    size = models.IntegerField(default=0)
 
     class Meta:
         unique_together = 'datetime', 'mac'
-        ordering = 'datetime',
 
     @property
     def device(self):
@@ -26,6 +23,3 @@ class BackupLog(models.Model):
         ('info', "INFO"), ('warning', "WARNING"), ('error', "ERROR")
     ))
     msg = models.TextField()
-
-    class Meta:
-        ordering = 'datetime',
