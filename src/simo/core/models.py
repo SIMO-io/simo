@@ -517,11 +517,13 @@ def is_in_alarm(self):
                 actor.last_action = timezone.now()
                 actor.save()
 
-            if any(
-                f in dirty_fields for f in
-                ['value', 'arm_status', 'battery_level', 'alive', 'meta']
-            ):
+            changing_fields = ['value', 'arm_status', 'battery_level', 'alive', 'meta']
+            if any(f in dirty_fields for f in changing_fields):
                 self.last_change = timezone.now()
+                if 'update_fields' in kwargs \
+                and 'last_change' not in kwargs['update_fields']:
+                    kwargs['update_fields'].append('last_change')
+
 
             modifying_fields = (
                 'name', 'icon', 'zone', 'category', 'config', 'meta',
@@ -529,6 +531,9 @@ def is_in_alarm(self):
             )
             if any(f in dirty_fields for f in modifying_fields):
                 self.last_modified = timezone.now()
+                if 'update_fields' in kwargs \
+                and 'last_modified' not in kwargs['update_fields']:
+                    kwargs['update_fields'].append('last_modified')
 
         obj = super().save(*args, **kwargs)
 
