@@ -23,6 +23,12 @@ class BackupAdmin(DjangoObjectActions, admin.ModelAdmin):
     def has_delete_permission(self, request, obj=None):
         return False
 
+    def changelist_view(self, *args, **kwargs):
+        from .tasks import check_backups
+        check_backups()
+        return super().changelist_view(*args, **kwargs)
+
+
     def restore(self, request, queryset):
         if queryset.count() > 1:
             messages.add_message(

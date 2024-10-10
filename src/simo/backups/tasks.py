@@ -10,7 +10,7 @@ def check_backups():
     '''
     syncs up backups on external medium to the database
     '''
-    from simo.backups.models import Backup, BackupLog
+    from simo.backups.models import Backup
 
     try:
         lv_group, lv_name, sd_mountpoint = get_partitions()
