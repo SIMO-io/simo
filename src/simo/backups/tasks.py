@@ -1,5 +1,6 @@
 import os, subprocess, json, uuid, datetime, shutil, pytz
-from datetime import datetime, timezone
+from datetime import datetime, timedelta
+from django.utils import timezone
 from celeryc import celery_app
 from simo.conf import dynamic_settings
 from simo.core.utils.helpers import get_random_string
@@ -407,8 +408,17 @@ def restore_backup(backup_id):
         subprocess.run('reboot', shell=True)
 
 
+@celery_app.task
+def clean_old_logs():
+    from .models import BackupLog
+    BackupLog.objects.filter(
+        datetime__lt=timezone.now() - timedelta(days=90)
+    )
+
+
 @celery_app.on_after_finalize.connect
 def setup_periodic_tasks(sender, **kwargs):
     sender.add_periodic_task(60 * 60, check_backups.s())
     # perform auto backup every 12 hours
     sender.add_periodic_task(60 * 60 * 12, perform_backup.s())
+    sender.add_periodic_task(60 * 60, clean_old_logs.s())
