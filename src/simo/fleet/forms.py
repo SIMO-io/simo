@@ -195,17 +195,15 @@ class ControlForm(forms.Form):
 
 
 class ColonelBinarySensorConfigForm(ColonelComponentForm):
-    pin = ColonelPinChoiceField(
+    pin = Select2ModelChoiceField(
         label='Port',
         queryset=ColonelPin.objects.filter(input=True),
-        widget=autocomplete.ListSelect2(
-            url='autocomplete-colonel-pins',
-            forward=[
-                forward.Self(),
-                forward.Field('colonel'),
-                forward.Const({'input': True}, 'filters')
-            ]
-        )
+        url='autocomplete-colonel-pins',
+        forward=[
+            forward.Self(),
+            forward.Field('colonel'),
+            forward.Const({'input': True}, 'filters')
+        ]
     )
     inverse = forms.TypedChoiceField(
         choices=((1, "Yes"), (0, "No")), coerce=int, initial=1,
@@ -283,17 +281,15 @@ class ColonelBinarySensorConfigForm(ColonelComponentForm):
 
 
 class ColonelButtonConfigForm(ColonelComponentForm):
-    pin = ColonelPinChoiceField(
+    pin = Select2ModelChoiceField(
         label="Port",
         queryset=ColonelPin.objects.filter(input=True),
-        widget=autocomplete.ListSelect2(
-            url='autocomplete-colonel-pins',
-            forward=[
-                forward.Self(),
-                forward.Field('colonel'),
-                forward.Const({'input': True}, 'filters')
-            ]
-        )
+        url='autocomplete-colonel-pins',
+        forward=[
+            forward.Self(),
+            forward.Field('colonel'),
+            forward.Const({'input': True}, 'filters')
+        ]
     )
     action_method = forms.ChoiceField(
         label="Action method", initial='down',
@@ -322,19 +318,17 @@ class ColonelButtonConfigForm(ColonelComponentForm):
 
 
 class ColonelNumericSensorConfigForm(ColonelComponentForm, NumericSensorForm):
-    pin = ColonelPinChoiceField(
+    pin = Select2ModelChoiceField(
         label="Port",
         queryset=ColonelPin.objects.filter(adc=True, input=True, native=True),
-        widget=autocomplete.ListSelect2(
-            url='autocomplete-colonel-pins',
-            forward=[
-                forward.Self(),
-                forward.Field('colonel'),
-                forward.Const(
-                    {'adc': True, 'native': True, 'input': True}, 'filters'
-                )
-            ]
-        )
+        url='autocomplete-colonel-pins',
+        forward=[
+            forward.Self(),
+            forward.Field('colonel'),
+            forward.Const(
+                {'adc': True, 'native': True, 'input': True}, 'filters'
+            )
+        ]
     )
     attenuation = forms.TypedChoiceField(
         initial=0, coerce=int, choices=(
@@ -375,19 +369,17 @@ class ColonelNumericSensorConfigForm(ColonelComponentForm, NumericSensorForm):
 
 
 class DS18B20SensorConfigForm(ColonelComponentForm, NumericSensorForm):
-    pin = ColonelPinChoiceField(
+    pin = Select2ModelChoiceField(
         label="Port",
         queryset=ColonelPin.objects.filter(input=True, native=True),
-        widget=autocomplete.ListSelect2(
-            url='autocomplete-colonel-pins',
-            forward=[
-                forward.Self(),
-                forward.Field('colonel'),
-                forward.Const(
-                    {'native': True, 'input': True}, 'filters'
-                )
-            ]
-        )
+        url='autocomplete-colonel-pins',
+        forward=[
+            forward.Self(),
+            forward.Field('colonel'),
+            forward.Const(
+                {'native': True, 'input': True}, 'filters'
+            )
+        ]
     )
     read_frequency_s = forms.IntegerField(
         initial=60, min_value=1, max_value=60*60*24,
@@ -415,19 +407,17 @@ class DS18B20SensorConfigForm(ColonelComponentForm, NumericSensorForm):
 
 
 class ColonelDHTSensorConfigForm(ColonelComponentForm):
-    pin = ColonelPinChoiceField(
+    pin = Select2ModelChoiceField(
         label="Port",
         queryset=ColonelPin.objects.filter(input=True, native=True),
-        widget=autocomplete.ListSelect2(
-            url='autocomplete-colonel-pins',
-            forward=[
-                forward.Self(),
-                forward.Field('colonel'),
-                forward.Const(
-                    {'native': True, 'input': True}, 'filters'
-                )
-            ]
-        )
+        url='autocomplete-colonel-pins',
+        forward=[
+            forward.Self(),
+            forward.Field('colonel'),
+            forward.Const(
+                {'native': True, 'input': True}, 'filters'
+            )
+        ]
     )
     sensor_type = forms.TypedChoiceField(
         initial=11, coerce=int, choices=(
@@ -462,18 +452,16 @@ class ColonelDHTSensorConfigForm(ColonelComponentForm):
 
 
 class BME680SensorConfigForm(ColonelComponentForm):
-    interface = ColonelInterfacesChoiceField(
+    interface = Select2ModelChoiceField(
         queryset=Interface.objects.filter(type='i2c'),
-        widget=autocomplete.ListSelect2(
-            url='autocomplete-interfaces',
-            forward=[
-                forward.Self(),
-                forward.Field('colonel'),
-                forward.Const(
-                    {'type': 'i2c'}, 'filters'
-                )
-            ]
-        )
+        url='autocomplete-interfaces',
+        forward=[
+            forward.Self(),
+            forward.Field('colonel'),
+            forward.Const(
+                {'type': 'i2c'}, 'filters'
+            )
+        ]
     )
     i2c_address = forms.TypedChoiceField(
         coerce=int, initial=118,
@@ -511,18 +499,16 @@ class BME680SensorConfigForm(ColonelComponentForm):
 
 
 class MPC9808SensorConfigForm(ColonelComponentForm):
-    interface = ColonelInterfacesChoiceField(
+    interface = Select2ModelChoiceField(
         queryset=Interface.objects.filter(type='i2c'),
-        widget=autocomplete.ListSelect2(
-            url='autocomplete-interfaces',
-            forward=[
-                forward.Self(),
-                forward.Field('colonel'),
-                forward.Const(
-                    {'type': 'i2c'}, 'filters'
-                )
-            ]
-        )
+        url='autocomplete-interfaces',
+        forward=[
+            forward.Self(),
+            forward.Field('colonel'),
+            forward.Const(
+                {'type': 'i2c'}, 'filters'
+            )
+        ]
     )
     i2c_address = forms.TypedChoiceField(
         coerce=int, initial=24,
@@ -566,18 +552,16 @@ class MPC9808SensorConfigForm(ColonelComponentForm):
 
 
 class ENS160SensorConfigForm(ColonelComponentForm):
-    interface = ColonelInterfacesChoiceField(
+    interface = Select2ModelChoiceField(
         queryset=Interface.objects.filter(type='i2c'),
-        widget=autocomplete.ListSelect2(
-            url='autocomplete-interfaces',
-            forward=[
-                forward.Self(),
-                forward.Field('colonel'),
-                forward.Const(
-                    {'type': 'i2c'}, 'filters'
-                )
-            ]
-        )
+        url='autocomplete-interfaces',
+        forward=[
+            forward.Self(),
+            forward.Field('colonel'),
+            forward.Const(
+                {'type': 'i2c'}, 'filters'
+            )
+        ]
     )
     i2c_address = forms.TypedChoiceField(
         coerce=int, initial=83,
@@ -616,17 +600,15 @@ class ENS160SensorConfigForm(ColonelComponentForm):
 
 
 class ColonelTouchSensorConfigForm(ColonelComponentForm):
-    pin = ColonelPinChoiceField(
+    pin = Select2ModelChoiceField(
         label="Port",
         queryset=ColonelPin.objects.filter(input=True, capacitive=True),
-        widget=autocomplete.ListSelect2(
-            url='autocomplete-colonel-pins',
-            forward=[
-                forward.Self(),
-                forward.Field('colonel'),
-                forward.Const({'input': True, 'capacitive': True}, 'filters')
-            ]
-        )
+        url='autocomplete-colonel-pins',
+        forward=[
+            forward.Self(),
+            forward.Field('colonel'),
+            forward.Const({'input': True, 'capacitive': True}, 'filters')
+        ]
     )
     threshold = forms.IntegerField(
         min_value=0, max_value=999999999, required=False, initial=1000,
@@ -740,17 +722,15 @@ class ColonelSwitchConfigForm(ColonelComponentForm):
 
 
 class ColonelPWMOutputConfigForm(ColonelComponentForm):
-    output_pin = ColonelPinChoiceField(
+    output_pin = Select2ModelChoiceField(
         label="Port",
         queryset=ColonelPin.objects.filter(output=True),
-        widget=autocomplete.ListSelect2(
-            url='autocomplete-colonel-pins',
-            forward=[
-                forward.Self(),
-                forward.Field('colonel'),
-                forward.Const({'output': True}, 'filters')
-            ]
-        )
+        url='autocomplete-colonel-pins',
+        forward=[
+            forward.Self(),
+            forward.Field('colonel'),
+            forward.Const({'output': True}, 'filters')
+        ]
     )
     min = forms.FloatField(
         required=True, initial=0,
@@ -875,17 +855,15 @@ class ColonelPWMOutputConfigForm(ColonelComponentForm):
 
 
 class ColonelRGBLightConfigForm(ColonelComponentForm):
-    output_pin = ColonelPinChoiceField(
+    output_pin = Select2ModelChoiceField(
         label="Port",
         queryset=ColonelPin.objects.filter(output=True, native=True),
-        widget=autocomplete.ListSelect2(
-            url='autocomplete-colonel-pins',
-            forward=[
-                forward.Self(),
-                forward.Field('colonel'),
-                forward.Const({'output': True, 'native': True}, 'filters')
-            ]
-        )
+        url='autocomplete-colonel-pins',
+        forward=[
+            forward.Self(),
+            forward.Field('colonel'),
+            forward.Const({'output': True, 'native': True}, 'filters')
+        ]
     )
     num_leds = forms.IntegerField(
         label=_("Number of leds"), min_value=1, max_value=2000
@@ -998,17 +976,15 @@ class ColonelRGBLightConfigForm(ColonelComponentForm):
 
 
 class DualMotorValveForm(ColonelComponentForm):
-    open_pin = ColonelPinChoiceField(
+    open_pin = Select2ModelChoiceField(
         label="Open Relay Port",
         queryset=ColonelPin.objects.filter(output=True),
-        widget=autocomplete.ListSelect2(
-            url='autocomplete-colonel-pins',
-            forward=[
-                forward.Self(),
-                forward.Field('colonel'),
-                forward.Const({'output': True}, 'filters')
-            ]
-        )
+        url='autocomplete-colonel-pins',
+        forward=[
+            forward.Self(),
+            forward.Field('colonel'),
+            forward.Const({'output': True}, 'filters')
+        ]
     )
     open_action = forms.ChoiceField(
         choices=(('HIGH', "HIGH"), ('LOW', "LOW")),
@@ -1017,17 +993,15 @@ class DualMotorValveForm(ColonelComponentForm):
         required=True, min_value=0.01, max_value=1000000000,
         initial=2, help_text="Time in seconds to open."
     )
-    close_pin = ColonelPinChoiceField(
+    close_pin = Select2ModelChoiceField(
         label="Close Relay Port",
         queryset=ColonelPin.objects.filter(output=True),
-        widget=autocomplete.ListSelect2(
-            url='autocomplete-colonel-pins',
-            forward=[
-                forward.Self(),
-                forward.Field('colonel'),
-                forward.Const({'output': True}, 'filters')
-            ]
-        )
+        url='autocomplete-colonel-pins',
+        forward=[
+            forward.Self(),
+            forward.Field('colonel'),
+            forward.Const({'output': True}, 'filters')
+        ]
     )
     close_action = forms.ChoiceField(
         choices=(('HIGH', "HIGH"), ('LOW', "LOW")),
@@ -1064,32 +1038,28 @@ class DualMotorValveForm(ColonelComponentForm):
 
 
 class BlindsConfigForm(ColonelComponentForm):
-    open_pin = ColonelPinChoiceField(
+    open_pin = Select2ModelChoiceField(
         label="Open Relay Port",
         queryset=ColonelPin.objects.filter(output=True),
-        widget=autocomplete.ListSelect2(
-            url='autocomplete-colonel-pins',
-            forward=[
-                forward.Self(),
-                forward.Field('colonel'),
-                forward.Const({'output': True}, 'filters')
-            ]
-        )
+        url='autocomplete-colonel-pins',
+        forward=[
+            forward.Self(),
+            forward.Field('colonel'),
+            forward.Const({'output': True}, 'filters')
+        ]
     )
     open_action = forms.ChoiceField(
         choices=(('HIGH', "HIGH"), ('LOW', "LOW")),
     )
-    close_pin = ColonelPinChoiceField(
+    close_pin = Select2ModelChoiceField(
         label="Close Relay Port",
         queryset=ColonelPin.objects.filter(output=True),
-        widget=autocomplete.ListSelect2(
-            url='autocomplete-colonel-pins',
-            forward=[
-                forward.Self(),
-                forward.Field('colonel'),
-                forward.Const({'output': True}, 'filters')
-            ]
-        )
+        url='autocomplete-colonel-pins',
+        forward=[
+            forward.Self(),
+            forward.Field('colonel'),
+            forward.Const({'output': True}, 'filters')
+        ]
     )
     close_action = forms.ChoiceField(
         choices=(('HIGH', "HIGH"), ('LOW', "LOW")),
@@ -1212,29 +1182,25 @@ class BlindsConfigForm(ColonelComponentForm):
 
 
 class BurglarSmokeDetectorConfigForm(ColonelComponentForm):
-    power_pin = ColonelPinChoiceField(
+    power_pin = Select2ModelChoiceField(
         label="Power port",
         queryset=ColonelPin.objects.filter(output=True),
-        widget=autocomplete.ListSelect2(
-            url='autocomplete-colonel-pins',
-            forward=[
-                forward.Self(),
-                forward.Field('colonel'),
-                forward.Const({'output': True}, 'filters')
-            ]
-        )
+        url='autocomplete-colonel-pins',
+        forward=[
+            forward.Self(),
+            forward.Field('colonel'),
+            forward.Const({'output': True}, 'filters')
+        ]
     )
-    sensor_pin = ColonelPinChoiceField(
+    sensor_pin = Select2ModelChoiceField(
         label="Sensor port",
         queryset=ColonelPin.objects.filter(input=True),
-        widget=autocomplete.ListSelect2(
-            url='autocomplete-colonel-pins',
-            forward=[
-                forward.Self(),
-                forward.Field('colonel'),
-                forward.Const({'input': True}, 'filters')
-            ]
-        )
+        url='autocomplete-colonel-pins',
+        forward=[
+            forward.Self(),
+            forward.Field('colonel'),
+            forward.Const({'input': True}, 'filters')
+        ]
     )
     sensor_inverse = forms.TypedChoiceField(
         choices=((0, "No"), (1, "Yes")), coerce=int, initial=0,
@@ -1306,18 +1272,16 @@ class TTLockConfigForm(ColonelComponentForm):
 
 
 class DALIDeviceConfigForm(ColonelComponentForm):
-    interface = ColonelInterfacesChoiceField(
+    interface = Select2ModelChoiceField(
         queryset=Interface.objects.filter(type='dali'),
-        widget=autocomplete.ListSelect2(
-            url='autocomplete-interfaces',
-            forward=[
-                forward.Self(),
-                forward.Field('colonel'),
-                forward.Const(
-                    {'type': 'dali'}, 'filters'
-                )
-            ]
-        )
+        url='autocomplete-interfaces',
+        forward=[
+            forward.Self(),
+            forward.Field('colonel'),
+            forward.Const(
+                {'type': 'dali'}, 'filters'
+            )
+        ]
     )
 
     def clean_interface(self):
