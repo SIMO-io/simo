@@ -1010,6 +1010,12 @@ class DualMotorValveForm(ColonelComponentForm):
         required=True, min_value=0.01, max_value=1000000000,
         initial=10, help_text="Time in seconds to close."
     )
+    min = forms.FloatField(
+        label="Minimum displayed value", required=True, initial=0
+    )
+    max = forms.FloatField(
+        label="Maximum displayed value", required=True, initial=100
+    )
 
 
     def clean(self):

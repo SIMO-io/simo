@@ -460,6 +460,26 @@ class DualMotorValve(FleeDeviceMixin, BasicOutputMixin, BaseDimmer):
 
         self.component.save()
 
+    def _prepare_for_send(self, value):
+        conf = self.component.config
+        if value >= conf.get('max', 100):
+            value = conf.get('max', 100)
+        elif value < conf.get('min', 0):
+            value = conf.get('min', 0)
+        val_amplitude = conf.get('max', 100) - conf.get('min', 0)
+        return ((value - conf.get('min', 0)) / val_amplitude) * 100
+
+
+    def _prepare_for_set(self, value):
+        conf = self.component.config
+        if value > conf.get('max', 100):
+            value = conf.get('max', 100)
+        elif value < conf.get('min', 0.0):
+            value = conf.get('min', 0)
+        val_amplitude = conf.get('max', 100) - conf.get('min', 0)
+        return conf.get('min', 0) + (value / 100) * val_amplitude
+
+
 
 class Blinds(FleeDeviceMixin, BasicOutputMixin, GenericBlinds):
     gateway_class = FleetGatewayHandler
