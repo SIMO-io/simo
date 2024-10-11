@@ -311,7 +311,7 @@ def post_component_delete(sender, instance, *args, **kwargs):
                 comp, instance.config.get('da', 0), remove=True
             )
 
-    elif instance.controller.family == 'dali':
+    elif instance.controller and instance.controller.family == 'dali':
         colonel = Colonel.objects.filter(id=instance.config['colonel']).first()
         if colonel:
             GatewayObjectCommand(
