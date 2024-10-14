@@ -554,6 +554,10 @@ class SettingsViewSet(InstanceMixin, viewsets.GenericViewSet):
             zone__instance=self.instance,
             base_type='state-select', config__is_main=True
         ).first()
+        if main_state:
+            main_state = main_state.id
+        else:
+            main_state = None
 
         return RESTResponse({
             'hub_uid': dynamic_settings['core__hub_uid'],
