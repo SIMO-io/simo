@@ -91,7 +91,7 @@ class Colonel(DirtyFieldsMixin, models.Model):
                                  "and reset if a lot of data is being transmitted. "
                                  "Leave this off, unleess you know what you are doing!"
     )
-    pwm_frequency = models.IntegerField(default=1, choices=(
+    pwm_frequency = models.IntegerField(default=0, choices=(
         (0, "3kHz"), (1, "22kHz")
     ), help_text="Affects Ample Wall dimmer PWM output (dimmer) frequency")
 
