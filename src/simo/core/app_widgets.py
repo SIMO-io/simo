@@ -100,3 +100,8 @@ class LockWidget(BaseAppWidget):
     name = _("Lock")
     size = [2, 2]
 
+
+class AirQualityWidget(BaseAppWidget):
+    uid = 'air-quality'
+    name = _("Air Quality")
+    size = [2, 2]

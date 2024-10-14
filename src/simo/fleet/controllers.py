@@ -10,8 +10,7 @@ from simo.core.controllers import (
     Switch as BaseSwitch, Dimmer as BaseDimmer,
     MultiSensor as BaseMultiSensor, RGBWLight as BaseRGBWLight
 )
-from simo.conf import dynamic_settings
-from simo.core.app_widgets import NumericSensorWidget
+from simo.core.app_widgets import NumericSensorWidget, AirQualityWidget
 from simo.core.controllers import Lock, ControllerBase, SingleSwitchWidget
 from simo.core.utils.helpers import heat_index
 from simo.core.utils.serialization import (
@@ -239,6 +238,7 @@ class ENS160AirQualitySensor(FleeDeviceMixin, BaseMultiSensor):
     gateway_class = FleetGatewayHandler
     config_form = ENS160SensorConfigForm
     name = "ENS160 Air Quality Sensor (I2C)"
+    widget = AirQualityWidget
 
     default_value = [
         ["CO2", 0, "ppm"],
