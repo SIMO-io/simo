@@ -718,7 +718,7 @@ class StateSelectForm(BaseComponentForm):
         formset_factory(StateForm, can_delete=True, can_order=True, extra=0)
     )
     is_main = forms.BooleanField(
-        initial=False,
+        initial=False, required=False,
         help_text="Will be displayed in the app "
                   "right top corner for quick access."
     )
