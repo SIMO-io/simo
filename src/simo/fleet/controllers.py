@@ -238,7 +238,7 @@ class ENS160AirQualitySensor(FleeDeviceMixin, BaseMultiSensor):
     gateway_class = FleetGatewayHandler
     config_form = ENS160SensorConfigForm
     name = "ENS160 Air Quality Sensor (I2C)"
-    widget = AirQualityWidget
+    app_widget = AirQualityWidget
 
     default_value = [
         ["CO2", 0, "ppm"],
