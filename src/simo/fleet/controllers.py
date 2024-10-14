@@ -480,7 +480,6 @@ class DualMotorValve(FleeDeviceMixin, BasicOutputMixin, BaseDimmer):
         return conf.get('min', 0) + (value / 100) * val_amplitude
 
 
-
 class Blinds(FleeDeviceMixin, BasicOutputMixin, GenericBlinds):
     gateway_class = FleetGatewayHandler
     config_form = BlindsConfigForm

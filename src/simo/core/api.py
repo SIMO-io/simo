@@ -167,6 +167,12 @@ def get_components_queryset(instance, user):
     ).values('id').first()
     if main_alarm_group:
         c_ids.add(main_alarm_group['id'])
+    state = Component.objects.filter(
+        zone__instance=instance,
+        base_type='state-select', config__is_main=True
+    ).values('id').first()
+    if state:
+        c_ids.add(state)
 
     user_role = user.get_role(instance)
 
@@ -544,6 +550,11 @@ class SettingsViewSet(InstanceMixin, viewsets.GenericViewSet):
         if main_alarm_group:
             main_alarm_group_id = main_alarm_group.id
 
+        main_state = Component.objects.filter(
+            zone__instance=self.instance,
+            base_type='state-select', config__is_main=True
+        ).first()
+
         return RESTResponse({
             'hub_uid': dynamic_settings['core__hub_uid'],
             'instance_name': self.instance.name,
@@ -553,6 +564,7 @@ class SettingsViewSet(InstanceMixin, viewsets.GenericViewSet):
             'last_event': last_event,
             'weather_forecast': wf_comp_id,
             'main_alarm_group': main_alarm_group_id,
+            'main_state': main_state,
             # TODO: Remove these two when the app is updated for everybody.
             'remote_http': dynamic_settings['core__remote_http'],
             'local_http': 'https://%s' % get_self_ip(),

@@ -717,6 +717,19 @@ class StateSelectForm(BaseComponentForm):
     states = FormsetField(
         formset_factory(StateForm, can_delete=True, can_order=True, extra=0)
     )
+    is_main = forms.BooleanField(
+        initial=False,
+        help_text="Will be displayed in the app "
+                  "right top corner for quick access."
+    )
+
+    def save(self, commit=True):
+        if commit and self.cleaned_data['is_main']:
+            from .controllers import StateSelect
+            for c in Component.objects.filter(controller_uid=StateSelect.uid):
+                c.config['is_main'] = False
+                c.save()
+        return super().save(commit)
 
 
 class AlarmClockEventForm(forms.Form):
