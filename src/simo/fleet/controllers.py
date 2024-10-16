@@ -22,7 +22,7 @@ from .gateways import FleetGatewayHandler
 from .forms import (
     ColonelPinChoiceField,
     ColonelBinarySensorConfigForm, ColonelButtonConfigForm,
-    ColonelSwitchConfigForm, ColonelPWMOutputConfigForm,
+    ColonelSwitchConfigForm, ColonelPWMOutputConfigForm, DCDriverConfigForm,
     ColonelNumericSensorConfigForm, ColonelRGBLightConfigForm,
     ColonelDHTSensorConfigForm, DS18B20SensorConfigForm,
     BME680SensorConfigForm, MPC9808SensorConfigForm, ENS160SensorConfigForm,
@@ -386,42 +386,88 @@ class PWMOutput(FadeMixin, FleeDeviceMixin, BasicOutputMixin, BaseDimmer):
             value = conf.get('min', 0)
 
         if value >= conf.get('max', 100):
-            if conf.get('inverse'):
-                pwm_value = 0
-            else:
-                pwm_value = 1023
+            pwm_value = 0
+
         elif value <= conf.get('min', 100):
-            if conf.get('inverse'):
-                pwm_value = 1023
-            else:
-                pwm_value = 0
+            pwm_value = 1023
         else:
             val_amplitude = conf.get('max', 100) - conf.get('min', 0)
             val_relative = value / val_amplitude
-            pwm_amplitude = conf.get('duty_max', 1023) - conf.get('duty_min', 0.0)
-            pwm_value = conf.get('duty_min', 0.0) + pwm_amplitude * val_relative
 
-            if conf.get('inverse'):
-                pwm_value = conf.get('duty_max', 1023) - pwm_value + conf.get('duty_min')
+            duty_max = 1023 - (conf.get('device_min', 0) * 0.01 * 1023)
+            duty_min = conf.get('device_max', 100) * 0.01 * 1023
+
+            pwm_amplitude = duty_max - duty_min
+            pwm_value = duty_min + pwm_amplitude * val_relative
+
+            pwm_value = duty_max - pwm_value + duty_min
 
         return pwm_value
 
     def _prepare_for_set(self, pwm_value):
         conf = self.component.config
-        if pwm_value > conf.get('duty_max', 1023):
+        duty_max = 1023 - (conf.get('device_min', 0) * 0.01 * 1023)
+        duty_min = conf.get('device_max', 100) * 0.01 * 1023
+
+        if pwm_value > duty_max:
             value = conf.get('max', 100)
-        elif pwm_value < conf.get('duty_min', 0.0):
+        elif pwm_value < duty_min:
             value = conf.get('min', 0)
         else:
-            pwm_amplitude = conf.get('duty_max', 1023) - conf.get('duty_min', 0.0)
-            relative_value = (pwm_value - conf.get('duty_min', 0.0)) / pwm_amplitude
+            pwm_amplitude =duty_max - duty_min
+            relative_value = (pwm_value - duty_min) / pwm_amplitude
             val_amplitude = conf.get('max', 100) - conf.get('min', 0)
             value = conf.get('min', 0) + val_amplitude * relative_value
 
-        if self.component.config.get('inverse'):
-            value = conf.get('max', 100) - value + conf.get('min', 0)
+        value = conf.get('max', 100) - value + conf.get('min', 0)
 
-        return value
+        return round(value, 3)
+
+
+class DCDriver(FadeMixin, FleeDeviceMixin, BasicOutputMixin, BaseDimmer):
+    name = "0 - 24V DC Driver"
+    config_form = DCDriverConfigForm
+    default_value_units = 'V'
+
+    def _prepare_for_send(self, value):
+        conf = self.component.config
+        if value >= conf.get('max', 24):
+            value = conf.get('max', 24)
+        elif value < conf.get('min', 0):
+            value = conf.get('min', 0)
+
+        if value >= conf.get('max', 24):
+            pwm_value = 1023
+        elif value <= conf.get('min', 100):
+            pwm_value = 0
+        else:
+            val_amplitude = conf.get('max', 24) - conf.get('min', 0)
+            val_relative = value / val_amplitude
+
+            duty_max = conf.get('device_max', 24) / 24 * 1023
+            duty_min = conf.get('device_min', 0) / 24 * 1023
+
+            pwm_amplitude = duty_max - duty_min
+            pwm_value = duty_min + pwm_amplitude * val_relative
+
+        return pwm_value
+
+    def _prepare_for_set(self, pwm_value):
+        conf = self.component.config
+        duty_max = conf.get('device_max', 24) / 24 * 1023
+        duty_min = conf.get('device_min', 0) / 24 * 1023
+
+        if pwm_value > duty_max:
+            value = conf.get('max', 24)
+        elif pwm_value < duty_min:
+            value = conf.get('min', 0)
+        else:
+            pwm_amplitude = duty_max - duty_min
+            relative_value = (pwm_value - duty_min) / pwm_amplitude
+            val_amplitude = conf.get('max', 24) - conf.get('min', 0)
+            value = conf.get('min', 0) + val_amplitude * relative_value
+
+        return round(value, 3)
 
 
 class RGBLight(FleeDeviceMixin, BasicOutputMixin, BaseRGBWLight):

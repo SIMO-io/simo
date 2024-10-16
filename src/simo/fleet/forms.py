@@ -741,14 +741,21 @@ class ColonelPWMOutputConfigForm(ColonelComponentForm):
         help_text="Maximum component value"
     )
     value_units = forms.CharField(required=False)
-    duty_min = forms.IntegerField(
-        min_value=0, max_value=1023, required=True, initial=0,
-        help_text="Minumum PWM signal output duty (0 - 1023)"
+
+    device_min = forms.IntegerField(
+        label="Device minimum (%).",
+        help_text="Device will turn off once it reaches this internal value. "
+                  "Usually it is a good idea to "                  
+                  "set this somewhere in between of 5 - 15 %. ",
+        initial=10, min_value=0, max_value=100,
     )
-    duty_max = forms.IntegerField(
-        min_value=0, max_value=1023, required=True, initial=900,
-        help_text="Maximum PWM signal output duty (0 - 1023)"
+    device_max = forms.IntegerField(
+        label="Device maximum (%).",
+        help_text="Can be used to prevent reaching maximum values. "
+                  "Default is 100%",
+        initial=100, min_value=0, max_value=100,
     )
+
     turn_on_time = forms.IntegerField(
         min_value=0, max_value=60000, initial=1000,
         help_text="Turn on speed in ms. 1500 is a great quick default. "
@@ -762,9 +769,6 @@ class ColonelPWMOutputConfigForm(ColonelComponentForm):
     skew = forms.ChoiceField(
         initial='easeOutSine', choices=EASING_CHOICES,
         help_text="easeOutSine - offers most naturally looking effect."
-    )
-    inverse = forms.BooleanField(
-        label=_("Inverse dimmer signal"), required=False, initial=True
     )
     on_value = forms.FloatField(
         required=True, initial=100,
@@ -850,6 +854,71 @@ class ColonelPWMOutputConfigForm(ColonelComponentForm):
         if commit and self.cleaned_data.get('controls'):
             GatewayObjectCommand(
                 self.instance.gateway, obj, command='watch_buttons'
+            ).publish()
+        return obj
+
+
+class DCDriverConfigForm(ColonelComponentForm):
+    output_pin = Select2ModelChoiceField(
+        label="Port",
+        queryset=ColonelPin.objects.filter(output=True),
+        url='autocomplete-colonel-pins',
+        forward=[
+            forward.Self(),
+            forward.Field('colonel'),
+            forward.Const({'output': True}, 'filters')
+        ]
+    )
+    min = forms.FloatField(
+        required=True, initial=0,
+        help_text="Minimum component value displayed to the user."
+    )
+    max = forms.FloatField(
+        required=True, initial=24,
+        help_text="Maximum component value displayed to the user."
+    )
+    value_units = forms.CharField(required=False)
+
+    device_min = forms.FloatField(
+        label="Device minimum Voltage.",
+        help_text="This will be the lowest possible voltage value of a device.\n"
+                   "Don't forget to adjust your component min value accordingly "
+                   "if you change this.",
+        initial=0, min_value=0, max_value=24,
+    )
+    device_max = forms.IntegerField(
+        label="Device maximum Voltage.",
+        help_text="Can be set lower than it's natural maximum of 24V. \n"
+                  "Don't forget to adjust your component max value accordingly "
+                  "if you change this.",
+        initial=24, min_value=0, max_value=24,
+    )
+
+    def clean(self):
+        super().clean()
+        if 'output_pin' in self.cleaned_data:
+            self._clean_pin('output_pin')
+        return self.cleaned_data
+
+
+    def save(self, commit=True):
+        if 'output_pin' in self.cleaned_data:
+            self.instance.config['output_pin_no'] = self.cleaned_data['output_pin'].no
+
+        update_colonel = False
+        if not self.instance.pk:
+            update_colonel = True
+        elif 'output_pin' in self.changed_data:
+            update_colonel = True
+
+        obj = super().save(commit=commit)
+
+        if not update_colonel:
+            GatewayObjectCommand(
+                obj.gateway, self.cleaned_data['colonel'], id=obj.id,
+                command='call', method='update_config', args=[
+                    obj.controller._get_colonel_config()
+                ]
             ).publish()
         return obj
 
