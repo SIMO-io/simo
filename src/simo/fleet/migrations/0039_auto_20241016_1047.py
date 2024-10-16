@@ -9,7 +9,7 @@ def forwards_func(apps, schema_editor):
         duty_min = comp.config.get('duty_min', 0)
         duty_max = comp.config.get('duty_max', 1023)
         comp.config['device_min'] = int((1023 - duty_max) / 1023 * 100)
-        comp.config['device_max'] = int(duty_min / 1023 * 100)
+        comp.config['device_max'] = int(100 - (duty_min / 1023 * 100))
         comp.save()
 
 
