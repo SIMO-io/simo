@@ -387,7 +387,6 @@ class PWMOutput(FadeMixin, FleeDeviceMixin, BasicOutputMixin, BaseDimmer):
 
         if value >= conf.get('max', 100):
             pwm_value = 0
-
         elif value <= conf.get('min', 100):
             pwm_value = 1023
         else:
@@ -395,7 +394,7 @@ class PWMOutput(FadeMixin, FleeDeviceMixin, BasicOutputMixin, BaseDimmer):
             val_relative = value / val_amplitude
 
             duty_max = 1023 - (conf.get('device_min', 0) * 0.01 * 1023)
-            duty_min = conf.get('device_max', 100) * 0.01 * 1023
+            duty_min = 1023 - conf.get('device_max', 100) * 0.01 * 1023
 
             pwm_amplitude = duty_max - duty_min
             pwm_value = duty_min + pwm_amplitude * val_relative
@@ -407,7 +406,7 @@ class PWMOutput(FadeMixin, FleeDeviceMixin, BasicOutputMixin, BaseDimmer):
     def _prepare_for_set(self, pwm_value):
         conf = self.component.config
         duty_max = 1023 - (conf.get('device_min', 0) * 0.01 * 1023)
-        duty_min = conf.get('device_max', 100) * 0.01 * 1023
+        duty_min = 1023 - conf.get('device_max', 100) * 0.01 * 1023
 
         if pwm_value > duty_max:
             value = conf.get('max', 100)
