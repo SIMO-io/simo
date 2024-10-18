@@ -32,7 +32,8 @@ class ComponentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Component
         fields = (
-            'pk', 'name', 'icon', 'zone', 'category', 'base_type', 'config',
+            'pk', 'name', 'icon', 'zone', 'category', 'base_type',
+            'controller_uid', 'config',
             'meta', 'value', 'value_units', 'value_previous', 'alive',
             'battery_level', 'notes', 'alarm_category', 'arm_status'
         )
