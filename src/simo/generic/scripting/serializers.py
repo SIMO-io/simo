@@ -45,7 +45,7 @@ class ComponentSerializer(serializers.ModelSerializer):
     def get_value_previous(self, obj):
         if len(str(obj.value_previous)) > self.MAX_LENGTH:
             return str(obj.value_previous)[:self.MAX_LENGTH] + '...'
-        return obj.value
+        return obj.value_previous
 
     def get_meta(self, obj):
         if len(str(obj.meta)) > self.MAX_LENGTH:
