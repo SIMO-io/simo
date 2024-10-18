@@ -21,6 +21,9 @@ class CategorySerializer(serializers.ModelSerializer):
 
 class ComponentSerializer(serializers.ModelSerializer):
     '''Component serializer for AI scripts helper'''
+    value = serializers.SerializerMethodField()
+    meta = serializers.SerializerMethodField()
+    config = serializers.SerializerMethodField()
 
     class Meta:
         model = Component
@@ -29,6 +32,23 @@ class ComponentSerializer(serializers.ModelSerializer):
             'meta', 'value', 'value_units', 'value_previous', 'alive',
             'battery_level', 'notes', 'alarm_category', 'arm_status'
         )
+
+    def get_value(self, obj):
+        if len(str(obj.value)) > 1000:
+            return str(obj.value)[:1000] + '...'
+        return obj.value
+
+    def get_meta(self, obj):
+        if len(str(obj.meta)) > 1000:
+            return str(obj.meta)[:1000] + '...'
+        return obj.meta
+
+    def get_config(self, obj):
+        if len(str(obj.config)) > 1000:
+            return str(obj.config)[:1000] + '...'
+        return obj.config
+
+
 
 
 class UserSerializer(serializers.ModelSerializer):
