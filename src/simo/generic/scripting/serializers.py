@@ -21,7 +21,11 @@ class CategorySerializer(serializers.ModelSerializer):
 
 class ComponentSerializer(serializers.ModelSerializer):
     '''Component serializer for AI scripts helper'''
+
+    MAX_LENGTH = 500
+
     value = serializers.SerializerMethodField()
+    value_previous = serializers.SerializerMethodField()
     meta = serializers.SerializerMethodField()
     config = serializers.SerializerMethodField()
 
@@ -34,18 +38,23 @@ class ComponentSerializer(serializers.ModelSerializer):
         )
 
     def get_value(self, obj):
-        if len(str(obj.value)) > 1000:
-            return str(obj.value)[:1000] + '...'
+        if len(str(obj.value)) > self.MAX_LENGTH:
+            return str(obj.value)[:self.MAX_LENGTH] + '...'
+        return obj.value
+
+    def get_value_previous(self, obj):
+        if len(str(obj.value_previous)) > self.MAX_LENGTH:
+            return str(obj.value_previous)[:self.MAX_LENGTH] + '...'
         return obj.value
 
     def get_meta(self, obj):
-        if len(str(obj.meta)) > 1000:
-            return str(obj.meta)[:1000] + '...'
+        if len(str(obj.meta)) > self.MAX_LENGTH:
+            return str(obj.meta)[:self.MAX_LENGTH] + '...'
         return obj.meta
 
     def get_config(self, obj):
-        if len(str(obj.config)) > 1000:
-            return str(obj.config)[:1000] + '...'
+        if len(str(obj.config)) > self.MAX_LENGTH:
+            return str(obj.config)[:self.MAX_LENGTH] + '...'
         return obj.config
 
 
