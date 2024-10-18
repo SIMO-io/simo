@@ -38,18 +38,20 @@ class ComponentSerializer(serializers.ModelSerializer):
         )
 
     def get_value(self, obj):
-        if len(str(obj.value)) > self.MAX_LENGTH:
-            return str(obj.value)[:self.MAX_LENGTH] + '...'
+        if obj.base_type in ('weather-forecast', 'ip-camera'):
+            return 'SKIP'
+        if len(str(obj.value)) > 500:
+            return 'SKIP'
         return obj.value
 
     def get_meta(self, obj):
         if len(str(obj.meta)) > self.MAX_LENGTH:
-            return str(obj.meta)[:self.MAX_LENGTH] + '...'
+            return 'SKIP'
         return obj.meta
 
     def get_config(self, obj):
         if len(str(obj.config)) > self.MAX_LENGTH:
-            return str(obj.config)[:self.MAX_LENGTH] + '...'
+            return 'SKIP'
         return obj.config
 
 
