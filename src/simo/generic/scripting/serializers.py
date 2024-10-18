@@ -8,7 +8,7 @@ class ZoneSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Zone
-        fields = 'pk', 'name'
+        fields = 'id', 'name'
 
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -16,7 +16,7 @@ class CategorySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Category
-        fields = 'pk', 'name'
+        fields = 'id', 'name'
 
 
 class ComponentSerializer(serializers.ModelSerializer):
@@ -32,7 +32,7 @@ class ComponentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Component
         fields = (
-            'pk', 'name', 'icon', 'zone', 'category', 'base_type',
+            'id', 'name', 'icon', 'zone', 'category', 'base_type',
             'controller_uid', 'config',
             'meta', 'value', 'value_units', 'value_previous', 'alive',
             'battery_level', 'notes', 'alarm_category', 'arm_status'
@@ -72,7 +72,7 @@ class PermissionsRoleSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = PermissionsRole
-        fields = 'pk', 'name', 'is_owner', 'is_superuser'
+        fields = 'id', 'name', 'is_owner', 'is_superuser'
 
 
 class InstanceUserSerializer(serializers.ModelSerializer):
