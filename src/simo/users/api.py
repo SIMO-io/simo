@@ -188,6 +188,11 @@ class UserDeviceReport(InstanceMixin, viewsets.GenericViewSet):
             ).exclude(id=user_device.id).update(is_primary=False)
         user_device.save()
 
+        for iu in request.user.instance_roles.filter(is_active=True):
+            iu.last_seen_location = user_device.last_seen_location
+            iu.last_seen_location_datetime = user_device.last_seen
+            iu.save()
+
         request.user.last_seen_location = user_device.last_seen_location
         request.user.last_seen_location_datetime = user_device.last_seen
         request.user.save()

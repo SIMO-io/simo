@@ -92,7 +92,9 @@ def get_event_obj(payload, model_class=None, gateway=None):
 
 class OnChangeMixin:
 
+    _on_change_function = None
     on_change_fields = ('value', )
+    _mqtt_client = None
 
     def get_instance(self):
         # default for component

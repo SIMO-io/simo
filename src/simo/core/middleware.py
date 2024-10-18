@@ -36,6 +36,12 @@ def get_current_instance(request=None):
             del request.session['instance_id']
         else:
             introduce_instance(instance, request)
+
+    if not instance:
+        from .models import Instance
+        instance = Instance.objects.all().first()
+        if instance:
+            introduce_instance(instance)
     return instance
 
 

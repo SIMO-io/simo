@@ -375,7 +375,7 @@ class ComponentHistoryViewSet(InstanceMixin, viewsets.ReadOnlyModelViewSet):
         if not component.controller:
             return
 
-        history_display_example = component.controller.history_display([component.value])
+        history_display_example = component.controller._history_display([component.value])
         if not history_display_example:
             return None
 
@@ -399,9 +399,9 @@ class ComponentHistoryViewSet(InstanceMixin, viewsets.ReadOnlyModelViewSet):
                     values = []
                     for item in history_items:
                         values.append(item.value)
-                    val = component.controller.history_display(values)
+                    val = component.controller._history_display(values)
             else:
-                val = component.controller.history_display([])
+                val = component.controller._history_display([])
 
             if not val:
                 val = prev_val
@@ -431,7 +431,7 @@ class ComponentHistoryViewSet(InstanceMixin, viewsets.ReadOnlyModelViewSet):
             component=component, date__lt=start_from, type='value'
         ).order_by('date').last()
         if last_event:
-            prev_val = component.controller.history_display([last_event.value])
+            prev_val = component.controller._history_display([last_event.value])
         else:
             prev_val = history_display_example
 

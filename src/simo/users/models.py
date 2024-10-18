@@ -98,6 +98,12 @@ class InstanceUser(DirtyFieldsMixin, models.Model, OnChangeMixin):
     role = models.ForeignKey(PermissionsRole, on_delete=models.CASCADE)
     at_home = models.BooleanField(default=False, db_index=True)
     is_active = models.BooleanField(default=True, db_index=True)
+    last_seen_location = PlainLocationField(
+        zoom=7, null=True, blank=True, help_text="Sent by user mobile app"
+    )
+    last_seen_location_datetime = models.DateTimeField(
+        null=True, blank=True,
+    )
 
     objects = ActiveInstanceManager()
 
@@ -123,17 +129,18 @@ def post_instance_user_save(sender, instance, created, **kwargs):
         return
     from simo.core.events import ObjectChangeEvent
     dirty_fields = instance.get_dirty_fields()
-    if 'at_home' in dirty_fields:
+    if 'at_home' in dirty_fields or 'last_seen_location' in dirty_fields:
         def post_update():
-            if instance.at_home:
-                verb = 'came home'
-            else:
-                verb = 'left'
-            action.send(
-                instance.user, verb=verb,
-                instance_id=instance.instance.id,
-                action_type='user_presence', value=instance.at_home
-            )
+            if 'at_home' in dirty_fields:
+                if instance.at_home:
+                    verb = 'came home'
+                else:
+                    verb = 'left'
+                action.send(
+                    instance.user, verb=verb,
+                    instance_id=instance.instance.id,
+                    action_type='user_presence', value=instance.at_home
+                )
             ObjectChangeEvent(
                 instance.instance, instance,  dirty_fields=dirty_fields
             ).publish()

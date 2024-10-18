@@ -492,12 +492,7 @@ class ComponentSerializer(FormSerializer):
         raise serializers.ValidationError(form.errors)
 
     def get_controller_methods(self, obj):
-        c_methods = [m[0] for m in inspect.getmembers(
-            obj.controller, predicate=inspect.ismethod
-        ) if not m[0].startswith('_')]
-        if obj.alarm_category:
-            c_methods.extend(['arm', 'disarm'])
-        return c_methods
+        return obj.get_controller_methods()
 
     def get_info(self, obj):
         if obj.controller:

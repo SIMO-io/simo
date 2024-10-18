@@ -302,7 +302,7 @@ class ControllerBase(ABC):
             from .models import Component
             Component.objects.bulk_send(bulk_send_map)
 
-    def history_display(self, values):
+    def _history_display(self, values):
         assert type(values) in (list, tuple)
 
         if type(self.component.value) in (int, float):
@@ -445,7 +445,7 @@ class MultiSensor(ControllerBase):
                 ))
         return value
 
-    def history_display(self, values):
+    def _history_display(self, values):
         assert type(values) in (list, tuple)
 
         vectors = []

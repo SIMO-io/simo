@@ -406,8 +406,8 @@ def is_in_alarm(self):
 
     _controller_initiated = False
 
-    _mqtt_client = None
-    _on_change_function = None
+
+
     _obj_ct_id = 0
 
     class Meta:
@@ -585,6 +585,21 @@ def is_in_alarm(self):
         if not perm:
             return False
         return perm.write
+
+    def get_controller_methods(self):
+        c_methods = []
+        for m in inspect.getmembers(
+            self.controller, predicate=inspect.ismethod
+        ):
+            method = m[0]
+            if method.startswith('_'):
+                continue
+            if method in ('info', 'set'):
+                continue
+            c_methods.append(method)
+        if self.alarm_category:
+            c_methods.extend(['arm', 'disarm'])
+        return c_methods
 
 
 class ComponentHistory(models.Model):

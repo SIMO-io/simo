@@ -1,13 +1,13 @@
 from django.utils import timezone
 from suntime import Sun
-from simo.core.middleware import get_current_instance
+from simo.core.models import Instance
 
 
 class LocalSun(Sun):
 
     def __init__(self, instance=None):
         if not instance:
-            instance = get_current_instance()
+            instance = Instance.objects.all().first()
         coordinates = instance.location.split(',')
         try:
             lat = float(coordinates[0])
@@ -31,9 +31,5 @@ class LocalSun(Sun):
 
     def seconds_to_sunrise(self):
         return (self.get_sunrise_time() - timezone.now()).total_seconds()
-
-
-
-
 
 
