@@ -25,28 +25,22 @@ class ComponentSerializer(serializers.ModelSerializer):
     MAX_LENGTH = 500
 
     value = serializers.SerializerMethodField()
-    value_previous = serializers.SerializerMethodField()
     meta = serializers.SerializerMethodField()
     config = serializers.SerializerMethodField()
 
     class Meta:
         model = Component
         fields = (
-            'id', 'name', 'icon', 'zone', 'category', 'base_type',
-            'controller_uid', 'config',
-            'meta', 'value', 'value_units', 'value_previous', 'alive',
-            'battery_level', 'notes', 'alarm_category', 'arm_status'
+            'id', 'name', 'zone', 'category', 'base_type', 'controller_uid',
+            'config',
+            'meta', 'value', 'value_units', 'alive',
+            'alarm_category', 'arm_status', 'battery_level', 'notes',
         )
 
     def get_value(self, obj):
         if len(str(obj.value)) > self.MAX_LENGTH:
             return str(obj.value)[:self.MAX_LENGTH] + '...'
         return obj.value
-
-    def get_value_previous(self, obj):
-        if len(str(obj.value_previous)) > self.MAX_LENGTH:
-            return str(obj.value_previous)[:self.MAX_LENGTH] + '...'
-        return obj.value_previous
 
     def get_meta(self, obj):
         if len(str(obj.meta)) > self.MAX_LENGTH:
@@ -57,8 +51,6 @@ class ComponentSerializer(serializers.ModelSerializer):
         if len(str(obj.config)) > self.MAX_LENGTH:
             return str(obj.config)[:self.MAX_LENGTH] + '...'
         return obj.config
-
-
 
 
 class UserSerializer(serializers.ModelSerializer):
