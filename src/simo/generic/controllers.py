@@ -138,7 +138,7 @@ class Script(ControllerBase, TimerMixin):
                 content = F"Server error {response.status_code}: {soup.title.string}"
             return {'status': 'error', 'result': content}
 
-        return {'status': 'success', 'result': response.content}
+        return {'status': 'success', 'result': response.content.decode()}
 
 
 class PresenceLighting(Script):

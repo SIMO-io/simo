@@ -1,3 +1,4 @@
+import time
 from django import forms
 from django.forms import formset_factory
 from django.db.models import Q
@@ -35,7 +36,16 @@ class ScriptConfigForm(BaseComponentForm):
         initial=True, required=False,
         help_text="Restart the script if it fails. "
     )
-    code = forms.CharField(widget=PythonCode)
+    assistant_request = forms.CharField(
+        label="AI assistant request", required=False,
+        widget=forms.Textarea(
+            attrs={'placeholder': "Close the blind and turn on the main light in my living room when it get's dark."}
+        ),
+        help_text="Modifying this field will call for help from AI assistant. <br>"
+                  "Your code will be overridden with whatever AI assistant is able to produce based on your request.<br>"
+                  "AI assistant receives your current code version every time it's called."
+    )
+    code = forms.CharField(widget=PythonCode, required=False)
     log = forms.CharField(
         widget=forms.HiddenInput, required=False
     )
@@ -59,7 +69,7 @@ class ScriptConfigForm(BaseComponentForm):
         base_fields = (
             'id', 'gateway', 'base_type', 'name', 'icon', 'zone', 'category',
             'show_in_app', 'autostart', 'keep_alive',
-            'code', 'control', 'log'
+            'assistant_request', 'code', 'control', 'log'
         )
 
         fieldsets = [
@@ -70,6 +80,36 @@ class ScriptConfigForm(BaseComponentForm):
             }),
         ]
         return fieldsets
+
+    def clean(self):
+        if self.cleaned_data.get('assistant_request'):
+            if self.instance.pk:
+                org = Component.objects.get(pk=self.instance.pk)
+                call_assistant = org.config.get('assistant_request') \
+                                 != self.cleaned_data['assistant_request']
+            else:
+                call_assistant = True
+            if call_assistant:
+                resp = self.instance.ai_assistant(
+                    self.cleaned_data['assistant_request'],
+                    self.cleaned_data.get('code')
+                )
+                if resp['status'] == 'success':
+                    self.cleaned_data['code'] = resp['result']
+                elif resp['status'] == 'error':
+                    self.add_error('assistant_request', resp['result'])
+
+        return self.cleaned_data
+
+    def save(self, commit=True):
+        obj = super().save(commit)
+        if commit:
+            obj.controller.stop()
+            if self.cleaned_data.get('keep_alive') \
+            or self.cleaned_data.get('autostart'):
+                time.sleep(2)
+                obj.controller.start()
+        return obj
 
 
 class ConditionForm(forms.Form):
