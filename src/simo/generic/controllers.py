@@ -3,6 +3,7 @@ import threading
 import pytz
 import datetime
 import json
+import requests
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 from django.utils.functional import cached_property
@@ -16,6 +17,7 @@ from simo.core.events import GatewayObjectCommand
 from simo.core.models import RUN_STATUS_CHOICES_MAP, Component
 from simo.core.utils.helpers import get_random_string
 from simo.core.utils.operations import OPERATIONS
+from simo.core.middleware import get_current_instance
 from simo.core.controllers import (
     BEFORE_SEND, BEFORE_SET, ControllerBase,
     BinarySensor, NumericSensor, MultiSensor, Switch, Dimmer, DimmerPlus,
@@ -100,6 +102,25 @@ class Script(ControllerBase, TimerMixin):
             self.send('stop')
         else:
             self.send('start')
+
+    def ai_assistant(self, wish, current_code=None):
+        request_data = {
+            'hub_uid': dynamic_settings['core__hub_uid'],
+            'hub_secret': dynamic_settings['core__hub_secret'],
+            'instance': get_current_instance().uid,
+            'wish': wish, 'current_code': current_code,
+        }
+        try:
+            response = requests.get(
+                'https://simo.io/hubs/ai-assist/scripts/', json=request_data
+            )
+        except:
+            return {'status': 'error', 'result': "Connection error"}
+
+        if response.status_code != 200:
+            return {'status': 'error', 'result': response.content}
+
+        return {'status': 'success', 'result': response.content}
 
 
 class PresenceLighting(Script):
