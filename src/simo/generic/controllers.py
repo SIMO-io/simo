@@ -111,7 +111,7 @@ class Script(ControllerBase, TimerMixin):
             'wish': wish, 'current_code': current_code,
         }
         try:
-            response = requests.get(
+            response = requests.post(
                 'https://simo.io/hubs/ai-assist/scripts/', json=request_data
             )
         except:
