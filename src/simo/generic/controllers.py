@@ -135,11 +135,7 @@ class Script(ControllerBase, TimerMixin):
             if '<html' in content:
                 # Parse the HTML content
                 soup = BeautifulSoup(response.content, 'html.parser')
-                cleaned_content = ''
-                all_tags = soup.find_all()
-                for tag in all_tags:
-                    cleaned_content += f"{tag.get_text()}\n"
-                content = cleaned_content
+                content = F"{response.status_code}: {soup.title.string}"
             return {'status': 'error', 'result': content}
 
         return {'status': 'success', 'result': response.content}
