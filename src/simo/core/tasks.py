@@ -211,7 +211,11 @@ def sync_with_remote():
                 ).first()
                 if weather_component:
                     weather_component.track_history = False
-                    weather_component.controller.set(weather_forecast)
+                    weather_component.controller.set(
+                        weather_forecast.pop('current', None)
+                    )
+                    weather_component.meta['forecast'] = weather_forecast
+                    weather_component.save()
 
             for email, options in users_data.items():
 

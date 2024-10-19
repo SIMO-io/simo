@@ -3,11 +3,11 @@
        data-ws_url="{{ obj.get_socket_url|default_if_none:"" }}">
 <span style="
     width: 20px; height:20px;
-    background: url({% static 'weather_icons' %}/{{ obj.value.current.weather.0.icon }}@2x.png) center no-repeat;
+    background: url({% static 'weather_icons' %}/{{ obj.value.weather.0.icon }}@2x.png) center no-repeat;
     background-size: 150%;
     display: inline-block;
     position: relative;
     bottom: -4px;
 "></span>
- {{ obj.value.current.temp }}ᴼ {% if obj.zone.instance.units_of_measure == 'metric' %}C{% else %}F{% endif %}
+ {{ obj.value.temp }}ᴼ {% if obj.zone.instance.units_of_measure == 'metric' %}C{% else %}F{% endif %}
 </div>
