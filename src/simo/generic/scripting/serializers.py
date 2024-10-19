@@ -25,17 +25,29 @@ class ComponentSerializer(serializers.ModelSerializer):
     MAX_LENGTH = 500
 
     value = serializers.SerializerMethodField()
+    meta = serializers.SerializerMethodField()
+    config = serializers.SerializerMethodField()
 
     class Meta:
         model = Component
         fields = (
-            'id', 'name', 'zone', 'category', 'base_type',
-            'value', 'value_units'
+            'id', 'name', 'icon', 'zone', 'category', 'base_type',
+            'value', 'value_units', 'meta', 'config'
         )
 
     def get_value(self, obj):
         if obj.base_type in ('ip-camera', ):
             return 'SKIP'
+        if len(str(obj.value)) > self.MAX_LENGTH:
+            return 'SKIP'
+        return obj.value
+
+    def get_meta(self, obj):
+        if len(str(obj.value)) > self.MAX_LENGTH:
+            return 'SKIP'
+        return obj.value
+
+    def get_config(self, obj):
         if len(str(obj.value)) > self.MAX_LENGTH:
             return 'SKIP'
         return obj.value
