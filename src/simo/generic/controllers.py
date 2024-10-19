@@ -113,7 +113,7 @@ class Script(ControllerBase, TimerMixin):
             request_data = {
                 'hub_uid': dynamic_settings['core__hub_uid'],
                 'hub_secret': dynamic_settings['core__hub_secret'],
-                'instance': get_current_instance().uid,
+                'instance_uid': get_current_instance().uid,
                 'system_data': json.dumps(get_current_state()),
                 'wish': wish, 'current_code': current_code,
             }
@@ -135,7 +135,7 @@ class Script(ControllerBase, TimerMixin):
             if '<html' in content:
                 # Parse the HTML content
                 soup = BeautifulSoup(response.content, 'html.parser')
-                content = F"{response.status_code}: {soup.title.string}"
+                content = F"Server error {response.status_code}: {soup.title.string}"
             return {'status': 'error', 'result': content}
 
         return {'status': 'success', 'result': response.content}
