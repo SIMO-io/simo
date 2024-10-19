@@ -25,34 +25,20 @@ class ComponentSerializer(serializers.ModelSerializer):
     MAX_LENGTH = 500
 
     value = serializers.SerializerMethodField()
-    meta = serializers.SerializerMethodField()
-    config = serializers.SerializerMethodField()
 
     class Meta:
         model = Component
         fields = (
-            'id', 'name', 'zone', 'category', 'base_type', 'controller_uid',
-            'config',
-            'meta', 'value', 'value_units', 'alive',
-            'alarm_category', 'arm_status', 'battery_level', 'notes',
+            'id', 'name', 'zone', 'category', 'base_type',
+            'value', 'value_units'
         )
 
     def get_value(self, obj):
-        if obj.base_type in ('weather-forecast', 'ip-camera'):
+        if obj.base_type in ('ip-camera', ):
             return 'SKIP'
-        if len(str(obj.value)) > 500:
+        if len(str(obj.value)) > self.MAX_LENGTH:
             return 'SKIP'
         return obj.value
-
-    def get_meta(self, obj):
-        if len(str(obj.meta)) > self.MAX_LENGTH:
-            return 'SKIP'
-        return obj.meta
-
-    def get_config(self, obj):
-        if len(str(obj.config)) > self.MAX_LENGTH:
-            return 'SKIP'
-        return obj.config
 
 
 class UserSerializer(serializers.ModelSerializer):
