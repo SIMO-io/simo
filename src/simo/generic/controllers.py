@@ -131,15 +131,15 @@ class Script(ControllerBase, TimerMixin):
             return {'status': 'error', 'result': "Connection error"}
 
         if response.status_code != 200:
-            if b'<html' in response.content:
+            content = response.content.decode()
+            if '<html' in content:
                 # Parse the HTML content
                 soup = BeautifulSoup(response.content, 'html.parser')
-                content = ''
+                cleaned_content = ''
                 all_tags = soup.find_all()
                 for tag in all_tags:
-                    content += f"{tag.get_text()}\n"
-            else:
-                content = response.content
+                    cleaned_content += f"{tag.get_text()}\n"
+                content = cleaned_content
             return {'status': 'error', 'result': content}
 
         return {'status': 'success', 'result': response.content}
