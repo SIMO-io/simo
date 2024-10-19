@@ -6,6 +6,7 @@ import json
 import requests
 import traceback
 import sys
+from bs4 import BeautifulSoup
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 from django.utils.functional import cached_property
@@ -130,7 +131,16 @@ class Script(ControllerBase, TimerMixin):
             return {'status': 'error', 'result': "Connection error"}
 
         if response.status_code != 200:
-            return {'status': 'error', 'result': response.content}
+            if '<html' in response.content:
+                # Parse the HTML content
+                soup = BeautifulSoup(response.content, 'html.parser')
+                content = ''
+                all_tags = soup.find_all()
+                for tag in all_tags:
+                    content += f"{tag.get_text()}\n"
+            else:
+                content = response.content
+            return {'status': 'error', 'result': content}
 
         return {'status': 'success', 'result': response.content}
 
