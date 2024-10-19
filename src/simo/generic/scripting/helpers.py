@@ -33,5 +33,3 @@ class LocalSun(Sun):
         return (self.get_sunrise_time() - timezone.now()).total_seconds()
 
 
-
-

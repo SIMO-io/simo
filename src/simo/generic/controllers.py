@@ -4,6 +4,8 @@ import pytz
 import datetime
 import json
 import requests
+import traceback
+import sys
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 from django.utils.functional import cached_property
@@ -44,6 +46,8 @@ from .forms import (
     BlindsConfigForm, WateringConfigForm, StateSelectForm,
     AlarmClockConfigForm
 )
+from .scripting import get_current_state
+from .scripting.serializers import UserSerializer
 
 # ----------- Generic controllers -----------------------------
 
@@ -104,12 +108,20 @@ class Script(ControllerBase, TimerMixin):
             self.send('start')
 
     def ai_assistant(self, wish, current_code=None):
-        request_data = {
-            'hub_uid': dynamic_settings['core__hub_uid'],
-            'hub_secret': dynamic_settings['core__hub_secret'],
-            'instance': get_current_instance().uid,
-            'wish': wish, 'current_code': current_code,
-        }
+        try:
+            request_data = {
+                'hub_uid': dynamic_settings['core__hub_uid'],
+                'hub_secret': dynamic_settings['core__hub_secret'],
+                'instance': get_current_instance().uid,
+                'system_data': json.dumps(get_current_state()),
+                'wish': wish, 'current_code': current_code,
+            }
+        except Exception as e:
+            print(traceback.format_exc(), file=sys.stderr)
+            return {'status': 'error', 'result': f"Internal error: {e}"}
+        user = get_current_user()
+        if user:
+            request_data['current_user'] = UserSerializer(user, many=False).data
         try:
             response = requests.post(
                 'https://simo.io/hubs/ai-assist/scripts/', json=request_data
