@@ -131,7 +131,7 @@ class Script(ControllerBase, TimerMixin):
             return {'status': 'error', 'result': "Connection error"}
 
         if response.status_code != 200:
-            if '<html' in response.content:
+            if b'<html' in response.content:
                 # Parse the HTML content
                 soup = BeautifulSoup(response.content, 'html.parser')
                 content = ''
