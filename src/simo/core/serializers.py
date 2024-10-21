@@ -320,7 +320,7 @@ class ComponentSerializer(FormSerializer):
             form_field = form[field_name]
 
             cls = form_field.field.__class__
-            if form_field.field.widget == forms.Textarea:
+            if isinstance(form_field.field.widget, forms.Textarea):
                 serializer_field_class = TextAreaSerializerField
             else:
                 try:
