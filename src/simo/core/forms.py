@@ -212,6 +212,8 @@ class ComponentAdminForm(forms.ModelForm):
     controller_type = None
     has_icon = True
     has_alarm = True
+    # do not allow modification via app of these fields
+    app_exclude_fields = []
 
     # fields that can be edited via SIMO.io app by instance owners.
     # Users who have is_owner enabled on their user role.

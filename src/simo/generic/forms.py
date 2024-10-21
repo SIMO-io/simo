@@ -37,18 +37,23 @@ class ScriptConfigForm(BaseComponentForm):
         help_text="Restart the script if it fails. "
     )
     assistant_request = forms.CharField(
-        label="AI assistant request", required=False,
+        label="Automation description for AI assistant", required=False,
         widget=forms.Textarea(
-            attrs={'placeholder': "Close the blind and turn on the main light in my living room when it get's dark."}
+            attrs={'placeholder':
+                    "Close the blind and turn on the main light "
+                    "in my living room when it get's dark."
+            }
         ),
-        help_text="Modifying this field will call for help from AI assistant. <br>"
-                  "Your code will be overridden with whatever AI assistant is able to produce based on your request.<br>"
-                  "AI assistant receives your current code version every time it's called."
+        help_text="SIMO.io AI generates new automation code, "
+                  "whenever this is changed. <br>"
+                  "Actual script code itself can only be changed via SIMO.io admin.",
     )
     code = forms.CharField(widget=PythonCode, required=False)
     log = forms.CharField(
         widget=forms.HiddenInput, required=False
     )
+
+    app_exclude_fields = ('code', 'log')
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

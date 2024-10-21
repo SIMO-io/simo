@@ -422,10 +422,11 @@ class ComponentSerializer(FormSerializer):
             user_role = self.context['request'].user.get_role(
                 self.context['instance']
             )
-            if not user_role.is_superuser:
-                for field_name in list(form.fields.keys()):
-                    if field_name not in form.basic_fields:
-                        del form.fields[field_name]
+            for field_name in list(form.fields.keys()):
+                if not user_role.is_superuser and field_name not in form.basic_fields:
+                    del form.fields[field_name]
+                elif field_name in form.app_exclude_fields:
+                    del form.fields[field_name]
 
         if form_key is not None:
             self.context['forms'][form_key] = form

@@ -52,8 +52,8 @@ from .scripting.serializers import UserSerializer
 
 # ----------- Generic controllers -----------------------------
 
+
 class Script(ControllerBase, TimerMixin):
-    masters_only = True
     name = _("Script")
     base_type = 'script'
     gateway_class = GenericGatewayHandler
