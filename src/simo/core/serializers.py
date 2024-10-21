@@ -428,7 +428,7 @@ class ComponentSerializer(FormSerializer):
                 continue
             if field_name in form.basic_fields:
                 continue
-            if self.context['request'].is_master or user_role.is_superuser:
+            if self.context['request'].user.is_master or user_role.is_superuser:
                 continue
             del form.fields[field_name]
 
