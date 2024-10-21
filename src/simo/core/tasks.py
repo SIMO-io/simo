@@ -384,15 +384,14 @@ def low_battery_notifications():
             zone__instance=instance,
             battery_level__isnull=False, battery_level__lt=20
         ):
-            users = User.objects.filter(
-                roles__is_owner=True, roles__instance=comp.zone.instance,
-                instance_roles__is_active=True
-            ).distinct()
-            if users:
+            iusers = comp.zone.instance.instance_users.filter(
+                is_active=True, role__is_owner=True
+            )
+            if iusers:
                 notify_users(
                     comp.zone.instance, 'warning',
                     f"Low battery ({comp.battery_level}%) on {comp}",
-                    component=comp, users=users
+                    component=comp, instance_users=iusers
                 )
 
 
