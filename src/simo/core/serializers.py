@@ -27,6 +27,8 @@ from .forms import ComponentAdminForm
 from .models import Category, Zone, Icon, ComponentHistory
 
 
+
+
 class TimestampField(serializers.Field):
 
     def to_representation(self, value):
@@ -318,7 +320,7 @@ class ComponentSerializer(FormSerializer):
             form_field = form[field_name]
 
             cls = form_field.field.__class__
-            if field_name == 'notes':
+            if form_field.field.widget == forms.Textarea:
                 serializer_field_class = TextAreaSerializerField
             else:
                 try:
@@ -416,17 +418,19 @@ class ComponentSerializer(FormSerializer):
             controller_uid=controller_uid, instance=instance,
             **kwargs
         )
-        # only masters and superusers can fully manage components via app
-        # others can only change basic fields
-        if not self.context['request'].user.is_master:
-            user_role = self.context['request'].user.get_role(
-                self.context['instance']
-            )
-            for field_name in list(form.fields.keys()):
-                if not user_role.is_superuser and field_name not in form.basic_fields:
-                    del form.fields[field_name]
-                elif field_name in form.app_exclude_fields:
-                    del form.fields[field_name]
+
+        user_role = self.context['request'].user.get_role(
+            self.context['instance']
+        )
+        for field_name in list(form.fields.keys()):
+            if field_name in form.app_exclude_fields:
+                del form.fields[field_name]
+                continue
+            if field_name in form.basic_fields:
+                continue
+            if self.context['request'].is_master or user_role.is_superuser:
+                continue
+            del form.fields[field_name]
 
         if form_key is not None:
             self.context['forms'][form_key] = form
