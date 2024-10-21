@@ -37,16 +37,21 @@ class ScriptConfigForm(BaseComponentForm):
         help_text="Restart the script if it fails. "
     )
     assistant_request = forms.CharField(
-        label="Automation description for AI assistant", required=False,
+        label="Request for AI assistant", required=False,
         widget=forms.Textarea(
             attrs={'placeholder':
                     "Close the blind and turn on the main light "
                     "in my living room when it get's dark."
             }
         ),
-        help_text="SIMO.io AI generates new automation code, "
-                  "whenever this is changed. <br>"
-                  "Actual script code itself can only be changed via SIMO.io admin.",
+        help_text="Clearly describe in your own words what kind of automation "
+                  "you want to happen with this scenario script. <br>"
+                  "The more defined, exact and clear is your description the more "
+                  "accurate automation script SIMO.io AI assistanw will generate.<br>"
+                  "Use component, zone and category id's for best accuracy. <br>"
+                  "SIMO.io AI will re-generate your automation code, "                  
+                  "every time this field is changed. <br>"
+                  "Actual script code can only be edited via SIMO.io Admin.",
     )
     code = forms.CharField(widget=PythonCode, required=False)
     log = forms.CharField(

@@ -54,7 +54,7 @@ from .scripting.serializers import UserSerializer
 
 
 class Script(ControllerBase, TimerMixin):
-    name = _("Script")
+    name = _("AI Script")
     base_type = 'script'
     gateway_class = GenericGatewayHandler
     app_widget = ScriptWidget
