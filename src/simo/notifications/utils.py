@@ -1,11 +1,11 @@
 from simo.users.models import User
+from simo.core.middleware import get_current_instance
 from .models import Notification, UserNotification
 
 
-def notify_users(instance, severity, title, body=None, component=None, users=None):
+def notify_users(severity, title, body=None, component=None, users=None, instance=None):
     '''
     Sends a notification to specified users with a given severity level and message details.
-    :param instance: simo.core.models.Instance instance
     :param severity: One of: 'info', 'warning', 'alarm'
     :param title: A short, descriptive title of the event.
     :param body: (Optional) A more detailed description of the event.
@@ -13,6 +13,16 @@ def notify_users(instance, severity, title, body=None, component=None, users=Non
     :param users: List of users to receive this notification. All active instance users will receive the message if not specified.
     :return:
     '''
+    if not instance:
+        if component:
+            instance = component.zone.instance
+        else:
+            instance = get_current_instance()
+    if not instance:
+        return
+    if component and component.zone.instance != instance:
+        # something is completely wrong!
+        return
     assert severity in ('info', 'warning', 'alarm')
     notification = Notification.objects.create(
         instance=instance,

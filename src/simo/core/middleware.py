@@ -30,7 +30,7 @@ def get_current_instance(request=None):
     if not instance and request and request.session.get('instance_id'):
         from simo.core.models import Instance
         instance = Instance.objects.filter(
-            id=request.session['instance_id']
+            id=request.session['instance_id'], is_active=True
         ).first()
         if not instance:
             del request.session['instance_id']
@@ -39,7 +39,7 @@ def get_current_instance(request=None):
 
     if not instance:
         from .models import Instance
-        instance = Instance.objects.all().first()
+        instance = Instance.objects.filter(is_active=True).first()
         if instance:
             introduce_instance(instance)
     return instance

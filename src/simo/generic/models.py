@@ -56,7 +56,6 @@ def handle_alarm_groups(sender, instance, *args, **kwargs):
                     )
                     from simo.notifications.utils import notify_users
                     notify_users(
-                        alarm_group_component.zone.instance,
                         'alarm', str(alarm_group_component), body,
                         component=alarm_group_component
                     )
