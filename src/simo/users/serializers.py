@@ -15,11 +15,6 @@ class UserSerializer(serializers.ModelSerializer):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        if isinstance(self.instance, Iterable):
-            for inst in self.instance:
-                inst.set_instance(self.context['instance'])
-        elif self.instance:
-            self.instance.set_instance(self.context['instance'])
 
     class Meta:
         model = User

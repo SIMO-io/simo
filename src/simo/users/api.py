@@ -63,9 +63,6 @@ class UsersViewSet(mixins.RetrieveModelMixin,
                 request.data.pop(key)
 
 
-        target_user.set_instance(self.instance)
-
-
         serializer = self.get_serializer(
             target_user, data=request.data, partial=partial
         )

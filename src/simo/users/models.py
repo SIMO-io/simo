@@ -22,6 +22,7 @@ from simo.conf import dynamic_settings
 from simo.core.utils.mixins import SimoAdminMixin
 from simo.core.utils.helpers import get_random_string
 from simo.core.events import OnChangeMixin
+from simo.core.middleware import get_current_instance
 from .middleware import get_current_user
 from .utils import rebuild_authorized_keys
 from .managers import ActiveInstanceManager
@@ -189,8 +190,6 @@ class User(AbstractBaseUser, SimoAdminMixin):
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['name']
 
-    _instance = None
-
     class Meta:
         verbose_name = _('user')
         verbose_name_plural = _('users')
@@ -213,11 +212,9 @@ class User(AbstractBaseUser, SimoAdminMixin):
         obj = super().save(*args, **kwargs)
 
         if org:
-            if org.can_ssh() != self.can_ssh():
+            if org.can_ssh() != self.can_ssh() or org.ssh_key != self.ssh_key:
                 rebuild_authorized_keys()
         elif self.can_ssh():
-            rebuild_authorized_keys()
-        elif org and org.ssh_key != self.ssh_key:
             rebuild_authorized_keys()
 
         if not org or (org.secret_key != self.secret_key):
@@ -237,7 +234,7 @@ class User(AbstractBaseUser, SimoAdminMixin):
             )
 
     def can_ssh(self):
-        return self.is_active and self.ssh_key and self.is_master
+        return self.is_active and self.is_master
 
     def get_role(self, instance):
         cache_key = f'user-{self.id}_instance-{instance.id}_role'
@@ -251,19 +248,17 @@ class User(AbstractBaseUser, SimoAdminMixin):
             cache.set(cache_key, role, 20)
         return role
 
-    def set_instance(self, instance):
-        self._instance = instance
-
     @property
     def role_id(self):
         '''Used by API serializer to get users role on a given instance.'''
-        if not self._instance:
+        instance = get_current_instance()
+        if not instance:
             return None
-        cache_key = f'user-{self.id}_instance-{self._instance.id}-role-id'
+        cache_key = f'user-{self.id}_instance-{instance.id}-role-id'
         cached_val = cache.get(cache_key, 'expired')
         if cached_val == 'expired':
             for role in self.roles.all().select_related('instance'):
-                if role.instance == self._instance:
+                if role.instance == instance:
                     cached_val = role.id
                     cache.set(cache_key, role.id, 20)
                     return cached_val
@@ -271,16 +266,17 @@ class User(AbstractBaseUser, SimoAdminMixin):
 
     @role_id.setter
     def role_id(self, id):
-        if not self._instance:
+        instance = get_current_instance()
+        if not instance:
             return
         role = PermissionsRole.objects.filter(
-            id=id, instance=self._instance
+            id=id, instance=instance
         ).first()
         if not role:
             raise ValueError("There is no such a role on this instance")
 
         InstanceUser.objects.update_or_create(
-            user=self, instance=self._instance, defaults={
+            user=self, instance=instance, defaults={
                 'role': role
             }
         )
@@ -312,20 +308,21 @@ class User(AbstractBaseUser, SimoAdminMixin):
 
     @property
     def is_active(self):
-        if not self._instance:
+        instance = get_current_instance()
+        if not instance:
             cache_key = f'user-{self.id}_is_active'
         else:
-            cache_key = f'user-{self.id}_is_active_instance-{self._instance.id}'
+            cache_key = f'user-{self.id}_is_active_instance-{instance.id}'
         cached_value = cache.get(cache_key, 'expired')
         if cached_value == 'expired':
             if self.is_master and not self.instance_roles.all():
                 # Master who have no roles on any instance are in GOD mode!
                 # It can not be disabled by anybody, nor it is seen by anybody. :)
                 cached_value = True
-            elif self._instance:
+            elif instance:
                 cached_value = bool(
                     self.instance_roles.filter(
-                        instance=self._instance, is_active=True
+                        instance=instance, is_active=True
                     ).first()
                 )
             else:
@@ -338,13 +335,14 @@ class User(AbstractBaseUser, SimoAdminMixin):
 
     @is_active.setter
     def is_active(self, val):
-        if not self._instance:
+        instance = get_current_instance()
+        if not instance:
             return
 
         self.instance_roles.filter(
-            instance=self._instance
+            instance=instance
         ).update(is_active=bool(val))
-        cache_key = f'user-{self.id}_is_active_instance-{self._instance.id}'
+        cache_key = f'user-{self.id}_is_active_instance-{instance.id}'
         try:
             cache.delete(cache_key)
         except:
