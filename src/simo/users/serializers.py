@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from collections.abc import Iterable
-from simo.core.middleware import get_current_request
+from simo.core.middleware import get_current_request, get_current_instance
 from simo.core.utils.api import ReadWriteSerializerMethodField
 from .models import (
     User, PermissionsRole, InstanceInvitation, InstanceUser, Fingerprint
@@ -48,7 +48,7 @@ class UserSerializer(serializers.ModelSerializer):
 
     def get_at_home(self, obj):
         iu = InstanceUser.objects.filter(
-            user=obj, instance=obj._instance
+            user=obj, instance=get_current_instance()
         ).first()
         if iu:
             return iu.at_home
