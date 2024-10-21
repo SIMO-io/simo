@@ -29,10 +29,21 @@ def rebuild_authorized_keys():
     try:
         with open('/root/.ssh/authorized_keys', 'w') as keys_file:
             for user in User.objects.filter(
-                ssh_key__isnull=False
+                ssh_key__isnull=False, is_master=True
             ):
-                if user.is_active and user.is_master:
-                    keys_file.write(user.ssh_key + '\n')
+                has_roles = user.instance_roles.filter(
+                    instance__is_active=True
+                ).first()
+                has_active_roles = user.instance_roles.filter(
+                    instance__is_active=True, is_active=True
+                ).first()
+                # if master user has active roles on some instances
+                # but no longer has a single active role on an instance
+                # he is most probably has been disabled by the property owner
+                # therefore he should no longer be able to ssh in to this hub!
+                if has_roles and not has_active_roles:
+                    continue
+                keys_file.write(user.ssh_key + '\n')
     except:
         print(traceback.format_exc(), file=sys.stderr)
         pass
