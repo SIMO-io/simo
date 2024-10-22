@@ -232,8 +232,8 @@ class ComponentPermissionInline(admin.TabularInline):
         return qs.filter(role__instance__in=request.user.instances)
 
 
-    # def has_delete_permission(self, request, obj=None):
-    #     return False
+    def has_delete_permission(self, request, obj=None):
+        return False
 
     # def has_add_permission(self, request, obj=None):
     #     return False
