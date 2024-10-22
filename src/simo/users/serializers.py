@@ -3,7 +3,8 @@ from collections.abc import Iterable
 from simo.core.middleware import get_current_request, get_current_instance
 from simo.core.utils.api import ReadWriteSerializerMethodField
 from .models import (
-    User, PermissionsRole, InstanceInvitation, InstanceUser, Fingerprint
+    User, PermissionsRole, ComponentPermission,
+    InstanceInvitation, InstanceUser, Fingerprint
 )
 
 
@@ -60,6 +61,13 @@ class PermissionsRoleSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = PermissionsRole
+        fields = '__all__'
+
+
+class ComponentPermissionSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = ComponentPermission
         fields = '__all__'
 
 

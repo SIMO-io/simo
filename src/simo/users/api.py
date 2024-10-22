@@ -4,17 +4,18 @@ from rest_framework import viewsets, mixins, status
 from rest_framework.serializers import Serializer
 from rest_framework.decorators import action
 from rest_framework.response import Response as RESTResponse
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import ValidationError, PermissionDenied
 from django.contrib.gis.geos import Point
 from django.utils import timezone
+from django_filters.rest_framework import DjangoFilterBackend
 from simo.core.api import InstanceMixin
 from .models import (
     User, UserDevice, UserDeviceReportLog, PermissionsRole, InstanceInvitation,
-    Fingerprint
+    Fingerprint, ComponentPermission, InstanceUser
 )
 from .serializers import (
     UserSerializer, PermissionsRoleSerializer, InstanceInvitationSerializer,
-    FingerprintSerializer
+    FingerprintSerializer, ComponentPermissionSerializer
 )
 
 
@@ -132,10 +133,36 @@ class RolesViewsets(InstanceMixin, viewsets.ReadOnlyModelViewSet):
     url = 'users/roles'
     basename = 'roles'
     serializer_class = PermissionsRoleSerializer
-    queryset = PermissionsRole.objects.all()
 
     def get_queryset(self):
         return PermissionsRole.objects.filter(instance=self.instance)
+
+
+class ComponentPermissionViewsets(
+    InstanceMixin,
+    mixins.RetrieveModelMixin, mixins.UpdateModelMixin,
+    mixins.ListModelMixin, viewsets.GenericViewSet
+):
+    url = 'users/componentpermissions'
+    basename = 'componentpermissions'
+    serializer_class = ComponentPermissionSerializer
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ['component', 'role']
+
+    def get_queryset(self):
+        return ComponentPermission.objects.filter(role__instance=self.instance)
+
+    def update(self, request, *args, **kwargs):
+        if request.user.is_master:
+            return super().update(request, *args, **kwargs)
+        iuser = InstanceUser.objects.get(
+            instance=self.instance, user=request.user
+        ).select_related('role')
+        if not iuser.is_active:
+            raise PermissionDenied()
+        if iuser.role.is_owner or iuser.role.is_superuser:
+            return super().update(request, *args, **kwargs)
+        raise PermissionDenied()
 
 
 class UserDeviceReport(InstanceMixin, viewsets.GenericViewSet):
