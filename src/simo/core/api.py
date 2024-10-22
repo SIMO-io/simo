@@ -172,7 +172,7 @@ def get_components_queryset(instance, user):
         base_type='state-select', config__is_main=True
     ).values('id').first()
     if state:
-        c_ids.add(state)
+        c_ids.add(state['id'])
 
     user_role = user.get_role(instance)
 

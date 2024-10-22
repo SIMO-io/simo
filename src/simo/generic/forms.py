@@ -91,7 +91,6 @@ class ScriptConfigForm(BaseComponentForm):
         ]
         return fieldsets
 
-
     def clean(self):
         if self.cleaned_data.get('assistant_request'):
             if self.instance.pk:
