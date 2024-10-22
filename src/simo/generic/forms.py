@@ -67,7 +67,7 @@ class ScriptConfigForm(BaseComponentForm):
             prefix = get_script_prefix()
             if prefix == '/':
                 prefix = ''
-            if 'log' in fields:
+            if 'log' in self.fields:
                 self.fields['log'].widget = LogOutputWidget(
                     prefix + '/ws/log/%d/%d/' % (
                         ContentType.objects.get_for_model(Component).id,
