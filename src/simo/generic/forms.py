@@ -58,7 +58,7 @@ class ScriptConfigForm(BaseComponentForm):
         widget=forms.HiddenInput, required=False
     )
 
-    app_exclude_fields = ('code', 'log')
+    app_exclude_fields = ('alarm_category', 'code', 'log')
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
