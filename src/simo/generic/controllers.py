@@ -108,14 +108,14 @@ class Script(ControllerBase, TimerMixin):
         else:
             self.send('start')
 
-    def ai_assistant(self, wish, current_code=None):
+    def ai_assistant(self, wish):
         try:
             request_data = {
                 'hub_uid': dynamic_settings['core__hub_uid'],
                 'hub_secret': dynamic_settings['core__hub_secret'],
                 'instance_uid': get_current_instance().uid,
                 'system_data': json.dumps(get_current_state()),
-                'wish': wish, 'current_code': current_code,
+                'wish': wish,
             }
         except Exception as e:
             print(traceback.format_exc(), file=sys.stderr)

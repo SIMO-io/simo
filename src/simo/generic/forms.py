@@ -37,7 +37,7 @@ class ScriptConfigForm(BaseComponentForm):
         help_text="Restart the script if it fails. "
     )
     assistant_request = forms.CharField(
-        label="Request for AI assistant", required=False,
+        label="Request for AI assistant", required=False, max_length=1000,
         widget=forms.Textarea(
             attrs={'placeholder':
                     "Close the blind and turn on the main light "
@@ -91,6 +91,7 @@ class ScriptConfigForm(BaseComponentForm):
         ]
         return fieldsets
 
+
     def clean(self):
         if self.cleaned_data.get('assistant_request'):
             if self.instance.pk:
@@ -102,10 +103,10 @@ class ScriptConfigForm(BaseComponentForm):
             if call_assistant:
                 resp = self.instance.ai_assistant(
                     self.cleaned_data['assistant_request'],
-                    self.cleaned_data.get('code')
                 )
                 if resp['status'] == 'success':
                     self.cleaned_data['code'] = resp['result']
+                    self.instance.config['code'] = resp['result']
                 elif resp['status'] == 'error':
                     self.add_error('assistant_request', resp['result'])
 

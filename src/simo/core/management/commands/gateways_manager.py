@@ -17,9 +17,6 @@ from simo.core.models import Gateway
 from simo.core.loggers import get_gw_logger
 
 
-
-
-
 class GatewayRunHandler(multiprocessing.Process):
     gateway = None
     logger = None
