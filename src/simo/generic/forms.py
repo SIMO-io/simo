@@ -67,12 +67,13 @@ class ScriptConfigForm(BaseComponentForm):
             prefix = get_script_prefix()
             if prefix == '/':
                 prefix = ''
-            self.fields['log'].widget = LogOutputWidget(
-                prefix + '/ws/log/%d/%d/' % (
-                    ContentType.objects.get_for_model(Component).id,
-                    self.instance.id
+            if 'log' in fields:
+                self.fields['log'].widget = LogOutputWidget(
+                    prefix + '/ws/log/%d/%d/' % (
+                        ContentType.objects.get_for_model(Component).id,
+                        self.instance.id
+                    )
                 )
-            )
 
     @classmethod
     def get_admin_fieldsets(cls, request, obj=None):
