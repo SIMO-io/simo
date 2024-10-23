@@ -49,8 +49,8 @@ class ScriptConfigForm(BaseComponentForm):
                   "The more defined, exact and clear is your description the more "
                   "accurate automation script SIMO.io AI assistanw will generate.<br>"
                   "Use component, zone and category id's for best accuracy. <br>"
-                  "SIMO.io AI will re-generate your automation code, "                  
-                  "every time this field is changed. <br>"
+                  "SIMO.io AI will re-generate your automation code and update it's description in note field "                  
+                  "every time this field is changed and it might take up to 60s to do it. <br>"
                   "Actual script code can only be edited via SIMO.io Admin.",
     )
     code = forms.CharField(widget=PythonCode, required=False)
@@ -60,7 +60,7 @@ class ScriptConfigForm(BaseComponentForm):
 
     app_exclude_fields = ('alarm_category', 'code', 'log')
 
-    _ai_code = None
+    _ai_resp = None
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -82,7 +82,7 @@ class ScriptConfigForm(BaseComponentForm):
         base_fields = (
             'id', 'gateway', 'base_type', 'name', 'icon', 'zone', 'category',
             'show_in_app', 'autostart', 'keep_alive',
-            'assistant_request', 'code', 'control', 'log'
+            'assistant_request', 'note', 'code', 'control', 'log'
         )
 
         fieldsets = [
@@ -108,18 +108,20 @@ class ScriptConfigForm(BaseComponentForm):
                     self.cleaned_data['assistant_request'],
                 )
                 if resp['status'] == 'success':
-                    #self.cleaned_data['code'] = resp['result']
-                    self._ai_code = resp['result']
+                    self._ai_resp = resp
                 elif resp['status'] == 'error':
                     self.add_error('assistant_request', resp['result'])
 
         return self.cleaned_data
 
     def save(self, commit=True):
-        if commit and self._ai_code:
-            self.instance.config['code'] = self._ai_code
+        if commit and self._ai_resp:
+            self.instance.config['code'] = self._ai_resp['result']
+            self.instance.note = self._ai_resp['description']
             if 'code' in self.cleaned_data:
-                self.cleaned_data['code'] = self._ai_code
+                self.cleaned_data['code'] = self._ai_resp['result']
+            if 'note' in self.cleaned_data:
+                self.cleaned_data['note'] = self._ai_resp['description']
         obj = super().save(commit)
         if commit:
             obj.controller.stop()
