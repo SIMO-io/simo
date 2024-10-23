@@ -138,12 +138,10 @@ class Script(ControllerBase, TimerMixin):
                 content = F"Server error {response.status_code}: {soup.title.string}"
             return {'status': 'error', 'result': content}
 
-        response_data = json.loads(response.content.decode())
-
         return {
             'status': 'success',
-            'result': response_data['script'],
-            'description': response_data['description']
+            'result': response.json()['script'],
+            'description': response.json()['description']
         }
 
 

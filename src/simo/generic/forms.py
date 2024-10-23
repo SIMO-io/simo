@@ -49,7 +49,7 @@ class ScriptConfigForm(BaseComponentForm):
                   "The more defined, exact and clear is your description the more "
                   "accurate automation script SIMO.io AI assistanw will generate.<br>"
                   "Use component, zone and category id's for best accuracy. <br>"
-                  "SIMO.io AI will re-generate your automation code and update it's description in note field "                  
+                  "SIMO.io AI will re-generate your automation code and update it's description in Notes field "                  
                   "every time this field is changed and it might take up to 60s to do it. <br>"
                   "Actual script code can only be edited via SIMO.io Admin.",
     )
