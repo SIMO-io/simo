@@ -3,6 +3,7 @@ import sys
 import json
 import traceback
 import pytz
+import inspect
 from django.contrib.contenttypes.models import ContentType
 from django.conf import settings
 import paho.mqtt.client as mqtt
@@ -129,10 +130,16 @@ class OnChangeMixin:
 
         self.refresh_from_db()
 
-        try:
-            self._on_change_function(self)
-        except Exception:
-            print(traceback.format_exc(), file=sys.stderr)
+        if inspect.getfullargspec(self._on_change_function).args:
+            try:
+                self._on_change_function(self)
+            except Exception:
+                print(traceback.format_exc(), file=sys.stderr)
+        else:
+            try:
+                self._on_change_function()
+            except Exception:
+                print(traceback.format_exc(), file=sys.stderr)
 
     def on_change(self, function):
         if function:
