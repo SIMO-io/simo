@@ -95,7 +95,6 @@ class ScriptConfigForm(BaseComponentForm):
         return fieldsets
 
 
-
     def clean(self):
         if self.cleaned_data.get('assistant_request'):
             if self.instance.pk:
@@ -119,6 +118,8 @@ class ScriptConfigForm(BaseComponentForm):
     def save(self, commit=True):
         if commit and self._ai_code:
             self.instance.config['code'] = self._ai_code
+            if 'code' in self.cleaned_data:
+                self.cleaned_data['code'] = self._ai_code
         obj = super().save(commit)
         if commit:
             obj.controller.stop()
