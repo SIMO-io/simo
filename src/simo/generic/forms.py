@@ -82,7 +82,7 @@ class ScriptConfigForm(BaseComponentForm):
         base_fields = (
             'id', 'gateway', 'base_type', 'name', 'icon', 'zone', 'category',
             'show_in_app', 'autostart', 'keep_alive',
-            'assistant_request', 'note', 'code', 'control', 'log'
+            'assistant_request', 'notes', 'code', 'control', 'log'
         )
 
         fieldsets = [
@@ -117,11 +117,11 @@ class ScriptConfigForm(BaseComponentForm):
     def save(self, commit=True):
         if commit and self._ai_resp:
             self.instance.config['code'] = self._ai_resp['result']
-            self.instance.note = self._ai_resp['description']
+            self.instance.notes = self._ai_resp['description']
             if 'code' in self.cleaned_data:
                 self.cleaned_data['code'] = self._ai_resp['result']
-            if 'note' in self.cleaned_data:
-                self.cleaned_data['note'] = self._ai_resp['description']
+            if 'notes' in self.cleaned_data:
+                self.cleaned_data['notes'] = self._ai_resp['description']
         obj = super().save(commit)
         if commit:
             obj.controller.stop()
