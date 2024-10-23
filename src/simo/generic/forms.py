@@ -60,6 +60,8 @@ class ScriptConfigForm(BaseComponentForm):
 
     app_exclude_fields = ('alarm_category', 'code', 'log')
 
+    _ai_code = None
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.basic_fields.extend(['autostart', 'keep_alive'])
@@ -92,6 +94,8 @@ class ScriptConfigForm(BaseComponentForm):
         ]
         return fieldsets
 
+
+
     def clean(self):
         if self.cleaned_data.get('assistant_request'):
             if self.instance.pk:
@@ -105,14 +109,16 @@ class ScriptConfigForm(BaseComponentForm):
                     self.cleaned_data['assistant_request'],
                 )
                 if resp['status'] == 'success':
-                    self.cleaned_data['code'] = resp['result']
-                    self.instance.config['code'] = resp['result']
+                    #self.cleaned_data['code'] = resp['result']
+                    self._ai_code = resp['result']
                 elif resp['status'] == 'error':
                     self.add_error('assistant_request', resp['result'])
 
         return self.cleaned_data
 
     def save(self, commit=True):
+        if commit and self._ai_code:
+            self.instance.config['code'] = self._ai_code
         obj = super().save(commit)
         if commit:
             obj.controller.stop()
