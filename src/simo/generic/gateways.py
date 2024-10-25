@@ -145,7 +145,10 @@ class ScriptRunHandler(multiprocessing.Process):
         else:
             code = self.component.config.get('code')
             def run_code():
+                start = time.time()
                 exec(code, globals())
+                if 'class Automation:' in time.time() - start < 1:
+                    Automation().run()
 
             if not code:
                 self.component.value = 'finished'
