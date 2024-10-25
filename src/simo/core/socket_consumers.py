@@ -71,7 +71,9 @@ class LogConsumer(AsyncWebsocketConsumer):
             if not role or not role.is_superuser:
                 return self.close()
 
-        self.log_file_path = get_log_file_path(self.obj)
+        self.log_file_path = await sync_to_async(
+            get_log_file_path, thread_sensitive=True
+        )(self.obj)
         self.log_file = open(self.log_file_path)
         lines = [l.rstrip('\n') for l in self.log_file]
 
@@ -105,7 +107,9 @@ class LogConsumer(AsyncWebsocketConsumer):
             try:
                 line = self.log_file.readline()
             except:
-                self.log_file_path = get_log_file_path(self.obj)
+                self.log_file_path = await sync_to_async(
+                    get_log_file_path, thread_sensitive=True
+                )(self.obj)
                 self.log_file = open(self.log_file_path)
                 continue
             if not line:
