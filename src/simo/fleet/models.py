@@ -270,6 +270,10 @@ def after_colonel_save(sender, instance, created, *args, **kwargs):
         )
         if fleet_gateway.status != 'running':
             fleet_gateway.start()
+        # create i2c and dali interfaces automatically for game-changer boards
+        if instance.type == 'game-changer':
+            Interface.objects.create(colonel=instance, no=1, type='i2c')
+            Interface.objects.create(colonel=instance, no=2, type='dali')
 
 
 @receiver(post_save, sender=Component)
