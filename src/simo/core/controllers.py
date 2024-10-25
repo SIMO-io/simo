@@ -695,6 +695,8 @@ class RGBWLight(ControllerBase, TimerMixin, OnOffPokerMixin):
     def _validate_val(self, value, occasion=None):
         assert 0 <= value['active'] <= 4
         assert isinstance(value['is_on'], bool)
+        if 'scenes' not in value:
+            value['scenes'] = self.component.value['scenes']
         for color in value['scenes']:
             if not is_hex_color(color):
                 raise ValidationError("Bad color value!")
@@ -704,8 +706,7 @@ class RGBWLight(ControllerBase, TimerMixin, OnOffPokerMixin):
             else:
                 if len(color) != 7:
                     raise ValidationError("Bad color value!")
-        if 'scenes' not in value:
-            value['scenes'] = self.component.value['scenes']
+
         return value
 
     def turn_off(self):
