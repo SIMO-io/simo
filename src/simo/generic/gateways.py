@@ -147,7 +147,7 @@ class ScriptRunHandler(multiprocessing.Process):
             def run_code():
                 start = time.time()
                 exec(code, globals())
-                if 'class Automation:' in time.time() - start < 1:
+                if 'class Automation:' in code and time.time() - start < 1:
                     Automation().run()
 
             if not code:
