@@ -230,9 +230,14 @@ class FleetConsumer(AsyncWebsocketConsumer):
             config_data['interfaces'][f'{interface.type}-{interface.no}'] = {
                 'pin_a': interface.pin_a.no, 'pin_b': interface.pin_b.no,
             }
+
+        def get_components(colonel):
+            return list(
+                colonel.components.all().prefetch_related('slaves')
+            )
         components = await sync_to_async(
-            list, thread_sensitive=True
-        )(self.colonel.components.all().prefetch_related('slaves'))
+            get_components, thread_sensitive=True
+        )(self.colonel)
 
         def get_comp_config(comp):
             try:
