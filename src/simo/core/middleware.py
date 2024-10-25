@@ -26,16 +26,16 @@ def introduce_instance(instance, request=None):
 
 
 def get_current_instance(request=None):
-    instance = getattr(_thread_locals, 'instance', None)
-    if not instance and request and request.session.get('instance_id'):
-        from simo.core.models import Instance
+    from simo.core.models import Instance
+    if request and request.session.get('instance_id'):
         instance = Instance.objects.filter(
             id=request.session['instance_id'], is_active=True
         ).first()
         if not instance:
             del request.session['instance_id']
-        else:
-            introduce_instance(instance, request)
+        introduce_instance(instance, request)
+
+    instance = getattr(_thread_locals, 'instance', None)
 
     if not instance:
         from .models import Instance
