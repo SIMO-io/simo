@@ -102,7 +102,7 @@ class ScriptConfigForm(BaseComponentForm):
                 call_assistant = org.config.get('assistant_request') \
                                  != self.cleaned_data['assistant_request']
             else:
-                call_assistant = True
+                call_assistant = False
             if call_assistant:
                 resp = self.instance.ai_assistant(
                     self.cleaned_data['assistant_request'],

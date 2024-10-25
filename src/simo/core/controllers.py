@@ -704,6 +704,8 @@ class RGBWLight(ControllerBase, TimerMixin, OnOffPokerMixin):
             else:
                 if len(color) != 7:
                     raise ValidationError("Bad color value!")
+        if 'scenes' not in value:
+            value['scenes'] = self.component.value['scenes']
         return value
 
     def turn_off(self):
@@ -720,7 +722,6 @@ class RGBWLight(ControllerBase, TimerMixin, OnOffPokerMixin):
         self.component.refresh_from_db()
         self.component.value['is_on'] = not self.component.value['is_on']
         self.send(self.component.value)
-
 
 
 class MultiSwitchBase(ControllerBase):
