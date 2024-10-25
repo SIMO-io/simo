@@ -10,8 +10,10 @@ HUB_DIR = '/etc/SIMO/hub'
 
 def perform_update():
 
+    pip_executable = os.path.join(os.path.dirname(sys.executable), 'pip')
+
     proc = subprocess.Popen(
-        ['pip', 'install', 'simo', '--upgrade'],
+        [pip_executable, 'install', 'simo', '--upgrade'],
         cwd=HUB_DIR, stderr=subprocess.PIPE
     )
     out, err = proc.communicate()
@@ -19,7 +21,7 @@ def perform_update():
         raise Exception(err.decode())
 
     proc = subprocess.Popen(
-        [os.path.join(HUB_DIR, 'manage.py'), 'migrate'],
+        [sys.executable, os.path.join(HUB_DIR, 'manage.py'), 'migrate'],
         cwd=HUB_DIR,
         stderr=subprocess.PIPE
     )
@@ -28,7 +30,7 @@ def perform_update():
         raise Exception(err.decode())
 
     proc = subprocess.Popen(
-        [os.path.join(HUB_DIR, 'manage.py'), 'collectstatic',
+        [sys.executable, os.path.join(HUB_DIR, 'manage.py'), 'collectstatic',
          '--noinput'],
         cwd=HUB_DIR, stderr=subprocess.PIPE
     )
