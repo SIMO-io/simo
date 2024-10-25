@@ -218,10 +218,13 @@ class FleetConsumer(AsyncWebsocketConsumer):
             }
         }
         config_data['settings'].update(instance_options)
-        interfaces = await sync_to_async(list, thread_sensitive=True)(
-            self.colonel.interfaces.all().select_related(
+
+        def get_interfaces(colonel):
+            return list(colonel.interfaces.all().select_related(
                 'pin_a', 'pin_b'
-            )
+            ))
+        interfaces = await sync_to_async(get_interfaces, thread_sensitive=True)(
+            self.colonel
         )
         for interface in interfaces:
             config_data['interfaces'][f'{interface.type}-{interface.no}'] = {
