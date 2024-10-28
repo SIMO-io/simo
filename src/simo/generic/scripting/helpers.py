@@ -1,4 +1,3 @@
-import datetime
 import pytz
 from django.utils import timezone
 from suntime import Sun
@@ -24,21 +23,13 @@ class LocalSun(Sun):
         super().__init__(lat, lon)
 
     def get_sunrise_time(self, localdatetime=None):
-        if localdatetime:
-            utc_datetime = localdatetime.astimezone(pytz.utc)
-        else:
-            utc_datetime = None
-        sunrise = super().get_sunrise_time(date=utc_datetime)
+        sunrise = super().get_sunrise_time(date=localdatetime)
         if not localdatetime or not localdatetime.tzinfo:
             return sunrise
         return sunrise.astimezone(localdatetime.tzinfo)
 
     def get_sunset_time(self, localdatetime=None):
-        if localdatetime:
-            utc_datetime = localdatetime.astimezone(pytz.utc)
-        else:
-            utc_datetime = None
-        sunset = super().get_sunset_time(date=utc_datetime)
+        sunset = super().get_sunset_time(date=localdatetime)
         if not localdatetime or not localdatetime.tzinfo:
             return sunset
         return sunset.astimezone(localdatetime.tzinfo)
