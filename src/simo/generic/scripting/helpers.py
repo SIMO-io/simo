@@ -5,10 +5,12 @@ from simo.core.models import Instance
 
 class LocalSun(Sun):
 
-    def __init__(self, instance=None):
-        if not instance:
+    def __init__(self, location=None):
+        if not location:
             instance = Instance.objects.all().first()
-        coordinates = instance.location.split(',')
+            coordinates = instance.location.split(',')
+        else:
+            coordinates = location.split(',')
         try:
             lat = float(coordinates[0])
         except:

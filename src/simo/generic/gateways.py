@@ -207,6 +207,9 @@ class GenericGatewayHandler(BaseObjectCommandsGatewayHandler):
         dead_processes = []
         for id, process in self.running_scripts.items():
             if process.is_alive():
+                if not Component.objects.filter(id=id).count():
+                    # script is deleted.
+                    process.terminate()
                 continue
             component = Component.objects.filter(id=id).exclude(
                 value__in=('error', 'finished')
