@@ -1,3 +1,4 @@
+import pytz
 from django.utils import timezone
 from suntime import Sun
 from simo.core.models import Instance
@@ -21,17 +22,27 @@ class LocalSun(Sun):
             lon = 0
         super().__init__(lat, lon)
 
-    def is_night(self):
-        if timezone.now() > self.get_sunset_time():
+    def _get_utc_time(self, localtime=None):
+        if not localtime:
+            utc_time = timezone.now()
+        else:
+            utc_time = localtime.astimezone(pytz.utc)
+        return utc_time
+
+    def is_night(self, localtime=None):
+        utc_time = self._get_utc_time(localtime)
+        if utc_time > self.get_sunset_time():
             return True
-        if timezone.now() < self.get_sunrise_time():
+        if utc_time < self.get_sunrise_time():
             return True
         return False
 
-    def seconds_to_sunset(self):
-        return (self.get_sunset_time() - timezone.now()).total_seconds()
+    def seconds_to_sunset(self, localtime=None):
+        utc_time = self._get_utc_time(localtime)
+        return (self.get_sunset_time() - utc_time).total_seconds()
 
-    def seconds_to_sunrise(self):
-        return (self.get_sunrise_time() - timezone.now()).total_seconds()
+    def seconds_to_sunrise(self, localtime=None):
+        utc_time = self._get_utc_time(localtime)
+        return (self.get_sunrise_time() - utc_time).total_seconds()
 
 
