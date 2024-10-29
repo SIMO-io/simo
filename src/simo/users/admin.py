@@ -50,6 +50,20 @@ class PermissionsRoleAdmin(admin.ModelAdmin):
         return fields
 
 
+@admin.register(InstanceUser)
+class InstanceUserAdmin(admin.ModelAdmin):
+    list_display = (
+        'user', 'role', 'is_active', 'at_home', 'last_seen', 'phone_on_charge'
+    )
+    fields = (
+        'user', 'role', 'is_active', 'at_home', 'last_seen',
+        'last_seen_location', 'last_seen_speed_kmh', 'phone_on_charge'
+    )
+    readonly_fields = (
+        'at_home', 'last_seen', 'last_seen_speed_kmh', 'phone_on_charge',
+    )
+
+
 class InstanceUserInline(admin.TabularInline):
     model = InstanceUser
     extra = 0
@@ -115,7 +129,10 @@ admin.site.unregister(Group)
 @admin.register(UserDeviceReportLog)
 class UserDeviceLogInline(admin.ModelAdmin):
     model = UserDeviceReportLog
-    readonly_fields = 'datetime', 'app_open', 'location', 'relay', 'users'
+    readonly_fields = (
+        'datetime', 'app_open', 'location', 'relay', 'users',
+        'speed_kmh', 'phone_on_charge'
+    )
     list_display = 'datetime', 'app_open', 'location', 'relay', 'users'
     fields = readonly_fields
 

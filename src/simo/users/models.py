@@ -97,9 +97,9 @@ class InstanceUser(DirtyFieldsMixin, models.Model, OnChangeMixin):
         related_name='instance_users',
     )
     role = models.ForeignKey(PermissionsRole, on_delete=models.CASCADE)
-    at_home = models.BooleanField(default=False, db_index=True)
     is_active = models.BooleanField(default=True, db_index=True)
-    # Replicating these fields from user for better scripting convenience
+
+    at_home = models.BooleanField(default=False, db_index=True)
     last_seen = models.DateTimeField(
         null=True, blank=True,
     )
