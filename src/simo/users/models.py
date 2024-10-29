@@ -100,16 +100,18 @@ class InstanceUser(DirtyFieldsMixin, models.Model, OnChangeMixin):
     at_home = models.BooleanField(default=False, db_index=True)
     is_active = models.BooleanField(default=True, db_index=True)
     # Replicating these fields from user for better scripting convenience
+    last_seen = models.DateTimeField(
+        null=True, blank=True,
+    )
     last_seen_location = PlainLocationField(
         zoom=7, null=True, blank=True, help_text="Sent by user mobile app"
-    )
-    last_seen_location_datetime = models.DateTimeField(
-        null=True, blank=True,
     )
     last_seen_speed_kmh = models.FloatField(default=0)
     phone_on_charge = models.BooleanField(default=False, db_index=True)
 
     objects = ActiveInstanceManager()
+
+    on_change_fields = ('last_seen',)
 
     class Meta:
         unique_together = 'user', 'instance'
@@ -178,14 +180,6 @@ class User(AbstractBaseUser, SimoAdminMixin):
         help_text="Will be placed in /root/.ssh/authorized_keys "
                   "if user is active and is master of a hub."
     )
-    last_seen_location = PlainLocationField(
-        zoom=7, null=True, blank=True, help_text="Sent by user mobile app"
-    )
-    last_seen_location_datetime = models.DateTimeField(
-        null=True, blank=True,
-    )
-    last_seen_speed_kmh = models.FloatField(default=0)
-    phone_on_charge = models.BooleanField(default=False, db_index=True)
     secret_key = models.CharField(
         max_length=20, db_index=True, default=get_random_string
     )
@@ -427,8 +421,7 @@ class UserDevice(models.Model, SimoAdminMixin):
     os = models.CharField(max_length=100, db_index=True)
     token = models.CharField(max_length=1000, db_index=True, unique=True)
     is_primary = models.BooleanField(default=True, db_index=True)
-    last_seen = models.DateTimeField(auto_now_add=True, db_index=True)
-    last_seen_location = PlainLocationField(zoom=7, null=True, blank=True)
+    last_seen = models.DateTimeField(auto_now=True, db_index=True)
 
     class Meta:
         ordering = '-last_seen',
@@ -450,52 +443,11 @@ class UserDeviceReportLog(models.Model):
         help_text="Sent via remote relay if specified, otherwise it's from LAN."
     )
     location = PlainLocationField(zoom=7, null=True, blank=True)
+    speed_kmh = models.FloatField(default=0)
+    phone_on_charge = models.BooleanField(default=False, db_index=True)
 
     class Meta:
         ordering = '-datetime',
-
-
-@receiver(post_save, sender=UserDeviceReportLog)
-def set_user_at_home(sender, instance, created, **kwargs):
-    from simo.core.models import Instance
-    if not created:
-        return
-
-    if not instance.location and not instance.relay:
-        for item in InstanceUser.objects.filter(
-            user__in=instance.user_device.users.all()
-        ):
-            item.at_home = True
-            item.save()
-        return
-
-    for hub_instance in Instance.objects.filter(is_active=True):
-        try:
-            instance_location = Point(
-                [float(hub_instance.location.split(',')[0]),
-                 float(hub_instance.location.split(',')[1])],
-                srid=4326
-            )
-        except:
-            return
-        try:
-            log_location = Point(
-                [
-                    float(instance.location.split(',')[0]),
-                    float(instance.location.split(',')[1])
-                ], srid=4326
-            )
-        except:
-            return
-        else:
-            for item in InstanceUser.objects.filter(
-                user__in=instance.user_device.users.all(),
-                instance=hub_instance
-            ):
-                item.at_home = distance(
-                    instance_location, log_location
-                ).meters < dynamic_settings['users__at_home_radius']
-                item.save()
 
 
 class ComponentPermission(models.Model):

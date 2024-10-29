@@ -69,7 +69,6 @@ class UserAdmin(OrgUserAdmin):
     fields = (
         'name', 'email', 'is_active', 'is_master',
         'ssh_key', 'secret_key',
-        'last_seen_location',
     )
     readonly_fields = (
         'name', 'email', 'avatar', 'last_action', 'is_active'
@@ -142,7 +141,7 @@ class UserDeviceAdmin(admin.ModelAdmin):
     readonly_fields = (
         'users_display', 'token', 'os', 'last_seen',
     )
-    fields = readonly_fields + ('last_seen_location', 'is_primary')
+    fields = readonly_fields + ('is_primary', )
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)

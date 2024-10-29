@@ -8,6 +8,7 @@ from rest_framework.exceptions import ValidationError, PermissionDenied
 from django.contrib.gis.geos import Point
 from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
+from simo.conf import dynamic_settings
 from simo.core.api import InstanceMixin
 from .models import (
     User, UserDevice, UserDeviceReportLog, PermissionsRole, InstanceInvitation,
@@ -172,7 +173,7 @@ class UserDeviceReport(InstanceMixin, viewsets.GenericViewSet):
 
     @action(url_path='device-report', detail=False, methods=['post'])
     def report(self, request, *args, **kwargs):
-
+        from simo.generic.scripting.helpers import haversine_distance
         if not request.data.get('device_token'):
             return RESTResponse(
                 {'status': 'error', 'msg': 'device_token - not provided'},
@@ -199,6 +200,11 @@ class UserDeviceReport(InstanceMixin, viewsets.GenericViewSet):
         except:
             location = None
 
+        relay = None
+        if request.META.get('HTTP_HOST', '').endswith('.simo.io'):
+            relay = request.META.get('HTTP_HOST')
+
+
         user_device.last_seen = timezone.now()
         if location:
             user_device.last_seen_location = ','.join(
@@ -219,27 +225,25 @@ class UserDeviceReport(InstanceMixin, viewsets.GenericViewSet):
         user_device.save()
 
         for iu in request.user.instance_roles.filter(is_active=True):
+            if location:
+                iu.at_home = haversine_distance(
+                    iu.instance.location, user_device.last_seen_location
+                ) < dynamic_settings['users__at_home_radius']
+            elif not relay:
+                iu.at_home = True
+
+            iu.last_seen = user_device.last_seen
             iu.last_seen_location = user_device.last_seen_location
-            iu.last_seen_location_datetime = user_device.last_seen
             iu.last_seen_speed_kmh = speed_kmh
             iu.phone_on_charge = request.data.get('is_charging', False)
             iu.save()
-
-        request.user.last_seen_location = user_device.last_seen_location
-        request.user.last_seen_location_datetime = user_device.last_seen
-        request.user.last_seen_speed_kmh = speed_kmh
-        request.user.phone_on_charge = request.data.get('is_charging', False)
-        request.user.save()
-
-        relay = None
-        if request.META.get('HTTP_HOST', '').endswith('.simo.io'):
-            relay = request.META.get('HTTP_HOST')
 
         UserDeviceReportLog.objects.create(
             user_device=user_device, instance=self.instance,
             app_open=request.data.get('app_open', False),
             location=','.join([str(i) for i in location]) if location else None,
-            relay=relay
+            relay=relay, speed_kmh=speed_kmh,
+            phone_on_charge=request.data.get('is_charging', False)
         )
 
         return RESTResponse({'status': 'success'})
