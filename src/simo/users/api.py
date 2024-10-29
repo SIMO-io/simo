@@ -205,6 +205,12 @@ class UserDeviceReport(InstanceMixin, viewsets.GenericViewSet):
                 [str(i) for i in location]
             ) if location else None
 
+        speed_mps = float(request.data.get('speed', 0))
+        if speed_mps < 0:
+            speed_mps = 0
+        speed_kmh = speed_mps * 3.6
+
+
         if request.data.get('app_open', False):
             user_device.is_primary = True
             UserDevice.objects.filter(
@@ -215,10 +221,12 @@ class UserDeviceReport(InstanceMixin, viewsets.GenericViewSet):
         for iu in request.user.instance_roles.filter(is_active=True):
             iu.last_seen_location = user_device.last_seen_location
             iu.last_seen_location_datetime = user_device.last_seen
+            iu.last_seen_speed_kmh = speed_kmh
             iu.save()
 
         request.user.last_seen_location = user_device.last_seen_location
         request.user.last_seen_location_datetime = user_device.last_seen
+        request.user.last_seen_speed_kmh = speed_kmh
         request.user.save()
 
         relay = None

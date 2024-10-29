@@ -99,12 +99,14 @@ class InstanceUser(DirtyFieldsMixin, models.Model, OnChangeMixin):
     role = models.ForeignKey(PermissionsRole, on_delete=models.CASCADE)
     at_home = models.BooleanField(default=False, db_index=True)
     is_active = models.BooleanField(default=True, db_index=True)
+    # Replicating these fields from user for better scripting convenience
     last_seen_location = PlainLocationField(
         zoom=7, null=True, blank=True, help_text="Sent by user mobile app"
     )
     last_seen_location_datetime = models.DateTimeField(
         null=True, blank=True,
     )
+    last_seen_speed_kmh = models.FloatField(default=0)
 
     objects = ActiveInstanceManager()
 
@@ -181,6 +183,7 @@ class User(AbstractBaseUser, SimoAdminMixin):
     last_seen_location_datetime = models.DateTimeField(
         null=True, blank=True,
     )
+    last_seen_speed_kmh = models.FloatField(default=0)
     secret_key = models.CharField(
         max_length=20, db_index=True, default=get_random_string
     )
