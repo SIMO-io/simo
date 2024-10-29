@@ -1256,6 +1256,107 @@ class BlindsConfigForm(ColonelComponentForm):
         return obj
 
 
+class GateConfigForm(ColonelComponentForm):
+    control_pin = Select2ModelChoiceField(
+        label="Control Relay Port",
+        queryset=ColonelPin.objects.filter(output=True),
+        url='autocomplete-colonel-pins',
+        forward=[
+            forward.Self(),
+            forward.Field('colonel'),
+            forward.Const({'output': True}, 'filters')
+        ]
+    )
+    open_action = forms.ChoiceField(
+        choices=(('HIGH', "HIGH"), ('LOW', "LOW")), initial='HIGH'
+    )
+    control_method = forms.ChoiceField(
+        choices=(('pulse', "Pulse"), ('hold', "Hold")), initial="pulse",
+        help_text="What your gate motor expects to receive as control command?"
+    )
+    sensor_pin = Select2ModelChoiceField(
+        label='Gate open/closed sensor port',
+        queryset=ColonelPin.objects.filter(input=True),
+        url='autocomplete-colonel-pins',
+        forward=[
+            forward.Self(),
+            forward.Field('colonel'),
+            forward.Const({'input': True}, 'filters')
+        ]
+    )
+    closed_value = forms.ChoiceField(
+        label='Gate closed value',
+        choices=(("LOW", "LOW"), ('HIGH', "HIGH")), initial="LOW",
+        help_text="What is the input sensor value, "
+                  "when your gate is in closed position?"
+    )
+    open_duration = forms.FloatField(
+        initial=30, min_value=1, max_value=600,
+        help_text="How much time in seconds does it take for your gate "
+                  "to go from fully closed to fully open?"
+    )
+
+    controls = FormsetField(
+        formset_factory(
+            ControlForm, can_delete=True, can_order=True, extra=0, max_num=2
+        )
+    )
+
+    def clean(self):
+        super().clean()
+
+        if self.cleaned_data.get('control_pin') \
+        and self.cleaned_data.get('sensor_pin') \
+        and self.cleaned_data['control_pin'] == self.cleaned_data['sensor_pin']:
+            self.add_error(
+                'sensor_pin', "Can't be the same as control port!"
+            )
+
+        if self.cleaned_data.get('control_pin'):
+            self._clean_pin('control_pin')
+        if self.cleaned_data.get('sensor_pin'):
+            self._clean_pin('sensor_pin')
+
+        if 'controls' in self.cleaned_data:
+
+            self._clean_controls()
+
+            if self.cleaned_data.get('control_pin') and self.cleaned_data.get('controls'):
+                for ctrl in self.cleaned_data['controls']:
+                    if not ctrl['input'].startswith('pin'):
+                        continue
+                    if int(ctrl['input'][4:]) == self.cleaned_data['control_pin'].id:
+                        self.add_error(
+                            "control_pin",
+                            "Can't be used as control pin at the same time!"
+                        )
+
+            if self.cleaned_data.get('sensor_pin') and self.cleaned_data.get('controls'):
+                for ctrl in self.cleaned_data['controls']:
+                    if not ctrl['input'].startswith('pin'):
+                        continue
+                    if int(ctrl['input'][4:]) == self.cleaned_data['sensor_pin'].id:
+                        self.add_error(
+                            "sensor_pin",
+                            "Can't be used as control pin at the same time!"
+                        )
+        return self.cleaned_data
+
+    def save(self, commit=True):
+        if 'control_pin' in self.cleaned_data:
+            self.instance.config['control_pin_no'] = \
+                self.cleaned_data['control_pin'].no
+        if 'sensor_pin' in self.cleaned_data:
+            self.instance.config['sensor_pin_no'] = \
+                self.cleaned_data['sensor_pin'].no
+        obj = super().save(commit=commit)
+        if commit and self.cleaned_data.get('controls'):
+            GatewayObjectCommand(
+                self.instance.gateway, obj, command='watch_buttons'
+            ).publish()
+        return obj
+
+
 class BurglarSmokeDetectorConfigForm(ColonelComponentForm):
     power_pin = Select2ModelChoiceField(
         label="Power port",

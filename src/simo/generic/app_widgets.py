@@ -38,24 +38,6 @@ class WeatherForecastWidget(BaseAppWidget):
     size = [4, 2]
 
 
-class GateWidget(BaseAppWidget):
-    uid = 'gate'
-    name = _('Gate')
-    size = [2, 1]
-
-
-class BlindsWidget(BaseAppWidget):
-    uid = 'blinds'
-    name = _('Blinds')
-    size = [4, 1]
-
-
-class SlidesWidget(BaseAppWidget):
-    uid = 'slides'
-    name = _('Slides')
-    size = [2, 1]
-
-
 class WateringWidget(BaseAppWidget):
     uid = 'watering'
     name = _('Watering')

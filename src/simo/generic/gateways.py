@@ -20,62 +20,6 @@ from simo.core.events import GatewayObjectCommand, get_event_obj
 from simo.core.loggers import get_gw_logger, get_component_logger
 
 
-
-class BlindsRunner(threading.Thread):
-
-    def __init__(self, blinds, *args, **kwargs):
-        self.blinds = blinds
-        self.target = self.blinds.value['target']
-        self.position = self.blinds.value['position']
-        self.open_duration = self.blinds.config.get('open_duration', 0) * 1000
-        assert self.target >= -1
-        assert self.target <= self.open_duration
-        self.exit = multiprocessing.Event()
-        super().__init__(*args, **kwargs)
-
-    def run(self):
-        try:
-            self.open_switch = Component.objects.get(
-                pk=self.blinds.config.get('open_switch')
-            )
-            self.close_switch = Component.objects.get(
-                pk=self.blinds.config.get('close_switch')
-            )
-        except:
-            self.done = True
-            return
-        self.start_position = self.blinds.value['position']
-        self.position = self.blinds.value['position']
-        self.start_time = time.time()
-        self.last_save = time.time()
-        while not self.exit.is_set():
-            change = (time.time() - self.start_time) * 1000
-            if self.target > self.start_position:
-                self.position = self.start_position + change
-                if self.position >= self.target:
-                    self.blinds.set(
-                        {'position': self.target, 'target': -1}
-                    )
-                    self.open_switch.turn_off()
-                    self.close_switch.turn_off()
-                    return
-            else:
-                self.position = self.start_position - change
-                if self.position < self.target:
-                    self.blinds.set({'position': self.target, 'target': -1})
-                    self.open_switch.turn_off()
-                    self.close_switch.turn_off()
-                    return
-
-            if self.last_save < time.time() - 1:
-                self.blinds.set({'position': self.position})
-                self.last_save = time.time()
-            time.sleep(0.01)
-
-    def terminate(self):
-        self.exit.set()
-
-
 class CameraWatcher(threading.Thread):
 
     def __init__(self, component_id, exit, *args, **kwargs):
@@ -174,7 +118,6 @@ class GenericGatewayHandler(BaseObjectCommandsGatewayHandler):
     config_form = BaseGatewayForm
 
     running_scripts = {}
-    blinds_runners = {}
     periodic_tasks = (
         ('watch_thermostats', 60),
         ('watch_alarm_clocks', 30),
@@ -273,7 +216,7 @@ class GenericGatewayHandler(BaseObjectCommandsGatewayHandler):
             component.save()
 
         # Start scripts that are designed to be autostarted
-        # as well as those who are designed to be kept alive, but
+        # as well as those that are designed to be kept alive, but
         # got terminated unexpectedly
         for script in Component.objects.filter(
             base_type='script',
@@ -294,9 +237,6 @@ class GenericGatewayHandler(BaseObjectCommandsGatewayHandler):
             mqtt_client.loop()
         mqtt_client.disconnect()
 
-        for id, runner in self.blinds_runners.items():
-            runner.terminate()
-
         script_ids = [id for id in self.running_scripts.keys()]
         for id in script_ids:
             self.stop_script(
@@ -313,7 +253,7 @@ class GenericGatewayHandler(BaseObjectCommandsGatewayHandler):
     def on_mqtt_message(self, client, userdata, msg):
         print("Mqtt message: ", msg.payload)
         from simo.generic.controllers import (
-            Script, Blinds, AlarmGroup, Gate
+            Script, AlarmGroup
         )
         payload = json.loads(msg.payload)
         component = get_event_obj(payload, Component)
@@ -326,12 +266,8 @@ class GenericGatewayHandler(BaseObjectCommandsGatewayHandler):
                 elif payload.get('set_val') == 'stop':
                     self.stop_script(component)
                 return
-            elif component.controller_uid == Blinds.uid:
-                self.control_blinds(component, payload.get('set_val'))
             elif component.controller_uid == AlarmGroup.uid:
                 self.control_alarm_group(component, payload.get('set_val'))
-            elif component.controller_uid == Gate:
-                self.control_gate(component, payload.get('set_val'))
             else:
                 component.controller.set(payload.get('set_val'))
         except Exception:
@@ -388,43 +324,6 @@ class GenericGatewayHandler(BaseObjectCommandsGatewayHandler):
 
             threading.Thread(target=kill, daemon=True).start()
 
-    def control_blinds(self, blinds, target):
-        try:
-            open_switch = Component.objects.get(
-                pk=blinds.config['open_switch']
-            )
-            close_switch = Component.objects.get(
-                pk=blinds.config['close_switch']
-            )
-        except:
-            return
-
-        blinds.set({'target': target})
-
-        blinds_runner = self.blinds_runners.get(blinds.id)
-        if blinds_runner:
-            blinds_runner.terminate()
-
-        if target == -1:
-            open_switch.turn_off()
-            close_switch.turn_off()
-
-        elif target != blinds.value['position']:
-            try:
-                self.blinds_runners[blinds.id] = BlindsRunner(blinds)
-                self.blinds_runners[blinds.id].daemon = True
-            except:
-                pass
-            else:
-                if target > blinds.value['position']:
-                    close_switch.turn_off()
-                    open_switch.turn_on()
-                else:
-                    open_switch.turn_off()
-                    close_switch.turn_on()
-
-                self.blinds_runners[blinds.id].start()
-
     def control_alarm_group(self, alarm_group, value):
         from simo.generic.controllers import AlarmGroup
 
@@ -466,21 +365,6 @@ class GenericGatewayHandler(BaseObjectCommandsGatewayHandler):
         for pk, other_group in other_alarm_groups.items():
             other_group.refresh_status()
 
-
-    def control_gate(self, gate, value):
-        switch = Component.objects.filter(
-            pk=gate.config.get('action_switch')
-        ).first()
-        if not switch:
-            return
-
-        if gate.config.get('action_method') == 'click':
-            switch.click()
-        else:
-            if value == 'open':
-                switch.turn_on()
-            else:
-                switch.turn_off()
 
     def watch_alarm_events(self):
         from .controllers import AlarmGroup

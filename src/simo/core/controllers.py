@@ -777,10 +777,8 @@ class Switch(MultiSwitchBase, TimerMixin, OnOffPokerMixin):
         Gateway specific implementation is very welcome of this!
         '''
         self.turn_on()
-        def toggle_back():
-            time.sleep(0.5)
-            self.turn_off()
-        threading.Thread(target=toggle_back).start()
+        time.sleep(0.5)
+        self.turn_off()
 
 
 class DoubleSwitch(MultiSwitchBase):
@@ -899,3 +897,155 @@ class Lock(Switch):
             self.component.save(
                 update_fields=['change_init_by', 'change_init_date']
             )
+
+
+class Blinds(ControllerBase, TimerMixin):
+    name = _("Blind")
+    base_type = 'blinds'
+    admin_widget_template = 'admin/controller_widgets/blinds.html'
+    default_config = {}
+
+    @property
+    def app_widget(self):
+        if self.component.config.get('control_mode') == 'slide':
+            return SlidesWidget
+        else:
+            return BlindsWidget
+
+    @property
+    def default_value(self):
+        # target and current positions in milliseconds, angle in degrees (0 - 180)
+        return {'target': 0, 'position': 0, 'angle': 0}
+
+    def _validate_val(self, value, occasion=None):
+
+        if occasion == BEFORE_SEND:
+            if isinstance(value, int) or isinstance(value, float):
+                # legacy support
+                value = {'target': int(value)}
+            if 'target' not in value:
+                raise ValidationError("Target value is required!")
+            target = value.get('target')
+            if type(target) not in (float, int):
+                raise ValidationError(
+                    "Bad target position for blinds to go."
+                )
+            if target > self.component.config.get('open_duration') * 1000:
+                raise ValidationError(
+                    "Target value lower than %d expected, "
+                    "%d received instead" % (
+                        self.component.config['open_duration'] * 1000,
+                        target
+                    )
+                )
+            if 'angle' in value:
+                try:
+                    angle = int(value['angle'])
+                except:
+                    raise ValidationError(
+                        "Integer between 0 - 180 is required for blinds angle."
+                    )
+                if angle < 0 or angle > 180:
+                    raise ValidationError(
+                        "Integer between 0 - 180 is required for blinds angle."
+                    )
+            else:
+                value['angle'] = self.component.value.get('angle', 0)
+
+        elif occasion == BEFORE_SET:
+            if not isinstance(value, dict):
+                raise ValidationError("Dictionary is expected")
+            for key, val in value.items():
+                if key not in ('target', 'position', 'angle'):
+                    raise ValidationError(
+                        "'target', 'position' or 'angle' parameters are expected."
+                    )
+                if key == 'position':
+                    if val < 0:
+                        raise ValidationError(
+                            "Positive integer expected for blind position"
+                        )
+                    if val > self.component.config.get('open_duration') * 1000:
+                        raise ValidationError(
+                            "Positive value is to big. Must be lower than %d, "
+                            "but you have provided %d" % (
+                                self.component.config.get('open_duration') * 1000, val
+                            )
+                        )
+
+            self.component.refresh_from_db()
+            if 'target' not in value:
+                value['target'] = self.component.value.get('target')
+            if 'position' not in value:
+                value['position'] = self.component.value.get('position')
+            if 'angle' not in value:
+                value['angle'] = self.component.value.get('angle')
+
+        return value
+
+    def open(self):
+        send_val = {'target': 0}
+        angle = self.component.value.get('angle')
+        if angle is not None and 0 <= angle <= 180:
+            send_val['angle'] = angle
+        self.send(send_val)
+
+    def close(self):
+        send_val = {'target': self.component.config['open_duration'] * 1000}
+        angle = self.component.value.get('angle')
+        if angle is not None and 0 <= angle <= 180:
+            send_val['angle'] = angle
+        self.send(send_val)
+
+    def stop(self):
+        send_val = {'target': -1}
+        angle = self.component.value.get('angle')
+        if angle is not None and 0 <= angle <= 180:
+            send_val['angle'] = angle
+        self.send(send_val)
+
+
+class Gate(ControllerBase, TimerMixin):
+    name = _("Gate")
+    base_type = 'gate'
+    app_widget = GateWidget
+    admin_widget_template = 'admin/controller_widgets/gate.html'
+    default_config = {}
+
+    @property
+    def default_value(self):
+        return 'closed'
+
+    def _validate_val(self, value, occasion=None):
+        if occasion == BEFORE_SEND:
+            if self.component.config.get('action_method') == 'click':
+                if value != 'call':
+                    raise ValidationError(
+                        'Gate component understands only one command: '
+                        '"call". You have provided: "%s"' % (str(value))
+                    )
+            else:
+                if value not in ('call', 'open', 'close'):
+                    raise ValidationError(
+                        'This gate component understands only 3 commands: '
+                        '"open", "close" and "call". You have provided: "%s"' %
+                        (str(value))
+                    )
+        elif occasion == BEFORE_SET and value not in (
+            'closed', 'open', 'open_moving', 'closed_moving'
+        ):
+            raise ValidationError(
+                'Gate component can only be in 4 states:  '
+                '"closed", "closed", "open_moving", "closed_moving". '
+                'You have provided: "%s"' % (str(value))
+            )
+        return value
+
+    def open(self):
+        self.send('open')
+
+    def close(self):
+        self.send('close')
+
+    def call(self):
+        self.send('call')

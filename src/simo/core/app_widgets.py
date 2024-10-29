@@ -105,3 +105,21 @@ class AirQualityWidget(BaseAppWidget):
     uid = 'air-quality'
     name = _("Air Quality")
     size = [2, 2]
+
+
+class GateWidget(BaseAppWidget):
+    uid = 'gate'
+    name = _('Gate')
+    size = [2, 1]
+
+
+class BlindsWidget(BaseAppWidget):
+    uid = 'blinds'
+    name = _('Blinds')
+    size = [4, 1]
+
+
+class SlidesWidget(BaseAppWidget):
+    uid = 'slides'
+    name = _('Slides')
+    size = [2, 1]

@@ -620,55 +620,6 @@ class GateConfigForm(BaseComponentForm):
     )
 
 
-class BlindsConfigForm(BaseComponentForm):
-    open_switch = forms.ModelChoiceField(
-        Component.objects.filter(base_type=Switch.base_type),
-        widget=autocomplete.ModelSelect2(
-            url='autocomplete-component', attrs={'data-html': True},
-            forward=(
-                forward.Const([Switch.base_type], 'base_type'),
-            )
-        )
-    )
-    close_switch = forms.ModelChoiceField(
-        Component.objects.filter(base_type=Switch.base_type),
-        widget=autocomplete.ModelSelect2(
-            url='autocomplete-component', attrs={'data-html': True},
-            forward=(
-                forward.Const([Switch.base_type], 'base_type'),
-            )
-        )
-    )
-    open_direction = forms.ChoiceField(
-        label='Closed > Open direction',
-        required=True, choices=(
-            ('up', "Up"), ('down', "Down"),
-            ('right', "Right"), ('left', "Left")
-        ),
-        help_text="Move direction from fully closed to fully open."
-
-    )
-    open_duration = forms.FloatField(
-        label='Open duration', min_value=0.001, max_value=360000,
-        initial=30,
-        help_text="Time in seconds it takes for your blinds to go "
-                  "from fully closed to fully open."
-    )
-    slats_angle_duration = forms.FloatField(
-        label='Slats angle duration', min_value=0.01, max_value=360000,
-        required=False,
-        help_text="Takes effect only with App control mode - 'Slide', "
-                  "can be used with slat blinds to control slats angle. <br>"
-                  "Time in seconds it takes "
-                  "to go from fully closed to the start of open movement. <br>"
-                  "Usually it's in between of 1 - 3 seconds."
-    )
-    control_mode = forms.ChoiceField(
-        label="App control mode", required=True, choices=(
-            ('click', "Click"), ('hold', "Hold"), ('slide', "Slide")
-        ),
-    )
-
 
 class ContourForm(forms.Form):
     uid = forms.CharField(widget=forms.HiddenInput(), required=False)

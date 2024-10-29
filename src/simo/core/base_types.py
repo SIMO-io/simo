@@ -18,4 +18,6 @@ BASE_TYPES = {
     'switch-quadruple': _("Switch Quadruple"),
     'switch-quintuple': _("Switch Quintuple"),
     'lock': _("Lock"),
+    'gate': _("Gate"),
+    'blinds': _("Blinds"),
 }
