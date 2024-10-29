@@ -64,8 +64,9 @@ def haversine_distance(location1, location2, units_of_measure='metric'):
     R = 6371000
 
     # Unpack coordinates
-    lat1, lon1 = location1
-    lat2, lon2 = location2
+    lat1, lon1 = location1.split(',')
+    lat2, lon2 = location2.split(',')
+    lat1, lon1, lat2, lon2 = float(lat1), float(lon1), float(lat2), float(lon2)
 
     # Convert latitude and longitude from degrees to radians
     phi1 = math.radians(lat1)
