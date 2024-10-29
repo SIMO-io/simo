@@ -222,11 +222,13 @@ class UserDeviceReport(InstanceMixin, viewsets.GenericViewSet):
             iu.last_seen_location = user_device.last_seen_location
             iu.last_seen_location_datetime = user_device.last_seen
             iu.last_seen_speed_kmh = speed_kmh
+            iu.phone_on_charge = request.data.get('is_charging', False)
             iu.save()
 
         request.user.last_seen_location = user_device.last_seen_location
         request.user.last_seen_location_datetime = user_device.last_seen
         request.user.last_seen_speed_kmh = speed_kmh
+        request.user.phone_on_charge = request.data.get('is_charging', False)
         request.user.save()
 
         relay = None

@@ -107,6 +107,7 @@ class InstanceUser(DirtyFieldsMixin, models.Model, OnChangeMixin):
         null=True, blank=True,
     )
     last_seen_speed_kmh = models.FloatField(default=0)
+    phone_on_charge = models.BooleanField(default=False, db_index=True)
 
     objects = ActiveInstanceManager()
 
@@ -184,6 +185,7 @@ class User(AbstractBaseUser, SimoAdminMixin):
         null=True, blank=True,
     )
     last_seen_speed_kmh = models.FloatField(default=0)
+    phone_on_charge = models.BooleanField(default=False, db_index=True)
     secret_key = models.CharField(
         max_length=20, db_index=True, default=get_random_string
     )
