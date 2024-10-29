@@ -133,7 +133,10 @@ class UserDeviceLogInline(admin.ModelAdmin):
         'datetime', 'app_open', 'location', 'relay', 'users',
         'speed_kmh', 'phone_on_charge'
     )
-    list_display = 'datetime', 'app_open', 'location', 'relay', 'users'
+    list_display = (
+        'datetime', 'app_open', 'location', 'relay', 'speed_kmh',
+        'phone_on_charge', 'users'
+    )
     fields = readonly_fields
 
     def has_add_permission(self, request, obj=None):
