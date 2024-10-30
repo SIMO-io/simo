@@ -229,12 +229,18 @@ class UserDeviceReport(InstanceMixin, viewsets.GenericViewSet):
             speed_kmh = 0
             if user_device.last_seen_location and iu.last_seen_location \
             and iu.last_seen > timezone.now() - datetime.timedelta(seconds=30):
-                seconds_passed = (timezone.now() - user_device.last_seen).seconds
-                moved_distance = haversine_distance(
-                    iu.last_seen_location, user_device.last_seen_location
-                )
-                speed_mps = moved_distance / seconds_passed
-                speed_kmh = speed_mps * 3.6
+                if user_device.last_seen_location == iu.last_seen_location:
+                    speed = iu.last_seen_speed_kmh
+                else:
+                    seconds_passed = (timezone.now() - user_device.last_seen).seconds
+                    if not seconds_passed:
+                        speed_kmh = 0
+                    else:
+                        moved_distance = haversine_distance(
+                            iu.last_seen_location, user_device.last_seen_location
+                        )
+                        speed_mps = moved_distance / seconds_passed
+                        speed_kmh = speed_mps * 3.6
             iu.last_seen = user_device.last_seen
             iu.last_seen_location = user_device.last_seen_location
             iu.last_seen_speed_kmh = speed_kmh
