@@ -127,7 +127,7 @@ admin.site.unregister(Group)
 
 
 @admin.register(UserDeviceReportLog)
-class UserDeviceLogInline(admin.ModelAdmin):
+class UserDeviceLog(admin.ModelAdmin):
     model = UserDeviceReportLog
     readonly_fields = (
         'datetime', 'app_open', 'location', 'relay', 'users',
@@ -138,6 +138,7 @@ class UserDeviceLogInline(admin.ModelAdmin):
         'phone_on_charge', 'users'
     )
     fields = readonly_fields
+    list_filter = 'users',
 
     def has_add_permission(self, request, obj=None):
         return False
