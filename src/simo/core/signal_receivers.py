@@ -26,9 +26,11 @@ def create_instance_defaults(sender, instance, created, **kwargs):
     # Create default zones
 
     for zone_name in (
-        'Living Room', 'Kitchen', 'Bathroom', 'Porch', 'Garage', 'Yard', 'Other'
+        'Living Room', 'Kitchen', 'Bathroom', 'Porch', 'Garage', 'Yard',
     ):
         Zone.objects.create(instance=instance, name=zone_name)
+
+    other_zone = Zone.objects.create(instance=instance, name='Other')
 
     core_dir_path = os.path.dirname(os.path.realpath(__file__))
     imgs_folder = os.path.join(
@@ -40,7 +42,7 @@ def create_instance_defaults(sender, instance, created, **kwargs):
         os.makedirs(categories_media_dir)
 
     # Create default categories
-
+    climate_category = None
     for i, data in enumerate([
         ("All", 'star'), ("Climate", 'temperature-half'),
         ("Lights", 'lightbulb'), ("Security", 'eye'),
@@ -52,13 +54,15 @@ def create_instance_defaults(sender, instance, created, **kwargs):
                 settings.MEDIA_ROOT, 'categories', "%s.jpg" % data[0].lower()
             )
         )
-        Category.objects.create(
+        cat = Category.objects.create(
             instance=instance,
             name=data[0], icon=Icon.objects.get(slug=data[1]),
             all=i == 0, header_image=os.path.join(
                 'categories', "%s.jpg" % data[0].lower()
             ), order=i + 10
         )
+        if cat.name == 'Climate':
+            climate_category = cat
 
     # Create generic gateway and components
 
@@ -71,8 +75,7 @@ def create_instance_defaults(sender, instance, created, **kwargs):
     )
     dummy.start()
     weather_icon = Icon.objects.get(slug='cloud-bolt-sun')
-    other_zone = Zone.objects.get(name='Other', instance=instance)
-    climate_category = Category.objects.get(name='Climate', instance=instance)
+
     Component.objects.create(
         name='Weather', icon=weather_icon,
         zone=other_zone,
