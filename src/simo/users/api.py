@@ -230,7 +230,7 @@ class UserDeviceReport(InstanceMixin, viewsets.GenericViewSet):
             if user_device.last_seen_location and iu.last_seen_location \
             and iu.last_seen > timezone.now() - datetime.timedelta(seconds=30):
                 if user_device.last_seen_location == iu.last_seen_location:
-                    speed = iu.last_seen_speed_kmh
+                    speed_kmh = iu.last_seen_speed_kmh
                 else:
                     seconds_passed = (timezone.now() - user_device.last_seen).seconds
                     if not seconds_passed:
