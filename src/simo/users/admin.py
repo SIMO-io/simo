@@ -138,7 +138,7 @@ class UserDeviceLog(admin.ModelAdmin):
         'phone_on_charge', 'users'
     )
     fields = readonly_fields
-    list_filter = 'users',
+    list_filter = 'user_device__users',
 
     def has_add_permission(self, request, obj=None):
         return False
