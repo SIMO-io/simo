@@ -1,4 +1,5 @@
 import sys
+import datetime
 from django.db.models import Q
 from rest_framework import viewsets, mixins, status
 from rest_framework.serializers import Serializer
@@ -211,12 +212,6 @@ class UserDeviceReport(InstanceMixin, viewsets.GenericViewSet):
                 [str(i) for i in location]
             ) if location else None
 
-        speed_mps = float(request.data.get('speed', 0))
-        if speed_mps < 0:
-            speed_mps = 0
-        speed_kmh = speed_mps * 3.6
-
-
         if request.data.get('app_open', False):
             user_device.is_primary = True
             UserDevice.objects.filter(
@@ -231,7 +226,15 @@ class UserDeviceReport(InstanceMixin, viewsets.GenericViewSet):
                 ) < dynamic_settings['users__at_home_radius']
             elif not relay:
                 iu.at_home = True
-
+            speed_kmh = 0
+            if user_device.last_seen_location and iu.last_seen_location \
+            and iu.last_seen > timezone.now() - datetime.timedelta(seconds=30):
+                seconds_passed = (timezone.now() - user_device.last_seen).seconds
+                moved_distance = haversine_distance(
+                    iu.last_seen_location, user_device.last_seen_location
+                )
+                speed_mps = moved_distance / seconds_passed
+                speed_kmh = speed_mps * 3.6
             iu.last_seen = user_device.last_seen
             iu.last_seen_location = user_device.last_seen_location
             iu.last_seen_speed_kmh = speed_kmh
