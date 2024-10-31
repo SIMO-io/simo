@@ -219,6 +219,7 @@ class UserDeviceReport(InstanceMixin, viewsets.GenericViewSet):
             ).exclude(id=user_device.id).update(is_primary=False)
         user_device.save()
 
+        speed_kmh = 0
         for iu in request.user.instance_roles.filter(is_active=True):
             if location:
                 iu.at_home = haversine_distance(
@@ -226,7 +227,7 @@ class UserDeviceReport(InstanceMixin, viewsets.GenericViewSet):
                 ) < dynamic_settings['users__at_home_radius']
             elif not relay:
                 iu.at_home = True
-            speed_kmh = 0
+
             if user_device.last_seen_location and iu.last_seen_location \
             and iu.last_seen > timezone.now() - datetime.timedelta(seconds=30):
                 if user_device.last_seen_location == iu.last_seen_location:
