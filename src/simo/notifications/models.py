@@ -14,7 +14,9 @@ class Notification(models.Model):
     Notification get's sent to_users as soon as it's created.
     If new users are added, notification gets sent to those users as well.
     '''
-    instance = models.ForeignKey(Instance, on_delete=models.CASCADE)
+    instance = models.ForeignKey(
+        Instance, on_delete=models.CASCADE, limit_choices_to={'is_active': True}
+    )
     datetime = models.DateTimeField(auto_now_add=True)
     to_users = models.ManyToManyField(
         User, through='notifications.UserNotification'

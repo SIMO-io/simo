@@ -119,7 +119,8 @@ class Instance(DirtyFieldsMixin, models.Model, SimoAdminMixin):
 
 class Zone(DirtyFieldsMixin, models.Model, SimoAdminMixin):
     instance = models.ForeignKey(
-        Instance, on_delete=models.CASCADE, related_name='zones'
+        Instance, on_delete=models.CASCADE, related_name='zones',
+        limit_choices_to={'is_active': True}
     )
     name = models.CharField(_('name'), max_length=40)
     order = models.PositiveIntegerField(
@@ -139,7 +140,9 @@ class Zone(DirtyFieldsMixin, models.Model, SimoAdminMixin):
 
 
 class Category(DirtyFieldsMixin, models.Model, SimoAdminMixin):
-    instance = models.ForeignKey(Instance, on_delete=models.CASCADE)
+    instance = models.ForeignKey(
+        Instance, on_delete=models.CASCADE, limit_choices_to={'is_active': True}
+    )
     name = models.CharField(_('name'), max_length=40)
     icon = models.ForeignKey(Icon, on_delete=models.SET_NULL, null=True)
     header_image = models.ImageField(

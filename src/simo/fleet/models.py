@@ -33,7 +33,8 @@ def get_new_secret():
 
 class InstanceOptions(models.Model):
     instance = models.OneToOneField(
-        Instance, on_delete=models.CASCADE, related_name='fleet_options'
+        Instance, on_delete=models.CASCADE, related_name='fleet_options',
+        limit_choices_to={'is_active': True}
     )
     secret_key = models.CharField(max_length=20, default=get_new_secret)
 
@@ -46,7 +47,7 @@ def create_instance_options(sender, instance, *args, **kwargs):
 class Colonel(DirtyFieldsMixin, models.Model):
     instance = models.ForeignKey(
         'core.Instance', on_delete=models.CASCADE, related_name='colonels',
-        null=True,
+        limit_choices_to={'is_active': True}
     )
     uid = models.CharField(
         max_length=100, db_index=True, editable=False, unique=True,

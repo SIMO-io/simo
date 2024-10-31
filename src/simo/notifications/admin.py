@@ -15,6 +15,13 @@ class NotificationAdmin(admin.ModelAdmin):
     inlines = UserNotificationInline,
     actions = 'dispatch',
 
+    readonly_fields = 'instance',
+
+    def save_model(self, request, obj, form, change):
+        if not obj.id:
+            obj.instance = get_current_instance()
+        return super().save_model(request, obj, form, change)
+
     def get_queryset(self, request):
         qs = super().get_queryset(request)
         instance = get_current_instance()
