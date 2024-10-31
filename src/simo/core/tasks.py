@@ -270,18 +270,46 @@ def sync_with_remote():
 @celery_app.task
 def clear_history():
     for instance in Instance.objects.all():
+        print(f"Clear history of {instance}")
         old_times = timezone.now() - datetime.timedelta(
             days=instance.history_days
         )
         ComponentHistory.objects.filter(
             component__zone__instance=instance, date__lt=old_times
         ).delete()
+        i = 0
+        delete_ids = []
+        for obj in ComponentHistory.objects.filter(
+            component__zone__instance=instance
+        ).order_by('-date').values('id').iterator():
+            if i < 5000:
+                continue
+            delete_ids.append(obj['id'])
+        ComponentHistory.objects.filter(id__in=delete_ids)
         HistoryAggregate.objects.filter(
             component__zone__instance=instance, start__lt=old_times
         ).delete()
+        i = 0
+        delete_ids = []
+        for obj in HistoryAggregate.objects.filter(
+            component__zone__instance=instance
+        ).order_by('-start').values('id').iterator():
+            if i < 1000:
+                continue
+            delete_ids.append(obj['id'])
+        HistoryAggregate.objects.filter(id__in=delete_ids)
         Action.objects.filter(
             data__instance_id=instance.id, timestamp__lt=old_times
         )
+        i = 0
+        delete_ids = []
+        for obj in Action.objects.filter(
+            data__instance_id=instance.id
+        ).order_by('-timestamp').values('id').iterator():
+            if i < 5000:
+                continue
+            delete_ids.append(obj['id'])
+        Action.objects.filter(id__in=delete_ids)
 
 
 @celery_app.task
@@ -343,6 +371,7 @@ def update():
 @celery_app.task
 def drop_fingerprints_learn():
     Instance.objects.filter(
+        is_active=True,
         learn_fingerprints__isnull=False,
         learn_fingerprints_start__lt=timezone.now() - datetime.timedelta(minutes=5)
     ).update(
@@ -376,7 +405,7 @@ def restart_postgresql():
 def low_battery_notifications():
     from simo.users.models import User
     from simo.notifications.utils import notify_users
-    for instance in Instance.objects.all():
+    for instance in Instance.objects.filter(is_active=True):
         timezone.activate(instance.timezone)
         if timezone.localtime().hour != 10:
             continue
