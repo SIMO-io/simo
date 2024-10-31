@@ -29,8 +29,11 @@ class Automation:
                     # at least one user's phone is not yet on charge
                     return
             self.night_is_on = True
+            print("Night!")
             return 'night'
         else:
+            if datetime.hour >= 22 or datetime.hour < 6:
+                return
             # return new_state diena only if there are still users
             # at home, none of them have their phones on charge
             # and current state is still night
@@ -41,9 +44,10 @@ class Automation:
                 if iuser.phone_on_charge:
                     # at least one user's phone is still on charge
                     return
-                else:
-                    self.night_is_on = False
+
+            self.night_is_on = False
             if not self.night_is_on and state.value == 'night':
+                print("Day has come!")
                 return 'day'
 
     def run(self):
