@@ -61,7 +61,7 @@ def post_icon_delete(sender, instance, *args, **kwargs):
             pass
 
 
-class Instance(models.Model, SimoAdminMixin):
+class Instance(DirtyFieldsMixin, models.Model, SimoAdminMixin):
     # Multiple home instances can be had on a single hub computer!
     # For example separate hotel apartments
     # or something of that kind.
@@ -101,7 +101,7 @@ class Instance(models.Model, SimoAdminMixin):
         User, null=True, blank=True, on_delete=models.SET_NULL
     )
 
-    objects = InstanceManager()
+    #objects = InstanceManager()
 
 
     def __str__(self):
@@ -118,7 +118,9 @@ class Instance(models.Model, SimoAdminMixin):
 
 
 class Zone(DirtyFieldsMixin, models.Model, SimoAdminMixin):
-    instance = models.ForeignKey(Instance, on_delete=models.CASCADE)
+    instance = models.ForeignKey(
+        Instance, on_delete=models.CASCADE, related_name='zones'
+    )
     name = models.CharField(_('name'), max_length=40)
     order = models.PositiveIntegerField(
         default=0, blank=False, null=False, db_index=True

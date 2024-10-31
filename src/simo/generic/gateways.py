@@ -74,7 +74,10 @@ class ScriptRunHandler(multiprocessing.Process):
     def run(self):
         db_connection.connect()
         self.component = Component.objects.get(id=self.component_id)
-        tz = pytz.timezone(self.component.zone.instance.timezone)
+        try:
+            tz = pytz.timezone(self.component.zone.instance.timezone)
+        except:
+            tz = pytz.timezone('UTC')
         timezone.activate(tz)
         introduce_instance(self.component.zone.instance)
         self.logger = get_component_logger(self.component)
@@ -151,7 +154,7 @@ class GenericGatewayHandler(BaseObjectCommandsGatewayHandler):
         for id, process in self.running_scripts.items():
             if process.is_alive():
                 if not Component.objects.filter(id=id).count():
-                    # script is deleted.
+                    # script is deleted, or instance deactivated
                     process.terminate()
                 continue
             component = Component.objects.filter(id=id).exclude(

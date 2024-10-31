@@ -8,6 +8,7 @@ from simo.core.models import Instance, Component
 from simo.users.models import InstanceUser
 
 
+
 @receiver(post_save, sender=Component)
 def handle_alarm_groups(sender, instance, *args, **kwargs):
     if not instance.alarm_category:

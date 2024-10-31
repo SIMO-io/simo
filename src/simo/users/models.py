@@ -289,13 +289,13 @@ class User(AbstractBaseUser, SimoAdminMixin):
         instances = cache.get(cache_key, 'expired')
         if instances == 'expired':
             if self.is_master:
-                instances = Instance.objects.all()
+                instances = Instance.objects.filter(is_active=True)
             else:
                 instances = Instance.objects.filter(id__in=[
                     r.instance.id for r in self.instance_roles.filter(
                         is_active=True, instance__isnull=False
                     )
-                ])
+                ], is_active=True)
             cache.set(cache_key, instances, 10)
         return instances
 

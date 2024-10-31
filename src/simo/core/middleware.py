@@ -37,11 +37,13 @@ def get_current_instance(request=None):
 
     instance = getattr(_thread_locals, 'instance', None)
 
-    if not instance:
-        from .models import Instance
-        instance = Instance.objects.filter(is_active=True).first()
-        if instance:
-            introduce_instance(instance)
+    # NEVER FORCE THIS! IT's A very BAD IDEA!
+    # For example gateways run on an instance neutral environment!
+    # if not instance:
+    #     from .models import Instance
+    #     instance = Instance.objects.filter(is_active=True).first()
+    #     if instance:
+    #         introduce_instance(instance)
     return instance
 
 
@@ -92,8 +94,13 @@ def instance_middleware(get_response):
 
         if instance:
             introduce_instance(instance, request)
-            tz = pytz.timezone(instance.timezone)
-            timezone.activate(tz)
+            try:
+                # should never, but just in case
+                tz = pytz.timezone(instance.timezone)
+                timezone.activate(tz)
+            except:
+                tz = pytz.timezone('UTC')
+                timezone.activate(tz)
 
         response = get_response(request)
 

@@ -1,4 +1,5 @@
 from django.contrib import admin
+from simo.core.middleware import get_current_instance
 from .models import Notification, UserNotification
 
 
@@ -15,9 +16,12 @@ class NotificationAdmin(admin.ModelAdmin):
     actions = 'dispatch',
 
     def get_queryset(self, request):
-        return super().get_queryset(request).filter(
-            instance__in=request.user.instances
-        ).prefetch_related('to_users')
+        qs = super().get_queryset(request)
+        instance = get_current_instance()
+        if instance:
+            qs = qs.filter(instance=instance)
+        return qs.prefetch_related('to_users')
+
 
     def to(self, obj):
         return ', '.join([str(u) for u in obj.to_users.all()])

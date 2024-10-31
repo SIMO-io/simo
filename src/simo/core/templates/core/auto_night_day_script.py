@@ -8,15 +8,15 @@ from simo.generic.scripting.helpers import LocalSun
 
 
 class Automation:
-    REZIMAS_COMPONENT_ID = 130
+    STATE_COMPONENT_ID = {{ state_comp_id }}
 
     def __init__(self):
         self.instance = get_current_instance()
-        self.rezimas = Component.objects.get(id=self.REZIMAS_COMPONENT_ID)
+        self.state = Component.objects.get(id=self.STATE_COMPONENT_ID)
         self.sun = LocalSun(self.instance.location)
         self.night_is_on = False
 
-    def check_owner_phones(self, rezimas, instance_users, datetime):
+    def check_owner_phones(self, state, instance_users, datetime):
         if not self.night_is_on:
             if not (datetime.hour >= 22 or datetime.hour < 6):
                 return
@@ -31,9 +31,9 @@ class Automation:
             self.night_is_on = True
             return 'night'
         else:
-            # return new_rezimas diena only if there are still users
+            # return new_state diena only if there are still users
             # at home, none of them have their phones on charge
-            # and current rezimas is still night
+            # and current state is still night
             for iuser in instance_users:
                 # skipping users that are not at home
                 if not iuser.at_home:
@@ -43,7 +43,7 @@ class Automation:
                     return
                 else:
                     self.night_is_on = False
-            if not self.night_is_on and rezimas.value == 'night':
+            if not self.night_is_on and state.value == 'night':
                 return 'day'
 
     def run(self):
@@ -51,16 +51,12 @@ class Automation:
             instance_users = InstanceUser.objects.filter(
                 is_active=True, role__is_owner=True
             )
-            self.rezimas.refresh_from_db()
-            new_rezimas = self.check_owner_phones(
-                self.rezimas, instance_users, timezone.localtime()
+            self.state.refresh_from_db()
+            new_state = self.check_owner_phones(
+                self.state, instance_users, timezone.localtime()
             )
-            if new_rezimas:
-                self.rezimas.send(new_rezimas)
+            if new_state:
+                self.state.send(new_state)
 
             # randomize script load
             time.sleep(random.randint(20, 40))
-
-
-    def test(self):
-        pass
