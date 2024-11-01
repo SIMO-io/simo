@@ -8,7 +8,7 @@ from dal import autocomplete
 from dal import forward
 from simo.core.models import Component
 from simo.core.forms import (
-    BaseComponentForm, ValueLimitForm, NumericSensorForm, SwitchForm
+    BaseComponentForm, ValueLimitForm, NumericSensorForm
 )
 from simo.core.utils.formsets import FormsetField
 from simo.core.widgets import LogOutputWidget
@@ -16,7 +16,10 @@ from simo.core.utils.easing import EASING_CHOICES
 from simo.core.utils.validators import validate_slaves
 from simo.core.utils.admin import AdminFormActionForm
 from simo.core.events import GatewayObjectCommand
-from simo.core.form_fields import Select2ModelChoiceField, Select2ListChoiceField
+from simo.core.form_fields import (
+    Select2ModelChoiceField, Select2ListChoiceField,
+    Select2ModelMultipleChoiceField
+)
 from .models import Colonel, ColonelPin, Interface
 from .utils import INTERFACES_PINS_MAP, get_all_control_input_choices
 
@@ -654,19 +657,32 @@ class ColonelSwitchConfigForm(ColonelComponentForm):
                   "given amount of seconds after every turn on event."
     )
     inverse = forms.BooleanField(required=False)
-    slaves = forms.ModelMultipleChoiceField(
-        required=False,
+    # slaves = forms.ModelMultipleChoiceField(
+    #     required=False,
+    #     queryset=Component.objects.filter(
+    #         base_type__in=(
+    #             'dimmer', 'switch', 'blinds', 'script'
+    #         )
+    #     ),
+    #     widget=autocomplete.ModelSelect2Multiple(
+    #         url='autocomplete-component', attrs={'data-html': True},
+    #         forward=(forward.Const(
+    #             ['dimmer', 'switch', 'blinds', 'script'], 'base_type'),
+    #         )
+    #     )
+    # )
+
+    slaves = Select2ModelMultipleChoiceField(
+
         queryset=Component.objects.filter(
             base_type__in=(
                 'dimmer', 'switch', 'blinds', 'script'
             )
         ),
-        widget=autocomplete.ModelSelect2Multiple(
-            url='autocomplete-component', attrs={'data-html': True},
-            forward=(forward.Const(
-                ['dimmer', 'switch', 'blinds', 'script'], 'base_type'),
-            )
-        )
+        url='autocomplete-component',
+        forward=[
+            forward.Const(['dimmer', 'switch', 'blinds', 'script'], 'base_type')
+        ]
     )
 
     controls = FormsetField(

@@ -403,7 +403,6 @@ def restart_postgresql():
 
 @celery_app.task
 def low_battery_notifications():
-    from simo.users.models import User
     from simo.notifications.utils import notify_users
     for instance in Instance.objects.filter(is_active=True):
         timezone.activate(instance.timezone)
