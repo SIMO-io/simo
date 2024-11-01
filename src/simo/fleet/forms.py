@@ -673,7 +673,6 @@ class ColonelSwitchConfigForm(ColonelComponentForm):
     # )
 
     slaves = Select2ModelMultipleChoiceField(
-
         queryset=Component.objects.filter(
             base_type__in=(
                 'dimmer', 'switch', 'blinds', 'script'

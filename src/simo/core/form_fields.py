@@ -67,7 +67,7 @@ class Select2ListChoiceField(Select2ListMixin, forms.ChoiceField):
 
 class Select2MultipleMixin:
 
-    def __init__(self, url, forward=None, *args, **kwargs):
+    def __init__(self, url=None, forward=None, *args, **kwargs):
         self.url = url
         self.forward = []
         if forward:
@@ -78,7 +78,7 @@ class Select2MultipleMixin:
         )
         widget.choices = kwargs.pop('choices', None)
 
-        super().__init__(widget, *args, **kwargs)
+        super().__init__(widget=widget, *args, **kwargs)
 
 
 class Select2ModelMultipleChoiceField(
