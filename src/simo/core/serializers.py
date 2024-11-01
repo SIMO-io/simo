@@ -13,8 +13,8 @@ from rest_framework.relations import Hyperlink, PKOnlyObject
 from actstream.models import Action
 from simo.core.forms import HiddenField, FormsetField
 from simo.core.form_fields import (
-    Select2ListChoiceField,
-    Select2ModelChoiceField, Select2ListMultipleChoiceField
+    Select2ListChoiceField, Select2ModelChoiceField,
+    Select2ListMultipleChoiceField, Select2ModelMultipleChoiceField
 )
 from simo.core.models import Component
 from rest_framework.relations import PrimaryKeyRelatedField, ManyRelatedField
@@ -273,6 +273,7 @@ class ComponentSerializer(FormSerializer):
             Select2ModelChoiceField: ComponentPrimaryKeyRelatedField,
             forms.ModelMultipleChoiceField: ComponentManyToManyRelatedField,
             Select2ListMultipleChoiceField: ComponentManyToManyRelatedField,
+            Select2ModelMultipleChoiceField: ComponentManyToManyRelatedField,
             FormsetField: ComponentFormsetField,
         }
 
