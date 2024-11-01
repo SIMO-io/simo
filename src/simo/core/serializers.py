@@ -291,7 +291,6 @@ class ComponentSerializer(FormSerializer):
                 self.instance = Component.objects.filter(id=res[0]).first()
 
     def get_fields(self):
-
         self.set_form_cls()
 
         ret = OrderedDict()
