@@ -219,7 +219,7 @@ class UserDeviceReport(InstanceMixin, viewsets.GenericViewSet):
             ).exclude(id=user_device.id).update(is_primary=False)
         user_device.save()
 
-        speed_kmh = 0
+        speed_kmh = request.data.get('speed', 0) * 3.6
         for iu in request.user.instance_roles.filter(is_active=True):
             if location:
                 iu.at_home = haversine_distance(
@@ -228,20 +228,6 @@ class UserDeviceReport(InstanceMixin, viewsets.GenericViewSet):
             elif not relay:
                 iu.at_home = True
 
-            if user_device.last_seen_location and iu.last_seen_location \
-            and iu.last_seen > timezone.now() - datetime.timedelta(seconds=30):
-                if user_device.last_seen_location == iu.last_seen_location:
-                    speed_kmh = iu.last_seen_speed_kmh
-                else:
-                    seconds_passed = (timezone.now() - user_device.last_seen).seconds
-                    if not seconds_passed:
-                        speed_kmh = 0
-                    else:
-                        moved_distance = haversine_distance(
-                            iu.last_seen_location, user_device.last_seen_location
-                        )
-                        speed_mps = moved_distance / seconds_passed
-                        speed_kmh = speed_mps * 3.6
             iu.last_seen = user_device.last_seen
             iu.last_seen_location = user_device.last_seen_location
             iu.last_seen_speed_kmh = speed_kmh
