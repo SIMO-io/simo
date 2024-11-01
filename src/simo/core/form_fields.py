@@ -26,10 +26,11 @@ class LazyChoicesMixin:
         return obj
 
     def optgroups(self, name, value, attrs=None):
-        for (val, display) in self.choices:
-            if val == value[0]:
-                self.choices = [(val, display)]
-                break
+        if len(value) == 2:
+            for (val, display) in self.choices:
+                if val == value[0]:
+                    self.choices = [(val, display)]
+                    break
         return super().optgroups(name, value, attrs)
 
 
@@ -76,7 +77,7 @@ class Select2MultipleMixin:
         widget = Select2Multiple(
             url=url, forward=forward, attrs={'data-html': True}
         )
-        widget.choices = kwargs.pop('choices', None)
+        widget.choices = kwargs.pop('choices', [])
 
         super().__init__(widget=widget, *args, **kwargs)
 
