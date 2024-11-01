@@ -44,7 +44,7 @@ from .app_widgets import (
 from .forms import (
     ScriptConfigForm, PresenceLightingConfigForm,
     ThermostatConfigForm, AlarmGroupConfigForm,
-    IPCameraConfigForm, WeatherForecastForm, GateConfigForm,
+    IPCameraConfigForm, WeatherForecastForm,
     WateringConfigForm, StateSelectForm,
     AlarmClockConfigForm
 )

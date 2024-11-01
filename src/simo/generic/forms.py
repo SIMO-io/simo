@@ -16,7 +16,10 @@ from simo.core.utils.config_values import config_to_dict
 from simo.core.utils.formsets import FormsetField
 from simo.core.utils.helpers import get_random_string
 from simo.core.utils.form_fields import ListSelect2Widget
-from simo.conf import dynamic_settings
+from simo.core.form_fields import (
+    Select2ModelChoiceField, Select2ListChoiceField,
+    Select2ModelMultipleChoiceField
+)
 
 
 ACTION_METHODS = (
@@ -134,11 +137,9 @@ class ScriptConfigForm(BaseComponentForm):
 
 
 class ConditionForm(forms.Form):
-    component = forms.ModelChoiceField(
-        Component.objects.all(),
-        widget=autocomplete.ModelSelect2(
-            url='autocomplete-component', attrs={'data-html': True},
-        ),
+    component = Select2ModelChoiceField(
+        queryset=Component.objects.all(),
+        url='autocomplete-component',
     )
     op = forms.ChoiceField(
         initial="==", choices=(
@@ -200,19 +201,18 @@ class ConditionForm(forms.Form):
 
 
 class PresenceLightingConfigForm(BaseComponentForm):
-    lights = forms.ModelMultipleChoiceField(
-        Component.objects.filter(
+    lights = Select2ModelMultipleChoiceField(
+        queryset=Component.objects.filter(
             base_type__in=('switch', 'dimmer', 'rgbw-light', 'rgb-light')
         ),
         required=True,
-        widget=autocomplete.ModelSelect2Multiple(
-            url='autocomplete-component', attrs={'data-html': True},
-            forward=(
-                forward.Const(['switch', 'dimmer', 'rgbw-light', 'rgb-light'],
-                              'base_type'),
-            )
+        url='autocomplete-component',
+        forward=(
+            forward.Const(['switch', 'dimmer', 'rgbw-light', 'rgb-light'],
+                          'base_type'),
         )
     )
+
     on_value = forms.IntegerField(
         min_value=0, initial=100,
         help_text="Value applicable for dimmers. "
@@ -223,15 +223,13 @@ class PresenceLightingConfigForm(BaseComponentForm):
             (0, "0"), (1, "Original value before turning the lights on.")
         )
     )
-    presence_sensors = forms.ModelMultipleChoiceField(
-        Component.objects.filter(
+    presence_sensors = Select2ModelMultipleChoiceField(
+        queryset=Component.objects.filter(
             base_type__in=('binary-sensor', 'switch')
         ),
         required=True,
-        widget=autocomplete.ModelSelect2Multiple(
-            url='autocomplete-component', attrs={'data-html': True},
-            forward=(forward.Const(['binary-sensor', 'switch'], 'base_type'),)
-        )
+        url='autocomplete-component',
+        forward=(forward.Const(['binary-sensor', 'switch'], 'base_type'),)
     )
     act_on = forms.TypedChoiceField(
         coerce=int, initial=0, choices=(
@@ -296,44 +294,41 @@ class PresenceLightingConfigForm(BaseComponentForm):
 
 
 class ThermostatConfigForm(BaseComponentForm):
-    temperature_sensor = forms.ModelChoiceField(
-        Component.objects.filter(
+    temperature_sensor = Select2ModelChoiceField(
+        queryset=Component.objects.filter(
             base_type__in=(
                 NumericSensor.base_type,
                 MultiSensor.base_type
             )
         ),
-        widget=autocomplete.ModelSelect2(
-            url='autocomplete-component', attrs={'data-html': True},
-            forward=(
-                forward.Const([
-                    NumericSensor.base_type,
-                    MultiSensor.base_type
-                ], 'base_type'),
-            )
+        url='autocomplete-component',
+        forward=(
+            forward.Const([
+                NumericSensor.base_type,
+                MultiSensor.base_type
+            ], 'base_type'),
         )
     )
-    heater = forms.ModelChoiceField(
-        Component.objects.filter(base_type=Switch.base_type),
-        required=False, widget=autocomplete.ModelSelect2(
-            url='autocomplete-component', attrs={'data-html': True},
-            forward=(
-                forward.Const([
-                    Switch.base_type,
-                ], 'base_type'),
-            )
+    heater = Select2ModelChoiceField(
+        queryset=Component.objects.filter(base_type=Switch.base_type),
+        required=False,
+        url='autocomplete-component',
+        forward=(
+            forward.Const([
+                Switch.base_type,
+            ], 'base_type'),
         )
     )
-    cooler = forms.ModelChoiceField(
-        Component.objects.filter(base_type=Switch.base_type),
-        required=False, widget=autocomplete.ModelSelect2(
-            url='autocomplete-component', attrs={'data-html': True},
-            forward=(
-                forward.Const([
-                    Switch.base_type,
-                ], 'base_type'),
-            )
+    cooler = Select2ModelChoiceField(
+        queryset=Component.objects.filter(base_type=Switch.base_type),
+        required=False,
+        url='autocomplete-component',
+        forward=(
+            forward.Const([
+                Switch.base_type,
+            ], 'base_type'),
         )
+
     )
     mode = forms.ChoiceField(
         choices=(('heater', "Heater"), ('cooler', "Cooler"), ('auto', "Auto"),),
@@ -382,11 +377,9 @@ class ThermostatConfigForm(BaseComponentForm):
 
 class AlarmBreachEventForm(forms.Form):
     uid = HiddenField(required=False)
-    component = forms.ModelChoiceField(
-        Component.objects.all(),
-        widget=autocomplete.ModelSelect2(
-            url='autocomplete-component', attrs={'data-html': True},
-        ),
+    component = Select2ModelChoiceField(
+        queryset=Component.objects.all(),
+        url='autocomplete-component',
     )
     breach_action = forms.ChoiceField(
         initial='turn_on', choices=ACTION_METHODS
@@ -427,16 +420,14 @@ class AlarmBreachEventForm(forms.Form):
 
 # TODO: create control widget for admin use.
 class AlarmGroupConfigForm(BaseComponentForm):
-    components = forms.ModelMultipleChoiceField(
-        Component.objects.filter(
+    components = Select2ModelMultipleChoiceField(
+        queryset=Component.objects.filter(
             Q(alarm_category__isnull=False) | Q(base_type='alarm-group')
         ),
         required=True,
-        widget=autocomplete.ModelSelect2Multiple(
-            url='autocomplete-component', attrs={'data-html': True},
-            forward=(
-                forward.Const(['security', 'fire', 'flood', 'other'], 'alarm_category'),
-            )
+        url='autocomplete-component',
+        forward=(
+            forward.Const(['security', 'fire', 'flood', 'other'], 'alarm_category'),
         )
     )
     is_main = forms.BooleanField(
@@ -453,28 +444,24 @@ class AlarmGroupConfigForm(BaseComponentForm):
         ),
         help_text="Arm automatically as soon as everybody leaves.<br>"
     )
-    arming_locks = forms.ModelMultipleChoiceField(
-        Component.objects.filter(base_type='lock'),
+    arming_locks = Select2ModelMultipleChoiceField(
+        queryset=Component.objects.filter(base_type='lock'),
         label="Arming locks", required=False,
-        widget=autocomplete.ModelSelect2Multiple(
-            url='autocomplete-component', attrs={'data-html': True},
-            forward=(
-                forward.Const(['lock'], 'base_type'),
-            )
+        url='autocomplete-component',
+        forward=(
+            forward.Const(['lock'], 'base_type'),
         ),
         help_text="Alarm group will get armed automatically whenever "
                   "any of assigned locks changes it's state to locked. <br>"
                   "If Arm on away is enabled and set to work with arming locks, "
                   "arming will take effect only after everybody leaves."
     )
-    disarming_locks = forms.ModelMultipleChoiceField(
-        Component.objects.filter(base_type='lock'),
+    disarming_locks = Select2ModelMultipleChoiceField(
+        queryset=Component.objects.filter(base_type='lock'),
         label="Disarming locks", required=False,
-        widget=autocomplete.ModelSelect2Multiple(
-            url='autocomplete-component', attrs={'data-html': True},
-            forward=(
-                forward.Const(['lock'], 'base_type'),
-            )
+        url='autocomplete-component',
+        forward=(
+            forward.Const(['lock'], 'base_type'),
         ),
         help_text="Alarm group will be disarmed automatically whenever "
                   "any of assigned locks changes it's state to unlocked. "
@@ -598,58 +585,20 @@ class WeatherForecastForm(BaseComponentForm):
         return obj
 
 
-class GateConfigForm(BaseComponentForm):
-    open_closed_sensor = forms.ModelChoiceField(
-        Component.objects.filter(base_type=BinarySensor.base_type),
-        label="Open/Closed sensor",
-        widget=autocomplete.ModelSelect2(
-            url='autocomplete-component', attrs={'data-html': True},
-            forward=(
-                forward.Const([BinarySensor.base_type], 'base_type'),
-            )
-        )
-    )
-    action_switch = forms.ModelChoiceField(
-        Component.objects.filter(base_type=Switch.base_type),
-        widget=autocomplete.ModelSelect2(
-            url='autocomplete-component', attrs={'data-html': True},
-            forward=(
-                forward.Const([Switch.base_type], 'base_type'),
-            )
-        )
-    )
-    action_method = forms.ChoiceField(
-        required=True, choices=(
-            ('click', "Click"),
-            ('toggle', "Toggle"),
-        ),
-        help_text="Action switch method to initiate move/stop event on "
-                  "your gate."
-    )
-    gate_open_duration = forms.FloatField(
-        label='Gate open duration', min_value=0.01, max_value=360000,
-        initial=30,
-        help_text="Time in seconds it takes for your gate to go "
-                  "from fully closed to fully open."
-    )
-
-
 
 class ContourForm(forms.Form):
     uid = forms.CharField(widget=forms.HiddenInput(), required=False)
     color = forms.CharField(widget=forms.HiddenInput(), required=False)
 
     name = forms.CharField()
-    switch = forms.ModelChoiceField(
-        Component.objects.filter(
+    switch = Select2ModelChoiceField(
+        queryset=Component.objects.filter(
             base_type__in=(Switch.base_type, Dimmer.base_type)
         ),
-        widget=autocomplete.ModelSelect2(
-            url='autocomplete-component', attrs={'data-html': True},
-            forward=(
-                forward.Const([Switch.base_type], 'base_type'),
-            )
-        ),
+        url='autocomplete-component',
+        forward=(
+            forward.Const([Switch.base_type], 'base_type'),
+        )
     )
     runtime = forms.IntegerField(
         min_value=0,
@@ -762,11 +711,9 @@ class AlarmClockEventForm(forms.Form):
     uid = HiddenField(required=False)
     enabled = forms.BooleanField(initial=True)
     name = forms.CharField(max_length=30)
-    component = forms.ModelChoiceField(
-        Component.objects.all(),
-        widget=autocomplete.ModelSelect2(
-            url='autocomplete-component', attrs={'data-html': True},
-        ),
+    component = Select2ModelChoiceField(
+        queryset=Component.objects.all(),
+        url='autocomplete-component'
     )
     play_action = forms.ChoiceField(
         initial='turn_on', choices=ACTION_METHODS

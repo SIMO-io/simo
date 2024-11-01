@@ -657,21 +657,6 @@ class ColonelSwitchConfigForm(ColonelComponentForm):
                   "given amount of seconds after every turn on event."
     )
     inverse = forms.BooleanField(required=False)
-    # slaves = forms.ModelMultipleChoiceField(
-    #     required=False,
-    #     queryset=Component.objects.filter(
-    #         base_type__in=(
-    #             'dimmer', 'switch', 'blinds', 'script'
-    #         )
-    #     ),
-    #     widget=autocomplete.ModelSelect2Multiple(
-    #         url='autocomplete-component', attrs={'data-html': True},
-    #         forward=(forward.Const(
-    #             ['dimmer', 'switch', 'blinds', 'script'], 'base_type'),
-    #         )
-    #     )
-    # )
-
     slaves = Select2ModelMultipleChoiceField(
         queryset=Component.objects.filter(
             base_type__in=(
@@ -790,15 +775,13 @@ class ColonelPWMOutputConfigForm(ColonelComponentForm):
         help_text="ON value when used with toggle switch"
     )
 
-    slaves = forms.ModelMultipleChoiceField(
-        required=False,
+    slaves = Select2ModelMultipleChoiceField(
         queryset=Component.objects.filter(
             base_type__in=('dimmer', ),
         ),
-        widget=autocomplete.ModelSelect2Multiple(
-            url='autocomplete-component', attrs={'data-html': True},
-            forward=(forward.Const(['dimmer', ], 'base_type'),)
-        )
+        url='autocomplete-component',
+        forward=(forward.Const(['dimmer', ], 'base_type'),),
+        required=False
     )
     controls = FormsetField(
         formset_factory(
@@ -1427,16 +1410,13 @@ class BurglarSmokeDetectorConfigForm(ColonelComponentForm):
 
 class TTLockConfigForm(ColonelComponentForm):
 
-    door_sensor = forms.ModelChoiceField(
-        Component.objects.filter(base_type='binary-sensor'),
-        required=False,
-        help_text="Quickens up lock status reporting on open/close if provided.",
-        widget=autocomplete.ModelSelect2(
-            url='autocomplete-component', attrs={'data-html': True},
-            forward=(
-                forward.Const(['binary-sensor'], 'base_type'),
-            )
-        )
+    door_sensor = Select2ModelChoiceField(
+        queryset=Component.objects.filter(base_type='binary-sensor'),
+        url='autocomplete-component',
+        forward=(
+            forward.Const(['binary-sensor'], 'base_type'),
+        ), required=False,
+        help_text="Quickens up lock status reporting on open/close if provided."
     )
 
     def clean(self):
@@ -1606,18 +1586,16 @@ class DaliGearGroupForm(DALIDeviceConfigForm, BaseComponentForm):
         help_text="If provided, group will be turned off after "
                   "given amount of seconds after last turn on event."
     )
-    members = forms.ModelMultipleChoiceField(
-        Component.objects.filter(
+    members = Select2ModelMultipleChoiceField(
+        queryset=Component.objects.filter(
             controller_uid='simo.fleet.controllers.DALILamp',
         ),
         label="Members", required=True,
-        widget=autocomplete.ModelSelect2Multiple(
-            url='autocomplete-component', attrs={'data-html': True},
-            forward=(
-                forward.Const(
-                    ['simo.fleet.controllers.DALILamp', ], 'controller_uid'
-                ),
-            )
+        url='autocomplete-component',
+        forward=(
+            forward.Const(
+                ['simo.fleet.controllers.DALILamp', ], 'controller_uid'
+            ),
         )
     )
     on_value = forms.FloatField(

@@ -13,6 +13,7 @@ from dal import autocomplete
 from .models import (
     Icon, Category, Gateway, Component
 )
+from .form_fields import Select2ModelMultipleChoiceField
 from .widgets import SVGFileWidget, LogOutputWidget
 from .utils.formsets import FormsetField
 from .utils.validators import validate_slaves
@@ -459,19 +460,17 @@ class MultiSensorConfigForm(BaseComponentForm):
 
 
 class SwitchForm(BaseComponentForm):
-    slaves = forms.ModelMultipleChoiceField(
-        required=False,
+    slaves = Select2ModelMultipleChoiceField(
         queryset=Component.objects.filter(
             base_type__in=(
                 'dimmer', 'switch', 'blinds', 'script'
             )
         ),
-        widget=autocomplete.ModelSelect2Multiple(
-            url='autocomplete-component', attrs={'data-html': True},
-            forward=(forward.Const(
-                ['dimmer', 'switch', 'blinds', 'script'], 'base_type'),
-            )
-        )
+        url='autocomplete-component',
+        forward=(forward.Const(
+            ['dimmer', 'switch', 'blinds', 'script'], 'base_type'),
+        ),
+        required=False
     )
 
     def __init__(self, *args, **kwargs):
@@ -599,15 +598,13 @@ class DimmerConfigForm(BaseComponentForm):
         initial=100.0, help_text="Maximum component value."
     )
     value_units = forms.CharField(required=False)
-    slaves = forms.ModelMultipleChoiceField(
-        required=False,
+    slaves = Select2ModelMultipleChoiceField(
         queryset=Component.objects.filter(
             base_type__in='dimmer',
         ),
-        widget=autocomplete.ModelSelect2Multiple(
-            url='autocomplete-component', attrs={'data-html': True},
-            forward=(forward.Const(['dimmer', ], 'base_type'),)
-        )
+        url='autocomplete-component',
+        forward=(forward.Const(['dimmer', ], 'base_type'),),
+        required=False
     )
 
     def clean_slaves(self):
