@@ -199,14 +199,25 @@ class ComponentFormsetField(FormSerializer):
     def _get_field_kwargs(self, form_field, serializer_field_class):
         kwargs = super()._get_field_kwargs(form_field, serializer_field_class)
         kwargs['style'] = {'form_field': form_field}
-        if serializer_field_class == FormsetPrimaryKeyRelatedField:
-            kwargs['queryset'] = form_field.queryset
+
+        if serializer_field_class in (
+            ComponentPrimaryKeyRelatedField, ComponentManyToManyRelatedField
+        ):
+            qs = form_field.queryset
+            if hasattr(qs.model, 'instance'):
+                qs = qs.filter(instance=self.context['instance'])
+            elif hasattr(qs.model, 'instances'):
+                qs = qs.filter(instances=self.context['instance'])
+            elif qs.model == Component:
+                qs = qs.filter(zone__instance=self.context['instance'])
+            kwargs['queryset'] = qs
 
         attrs = find_matching_class_kwargs(form_field, serializer_field_class)
         if 'choices' in attrs:
             kwargs['choices'] = attrs['choices']
 
         return kwargs
+
 
     def to_representation(self, instance):
         """
