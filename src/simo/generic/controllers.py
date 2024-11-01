@@ -6,6 +6,7 @@ import json
 import requests
 import traceback
 import sys
+import random
 from bs4 import BeautifulSoup
 from django.core.exceptions import ValidationError
 from django.utils import timezone
@@ -155,11 +156,17 @@ class PresenceLighting(Script):
     light_org_values = {}
     is_on = False
     turn_off_task = None
+    last_presence = 0
 
     def _run(self):
         while True:
             self._on_sensor()
-            time.sleep(10)
+            hold_time = self.component.config.get('hold_time', 0) * 10
+            if self.last_presence and hold_time and (
+                time.time() - hold_time > self.last_presence
+            ):
+                self._turn_it_off()
+            time.sleep(random.randint(5, 15))
 
     def _on_sensor(self, sensor=None):
 
@@ -180,6 +187,9 @@ class PresenceLighting(Script):
         else:
             must_on = all(presence_values)
 
+        if sensor and must_on:
+            print("Presence detected!")
+
         additional_conditions_met = True
         for condition in self.component.config.get('conditions', []):
             if not additional_conditions_met:
@@ -198,17 +208,13 @@ class PresenceLighting(Script):
                 continue
 
             if not op(comp.value, condition['value']):
+                if sensor and must_on:
+                    print(f"Condition not met: [{comp} value:{comp.value} {condition['op']} {condition['value']}]")
                 additional_conditions_met = False
-
-        if must_on and not additional_conditions_met:
-            print("Presence detected, but additional conditions not met!")
 
         if must_on and additional_conditions_met and not self.is_on:
             print("Turn the lights ON!")
             self.is_on = True
-            if self.turn_off_task:
-                self.turn_off_task.cancel()
-                self.turn_off_task = None
             self.light_org_values = {}
             for id in self.component.config['lights']:
                 comp = Component.objects.filter(id=id).first()
@@ -224,16 +230,13 @@ class PresenceLighting(Script):
             if not any(presence_values):
                 if not self.component.config.get('hold_time', 0):
                     return self._turn_it_off()
-                if not self.turn_off_task:
-                    self.turn_off_task = threading.Timer(
-                        self.component.config['hold_time'] * 10,
-                        self._turn_it_off
-                    )
+                if not self.last_presence:
+                    self.last_presence = time.time()
 
     def _turn_it_off(self):
         print("Turn the lights OFF!")
         self.is_on = False
-        self.turn_off_task = None
+        self.last_presence = 0
         for id in self.component.config['lights']:
             comp = Component.objects.filter(id=id).first()
             if not comp or not comp.controller:

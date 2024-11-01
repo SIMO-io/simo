@@ -224,11 +224,13 @@ class PresenceLightingConfigForm(BaseComponentForm):
         )
     )
     presence_sensors = forms.ModelMultipleChoiceField(
-        Component.objects.filter(base_type='binary-sensor'),
+        Component.objects.filter(
+            base_type__in=('binary-sensor', 'switch')
+        ),
         required=True,
         widget=autocomplete.ModelSelect2Multiple(
             url='autocomplete-component', attrs={'data-html': True},
-            forward=(forward.Const(['binary-sensor'], 'base_type'),)
+            forward=(forward.Const(['binary-sensor', 'switch'], 'base_type'),)
         )
     )
     act_on = forms.TypedChoiceField(
@@ -263,6 +265,8 @@ class PresenceLightingConfigForm(BaseComponentForm):
         widget=forms.HiddenInput, required=False
     )
 
+    app_exclude_fields = ('alarm_category', 'code', 'log')
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.basic_fields.extend(
@@ -279,6 +283,16 @@ class PresenceLightingConfigForm(BaseComponentForm):
                     self.instance.id
                 )
             )
+
+    def save(self, commit=True):
+        obj = super().save(commit)
+        if commit:
+            obj.controller.stop()
+            if self.cleaned_data.get('keep_alive') \
+                    or self.cleaned_data.get('autostart'):
+                time.sleep(2)
+                obj.controller.start()
+        return obj
 
 
 class ThermostatConfigForm(BaseComponentForm):

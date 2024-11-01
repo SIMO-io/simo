@@ -78,7 +78,8 @@ class Instance(DirtyFieldsMixin, models.Model, SimoAdminMixin):
     )
     location = PlainLocationField(null=True, blank=True, zoom=7)
     timezone = models.CharField(
-        max_length=50, db_index=True, choices=ALL_TIMEZONES_CHOICES
+        max_length=50, db_index=True, choices=ALL_TIMEZONES_CHOICES,
+        default='UTC'
     )
     units_of_measure = models.CharField(
         max_length=100, default='metric',

@@ -596,12 +596,9 @@ class DimmerConfigForm(BaseComponentForm):
         initial=0.0, help_text="Minimum component value."
     )
     max = forms.FloatField(
-        initial=1.0, help_text="Maximum component value."
+        initial=100.0, help_text="Maximum component value."
     )
     value_units = forms.CharField(required=False)
-    inverse = forms.BooleanField(
-        label=_("Inverse dimmer signal"), required=False
-    )
     slaves = forms.ModelMultipleChoiceField(
         required=False,
         queryset=Component.objects.filter(
@@ -613,12 +610,6 @@ class DimmerConfigForm(BaseComponentForm):
         )
     )
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.fields['value_units'].initial = self.controller.default_value_units
-        if self.instance.pk:
-            self.fields['slaves'].initial = self.instance.slaves.all()
-
     def clean_slaves(self):
         if not self.cleaned_data['slaves'] or not self.instance:
             return self.cleaned_data['slaves']
@@ -626,7 +617,7 @@ class DimmerConfigForm(BaseComponentForm):
 
     def save(self, commit=True):
         obj = super().save(commit=commit)
-        if commit:
+        if commit and 'slaves' in self.cleaned_data:
             obj.slaves.set(self.cleaned_data['slaves'])
         return obj
 
