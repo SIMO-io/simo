@@ -104,6 +104,34 @@ class HiddenSerializerField(serializers.CharField):
 class TextAreaSerializerField(serializers.CharField):
     pass
 
+class ComponentPrimaryKeyRelatedField(PrimaryKeyRelatedField):
+
+    def get_attribute(self, instance):
+        if self.queryset.model in (Icon, Zone, Category):
+            return super().get_attribute(instance)
+        return self.queryset.model.objects.filter(
+            pk=instance.config.get(self.source_attrs[0])
+        ).first()
+
+
+class ComponentManyToManyRelatedField(serializers.Field):
+
+    def __init__(self, *args, **kwargs):
+        self.queryset = kwargs.pop('queryset')
+        self.choices = {obj.pk: str(obj) for obj in self.queryset}
+        self.allow_blank = kwargs.pop('allow_blank', False)
+        super().__init__(*args, **kwargs)
+
+
+    def to_representation(self, value):
+        return [obj.pk for obj in value.all()]
+
+    def to_internal_value(self, data):
+        if data == [] and self.allow_blank:
+            return []
+        return self.queryset.filter(pk__in=data)
+
+
 
 class ComponentFormsetField(FormSerializer):
 
@@ -114,6 +142,10 @@ class ComponentFormsetField(FormSerializer):
         field_mapping = {
             HiddenField: HiddenSerializerField,
             Select2ListChoiceField: serializers.ChoiceField,
+            Select2ModelChoiceField: ComponentPrimaryKeyRelatedField,
+            forms.ModelMultipleChoiceField: ComponentManyToManyRelatedField,
+            Select2ListMultipleChoiceField: ComponentManyToManyRelatedField,
+            Select2ModelMultipleChoiceField: ComponentManyToManyRelatedField,
             forms.ModelChoiceField: FormsetPrimaryKeyRelatedField,
             forms.TypedChoiceField: serializers.ChoiceField,
             forms.FloatField: serializers.FloatField,
@@ -211,32 +243,6 @@ class ComponentFormsetField(FormSerializer):
         return validated_data
 
 
-class ComponentPrimaryKeyRelatedField(PrimaryKeyRelatedField):
-
-    def get_attribute(self, instance):
-        if self.queryset.model in (Icon, Zone, Category):
-            return super().get_attribute(instance)
-        return self.queryset.model.objects.filter(
-            pk=instance.config.get(self.source_attrs[0])
-        ).first()
-
-
-class ComponentManyToManyRelatedField(serializers.Field):
-
-    def __init__(self, *args, **kwargs):
-        self.queryset = kwargs.pop('queryset')
-        self.choices = {obj.pk: str(obj) for obj in self.queryset}
-        self.allow_blank = kwargs.pop('allow_blank', False)
-        super().__init__(*args, **kwargs)
-
-
-    def to_representation(self, value):
-        return [obj.pk for obj in value.all()]
-
-    def to_internal_value(self, data):
-        if data == [] and self.allow_blank:
-            return []
-        return self.queryset.filter(pk__in=data)
 
 
 class ComponentSerializer(FormSerializer):
