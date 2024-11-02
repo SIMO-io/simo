@@ -271,7 +271,7 @@ class PresenceLightingConfigForm(BaseComponentForm):
             ['lights', 'on_value', 'off_value', 'presence_sensors',
              'act_on', 'hold_time', 'conditions', 'autostart', 'keep_alive']
         )
-        if self.instance.pk:
+        if self.instance.pk and 'log' in self.fields:
             prefix = get_script_prefix()
             if prefix == '/':
                 prefix = ''

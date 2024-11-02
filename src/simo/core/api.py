@@ -175,10 +175,10 @@ def get_components_queryset(instance, user):
         c_ids.add(state['id'])
 
     user_role = user.get_role(instance)
-
-    for cp in user_role.component_permissions.all():
-        if cp.read:
-            c_ids.add(cp.component.id)
+    if user_role:
+        for cp in user_role.component_permissions.all():
+            if cp.read:
+                c_ids.add(cp.component.id)
 
     return qs.filter(id__in=c_ids).select_related(
         'zone', 'category', 'icon'

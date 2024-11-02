@@ -134,6 +134,8 @@ class ComponentAutocomplete(autocomplete.Select2QuerySetView):
         return qs.distinct()
 
     def get_result_label(self, item):
+        if self.request.META.get('HTTP_USER_AGENT') == 'SIMO-app':
+            return super().get_result_label(item)
         return render_to_string(
             'core/object_acutocomplete_select_item.html', {
                 'object': item
