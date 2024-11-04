@@ -87,6 +87,7 @@ class ObjectSerializerMethodField(serializers.SerializerMethodField):
 class FormsetPrimaryKeyRelatedField(PrimaryKeyRelatedField):
 
     def get_attribute(self, instance):
+        print("f{instance} SOURCE FORMSET ATTRIBUTES: ", self.source_attrs)
         return self.queryset.model.objects.filter(
             pk=instance.get(self.source_attrs[0], -1)
         ).first()
@@ -105,7 +106,7 @@ class TextAreaSerializerField(serializers.CharField):
 class ComponentPrimaryKeyRelatedField(PrimaryKeyRelatedField):
 
     def get_attribute(self, instance):
-        print("SOURCE ATTRIBUTES: ", self.source_attrs)
+        print(f"{instance} SOURCE ATTRIBUTES: ", self.source_attrs)
         if self.queryset.model in (Icon, Zone, Category):
             return super().get_attribute(instance)
         return self.queryset.model.objects.filter(
