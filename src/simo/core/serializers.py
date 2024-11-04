@@ -203,7 +203,7 @@ class ComponentFormsetField(FormSerializer):
         kwargs['style'] = {'form_field': form_field}
 
         if serializer_field_class in (
-            ComponentPrimaryKeyRelatedField, ComponentManyToManyRelatedField
+            FormsetPrimaryKeyRelatedField, ComponentManyToManyRelatedField
         ):
             qs = form_field.queryset
             if hasattr(qs.model, 'instance'):
@@ -254,8 +254,6 @@ class ComponentFormsetField(FormSerializer):
 
     def create(self, validated_data):
         return validated_data
-
-
 
 
 class ComponentSerializer(FormSerializer):
