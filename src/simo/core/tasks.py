@@ -406,7 +406,7 @@ def low_battery_notifications():
     from simo.notifications.utils import notify_users
     for instance in Instance.objects.filter(is_active=True):
         timezone.activate(instance.timezone)
-        if timezone.localtime().hour != 10:
+        if timezone.localtime().hour not in (10, 18):
             continue
         for comp in Component.objects.filter(
             zone__instance=instance,

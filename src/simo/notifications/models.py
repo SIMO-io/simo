@@ -10,10 +10,6 @@ from simo.conf import dynamic_settings
 
 
 class Notification(models.Model):
-    '''
-    Notification get's sent to_users as soon as it's created.
-    If new users are added, notification gets sent to those users as well.
-    '''
     instance = models.ForeignKey(
         Instance, on_delete=models.CASCADE, limit_choices_to={'is_active': True}
     )
@@ -47,7 +43,9 @@ class Notification(models.Model):
         for user_notification in user_notifications:
             token = user_notification.user.primary_device_token
             if token:
-                data['to_tokens'].append(user_notification.user.primary_device_token)
+                data['to_tokens'].append(
+                    user_notification.user.primary_device_token
+                )
         try:
             response = requests.post(
                 'https://simo.io/api/notifications/postmaster/', json=data

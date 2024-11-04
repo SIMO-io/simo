@@ -193,6 +193,8 @@ class ComponentFormsetField(FormSerializer):
                     )
 
             ret[field_name] = self._get_field(form_field, serializer_field_class)
+            ret[field_name].initial = form_field.initial
+            ret[field_name].default = form_field.initial
 
         return ret
 
