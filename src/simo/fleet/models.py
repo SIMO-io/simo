@@ -348,7 +348,7 @@ class Interface(models.Model):
     )
     no = models.PositiveIntegerField(choices=((1, "1"), (2, "2")))
     type = models.CharField(
-        max_length=20, choices=((None, "None"), ('i2c', "I2C"), ('dali', "DALI")),
+        max_length=20, choices=(('i2c', "I2C"), ('dali', "DALI")),
         null=True, blank=True
     )
     pin_a = models.ForeignKey(
