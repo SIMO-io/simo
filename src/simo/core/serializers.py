@@ -141,11 +141,11 @@ class ComponentFormsetField(FormSerializer):
         field_mapping = {
             HiddenField: HiddenSerializerField,
             Select2ListChoiceField: serializers.ChoiceField,
+            forms.ModelChoiceField: FormsetPrimaryKeyRelatedField,
             Select2ModelChoiceField: FormsetPrimaryKeyRelatedField,
             forms.ModelMultipleChoiceField: ComponentManyToManyRelatedField,
             Select2ListMultipleChoiceField: ComponentManyToManyRelatedField,
             Select2ModelMultipleChoiceField: ComponentManyToManyRelatedField,
-            forms.ModelChoiceField: FormsetPrimaryKeyRelatedField,
             forms.TypedChoiceField: serializers.ChoiceField,
             forms.FloatField: serializers.FloatField,
             forms.SlugField: serializers.CharField
