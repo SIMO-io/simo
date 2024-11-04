@@ -5,8 +5,10 @@ from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError as APIValidationError
 from simo.core.api import InstanceMixin
 from simo.core.permissions import IsInstanceSuperuser
-from .models import InstanceOptions, Colonel
-from .serializers import InstanceOptionsSerializer, ColonelSerializer
+from .models import InstanceOptions, Colonel, Interface
+from .serializers import (
+    InstanceOptionsSerializer, ColonelSerializer, ColonelInterfaceSerializer
+)
 
 
 class InstanceOptionsViewSet(InstanceMixin, viewsets.ReadOnlyModelViewSet):
@@ -54,7 +56,6 @@ class ColonelsViewSet(InstanceMixin, viewsets.ModelViewSet):
         colonel = self.get_object()
         colonel.update_config()
 
-
     @action(detail=True, methods=['post'])
     def move_to(self, request, pk, *args, **kwargs):
         colonel = self.get_object()
@@ -67,3 +68,21 @@ class ColonelsViewSet(InstanceMixin, viewsets.ModelViewSet):
         if not target:
             raise APIValidationError(_('Invalid target.'), code=400)
         colonel.move_to(target)
+
+
+class InterfaceViewSet(
+    InstanceMixin,
+    viewsets.mixins.RetrieveModelMixin, viewsets.mixins.UpdateModelMixin,
+    viewsets.mixins.ListModelMixin, viewsets.GenericViewSet
+):
+    url = 'fleet/colonel-interfaces'
+    basename = 'colonel-interfaces'
+    serializer_class = ColonelInterfaceSerializer
+
+    def get_permissions(self):
+        permissions = super().get_permissions()
+        permissions.append(IsInstanceSuperuser())
+        return permissions
+
+    def get_queryset(self):
+        return Interface.objects.filter(colonel__instance=self.instance)

@@ -36,8 +36,7 @@ class ColonelInterfaceSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Interface
-        fields = 'id', 'no', 'type'
-        read_only_fields = fields
+        fields = 'id', 'colonel', 'no', 'type'
 
 
 class ColonelSerializer(serializers.ModelSerializer):
@@ -48,8 +47,7 @@ class ColonelSerializer(serializers.ModelSerializer):
         model = Colonel
         fields = (
             'id', 'uid', 'name', 'type', 'firmware_version', 'firmware_auto_update',
-            'socket_connected', 'last_seen', 'enabled', 'pwm_frequency',
-            'logs_stream', 'pins', 'interfaces',
+            'socket_connected', 'last_seen', 'pins', 'interfaces',
         )
         read_only_fields = [
             'uid', 'type', 'firmware_version', 'socket_connected',

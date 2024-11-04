@@ -260,7 +260,7 @@ def after_colonel_save(sender, instance, created, *args, **kwargs):
         for no, data in GPIO_PINS.get(instance.type).items():
             ColonelPin.objects.get_or_create(
                 colonel=instance, no=no,
-                defaults = {
+                defaults={
                     'input': data.get('input'), 'output': data.get('output'),
                     'capacitive': data.get('capacitive'), 'adc': data.get('adc'),
                     'native': data.get('native'), 'note': data.get('note')
@@ -273,8 +273,13 @@ def after_colonel_save(sender, instance, created, *args, **kwargs):
             fleet_gateway.start()
         # create i2c and dali interfaces automatically for game-changer boards
         if instance.type == 'game-changer':
+            # occupy ports immediately
             Interface.objects.create(colonel=instance, no=1, type='i2c')
             Interface.objects.create(colonel=instance, no=2, type='dali')
+        elif instance.type == 'game-changer-mini':
+            # only create interfaces, but do not ocuupy ports
+            Interface.objects.create(colonel=instance, no=1)
+            Interface.objects.create(colonel=instance, no=2)
 
 
 @receiver(post_save, sender=Component)
@@ -343,7 +348,8 @@ class Interface(models.Model):
     )
     no = models.PositiveIntegerField(choices=((1, "1"), (2, "2")))
     type = models.CharField(
-        max_length=20, choices=(('i2c', "I2C"), ('dali', "DALI"))
+        max_length=20, choices=((None, "None"), ('i2c', "I2C"), ('dali', "DALI")),
+        null=True, blank=True
     )
     pin_a = models.ForeignKey(
         ColonelPin, on_delete=models.CASCADE, limit_choices_to={
@@ -367,16 +373,29 @@ class Interface(models.Model):
         return f"{self.no} - {self.get_type_display()}"
 
     def save(self, *args, **kwargs):
-        if not self.pk:
+        if not self.pin_a:
+            self.pin_a = ColonelPin.objects.get(
+                colonel=self.colonel, no=INTERFACES_PINS_MAP[self.no][0]
+            )
+        if not self.pin_b:
+            self.pin_b = ColonelPin.objects.get(
+                colonel=self.colonel, no=INTERFACES_PINS_MAP[self.no][1]
+            )
+        if self.type:
             for pin_no in INTERFACES_PINS_MAP[self.no]:
                 cpin = ColonelPin.objects.get(colonel=self.colonel, no=pin_no)
-                if cpin.occupied_by:
+                if cpin.occupied_by and cpin.occupied_by != self:
                     raise ValidationError(
                         f"Interface can not be created, because "
-                        f"GPIO{cpin} is already occupied by {cpin.occupied_by}."
+                        f"{cpin} is already occupied by {cpin.occupied_by}."
                     )
-        return super().save(*args, **kwargs)
+            self.pin_a.occupied_by = self
+            self.pin_b.occupied_by = self
+        else:
+            self.pin_a.occupied_by = None
+            self.pin_b.occupied_by = None
 
+        return super().save(*args, **kwargs)
 
     def broadcast_reset(self):
         from .gateways import FleetGatewayHandler
@@ -425,36 +444,33 @@ class InterfaceAddress(models.Model):
 
 @receiver(post_save, sender=Interface)
 def post_interface_save(sender, instance, created, *args, **kwargs):
-    if created:
-        instance.pin_a = ColonelPin.objects.get(
-            colonel=instance.colonel, no=INTERFACES_PINS_MAP[instance.no][0]
-        )
-        instance.pin_a.occupied_by = instance
-        instance.pin_a.save()
-        instance.pin_b = ColonelPin.objects.get(
-            colonel=instance.colonel, no=INTERFACES_PINS_MAP[instance.no][1]
-        )
-        instance.pin_b.occupied_by = instance
-        instance.pin_b.save()
-        instance.save()
+    if instance.type == 'i2c':
+        InterfaceAddress.objects.filter(
+            interface=instance
+        ).exclude(address_type='i2c').delete()
+        for addr in range(128):
+            InterfaceAddress.objects.get_or_create(
+                interface=instance, address_type='i2c',
+                address=addr,
+            )
+    elif instance.type == 'dali':
+        InterfaceAddress.objects.filter(
+            interface=instance
+        ).exclude(address_type__startswith='dali').delete()
+        for addr in range(64):
+            InterfaceAddress.objects.create(
+                interface=instance, address_type='dali-gear',
+                address=addr,
+            )
+        for addr in range(16):
+            InterfaceAddress.objects.create(
+                interface=instance, address_type='dali-group',
+                address=addr,
+            )
+    else:
+        InterfaceAddress.objects.filter(interface=instance).delete()
 
-        if instance.type == 'i2c':
-            for addr in range(128):
-                InterfaceAddress.objects.create(
-                    interface=instance, address_type='i2c',
-                    address=addr,
-                )
-        elif instance.type == 'dali':
-            for addr in range(64):
-                InterfaceAddress.objects.create(
-                    interface=instance, address_type='dali-gear',
-                    address=addr,
-                )
-            for addr in range(16):
-                InterfaceAddress.objects.create(
-                    interface=instance, address_type='dali-group',
-                    address=addr,
-                )
+
 
 
 @receiver(post_delete, sender=Interface)
