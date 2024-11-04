@@ -28,7 +28,6 @@ from .models import Category, Zone, Icon, ComponentHistory
 
 
 
-
 class TimestampField(serializers.Field):
 
     def to_representation(self, value):
@@ -93,8 +92,6 @@ class FormsetPrimaryKeyRelatedField(PrimaryKeyRelatedField):
         ).first()
 
 
-
-
 # TODO: if form field has initial value and is required, it is serialized as not required field, howerver when trying to submit it fails with a message, that field is required.
 
 class HiddenSerializerField(serializers.CharField):
@@ -104,9 +101,11 @@ class HiddenSerializerField(serializers.CharField):
 class TextAreaSerializerField(serializers.CharField):
     pass
 
+
 class ComponentPrimaryKeyRelatedField(PrimaryKeyRelatedField):
 
     def get_attribute(self, instance):
+        print("SOURCE ATTRIBUTES: ", self.source_attrs)
         if self.queryset.model in (Icon, Zone, Category):
             return super().get_attribute(instance)
         return self.queryset.model.objects.filter(
@@ -142,7 +141,7 @@ class ComponentFormsetField(FormSerializer):
         field_mapping = {
             HiddenField: HiddenSerializerField,
             Select2ListChoiceField: serializers.ChoiceField,
-            Select2ModelChoiceField: ComponentPrimaryKeyRelatedField,
+            Select2ModelChoiceField: FormsetPrimaryKeyRelatedField,
             forms.ModelMultipleChoiceField: ComponentManyToManyRelatedField,
             Select2ListMultipleChoiceField: ComponentManyToManyRelatedField,
             Select2ModelMultipleChoiceField: ComponentManyToManyRelatedField,
