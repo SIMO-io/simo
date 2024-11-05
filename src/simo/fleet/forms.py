@@ -666,7 +666,7 @@ class ColonelSwitchConfigForm(ColonelComponentForm):
         url='autocomplete-component',
         forward=[
             forward.Const(['dimmer', 'switch', 'blinds', 'script'], 'base_type')
-        ]
+        ], required=False
     )
 
     controls = FormsetField(
