@@ -539,7 +539,10 @@ def is_in_alarm(self):
                 self.last_modified = timezone.now()
                 if 'update_fields' in kwargs \
                 and 'last_modified' not in kwargs['update_fields']:
-                    kwargs['update_fields'].append('last_modified')
+                    if isinstance(kwargs['update_fields'], tuple):
+                        kwargs['update_fields'] += ('last_modified', )
+                    else:
+                        kwargs['update_fields'].append('last_modified')
 
         obj = super().save(*args, **kwargs)
 

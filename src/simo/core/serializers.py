@@ -106,7 +106,6 @@ class TextAreaSerializerField(serializers.CharField):
 class ComponentPrimaryKeyRelatedField(PrimaryKeyRelatedField):
 
     def get_attribute(self, instance):
-        print(f"{instance} SOURCE ATTRIBUTES: ", self.source_attrs)
         if self.queryset.model in (Icon, Zone, Category):
             return super().get_attribute(instance)
         return self.queryset.model.objects.filter(
