@@ -247,7 +247,8 @@ class GenericGatewayHandler(BaseObjectCommandsGatewayHandler):
             )
 
         while len(script_ids):
-            time.sleep(0.1)
+            print("Still running scripts: ", script_ids)
+            time.sleep(0.5)
 
     def on_mqtt_connect(self, mqtt_client, userdata, flags, rc):
         command = GatewayObjectCommand(self.gateway_instance)
