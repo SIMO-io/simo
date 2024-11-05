@@ -246,8 +246,9 @@ class GenericGatewayHandler(BaseObjectCommandsGatewayHandler):
                 Component.objects.get(id=id), 'error'
             )
 
+        time.sleep(0.5)
         while len(self.running_scripts.keys()):
-            print("Still running scripts: ", script_ids)
+            print("Still running scripts: ", self.running_scripts.keys())
             time.sleep(0.5)
 
     def on_mqtt_connect(self, mqtt_client, userdata, flags, rc):
@@ -324,7 +325,6 @@ class GenericGatewayHandler(BaseObjectCommandsGatewayHandler):
                 component.value = stop_status
                 component.save(update_fields=['value'])
                 self.running_scripts.pop(component.id)
-                print(f"{component.id} was popped out from self.running_scripts")
                 logger.handlers = []
 
             threading.Thread(target=kill, daemon=True).start()
