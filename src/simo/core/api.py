@@ -151,13 +151,13 @@ def get_components_queryset(instance, user):
 
     c_ids = set()
 
-    from simo.generic.controllers import WeatherForecast
+    from simo.generic.controllers import Weather
 
     if instance.indoor_climate_sensor:
         c_ids.add(instance.indoor_climate_sensor.id)
     wf_c = Component.objects.filter(
         zone__instance=instance,
-        controller_uid=WeatherForecast.uid, config__is_main=True
+        controller_uid=Weather.uid, config__is_main=True
     ).values('id').first()
     if wf_c:
         c_ids.add(wf_c['id'])
@@ -532,12 +532,12 @@ class SettingsViewSet(InstanceMixin, viewsets.GenericViewSet):
         if last_history_event:
             last_event = last_history_event.date.timestamp()
 
-        from simo.generic.controllers import WeatherForecast
+        from simo.generic.controllers import Weather
 
         wf_comp_id = None
         wf_c = Component.objects.filter(
             zone__instance=self.instance,
-            controller_uid=WeatherForecast.uid, config__is_main=True
+            controller_uid=Weather.uid, config__is_main=True
         ).first()
         if wf_c:
             wf_comp_id = wf_c.id
@@ -566,7 +566,7 @@ class SettingsViewSet(InstanceMixin, viewsets.GenericViewSet):
             'timezone': self.instance.timezone,
             'location': self.instance.location,
             'last_event': last_event,
-            'weather_forecast': wf_comp_id,
+            'weather': wf_comp_id,
             'main_alarm_group': main_alarm_group_id,
             'main_state': main_state,
             # TODO: Remove these two when the app is updated for everybody.

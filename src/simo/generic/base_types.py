@@ -5,7 +5,7 @@ BASE_TYPES = {
     'thermostat': _("Thermostat"),
     'alarm-group': _("Alarm Group"),
     'ip-camera': _("IP Camera"),
-    'weather-forecast': _("Weather Forecast"),
+    'weather': _("Weather"),
     'watering': _("Watering"),
     'state-select': _("State Select"),
     'alarm-clock': _("Alarm Clock"),

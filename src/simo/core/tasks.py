@@ -195,7 +195,7 @@ def sync_with_remote():
             users_data = data.pop('users', {})
             instance_uid = data.pop('uid')
             instance_uids.append(instance_uid)
-            weather_forecast = data.pop('weather_forecast', None)
+            weather = data.pop('weather', None)
             instance, new_instance = Instance.objects.update_or_create(
                 uid=instance_uid, defaults=data
             )
@@ -203,18 +203,15 @@ def sync_with_remote():
                 instance.is_active = True
                 instance.save()
 
-            if weather_forecast:
-                from simo.generic.controllers import WeatherForecast
+            if weather:
+                from simo.generic.controllers import Weather
                 weather_component = Component.objects.filter(
                     zone__instance=instance,
-                    controller_uid=WeatherForecast.uid
+                    controller_uid=Weather.uid
                 ).first()
                 if weather_component:
                     weather_component.track_history = False
-                    weather_component.controller.set(
-                        weather_forecast.pop('current', None)
-                    )
-                    weather_component.meta['forecast'] = weather_forecast
+                    weather_component.controller.set(weather)
                     weather_component.save()
 
             for email, options in users_data.items():

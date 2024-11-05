@@ -38,13 +38,13 @@ from simo.core.utils.config_values import (
 from .gateways import GenericGatewayHandler, DummyGatewayHandler
 from .app_widgets import (
     ScriptWidget, ThermostatWidget, AlarmGroupWidget, IPCameraWidget,
-    WeatherForecastWidget,
-    WateringWidget, StateSelectWidget, AlarmClockWidget
+    WateringWidget, StateSelectWidget, AlarmClockWidget,
+    WeatherWidget
 )
 from .forms import (
     ScriptConfigForm, PresenceLightingConfigForm,
     ThermostatConfigForm, AlarmGroupConfigForm,
-    IPCameraConfigForm, WeatherForecastForm,
+    IPCameraConfigForm, WeatherForm,
     WateringConfigForm, StateSelectForm,
     AlarmClockConfigForm
 )
@@ -527,13 +527,13 @@ class AlarmGroup(ControllerBase):
         return map
 
 
-class WeatherForecast(ControllerBase):
-    name = _("Weather Forecast")
-    base_type = 'weather-forecast'
+class Weather(ControllerBase):
+    name = _("Weather")
+    base_type = 'weather'
     gateway_class = GenericGatewayHandler
-    config_form = WeatherForecastForm
-    app_widget = WeatherForecastWidget
-    admin_widget_template = 'admin/controller_widgets/weather_forecast.html'
+    config_form = WeatherForm
+    app_widget = WeatherWidget
+    admin_widget_template = 'admin/controller_widgets/weather.html'
     default_config = {}
     default_value = {}
 

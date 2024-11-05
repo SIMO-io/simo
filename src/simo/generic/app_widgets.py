@@ -32,9 +32,9 @@ class IPCameraWidget(BaseAppWidget):
     size = [2, 2]
 
 
-class WeatherForecastWidget(BaseAppWidget):
-    uid = 'weather-forecast'
-    name = _("Weather Forecast")
+class WeatherWidget(BaseAppWidget):
+    uid = 'weather'
+    name = _("Weather")
     size = [4, 2]
 
 

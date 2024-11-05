@@ -82,8 +82,8 @@ def create_instance_defaults(sender, instance, created, **kwargs):
         name='Weather', icon=weather_icon,
         zone=other_zone,
         category=climate_category,
-        gateway=generic, base_type='weather-forecast',
-        controller_uid='simo.generic.controllers.WeatherForecast',
+        gateway=generic, base_type='weather',
+        controller_uid='simo.generic.controllers.Weather',
         config={'is_main': True}
     )
 

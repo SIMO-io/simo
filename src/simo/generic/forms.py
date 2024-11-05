@@ -544,24 +544,24 @@ class IPCameraConfigForm(BaseComponentForm):
 
     )
 
-class WeatherForecastForm(BaseComponentForm):
+class WeatherForm(BaseComponentForm):
     is_main = forms.BooleanField(
         required=False,
-        help_text="Defines if this is your main/top global weather forecast."
+        help_text="Defines if this is your main/top global weather."
     )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        from .controllers import WeatherForecast
+        from .controllers import Weather
         if not self.instance.pk:
-            first_weather_forecast = bool(
+            first_weather = bool(
                 not Component.objects.filter(
-                    controller_uid=WeatherForecast.uid,
+                    controller_uid=Weather.uid,
                     config__is_main=True
                 ).count()
             )
-            self.fields['is_main'].initial = first_weather_forecast
-            if first_weather_forecast:
+            self.fields['is_main'].initial = first_weather
+            if first_weather:
                 self.fields['is_main'].widget.attrs['disabled'] = 'disabled'
         else:
             if self.instance.config.get('is_main'):
@@ -570,14 +570,14 @@ class WeatherForecastForm(BaseComponentForm):
 
     def save(self, *args, **kwargs):
         self.instance.value_units = 'status'
-        from .controllers import WeatherForecast
+        from .controllers import Weather
         if 'is_main' in self.fields and 'is_main' in self.cleaned_data:
             if self.fields['is_main'].widget.attrs.get('disabled'):
                 self.cleaned_data['is_main'] = self.fields['is_main'].initial
         obj = super().save(*args, **kwargs)
         if obj.config.get('is_main'):
             for c in Component.objects.filter(
-                controller_uid=WeatherForecast.uid,
+                controller_uid=Weather.uid,
                 config__is_main=True
             ).exclude(pk=obj.pk):
                 c.config['is_main'] = False
