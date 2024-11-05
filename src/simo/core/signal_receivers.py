@@ -147,13 +147,13 @@ Sets State component to "day" state as soon as none of the home owners phones ar
     # Create default User permission roles
 
     PermissionsRole.objects.create(
-        instance=instance, name="Admin", is_superuser=True
+        instance=instance, name="Admin", is_owner=True, is_superuser=True
     )
     PermissionsRole.objects.create(
         instance=instance, name="Owner", is_owner=True, is_default=True
     )
     PermissionsRole.objects.create(
-        instance=instance, name="Guest", is_owner=True
+        instance=instance, name="Guest", is_owner=False
     )
     generic.start()
     dummy.start()

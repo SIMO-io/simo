@@ -530,7 +530,6 @@ def is_in_alarm(self):
                 and 'last_change' not in kwargs['update_fields']:
                     kwargs['update_fields'].append('last_change')
 
-
             modifying_fields = (
                 'name', 'icon', 'zone', 'category', 'config', 'meta',
                 'value_units', 'slaves', 'show_in_app', 'alarm_category'
