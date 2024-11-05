@@ -238,13 +238,14 @@ class User(AbstractBaseUser, SimoAdminMixin):
     def get_role(self, instance):
         cache_key = f'user-{self.id}_instance-{instance.id}_role'
         role = cache.get(cache_key, 'expired')
-        if role == 'expired':
+        if role in ('expired', None):
             role = self.roles.filter(
                 instance=instance
             ).prefetch_related(
                 'component_permissions', 'component_permissions__component'
             ).first()
-            cache.set(cache_key, role, 20)
+            if role:
+                cache.set(cache_key, role, 20)
         return role
 
     @property

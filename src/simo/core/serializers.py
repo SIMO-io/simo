@@ -528,8 +528,11 @@ class ComponentSerializer(FormSerializer):
         if user.is_superuser:
             return False
         instance = self.context.get('instance')
+        role = user.get_role(instance)
+        if not role:
+            return True
         return not bool(
-            user.get_role(instance).component_permissions.filter(
+            role.component_permissions.filter(
                 component=obj, write=True
             )
         )
