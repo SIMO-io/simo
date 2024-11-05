@@ -246,7 +246,7 @@ class GenericGatewayHandler(BaseObjectCommandsGatewayHandler):
                 Component.objects.get(id=id), 'error'
             )
 
-        while len(script_ids):
+        while len(self.running_scripts.keys()):
             print("Still running scripts: ", script_ids)
             time.sleep(0.5)
 
@@ -324,6 +324,7 @@ class GenericGatewayHandler(BaseObjectCommandsGatewayHandler):
                 component.value = stop_status
                 component.save(update_fields=['value'])
                 self.running_scripts.pop(component.id)
+                print(f"{component.id} was popped out from self.running_scripts")
                 logger.handlers = []
 
             threading.Thread(target=kill, daemon=True).start()
