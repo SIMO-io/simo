@@ -270,10 +270,7 @@ class Thermostat(ControllerBase):
     @property
     def default_config(self):
         min = 3
-        max = 36
-        if self.component.zone.instance.units_of_measure == 'imperial':
-            min = 36
-            max = 100
+        max = 100
         return {
             'temperature_sensor': 0, 'heater': 0, 'cooler': 0,
             'reaction_difference': 0, 'min': min, 'max': max,
