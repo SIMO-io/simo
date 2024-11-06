@@ -282,7 +282,8 @@ class Thermostat(ControllerBase):
         raise ValidationError("This component type does not accept set value!")
 
     def _get_default_user_config(self):
-        if self.component.zone.instance.units_of_measure == 'imperial':
+        instance = get_current_instance()
+        if instance and instance.units_of_measure == 'imperial':
             target_temp = 70
             low_target = 60
             high_target = 75
