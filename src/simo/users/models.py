@@ -43,8 +43,7 @@ class PermissionsRole(models.Model):
     can_manage_users = models.BooleanField(default=False)
     is_superuser = models.BooleanField(
         default=False,
-        help_text="Can log in to admin interface and has all "
-                  "possible permissions everywhere."
+        help_text="Has 100% management control of an instance via mobile app."
     )
     is_default = models.BooleanField(
         default=False, help_text="Default new user role."

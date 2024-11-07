@@ -141,12 +141,12 @@ def sync_with_remote():
             'users': [],
         }
 
-        for iuser in instance.instance_users.all().select_related('user'):
+        for iuser in instance.instance_users.all().select_related('user', 'role'):
             instance_data['users'].append({
                 'email': iuser.user.email,
                 'is_hub_master': iuser.user.is_master,
-                'is_superuser': iuser.is_superuser,
-                'is_owner': iuser.is_owner,
+                'is_superuser': iuser.role.is_superuser,
+                'is_owner': iuser.role.is_owner,
                 'is_active': iuser.is_active,
                 'device_token': iuser.user.primary_device_token
             })
