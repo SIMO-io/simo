@@ -356,9 +356,9 @@ class User(AbstractBaseUser, SimoAdminMixin):
     def is_superuser(self):
         if self.is_master:
             return True
-        for role in self.roles.all():
-            if role.is_superuser:
-                return True
+        # for role in self.roles.all():
+        #     if role.is_superuser:
+        #         return True
         return False
 
     @property
@@ -368,9 +368,9 @@ class User(AbstractBaseUser, SimoAdminMixin):
             return False
         if self.is_master:
             return True
-        for role in self.roles.all():
-            if role.is_superuser:
-                return True
+        # for role in self.roles.all():
+        #     if role.is_superuser:
+        #         return True
         return False
 
     @property

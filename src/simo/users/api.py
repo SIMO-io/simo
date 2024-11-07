@@ -65,7 +65,6 @@ class UsersViewSet(mixins.RetrieveModelMixin,
             if key not in ('role', 'is_active'):
                 request.data.pop(key)
 
-
         serializer = self.get_serializer(
             target_user, data=request.data, partial=partial
         )

@@ -82,12 +82,7 @@ class AuthenticateView(LoginView):
         ).loads(raw_access_token)
         user_data = self.consumer.consume('/verify/', {'access_token': access_token})
 
-        # This is a very fist time when new hub makes a connection to the master cloud
-        # so we take the chance to pull down all initial configs.
-        # TURNS OUT IT IS COMMING IN ON EVERY AUTHENTICATION REQUEST
-        # if user_data.get('extra_data'):
-        #     from simo.core.tasks import save_config
-        #     save_config(user_data['extra_data'])
+        print("Authenticate with USER DATA: ", user_data)
 
         user = authenticate(request, user_data=user_data)
         if not user:

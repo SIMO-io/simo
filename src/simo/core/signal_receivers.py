@@ -110,7 +110,7 @@ def create_instance_defaults(sender, instance, created, **kwargs):
     Component.objects.create(
         name='Auto state', icon=Icon.objects.get(slug='bolt'),
         zone=other_zone,
-        category=other_category,
+        category=other_category, show_in_app=False,
         gateway=generic, base_type='script',
         controller_uid='simo.generic.controllers.Script',
         config={
