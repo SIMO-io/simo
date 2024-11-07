@@ -24,7 +24,7 @@ class InstancePermission(BasePermission):
         if instance not in request.user.instances:
             return False
 
-        introduce_instance(instance)
+        introduce_instance(instance, request)
 
         return True
 

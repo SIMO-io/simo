@@ -236,8 +236,8 @@ class User(AbstractBaseUser, SimoAdminMixin):
 
     def get_role(self, instance):
         cache_key = f'user-{self.id}_instance-{instance.id}_role'
-        role = cache.get(cache_key, 'expired')
-        if role in ('expired', None):
+        role = cache.get(cache_key)
+        if role is None:
             role = self.roles.filter(
                 instance=instance
             ).prefetch_related(
@@ -254,8 +254,8 @@ class User(AbstractBaseUser, SimoAdminMixin):
         if not instance:
             return None
         cache_key = f'user-{self.id}_instance-{instance.id}-role-id'
-        cached_val = cache.get(cache_key, 'expired')
-        if cached_val == 'expired':
+        cached_val = cache.get(cache_key)
+        if cached_val is None:
             cached_val = None
             for role in self.roles.all().select_related('instance'):
                 if role.instance == instance:
@@ -287,8 +287,8 @@ class User(AbstractBaseUser, SimoAdminMixin):
         if not self.is_active:
             return Instance.objects.none()
         cache_key = f'user-{self.id}_instances'
-        instances = cache.get(cache_key, 'expired')
-        if instances == 'expired':
+        instances = cache.get(cache_key)
+        if instances is None:
             if self.is_master:
                 instances = Instance.objects.filter(is_active=True)
             else:
@@ -313,8 +313,8 @@ class User(AbstractBaseUser, SimoAdminMixin):
             cache_key = f'user-{self.id}_is_active'
         else:
             cache_key = f'user-{self.id}_is_active_instance-{instance.id}'
-        cached_value = cache.get(cache_key, 'expired')
-        if cached_value == 'expired':
+        cached_value = cache.get(cache_key)
+        if cached_value is None:
             if self.is_master and not self.instance_roles.all():
                 # Master who have no roles on any instance are in GOD mode!
                 # It can not be disabled by anybody, nor it is seen by anybody. :)
@@ -355,9 +355,6 @@ class User(AbstractBaseUser, SimoAdminMixin):
     def is_superuser(self):
         if self.is_master:
             return True
-        # for role in self.roles.all():
-        #     if role.is_superuser:
-        #         return True
         return False
 
     @property
@@ -367,9 +364,6 @@ class User(AbstractBaseUser, SimoAdminMixin):
             return False
         if self.is_master:
             return True
-        # for role in self.roles.all():
-        #     if role.is_superuser:
-        #         return True
         return False
 
     @property
