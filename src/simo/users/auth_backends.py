@@ -111,5 +111,4 @@ class SSOBackend(ModelBackend):
             )
         user.save()
 
-        if user.is_active:
-            return user
+        return user
