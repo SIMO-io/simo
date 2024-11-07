@@ -43,7 +43,7 @@ class SIMOUserBackend(ModelBackend):
 
         user_q = Exists(Permission.objects.filter(permission_q))
         if include_superusers:
-            user_q |= Q(is_superuser=True)
+            user_q |= Q(is_master=True)
         if is_active is not None:
             user_q &= Q(instance_roles__is_active=is_active).distinct()
 

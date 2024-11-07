@@ -72,7 +72,6 @@ class LoginView(View):
         return self.consumer.consume(url, data)['request_token']
 
 
-
 class AuthenticateView(LoginView):
 
     def get(self, request):
