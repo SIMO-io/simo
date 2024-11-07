@@ -239,15 +239,3 @@ def gateway_post_save(sender, instance, created, *args, **kwargs):
 @receiver(post_delete, sender=Gateway)
 def gateway_post_delete(sender, instance, *args, **kwargs):
     instance.stop()
-
-
-@receiver(post_save, sender=Instance)
-def post_instance_save(sender, instance, created, **kwargs):
-    if created:
-        from simo.users.models import PermissionsRole
-        PermissionsRole.objects.create(
-            instance=instance, name='Owner', can_manage_users=True,
-        )
-        PermissionsRole.objects.create(
-            instance=instance, name='User', can_manage_users=False, is_default=True
-        )

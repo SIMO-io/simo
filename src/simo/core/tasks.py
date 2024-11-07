@@ -214,8 +214,13 @@ def sync_with_remote():
                 weather_component.controller.set(weather)
                 weather_component.save()
 
-        for email, options in users_data.items():
+        print(f"NEW INSTANCE:  {instance}")
+        print(f"Users data: {users_data}")
 
+
+        for email, options in users_data.items():
+            print(f"EMAIL: {email}")
+            print(f"OPTIONS: {options}")
             if new_instance or not instance.instance_users.count():
                 # Create user for new instance!
                 user, new_user = User.objects.get_or_create(
@@ -224,21 +229,34 @@ def sync_with_remote():
                     'is_master': options.get('is_hub_master', False),
                 })
                 role = None
-                if options.get('is_hub_master') or options.get('is_superuser'):
+                if options.get('is_superuser'):
+                    print(f"Try getting superuser role!")
                     role = PermissionsRole.objects.filter(
                         instance=instance, is_superuser=True
                     ).first()
+                    if role:
+                        print("ROLE FOUND: ", role)
+                    else:
+                        print("NO such a role.")
                 elif options.get('is_owner'):
+                    print(f"Try getting owner role!")
                     role = PermissionsRole.objects.filter(
-                        instance=instance, is_owner=True
+                        instance=instance, is_owner=True, is_superuser=False
                     ).first()
+                    if role:
+                        print("ROLE FOUND: ", role)
+                    else:
+                        print("NO such a role.")
 
                 if role:
+                    print("Creating InstanceUser!")
                     InstanceUser.objects.update_or_create(
                         user=user, instance=instance, defaults={
                             'is_active': True, 'role': role
                         }
                     )
+                else:
+                    print("Instance User was not created!")
             else:
                 user = User.objects.filter(email=email).first()
 

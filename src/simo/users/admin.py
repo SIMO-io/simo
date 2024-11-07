@@ -25,15 +25,10 @@ class ComponentPermissionInline(admin.TabularInline):
 
 @admin.register(PermissionsRole)
 class PermissionsRoleAdmin(admin.ModelAdmin):
-    list_display = 'name', 'is_superuser', 'is_default'
+    list_display = 'name', 'is_superuser', 'is_owner', 'can_manage_users', 'is_default'
     search_fields = 'name',
     inlines = ComponentPermissionInline,
-
-    def get_queryset(self, request):
-        qs = super().get_queryset(request)
-        if request.user.is_master:
-            return qs
-        return qs.filter(instance=request.instance)
+    list_filter = 'is_superuser', 'is_owner', 'can_manage_users', 'is_default'
 
     def save_model(self, request, obj, form, change):
         if not obj.id:
