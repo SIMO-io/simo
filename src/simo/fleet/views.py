@@ -3,6 +3,7 @@ from django.db.models import Q
 from dal import autocomplete
 from simo.core.utils.helpers import search_queryset
 from simo.core.models import Component
+from simo.core.middleware import get_current_instance
 from .models import Colonel, ColonelPin, Interface
 
 
@@ -13,12 +14,14 @@ def colonels_ping(request):
 class PinsSelectAutocomplete(autocomplete.Select2QuerySetView):
 
     def get_queryset(self):
-        if not self.request.user.is_staff:
+
+        instance = get_current_instance()
+        if not instance:
             return ColonelPin.objects.none()
 
         try:
             colonel = Colonel.objects.get(
-                pk=self.forwarded.get("colonel")
+                pk=self.forwarded.get("colonel"), instance=instance
             )
         except:
             return ColonelPin.objects.none()
@@ -46,8 +49,6 @@ class PinsSelectAutocomplete(autocomplete.Select2QuerySetView):
 class InterfaceSelectAutocomplete(autocomplete.Select2QuerySetView):
 
     def get_queryset(self):
-        if not self.request.user.is_staff:
-            return Interface.objects.none()
 
         try:
             colonel = Colonel.objects.get(

@@ -326,8 +326,8 @@ class User(AbstractBaseUser, SimoAdminMixin):
                     ).first()
                 )
             else:
-                cached_value = any(
-                    [ir.is_active for ir in self.instance_roles.all()]
+                cached_value = bool(
+                    self.instance_roles.filter(is_active=True).count()
                 )
             cache.set(cache_key, cached_value, 20)
         return cached_value

@@ -10,9 +10,6 @@ class IconModelAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self):
         qs = Icon.objects.all()
 
-        if not self.request.user.is_staff:
-            return qs.none()
-
         if self.forwarded.get("id"):
             return qs.filter(pk=self.forwarded.get("id"))
 
@@ -55,10 +52,6 @@ class CategoryAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self):
         qs = Category.objects.all()
 
-
-        if not self.request.user.is_staff:
-            return qs.none()
-
         if self.forwarded.get("id"):
             return qs.filter(pk=self.forwarded.get("id"))
 
@@ -83,9 +76,6 @@ class ZoneAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self):
         qs = Zone.objects.all()
 
-        if not self.request.user.is_staff:
-            return qs.none()
-
         if self.forwarded.get("id"):
             return qs.filter(pk=self.forwarded.get("id"))
 
@@ -108,9 +98,6 @@ class ComponentAutocomplete(autocomplete.Select2QuerySetView):
 
     def get_queryset(self):
         qs = Component.objects.all()
-
-        if not self.request.user.is_staff:
-            return qs.none()
 
         if self.forwarded.get("id"):
             if isinstance(self.forwarded['id'], list):

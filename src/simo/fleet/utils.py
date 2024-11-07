@@ -139,6 +139,7 @@ def get_all_control_input_choices():
     This is called multiple times by component form,
     so we cache the data to speed things up!
     '''
+    # TODO: filter by instance!
     def get_control_input_choices():
         from .models import ColonelPin
         from simo.core.models import Component
