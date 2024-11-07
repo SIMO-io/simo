@@ -294,7 +294,7 @@ class User(AbstractBaseUser, SimoAdminMixin):
             else:
                 instances = Instance.objects.filter(id__in=[
                     r.instance.id for r in self.instance_roles.filter(
-                        is_active=True, instance__isnull=False
+                        is_active=True
                     )
                 ], is_active=True)
             cache.set(cache_key, instances, 10)
@@ -308,6 +308,7 @@ class User(AbstractBaseUser, SimoAdminMixin):
 
     @property
     def is_active(self):
+        # Things are getting messed up when no
         instance = get_current_instance()
         if not instance:
             cache_key = f'user-{self.id}_is_active'
@@ -323,12 +324,16 @@ class User(AbstractBaseUser, SimoAdminMixin):
                 cached_value = bool(
                     self.instance_roles.filter(
                         instance=instance, is_active=True
-                    ).first()
+                    ).count()
                 )
+                if not cached_value:
+                    print(f"!!!!!!!!!!!!!!!!!!!!!!!!!!!!! {self} has no ACTIVE ROLE ON {instance} !!!!!!!!!!!!!!!!!!!!!!!!!! ")
             else:
                 cached_value = bool(
                     self.instance_roles.filter(is_active=True).count()
                 )
+                if not cached_value:
+                    print(f"!!!!!!!!!!!!!!!!!!!!!!!!!!!!! {self} has no ACTIVE ROLES !!!!!!!!!!!!!!!!!!!!!!!!!! ")
             cache.set(cache_key, cached_value, 20)
         return cached_value
 
