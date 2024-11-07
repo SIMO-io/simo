@@ -214,13 +214,15 @@ def sync_with_remote():
                 weather_component.controller.set(weather)
                 weather_component.save()
 
-        print(f"NEW INSTANCE:  {instance}")
-        print(f"Users data: {users_data}")
+        if new_instance:
+            print(f"NEW INSTANCE:  {instance}")
+            print(f"Users data: {users_data}")
 
 
         for email, options in users_data.items():
-            print(f"EMAIL: {email}")
-            print(f"OPTIONS: {options}")
+            if new_instance:
+                print(f"EMAIL: {email}")
+                print(f"OPTIONS: {options}")
             if new_instance or not instance.instance_users.count():
                 # Create user for new instance!
                 user, new_user = User.objects.get_or_create(

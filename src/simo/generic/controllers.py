@@ -153,52 +153,73 @@ class PresenceLighting(Script):
 
     # script specific variables
     sensors = {}
+    condition_comps = {}
     light_org_values = {}
     is_on = False
     turn_off_task = None
     last_presence = 0
+    hold_time = 60
+    conditions = []
 
     def _run(self):
+        self.hold_time = self.component.config.get('hold_time', 0) * 10
+        for id in self.component.config['presence_sensors']:
+            sensor = Component.objects.filter(id=id).first()
+            if sensor:
+                sensor.on_change(self._on_sensor)
+                self.sensors[id] = sensor
+
+        for condition in self.component.config.get('conditions', []):
+            comp = Component.objects.filter(
+                id=condition.get('component', 0)
+            ).first()
+            if comp:
+                condition['component'] = comp
+                self.conditions.append(condition)
+                comp.on_change(self._on_condition)
+                self.condition_comps[comp.id] = comp
+
         while True:
-            self._on_sensor()
-            hold_time = self.component.config.get('hold_time', 0) * 10
-            if self.last_presence and hold_time and (
-                time.time() - hold_time > self.last_presence
+            self._regulate()
+            if self.last_presence and self.hold_time and (
+                time.time() - self.hold_time > self.last_presence
             ):
                 self._turn_it_off()
             time.sleep(random.randint(5, 15))
 
     def _on_sensor(self, sensor=None):
 
-        self.component.refresh_from_db()
-        for id in self.component.config['presence_sensors']:
-            if id not in self.sensors:
-                sensor = Component.objects.filter(id=id).first()
-                if sensor:
-                    sensor.on_change(self._on_sensor)
-                    self.sensors[id] = sensor
-
         if sensor:
             self.sensors[sensor.id] = sensor
+            self._regulate()
 
+
+    def _on_condition(self, condition_comp=None):
+        if condition_comp:
+            for condition in self.conditions:
+                if condition['component'].id == condition_comp.id:
+                    condition['component'] = condition_comp
+            self._regulate()
+
+
+    def _regulate(self):
         presence_values = [s.value for id, s in self.sensors.items()]
         if self.component.config.get('act_on', 0) == 0:
             must_on = any(presence_values)
         else:
             must_on = all(presence_values)
 
-        if sensor and must_on:
+        if must_on:
             print("Presence detected!")
 
         additional_conditions_met = True
-        for condition in self.component.config.get('conditions', []):
+        for condition in self.conditions:
             if not additional_conditions_met:
                 continue
-            comp = Component.objects.filter(
-                id=condition.get('component', 0)
-            ).first()
+            comp = condition['component']
             if not comp:
                 continue
+
             op = OPERATIONS.get(condition.get('op'))
             if not op:
                 continue
@@ -209,7 +230,8 @@ class PresenceLighting(Script):
 
             if not op(comp.value, condition['value']):
                 if sensor and must_on:
-                    print(f"Condition not met: [{comp} value:{comp.value} {condition['op']} {condition['value']}]")
+                    print(
+                        f"Condition not met: [{comp} value:{comp.value} {condition['op']} {condition['value']}]")
                 additional_conditions_met = False
 
         if must_on and additional_conditions_met and not self.is_on:
@@ -232,6 +254,8 @@ class PresenceLighting(Script):
                     return self._turn_it_off()
                 if not self.last_presence:
                     self.last_presence = time.time()
+
+
 
     def _turn_it_off(self):
         print("Turn the lights OFF!")

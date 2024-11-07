@@ -234,12 +234,15 @@ class UserDeviceReport(InstanceMixin, viewsets.GenericViewSet):
             iu.phone_on_charge = request.data.get('is_charging', False)
             iu.save()
 
+        phone_on_charge = False
+        if request.data.get('is_charging'):
+            phone_on_charge = True
         UserDeviceReportLog.objects.create(
             user_device=user_device, instance=self.instance,
             app_open=request.data.get('app_open', False),
             location=','.join([str(i) for i in location]) if location else None,
             relay=relay, speed_kmh=speed_kmh,
-            phone_on_charge=request.data.get('is_charging', False)
+            phone_on_charge=phone_on_charge
         )
 
         return RESTResponse({'status': 'success'})

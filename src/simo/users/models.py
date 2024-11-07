@@ -257,6 +257,7 @@ class User(AbstractBaseUser, SimoAdminMixin):
         cache_key = f'user-{self.id}_instance-{instance.id}-role-id'
         cached_val = cache.get(cache_key, 'expired')
         if cached_val == 'expired':
+            cached_val = None
             for role in self.roles.all().select_related('instance'):
                 if role.instance == instance:
                     cached_val = role.id
