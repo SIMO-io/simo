@@ -204,10 +204,10 @@ class UserDeviceReport(InstanceMixin, viewsets.GenericViewSet):
         if request.META.get('HTTP_HOST', '').endswith('.simo.io'):
             relay = request.META.get('HTTP_HOST')
 
-
+        last_seen_location = None
         user_device.last_seen = timezone.now()
         if location:
-            user_device.last_seen_location = ','.join(
+            last_seen_location = ','.join(
                 [str(i) for i in location]
             ) if location else None
 
@@ -222,13 +222,13 @@ class UserDeviceReport(InstanceMixin, viewsets.GenericViewSet):
         for iu in request.user.instance_roles.filter(is_active=True):
             if location:
                 iu.at_home = haversine_distance(
-                    iu.instance.location, user_device.last_seen_location
+                    iu.instance.location, last_seen_location
                 ) < dynamic_settings['users__at_home_radius']
             elif not relay:
                 iu.at_home = True
 
             iu.last_seen = user_device.last_seen
-            iu.last_seen_location = user_device.last_seen_location
+            iu.last_seen_location = last_seen_location
             iu.last_seen_speed_kmh = speed_kmh
             iu.phone_on_charge = request.data.get('is_charging', False)
             iu.save()
