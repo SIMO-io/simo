@@ -141,21 +141,26 @@ def sync_with_remote():
             'users': [],
         }
 
+        for iuser in instance.instance_users.all().select_related('user'):
+            instance_data['users'].append({
+                'email': iuser.user.email,
+                'is_hub_master': iuser.user.is_master,
+                'is_superuser': iuser.is_superuser,
+                'is_owner': iuser.is_owner,
+                'is_active': iuser.is_active,
+                'device_token': iuser.user.primary_device_token
+            })
+
+        # Include god mode users!
         for user in User.objects.filter(
-            Q(roles__instance=instance) | Q(is_master=True)
+            roles=None, is_master=True
         ).exclude(email__in=('system@simo.io', 'device@simo.io')).distinct():
-            is_superuser = False
-            user_role = user.get_role(instance)
-            if user_role and user_role.is_superuser:
-                is_superuser = True
-            is_owner = False
-            if user_role and user_role.is_owner:
-                is_owner = True
             instance_data['users'].append({
                 'email': user.email,
-                'is_hub_master': user.is_master,
-                'is_superuser': is_superuser,
-                'is_owner': is_owner,
+                'is_hub_master': True,
+                'is_superuser': False,
+                'is_owner': False,
+                'is_active': True,
                 'device_token': user.primary_device_token
             })
 
