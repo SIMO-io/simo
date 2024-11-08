@@ -317,10 +317,22 @@ class User(AbstractBaseUser, SimoAdminMixin):
             cache_key = f'user-{self.id}_is_active_instance-{instance.id}'
         cached_value = cache.get(cache_key)
         if cached_value is None:
-            if self.is_master and not self.instance_roles.all():
-                # Master who have no roles on any instance are in GOD mode!
-                # It can not be disabled by anybody, nor it is seen by anybody. :)
-                cached_value = True
+            if self.is_master:
+                if not self.instance_roles.all():
+                    # Master who have no roles on any instance are in GOD mode!
+                    # It can not be disabled by anybody, nor it is seen by anybody. :)
+                    cached_value = True
+                else:
+                    # Masters who have roles on instances but are all disabled
+                    # on all instances are then fully disabled
+                    # Common scenario is - installer made smart home installation
+                    # owner disabled installer once everything is done, so that
+                    # installer no longer has any access to his home, however
+                    # home owner can enable back installer at any time so that
+                    # he could make any additional necessary changes.
+                    cached_value = bool(
+                        self.instance_roles.filter(is_active=True).count()
+                    )
             elif instance:
                 cached_value = bool(
                     self.instance_roles.filter(
