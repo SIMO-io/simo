@@ -309,16 +309,11 @@ class User(AbstractBaseUser, SimoAdminMixin):
 
     @property
     def is_active(self):
-        # Things are getting messed up when no
-        instance = get_current_instance()
-        if not instance:
-            cache_key = f'user-{self.id}_is_active'
-        else:
-            cache_key = f'user-{self.id}_is_active_instance-{instance.id}'
+        cache_key = f'user-{self.id}_is_active'
         cached_value = cache.get(cache_key)
         if cached_value is None:
             if self.is_master:
-                if not self.instance_roles.all():
+                if not self.instance_roles.all().count():
                     # Master who have no roles on any instance are in GOD mode!
                     # It can not be disabled by anybody, nor it is seen by anybody. :)
                     cached_value = True
@@ -333,13 +328,8 @@ class User(AbstractBaseUser, SimoAdminMixin):
                     cached_value = bool(
                         self.instance_roles.filter(is_active=True).count()
                     )
-            elif instance:
-                cached_value = bool(
-                    self.instance_roles.filter(
-                        instance=instance, is_active=True
-                    ).count()
-                )
             else:
+                # user is considered as active if he is active on at least one instance
                 cached_value = bool(
                     self.instance_roles.filter(is_active=True).count()
                 )
