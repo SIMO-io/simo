@@ -4,6 +4,7 @@ from django.utils.safestring import mark_safe
 from django.contrib import messages
 from django.contrib.auth.admin import UserAdmin as OrgUserAdmin
 from django.contrib import admin
+from simo.core.middleware import get_current_instance
 from .models import (
     PermissionsRole, ComponentPermission, User, UserDevice, UserDeviceReportLog,
     InstanceInvitation, InstanceUser, Fingerprint
@@ -57,6 +58,10 @@ class InstanceUserAdmin(admin.ModelAdmin):
     readonly_fields = (
         'at_home', 'last_seen', 'last_seen_speed_kmh', 'phone_on_charge',
     )
+
+    def get_queryset(self, request):
+        instance = get_current_instance()
+        return super().get_queryset(request).filter(instance=instance)
 
 
 class InstanceUserInline(admin.TabularInline):
