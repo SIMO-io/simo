@@ -154,7 +154,7 @@ def post_instance_user_save(sender, instance, created, **kwargs):
         dynamic_settings['core__needs_mqtt_acls_rebuild'] = True
 
 
-class User(AbstractBaseUser, SimoAdminMixin):
+class User(DirtyFieldsMixin, AbstractBaseUser, SimoAdminMixin):
     name = models.CharField(_('name'), max_length=150)
     email = models.EmailField(_('email address'), unique=True)
     avatar = ThumbnailerImageField(
