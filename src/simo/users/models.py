@@ -329,7 +329,7 @@ class User(DirtyFieldsMixin, AbstractBaseUser, SimoAdminMixin):
                         self.instance_roles.filter(is_active=True).count()
                     )
             else:
-                # user is considered as active if he is active on at least one instance
+                # user is considered active if he is active on at least one instance
                 cached_value = bool(
                     self.instance_roles.filter(is_active=True).count()
                 )

@@ -207,7 +207,8 @@ CACHES = {
         "LOCATION": "redis://127.0.0.1:6379/%d" % REDIS_DB['default_cache'],
         "OPTIONS": {
             "CLIENT_CLASS": "django_redis.client.DefaultClient",
-        }
+        },
+        "TIMEOUT": 300
     },
 }
 
