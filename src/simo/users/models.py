@@ -339,14 +339,10 @@ class User(AbstractBaseUser, SimoAdminMixin):
                         instance=instance, is_active=True
                     ).count()
                 )
-                if not cached_value:
-                    print(f"!!!!!!!!!!!!!!!!!!!!!!!!!!!!! {self} has no ACTIVE ROLE ON {instance} !!!!!!!!!!!!!!!!!!!!!!!!!! ")
             else:
                 cached_value = bool(
                     self.instance_roles.filter(is_active=True).count()
                 )
-                if not cached_value:
-                    print(f"!!!!!!!!!!!!!!!!!!!!!!!!!!!!! {self} has no ACTIVE ROLES !!!!!!!!!!!!!!!!!!!!!!!!!! ")
             cache.set(cache_key, cached_value, 20)
         return cached_value
 
