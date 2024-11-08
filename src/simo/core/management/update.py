@@ -54,7 +54,10 @@ def maybe_update():
     if not os.path.exists('/etc/SIMO/_var/auto_update'):
         print("Auto updates are disabled")
     else:
-        current = pkg_resources.get_distribution('simo').version
+        try:
+            current = pkg_resources.get_distribution('simo')
+        except:
+            current = 'dev'
         resp = requests.get("https://pypi.org/pypi/simo/json")
         if resp.status_code != 200:
             sys.exit("Bad response from PyPi")

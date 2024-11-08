@@ -119,8 +119,13 @@ def sync_with_remote():
     except:
         mac = ''
 
+    try:
+        version = pkg_resources.get_distribution('simo').version,
+    except:
+        version = 'dev'
+
     report_data = {
-        'simo_version': pkg_resources.get_distribution('simo').version,
+        'simo_version': version,
         'local_http': 'https://%s' % get_self_ip(),
         'mac': mac,
         'hub_uid': dynamic_settings['core__hub_uid'],
@@ -456,8 +461,14 @@ def maybe_update_to_latest():
         return
     latest = list(resp.json()['releases'].keys())[-1]
     dynamic_settings['core__latest_version_available'] = latest
-    if dynamic_settings['core__latest_version_available'] == \
-    pkg_resources.get_distribution('simo').version:
+
+    try:
+        version = pkg_resources.get_distribution('simo').version
+    except:
+        # dev environment
+        version = dynamic_settings['core__latest_version_available']
+
+    if dynamic_settings['core__latest_version_available'] == version:
         print("Up to date!")
         return
 

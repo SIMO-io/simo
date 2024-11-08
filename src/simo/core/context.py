@@ -14,10 +14,14 @@ def additional_templates_context(request):
         instances = Instance.objects.none()
     else:
         instances = request.user.instances
+    try:
+        version = pkg_resources.get_distribution('simo')
+    except:
+        version = 'dev'
     ctx = {
         'hub_ip': get_self_ip(),
         'dynamic_settings': dynamic_settings,
-        'current_version': pkg_resources.get_distribution('simo').version,
+        'current_version': version,
         'update_available': is_update_available(True),
         'instances': instances,
         'current_instance': get_current_instance()
