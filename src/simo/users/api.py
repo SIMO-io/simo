@@ -218,6 +218,9 @@ class UserDeviceReport(InstanceMixin, viewsets.GenericViewSet):
             ).exclude(id=user_device.id).update(is_primary=False)
         user_device.save()
 
+        phone_on_charge = False
+        if request.data.get('is_charging'):
+            phone_on_charge = True
         speed_kmh = request.data.get('speed', 0) * 3.6
         for iu in request.user.instance_roles.filter(is_active=True):
             if location:
@@ -230,12 +233,9 @@ class UserDeviceReport(InstanceMixin, viewsets.GenericViewSet):
             iu.last_seen = user_device.last_seen
             iu.last_seen_location = last_seen_location
             iu.last_seen_speed_kmh = speed_kmh
-            iu.phone_on_charge = request.data.get('is_charging', False)
+            iu.phone_on_charge = phone_on_charge
             iu.save()
 
-        phone_on_charge = False
-        if request.data.get('is_charging'):
-            phone_on_charge = True
         UserDeviceReportLog.objects.create(
             user_device=user_device, instance=self.instance,
             app_open=request.data.get('app_open', False),
