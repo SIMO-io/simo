@@ -275,7 +275,7 @@ def after_colonel_save(sender, instance, created, *args, **kwargs):
         if instance.type == 'game-changer':
             # occupy ports immediately
             Interface.objects.create(colonel=instance, no=1, type='i2c')
-            Interface.objects.create(colonel=instance, no=2, type='dali')
+            Interface.objects.create(colonel=instance, no=2)
         elif instance.type == 'game-changer-mini':
             # only create interfaces, but do not ocuupy ports
             Interface.objects.create(colonel=instance, no=1)
