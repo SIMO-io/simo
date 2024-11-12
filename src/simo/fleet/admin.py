@@ -3,7 +3,7 @@ from django.contrib import admin
 from django.utils.safestring import mark_safe
 from django.template.loader import render_to_string
 from django.templatetags.static import static
-from simo.core.models import Component
+from simo.core.middleware import get_current_instance
 from simo.core.utils.admin import FormAction
 from .models import Colonel, Interface, ColonelPin
 from .forms import ColonelAdminForm, MoveColonelForm, InterfaceAdminForm
@@ -75,9 +75,7 @@ class ColonelAdmin(admin.ModelAdmin):
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
-        if request.user.is_master:
-            return qs
-        return qs.filter(instance__in=request.user.instances)
+        return qs.filter(instance=get_current_instance())
 
     def save_model(self, request, obj, form, change):
         super().save_model(request, obj, form, change)
@@ -172,6 +170,11 @@ class ColonelAdmin(admin.ModelAdmin):
 class InterfaceAdmin(admin.ModelAdmin):
     list_filter = 'colonel', 'type'
     actions = 'broadcast_reset'
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).filter(
+            colonel__instance=get_current_instance()
+        )
 
     def broadcast_reset(self, request, queryset):
         broadcasted = 0
