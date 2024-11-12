@@ -146,6 +146,7 @@ def sync_with_remote():
             'users': [],
         }
 
+        users_included = set()
         for iuser in instance.instance_users.all().select_related('user', 'role'):
             instance_data['users'].append({
                 'email': iuser.user.email,
@@ -155,11 +156,16 @@ def sync_with_remote():
                 'is_active': iuser.is_active,
                 'device_token': iuser.user.primary_device_token
             })
+            users_included.add(iuser.user.id)
 
         # Include god mode users!
         for user in User.objects.filter(
-            roles=None, is_master=True
-        ).exclude(email__in=('system@simo.io', 'device@simo.io')).distinct():
+            is_master=True
+        ).exclude(
+            email__in=('system@simo.io', 'device@simo.io')
+        ).exclude(id__in=users_included).distinct():
+            if not user.is_active:
+                continue
             instance_data['users'].append({
                 'email': user.email,
                 'is_hub_master': True,
