@@ -8,7 +8,7 @@ class ColonelsManager(models.Manager):
         qs = super().get_queryset()
         instance = get_current_instance()
         if instance:
-            qs = qs.filter(instance__is_active=True)
+            qs = qs.filter(instance__instance__is_active=True)
         return qs
 
 
@@ -18,7 +18,7 @@ class ColonelPinsManager(models.Manager):
         qs = super().get_queryset()
         instance = get_current_instance()
         if instance:
-            qs = qs.filter(colonel__is_active=True)
+            qs = qs.filter(colonel__instance__is_active=True)
         return qs
 
 
@@ -28,7 +28,7 @@ class InterfacesManager(models.Manager):
         qs = super().get_queryset()
         instance = get_current_instance()
         if instance:
-            qs = qs.filter(colonel__is_active=True)
+            qs = qs.filter(colonel__instance__is_active=True)
         return qs
 
 
