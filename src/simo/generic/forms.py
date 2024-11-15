@@ -371,7 +371,7 @@ class ThermostatConfigForm(BaseComponentForm):
             'temperature_sensor'
         ].base_type == MultiSensor.base_type else False
         self.instance.config['user_config']['use_real_feel'] = \
-        self.cleaned_data['use_real_feel']
+        self.cleaned_data.get('use_real_feel', False)
         return super().save(commit)
 
 
