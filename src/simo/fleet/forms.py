@@ -1175,6 +1175,11 @@ class BlindsConfigForm(ColonelComponentForm):
                   "to go from fully closed to the start of open movement. <br>"
                   "Usually it's in between of 1 - 3 seconds."
     )
+    retain_angle = forms.BooleanField(
+        required=False, initial=True,
+        help_text="Retain blinds angle after adjusting it's "
+                  "position using physical buttons."
+    )
     control_mode = forms.ChoiceField(
         label="App control mode", required=True, choices=(
             ('click', "Click"), ('hold', "Hold"), ('slide', "Slide")
@@ -1185,6 +1190,10 @@ class BlindsConfigForm(ColonelComponentForm):
             ControlForm, can_delete=True, can_order=True, extra=0, max_num=2
         )
     )
+
+    def __init__(self, *args, **kwargs):
+        self.basic_fields.append('retain_angle')
+        return super().__init__(*args, **kwargs)
 
     def clean(self):
         super().clean()
