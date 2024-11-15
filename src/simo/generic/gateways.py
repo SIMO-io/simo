@@ -12,7 +12,7 @@ from django.db import connection as db_connection
 from django.db.models import Q
 import paho.mqtt.client as mqtt
 from simo.core.models import Component
-from simo.core.middleware import introduce_instance
+from simo.core.middleware import introduce_instance, drop_current_instance
 from simo.core.gateways import BaseObjectCommandsGatewayHandler
 from simo.core.forms import BaseGatewayForm
 from simo.core.utils.logs import StreamToLogger
@@ -132,6 +132,7 @@ class GenericGatewayHandler(BaseObjectCommandsGatewayHandler):
 
     def watch_thermostats(self):
         from .controllers import Thermostat
+        drop_current_instance()
         for thermostat in Component.objects.filter(
             controller_uid=Thermostat.uid
         ):
@@ -141,15 +142,18 @@ class GenericGatewayHandler(BaseObjectCommandsGatewayHandler):
 
     def watch_alarm_clocks(self):
         from .controllers import AlarmClock
+        drop_current_instance()
         for alarm_clock in Component.objects.filter(
             controller_uid=AlarmClock.uid
         ):
+            introduce_instance(alarm_clock.zone.instance)
             tz = pytz.timezone(alarm_clock.zone.instance.timezone)
             timezone.activate(tz)
             alarm_clock.tick()
 
     def watch_scripts(self):
         # observe running scripts and drop the ones that are no longer alive
+        drop_current_instance()
         dead_processes = []
         for id, process in self.running_scripts.items():
             if process.is_alive():
@@ -183,8 +187,10 @@ class GenericGatewayHandler(BaseObjectCommandsGatewayHandler):
             self.start_script(script)
 
     def watch_watering(self):
+        drop_current_instance()
         from .controllers import Watering
         for watering in Component.objects.filter(controller_uid=Watering.uid):
+            introduce_instance(watering.zone.instance)
             tz = pytz.timezone(watering.zone.instance.timezone)
             timezone.activate(tz)
             if watering.value['status'] == 'running_program':
@@ -195,6 +201,7 @@ class GenericGatewayHandler(BaseObjectCommandsGatewayHandler):
                 watering.controller._perform_schedule()
 
     def run(self, exit):
+        drop_current_instance()
         self.exit = exit
         self.logger = get_gw_logger(self.gateway_instance.id)
         for task, period in self.periodic_tasks:
@@ -261,9 +268,11 @@ class GenericGatewayHandler(BaseObjectCommandsGatewayHandler):
             Script, AlarmGroup
         )
         payload = json.loads(msg.payload)
+        drop_current_instance()
         component = get_event_obj(payload, Component)
         if not component:
             return
+        introduce_instance(component.zone.instance)
         try:
             if isinstance(component.controller, Script):
                 if payload.get('set_val') == 'start':
@@ -373,6 +382,7 @@ class GenericGatewayHandler(BaseObjectCommandsGatewayHandler):
 
     def watch_alarm_events(self):
         from .controllers import AlarmGroup
+        drop_current_instance()
         for alarm in Component.objects.filter(
             controller_uid=AlarmGroup.uid, value='breached',
             meta__breach_start__gt=0
@@ -393,6 +403,7 @@ class GenericGatewayHandler(BaseObjectCommandsGatewayHandler):
                 alarm.save(update_fields=['meta'])
 
     def watch_timers(self):
+        drop_current_instance()
         for component in Component.objects.filter(
             meta__timer_to__gt=0
         ).filter(meta__timer_to__lt=time.time()):

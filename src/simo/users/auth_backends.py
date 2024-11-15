@@ -99,13 +99,17 @@ class SSOBackend(ModelBackend):
                 user=user, instance=invitation.instance,
                 defaults={'role': invitation.role}
             )
-            user.is_active = True
+            if not user.is_active:
+                user.is_active = True
+                user.save()
 
         if not user.is_active:
             return
 
         if user_data.get('name'):
-            user.name = user_data['name']
+            if user_data['name'] != user.name:
+                user.name = user_data['name']
+                user.save()
         if user_data.get('avatar_url') \
         and user.avatar_url != user_data.get('avatar_url'):
             user.avatar_url = user_data.get('avatar_url')
@@ -113,7 +117,5 @@ class SSOBackend(ModelBackend):
             user.avatar.save(
                 os.path.basename(user.avatar_url), io.BytesIO(resp.content)
             )
-        if user.get_dirty_fields():
-            user.save()
 
         return user

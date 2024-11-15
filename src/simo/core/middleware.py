@@ -25,6 +25,12 @@ def introduce_instance(instance, request=None):
         request.instance = instance
 
 
+def drop_current_instance(request=None):
+    if request and 'instance_id' in request.session:
+        request.session.pop('instance_id')
+    _thread_locals.instance = None
+
+
 def get_current_instance(request=None):
     from simo.core.models import Instance
     if request and request.session.get('instance_id'):

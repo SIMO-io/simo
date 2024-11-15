@@ -154,7 +154,10 @@ def post_instance_user_save(sender, instance, created, **kwargs):
         dynamic_settings['core__needs_mqtt_acls_rebuild'] = True
 
 
-class User(DirtyFieldsMixin, AbstractBaseUser, SimoAdminMixin):
+# DirtyFieldsMixin does not work with AbstractBaseUser model!!!
+# goes in to RecursionError: maximum recursion depth exceeded
+# when saving, so do not ever use it!!!!
+class User(AbstractBaseUser, SimoAdminMixin):
     name = models.CharField(_('name'), max_length=150)
     email = models.EmailField(_('email address'), unique=True)
     avatar = ThumbnailerImageField(
