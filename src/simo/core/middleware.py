@@ -39,7 +39,8 @@ def get_current_instance(request=None):
         ).first()
         if not instance:
             del request.session['instance_id']
-        introduce_instance(instance, request)
+        else:
+            introduce_instance(instance, request)
 
     instance = getattr(_thread_locals, 'instance', None)
 
