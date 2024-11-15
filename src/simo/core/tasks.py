@@ -231,7 +231,7 @@ def sync_with_remote():
                 weather_component.save()
 
         if new_instance:
-            print(f"NEW INSTANCE:  {instance}")
+            print(f"NEW INSTANCE: {instance}")
             print(f"Users data: {users_data}")
 
 
@@ -294,10 +294,6 @@ def sync_with_remote():
                 user.avatar_url = avatar_url
                 user.avatar_last_change = timezone.now()
                 user.save()
-
-        Instance.objects.all().exclude(
-            uid__in=instance_uids
-        ).update(is_active=False)
 
 
 
