@@ -13,7 +13,7 @@ import paho.mqtt.client as mqtt
 from channels.generic.websocket import AsyncWebsocketConsumer
 from asgiref.sync import sync_to_async
 from simo.core.utils.model_helpers import get_log_file_path
-from simo.core.middleware import introduce_instance
+from simo.core.middleware import introduce_instance, drop_current_instance
 from simo.core.utils.logs import capture_socket_errors
 from simo.core.events import GatewayObjectCommand, get_event_obj
 from simo.core.models import Gateway, Instance, Component
@@ -299,6 +299,7 @@ class FleetConsumer(AsyncWebsocketConsumer):
         return config_data
 
     def on_mqtt_message(self, client, userdata, msg):
+        drop_current_instance()
         try:
             payload = json.loads(msg.payload)
 
@@ -366,7 +367,7 @@ class FleetConsumer(AsyncWebsocketConsumer):
 
     async def receive(self, text_data=None, bytes_data=None):
         try:
-            introduce_instance(self.instance)
+            introduce_instance(self.colonel.instance)
             if text_data:
                 print(f"{self.colonel}: {text_data}")
                 data = json.loads(text_data)
