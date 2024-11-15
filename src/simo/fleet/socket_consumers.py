@@ -87,8 +87,6 @@ class FleetConsumer(AsyncWebsocketConsumer):
         tz = await sync_to_async(get_tz, thread_sensitive=True)()
         timezone.activate(tz)
 
-        introduce_instance(self.instance)
-
         def get_colonel():
             defaults={
                 'instance': self.instance,
@@ -240,7 +238,6 @@ class FleetConsumer(AsyncWebsocketConsumer):
             }
 
         def get_components(colonel):
-            introduce_instance(self.instance)
             return list(
                 colonel.components.all().prefetch_related('slaves')
             )
@@ -367,7 +364,6 @@ class FleetConsumer(AsyncWebsocketConsumer):
 
     async def receive(self, text_data=None, bytes_data=None):
         try:
-            introduce_instance(self.colonel.instance)
             if text_data:
                 print(f"{self.colonel}: {text_data}")
                 data = json.loads(text_data)
