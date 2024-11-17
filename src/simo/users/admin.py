@@ -134,7 +134,7 @@ class UserDeviceLog(admin.ModelAdmin):
         'speed_kmh', 'phone_on_charge'
     )
     list_display = (
-        'datetime', 'app_open', 'location', 'relay', 'speed_kmh',
+        'datetime', 'at_home', 'app_open', 'location', 'relay', 'speed_kmh',
         'phone_on_charge', 'users'
     )
     fields = readonly_fields

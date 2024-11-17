@@ -130,6 +130,8 @@ class GenericGatewayHandler(BaseObjectCommandsGatewayHandler):
         ('watch_timers', 1)
     )
 
+    terminating_scripts = set()
+
     def watch_thermostats(self):
         from .controllers import Thermostat
         drop_current_instance()
@@ -152,31 +154,25 @@ class GenericGatewayHandler(BaseObjectCommandsGatewayHandler):
             alarm_clock.tick()
 
     def watch_scripts(self):
-        # observe running scripts and drop the ones that are no longer alive
         drop_current_instance()
-        dead_processes = []
-        for id, process in self.running_scripts.items():
+        # observe running scripts and drop the ones that are no longer alive
+        dead_scripts = False
+        for id, process in list(self.running_scripts.items()):
+            comp = Component.objects.filter(id=id).first()
             if process.is_alive():
-                if not Component.objects.filter(id=id).count():
+                if not comp and id not in self.terminating_scripts:
                     # script is deleted, or instance deactivated
-                    process.terminate()
+                    process.kill()
                 continue
-            component = Component.objects.filter(id=id).exclude(
-                value__in=('error', 'finished')
-            ).first()
-            if component:
-                logger = get_component_logger(component)
-                logger.log(logging.INFO, "-------DEAD!-------")
-                component.value = 'error'
-                component.save()
-            dead_processes.append(id)
+            else:
+                if id not in self.terminating_scripts:
+                    dead_scripts = True
+                    logger = get_component_logger(comp)
+                    logger.log(logging.INFO, "-------DEAD!-------")
+                    self.stop_script(comp, 'error')
 
-        for id in dead_processes:
-            self.running_scripts.pop(id)
-
-        if dead_processes:
-            # give 10s of air before we restart the scripts what were
-            # detected to be dead.
+        if dead_scripts:
+            # give 10s air before we wake these dead scripts up!
             return
 
         from simo.generic.controllers import Script
@@ -291,52 +287,68 @@ class GenericGatewayHandler(BaseObjectCommandsGatewayHandler):
     def start_script(self, component):
         print("START SCRIPT %s" % str(component))
         if component.id in self.running_scripts:
-            if self.running_scripts[component.id].is_alive():
-                self.running_scripts[component.id].kill()
-                component.value = 'error'
-                component.save(update_fields=['value'])
+            if component.id not in self.terminating_scripts:
+                if component.value != 'running':
+                    component.value = 'running'
+                    component.save()
+                    return
+            else:
+                good_to_go = False
+                for i in range(12): # wait for 3s
+                    time.sleep(0.2)
+                    component.refresh_from_db()
+                    if component.id not in self.running_scripts:
+                        good_to_go = True
+                        break
+                if not good_to_go:
+                    return self.stop_script(component, 'error')
+
         self.running_scripts[component.id] = ScriptRunHandler(
             component.id, daemon=True
         )
         self.running_scripts[component.id].start()
 
     def stop_script(self, component, stop_status='stopped'):
+        self.terminating_scripts.add(component.id)
         if component.id not in self.running_scripts:
             if component.value == 'running':
                 component.value = stop_status
                 component.save(update_fields=['value'])
             return
-        if self.running_scripts[component.id].is_alive():
-            tz = pytz.timezone(component.zone.instance.timezone)
-            timezone.activate(tz)
-            logger = get_component_logger(component)
-            if stop_status == 'error':
-                logger.log(logging.INFO, "-------GATEWAY STOP-------")
-            else:
-                logger.log(logging.INFO, "-------STOP-------")
-            self.running_scripts[component.id].terminate()
 
-            def kill():
-                start = time.time()
-                terminated = False
-                while start > time.time() - 2:
-                    if not self.running_scripts[component.id].is_alive():
-                        terminated = True
-                        break
-                    time.sleep(0.1)
-                if not terminated:
-                    if stop_status == 'error':
-                        logger.log(logging.INFO, "-------GATEWAY KILL-------")
-                    else:
-                        logger.log(logging.INFO, "-------KILL!-------")
-                    self.running_scripts[component.id].kill()
+        tz = pytz.timezone(component.zone.instance.timezone)
+        timezone.activate(tz)
+        logger = get_component_logger(component)
+        if stop_status == 'error':
+            logger.log(logging.INFO, "-------GATEWAY STOP-------")
+        else:
+            logger.log(logging.INFO, "-------STOP-------")
+        self.running_scripts[component.id].terminate()
 
-                component.value = stop_status
-                component.save(update_fields=['value'])
-                self.running_scripts.pop(component.id)
-                logger.handlers = []
+        def kill():
+            start = time.time()
+            terminated = False
+            while start > time.time() - 2:
+                if not self.running_scripts[component.id].is_alive():
+                    terminated = True
+                    break
+                time.sleep(0.1)
+            if not terminated:
+                if stop_status == 'error':
+                    logger.log(logging.INFO, "-------GATEWAY KILL-------")
+                else:
+                    logger.log(logging.INFO, "-------KILL!-------")
+                self.running_scripts[component.id].kill()
 
-            threading.Thread(target=kill, daemon=True).start()
+            component.value = stop_status
+            component.save(update_fields=['value'])
+            self.terminating_scripts.remove(component.id)
+            # making sure it's fully killed along with it's child processes
+            self.running_scripts[component.id].kill()
+            self.running_scripts.pop(component.id, None)
+            logger.handlers = []
+
+        threading.Thread(target=kill, daemon=True).start()
 
     def control_alarm_group(self, alarm_group, value):
         from simo.generic.controllers import AlarmGroup
