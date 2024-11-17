@@ -55,12 +55,13 @@ def maybe_update():
         print("Auto updates are disabled")
     else:
         try:
-            current = pkg_resources.get_distribution('simo')
+            current = pkg_resources.get_distribution('simo').version
         except:
-            current = 'dev'
+            return
         resp = requests.get("https://pypi.org/pypi/simo/json")
         if resp.status_code != 200:
             sys.exit("Bad response from PyPi")
+            return
         latest = resp.json()['info']['version']
         if current != latest:
             print(f"Need to update! We are on {current} but {latest} is available!")

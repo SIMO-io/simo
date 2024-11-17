@@ -120,7 +120,7 @@ def sync_with_remote():
         mac = ''
 
     try:
-        version = pkg_resources.get_distribution('simo').version,
+        version = pkg_resources.get_distribution('simo').version
     except:
         version = 'dev'
 

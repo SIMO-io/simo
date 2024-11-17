@@ -15,7 +15,7 @@ def additional_templates_context(request):
     else:
         instances = request.user.instances
     try:
-        version = pkg_resources.get_distribution('simo')
+        version = pkg_resources.get_distribution('simo').version
     except:
         version = 'dev'
     ctx = {
