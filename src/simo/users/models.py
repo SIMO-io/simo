@@ -110,7 +110,9 @@ class InstanceUser(DirtyFieldsMixin, models.Model, OnChangeMixin):
 
     objects = ActiveInstanceManager()
 
-    on_change_fields = ('last_seen',)
+    on_change_fields = (
+        'is_active', 'last_seen', 'last_seen_location', 'phone_on_charge'
+    )
 
     class Meta:
         unique_together = 'user', 'instance'
@@ -134,7 +136,7 @@ def post_instance_user_save(sender, instance, created, **kwargs):
         return
     from simo.core.events import ObjectChangeEvent
     dirty_fields = instance.get_dirty_fields()
-    if 'at_home' in dirty_fields or 'last_seen_location' in dirty_fields:
+    if any([f in dirty_fields.keys() for f in InstanceUser.on_change_fields]):
         def post_update():
             if 'at_home' in dirty_fields:
                 if instance.at_home:
@@ -447,6 +449,7 @@ class UserDeviceReportLog(models.Model):
     location = PlainLocationField(zoom=7, null=True, blank=True)
     speed_kmh = models.FloatField(default=0)
     phone_on_charge = models.BooleanField(default=False, db_index=True)
+    at_home = models.BooleanField(default=True)
 
     class Meta:
         ordering = '-datetime',

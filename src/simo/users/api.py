@@ -222,13 +222,24 @@ class UserDeviceReport(InstanceMixin, viewsets.GenericViewSet):
         if request.data.get('is_charging'):
             phone_on_charge = True
         speed_kmh = request.data.get('speed', 0) * 3.6
+
+        at_home = False
+        if not relay:
+            at_home = True
+        elif last_seen_location:
+            at_home = haversine_distance(
+                self.instance.location, last_seen_location
+            ) < dynamic_settings['users__at_home_radius']
+
+
         for iu in request.user.instance_roles.filter(is_active=True):
-            if location:
+            if not relay:
+                iu.at_home = True
+            elif location:
                 iu.at_home = haversine_distance(
                     iu.instance.location, last_seen_location
                 ) < dynamic_settings['users__at_home_radius']
-            elif not relay:
-                iu.at_home = True
+
 
             iu.last_seen = user_device.last_seen
             iu.last_seen_location = last_seen_location
@@ -239,9 +250,9 @@ class UserDeviceReport(InstanceMixin, viewsets.GenericViewSet):
         UserDeviceReportLog.objects.create(
             user_device=user_device, instance=self.instance,
             app_open=request.data.get('app_open', False),
-            location=','.join([str(i) for i in location]) if location else None,
+            location=last_seen_location,
             relay=relay, speed_kmh=speed_kmh,
-            phone_on_charge=phone_on_charge
+            phone_on_charge=phone_on_charge, at_home=at_home
         )
 
         return RESTResponse({'status': 'success'})

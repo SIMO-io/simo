@@ -130,7 +130,7 @@ admin.site.unregister(Group)
 class UserDeviceLog(admin.ModelAdmin):
     model = UserDeviceReportLog
     readonly_fields = (
-        'datetime', 'app_open', 'location', 'relay', 'users',
+        'datetime', 'app_open', 'at_home', 'location', 'relay', 'users',
         'speed_kmh', 'phone_on_charge'
     )
     list_display = (

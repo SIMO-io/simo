@@ -194,7 +194,6 @@ def post_save_change_events(sender, instance, created, **kwargs):
             ObjectChangeEvent(
                 None, target,
                 dirty_fields=dirty_fields,
-                timestamp=timezone.now().timestamp()
             ).publish()
         elif type(target) == Component:
             data = {}
@@ -206,7 +205,6 @@ def post_save_change_events(sender, instance, created, **kwargs):
             ObjectChangeEvent(
                 target.zone.instance, target,
                 dirty_fields=dirty_fields,
-                timestamp=timezone.now().timestamp(),
                 **data
             ).publish()
             for master in target.masters.all():
@@ -219,7 +217,6 @@ def post_save_change_events(sender, instance, created, **kwargs):
                 ObjectChangeEvent(
                     master.zone.instance,
                     master, slave_id=target.id,
-                    timestamp=timezone.now().timestamp(),
                     **data
                 ).publish()
 

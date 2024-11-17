@@ -29,6 +29,7 @@ class ObjMqttAnnouncement:
     def publish(self, retain=False):
         assert isinstance(self.TOPIC, str)
         assert self.data is not None
+        self.data['timestamp'] = timezone.now().timestamp()
         mqtt_publish.single(
             self.get_topic(), json.dumps(self.data, default=str),
             retain=retain,
@@ -48,8 +49,7 @@ class ObjectChangeEvent(ObjMqttAnnouncement):
         self.instance = instance
         self.obj = obj
         super().__init__(obj)
-        for key, val in kwargs.items():
-            self.data[key] = val
+        self.data.update(**kwargs)
 
     def get_topic(self):
         return f"{self.TOPIC}/{self.instance.id if self.instance else 'global'}/" \
@@ -118,6 +118,7 @@ class OnChangeMixin:
         for key, val in payload.get('dirty_fields', {}).items():
             if key in self.on_change_fields:
                 has_changed = True
+                break
 
         if not has_changed:
             return
