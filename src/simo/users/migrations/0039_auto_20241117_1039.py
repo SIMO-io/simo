@@ -7,7 +7,9 @@ def forwards_func(apps, schema_editor):
     from simo.generic.scripting.helpers import haversine_distance
     UserDeviceReportLog = apps.get_model("users", "UserDeviceReportLog")
 
-    logs = UserDeviceReportLog.objects.all().select_related('instance')
+    logs = UserDeviceReportLog.objects.filter(
+        instance__isnull=False
+    ).select_related('instance')
 
     print("Calculate at_home on UserDeviceReportLog's!")
 
