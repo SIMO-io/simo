@@ -1,4 +1,5 @@
 import sys
+import pytz
 import datetime
 from django.db.models import Q
 from rest_framework import viewsets, mixins, status
@@ -192,24 +193,16 @@ class UserDeviceReport(InstanceMixin, viewsets.GenericViewSet):
         )
         user_device.users.add(request.user)
 
-        try:
-            location = Point(
-                *[float(c) for c in request.data.get('location').split(',')],
-                srid=4326
-            )
-        except:
-            location = None
-
         relay = None
         if request.META.get('HTTP_HOST', '').endswith('.simo.io'):
             relay = request.META.get('HTTP_HOST')
 
-        last_seen_location = None
+        if relay:
+            location = self.instance.location
+        else:
+            location = request.data.get('location')
+
         user_device.last_seen = timezone.now()
-        if location:
-            last_seen_location = ','.join(
-                [str(i) for i in location]
-            ) if location else None
 
         if request.data.get('app_open', False):
             user_device.is_primary = True
@@ -226,31 +219,36 @@ class UserDeviceReport(InstanceMixin, viewsets.GenericViewSet):
         at_home = False
         if not relay:
             at_home = True
-        elif last_seen_location:
+        elif location:
             at_home = haversine_distance(
-                self.instance.location, last_seen_location
+                self.instance.location, location
             ) < dynamic_settings['users__at_home_radius']
-
 
         for iu in request.user.instance_roles.filter(is_active=True):
             if not relay:
                 iu.at_home = True
             elif location:
                 iu.at_home = haversine_distance(
-                    iu.instance.location, last_seen_location
+                    iu.instance.location, location
                 ) < dynamic_settings['users__at_home_radius']
 
 
             iu.last_seen = user_device.last_seen
-            iu.last_seen_location = last_seen_location
+            iu.last_seen_location = location
             iu.last_seen_speed_kmh = speed_kmh
             iu.phone_on_charge = phone_on_charge
             iu.save()
 
+        log_datetime = timezone.now()
+        if request.data.get('timestamp'):
+            log_datetime = datetime.datetime.utcfromtimestamp(
+                int(float(request.GET['start_from']))
+            ).replace(tzinfo=pytz.utc)
+
         UserDeviceReportLog.objects.create(
             user_device=user_device, instance=self.instance,
             app_open=request.data.get('app_open', False),
-            location=last_seen_location,
+            location=location, datetime=log_datetime,
             relay=relay, speed_kmh=speed_kmh,
             phone_on_charge=phone_on_charge, at_home=at_home
         )

@@ -8,10 +8,12 @@ def clear_device_report_logs():
     from simo.core.models import Instance
     from .models import UserDeviceReportLog
     for instance in Instance.objects.all():
+        # keeping at least 1 hour of logs so that we could evaluate
+        # user's current location using Kalman filter
         UserDeviceReportLog.objects.filter(
             instance=instance,
             datetime__lt=timezone.now() - datetime.timedelta(
-                days=instance.device_report_history_days
+                days=instance.device_report_history_days, hours=1
             )
         ).delete()
 

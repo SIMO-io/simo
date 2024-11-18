@@ -130,11 +130,11 @@ admin.site.unregister(Group)
 class UserDeviceLog(admin.ModelAdmin):
     model = UserDeviceReportLog
     readonly_fields = (
-        'datetime', 'app_open', 'at_home', 'location', 'relay', 'users',
+        'timestamp', 'app_open', 'at_home', 'location', 'relay', 'users',
         'speed_kmh', 'phone_on_charge'
     )
     list_display = (
-        'datetime', 'at_home', 'app_open', 'location', 'relay', 'speed_kmh',
+        'timestamp', 'at_home', 'app_open', 'location', 'relay', 'speed_kmh',
         'phone_on_charge', 'users'
     )
     fields = readonly_fields
@@ -142,6 +142,9 @@ class UserDeviceLog(admin.ModelAdmin):
 
     def has_add_permission(self, request, obj=None):
         return False
+
+    def timestamp(self, obj):
+        return obj.datetime.strftime("%m/%d/%Y, %H:%M:%S")
 
     def users(self, obj):
         return mark_safe(', '.join([
