@@ -117,7 +117,7 @@ class ComponentAutocomplete(autocomplete.Select2QuerySetView):
             )
 
         if self.q:
-            qs = search_queryset(qs, self.q, ('name',))
+            qs = search_queryset(qs, self.q, ('zone__name', 'name',))
         return qs.distinct()
 
     def get_result_label(self, item):
