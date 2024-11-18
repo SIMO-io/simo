@@ -200,13 +200,13 @@ class UserDeviceReport(InstanceMixin, viewsets.GenericViewSet):
 
         if relay:
             location = self.instance.location
-            smoothed_location = location
+            location_smoothed = location
         else:
             location = request.data.get('location')
             if location:
-                smoothed_location = get_smoothed_location(user_device, location)
+                location_smoothed = get_smoothed_location(user_device, location)
             else:
-                smoothed_location = None
+                location_smoothed = None
 
 
         user_device.last_seen = timezone.now()
@@ -226,22 +226,21 @@ class UserDeviceReport(InstanceMixin, viewsets.GenericViewSet):
         at_home = False
         if not relay:
             at_home = True
-        elif smoothed_location:
+        elif location_smoothed:
             at_home = haversine_distance(
-                self.instance.location, smoothed_location
+                self.instance.location, location_smoothed
             ) < dynamic_settings['users__at_home_radius']
 
         for iu in request.user.instance_roles.filter(is_active=True):
             if not relay:
                 iu.at_home = True
-            elif smoothed_location:
+            elif location_smoothed:
                 iu.at_home = haversine_distance(
-                    iu.instance.location, smoothed_location
+                    iu.instance.location, location_smoothed
                 ) < dynamic_settings['users__at_home_radius']
 
-
             iu.last_seen = user_device.last_seen
-            iu.last_seen_location = smoothed_location
+            iu.last_seen_location = location_smoothed
             iu.last_seen_speed_kmh = speed_kmh
             iu.phone_on_charge = phone_on_charge
             iu.save()
@@ -255,7 +254,7 @@ class UserDeviceReport(InstanceMixin, viewsets.GenericViewSet):
         UserDeviceReportLog.objects.create(
             user_device=user_device, instance=self.instance,
             app_open=request.data.get('app_open', False),
-            location=location, smoothed_location=smoothed_location,
+            location=location, location_smoothed=location_smoothed,
             datetime=log_datetime,
             relay=relay, speed_kmh=speed_kmh,
             phone_on_charge=phone_on_charge, at_home=at_home
