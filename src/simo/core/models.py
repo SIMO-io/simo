@@ -90,16 +90,19 @@ class Instance(DirtyFieldsMixin, models.Model, SimoAdminMixin):
         limit_choices_to={'base_type__in': ['numeric-sensor', 'multi-sensor']}
     )
     history_days = models.PositiveIntegerField(
-        default=90, help_text="How many days of component history do we keep?"
+        default=90, help_text="How many days of component history to keep?"
     )
     device_report_history_days = models.PositiveIntegerField(
         default=0,
-        help_text="How many days of user device reports log do we keep? "
+        help_text="How many days of user device reports logs to keep? <br>"
                   "Use 0 if you do not want to keep these logs at all."
     )
-    learn_fingerprints_start = models.DateTimeField(null=True, blank=True)
+    learn_fingerprints_start = models.DateTimeField(
+        null=True, blank=True, editable=False
+    )
     learn_fingerprints = models.ForeignKey(
-        User, null=True, blank=True, on_delete=models.SET_NULL
+        User, null=True, blank=True, on_delete=models.SET_NULL,
+        editable=False
     )
 
     #objects = InstanceManager()

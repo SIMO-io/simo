@@ -60,6 +60,18 @@ class IconAdmin(EasyObjectsDeleteMixin, admin.ModelAdmin):
 
 
 
+@admin.register(Instance)
+class InstanceAdmin(admin.ModelAdmin):
+    list_display = 'name', 'slug', 'uid', 'timezone', 'is_active'
+    list_filter = 'is_active',
+    readonly_fields = 'uid',
+
+    def has_add_permission(self, request):
+        # instances are added via SIMO.io
+        return False
+
+
+
 @admin.register(Zone)
 class ZoneAdmin(EasyObjectsDeleteMixin, SortableAdminMixin, admin.ModelAdmin):
     list_display = 'name', 'instance'
