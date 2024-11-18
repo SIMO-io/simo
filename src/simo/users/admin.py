@@ -4,6 +4,7 @@ from django.utils.safestring import mark_safe
 from django.contrib import messages
 from django.contrib.auth.admin import UserAdmin as OrgUserAdmin
 from django.contrib import admin
+from django.utils import timezone
 from simo.core.middleware import get_current_instance
 from .models import (
     PermissionsRole, ComponentPermission, User, UserDevice, UserDeviceReportLog,
@@ -146,7 +147,9 @@ class UserDeviceLog(admin.ModelAdmin):
         return False
 
     def timestamp(self, obj):
-        return obj.datetime.strftime("%m/%d/%Y, %H:%M:%S")
+        return obj.datetime.astimezone(
+            timezone.get_current_timezone()
+        ).strftime("%m/%d/%Y, %H:%M:%S")
 
     def users(self, obj):
         return mark_safe(', '.join([
