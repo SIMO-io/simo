@@ -199,15 +199,14 @@ class UserDeviceReport(InstanceMixin, viewsets.GenericViewSet):
 
 
         if relay:
-            location = self.instance.location
-            location_smoothed = location
-        else:
             location = request.data.get('location')
             if location:
                 location_smoothed = get_smoothed_location(user_device, location)
             else:
                 location_smoothed = None
-
+        else:
+            location = self.instance.location
+            location_smoothed = location
 
         user_device.last_seen = timezone.now()
 
