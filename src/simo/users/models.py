@@ -438,7 +438,7 @@ class UserDeviceReportLog(models.Model):
     instance = models.ForeignKey(
         'core.Instance', null=True, on_delete=models.CASCADE
     )
-    datetime = models.DateTimeField(auto_now_add=True)
+    datetime = models.DateTimeField(auto_now_add=True, db_index=True)
     app_open = models.BooleanField(
         default=False, help_text="Sent while using app or by background process."
     )
@@ -447,6 +447,7 @@ class UserDeviceReportLog(models.Model):
         help_text="Sent via remote relay if specified, otherwise it's from LAN."
     )
     location = PlainLocationField(zoom=7, null=True, blank=True)
+    location_smoothed = PlainLocationField(zoom=7, null=True, blank=True)
     speed_kmh = models.FloatField(default=0)
     phone_on_charge = models.BooleanField(default=False, db_index=True)
     at_home = models.BooleanField(default=True)

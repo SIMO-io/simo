@@ -7,11 +7,11 @@ from rest_framework.serializers import Serializer
 from rest_framework.decorators import action
 from rest_framework.response import Response as RESTResponse
 from rest_framework.exceptions import ValidationError, PermissionDenied
-from django.contrib.gis.geos import Point
 from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
 from simo.conf import dynamic_settings
 from simo.core.api import InstanceMixin
+from simo.users.utils import get_smoothed_location
 from .models import (
     User, UserDevice, UserDeviceReportLog, PermissionsRole, InstanceInvitation,
     Fingerprint, ComponentPermission, InstanceUser
@@ -197,10 +197,17 @@ class UserDeviceReport(InstanceMixin, viewsets.GenericViewSet):
         if request.META.get('HTTP_HOST', '').endswith('.simo.io'):
             relay = request.META.get('HTTP_HOST')
 
+
         if relay:
             location = self.instance.location
+            smoothed_location = location
         else:
             location = request.data.get('location')
+            if location:
+                smoothed_location = get_smoothed_location(user_device, location)
+            else:
+                smoothed_location = None
+
 
         user_device.last_seen = timezone.now()
 
@@ -219,22 +226,22 @@ class UserDeviceReport(InstanceMixin, viewsets.GenericViewSet):
         at_home = False
         if not relay:
             at_home = True
-        elif location:
+        elif smoothed_location:
             at_home = haversine_distance(
-                self.instance.location, location
+                self.instance.location, smoothed_location
             ) < dynamic_settings['users__at_home_radius']
 
         for iu in request.user.instance_roles.filter(is_active=True):
             if not relay:
                 iu.at_home = True
-            elif location:
+            elif smoothed_location:
                 iu.at_home = haversine_distance(
-                    iu.instance.location, location
+                    iu.instance.location, smoothed_location
                 ) < dynamic_settings['users__at_home_radius']
 
 
             iu.last_seen = user_device.last_seen
-            iu.last_seen_location = location
+            iu.last_seen_location = smoothed_location
             iu.last_seen_speed_kmh = speed_kmh
             iu.phone_on_charge = phone_on_charge
             iu.save()
@@ -248,7 +255,8 @@ class UserDeviceReport(InstanceMixin, viewsets.GenericViewSet):
         UserDeviceReportLog.objects.create(
             user_device=user_device, instance=self.instance,
             app_open=request.data.get('app_open', False),
-            location=location, datetime=log_datetime,
+            location=location, smoothed_location=smoothed_location,
+            datetime=log_datetime,
             relay=relay, speed_kmh=speed_kmh,
             phone_on_charge=phone_on_charge, at_home=at_home
         )
