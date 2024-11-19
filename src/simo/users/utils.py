@@ -9,6 +9,7 @@ from django.utils import timezone
 from django.template.loader import render_to_string
 
 
+
 def get_system_user():
     from .models import User
     system, new = User.objects.get_or_create(
@@ -160,6 +161,7 @@ def get_smoothed_location(user_device, new_location, large_gap_threshold=600):
         if delta_t > large_gap_threshold:
             # Reset filter if there's a large time gap
             kf = KalmanFilter(process_variance=1, measurement_variance=10)
+            last_location = None
 
         kf.update(np.array([[lat], [lon]]))
         if last_log:
@@ -171,6 +173,7 @@ def get_smoothed_location(user_device, new_location, large_gap_threshold=600):
         if delta_t > large_gap_threshold:
             # Reset filter if there's a large time gap between the last log and now
             kf = KalmanFilter(process_variance=1, measurement_variance=10)
+            last_location = None
 
         kf.predict(max(delta_t, 0))
 
