@@ -197,11 +197,20 @@ class UserDeviceReport(InstanceMixin, viewsets.GenericViewSet):
         if request.META.get('HTTP_HOST', '').endswith('.simo.io'):
             relay = request.META.get('HTTP_HOST')
 
+        speed_kmh_received = request.data.get('speed', 0) * 3.6
+        speed_kmh = 0
 
         if relay:
             location = request.data.get('location')
             if location:
-                location_smoothed = get_smoothed_location(user_device, location)
+                try:
+                    location_smoothed, speed_ms = get_smoothed_location(
+                        user_device, location
+                    )
+                    speed_kmh *= 3.6
+                except:
+                    location_smoothed = None
+
             else:
                 location_smoothed = None
         else:
@@ -220,7 +229,7 @@ class UserDeviceReport(InstanceMixin, viewsets.GenericViewSet):
         phone_on_charge = False
         if request.data.get('is_charging'):
             phone_on_charge = True
-        speed_kmh = request.data.get('speed', 0) * 3.6
+
 
         at_home = False
         if not relay:
@@ -255,7 +264,8 @@ class UserDeviceReport(InstanceMixin, viewsets.GenericViewSet):
             app_open=request.data.get('app_open', False),
             location=location, location_smoothed=location_smoothed,
             datetime=log_datetime,
-            relay=relay, speed_kmh=speed_kmh,
+            relay=relay,
+            speed_kmh_received=speed_kmh_received, speed_kmh=speed_kmh,
             phone_on_charge=phone_on_charge, at_home=at_home
         )
 

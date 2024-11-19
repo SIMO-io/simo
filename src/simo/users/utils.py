@@ -1,4 +1,5 @@
 import sys
+import math
 import traceback
 import subprocess
 import datetime
@@ -105,6 +106,18 @@ class KalmanFilter:
         return self.x[:2].flatten()  # Latitude and Longitude
 
 
+def haversine_distance(lat1, lon1, lat2, lon2):
+    """Calculate the great-circle distance between two points on the Earth."""
+    R = 6371e3  # Earth's radius in meters
+    phi1, phi2 = math.radians(lat1), math.radians(lat2)
+    delta_phi = math.radians(lat2 - lat1)
+    delta_lambda = math.radians(lon2 - lon1)
+
+    a = math.sin(delta_phi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(delta_lambda / 2) ** 2
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+    return R * c  # Distance in meters
+
+
 def get_smoothed_location(user_device, new_location):
     try:
         new_lat, new_lon = map(float, new_location.split(','))
@@ -122,9 +135,11 @@ def get_smoothed_location(user_device, new_location):
             P=np.array(cached_data['P'])
         )
         last_processed_time = cached_data['last_processed_time']
+        last_location = cached_data['last_location']
     else:
         kf = KalmanFilter(process_variance=1, measurement_variance=10)
         last_processed_time = None
+        last_location = None
 
     last_log = None
     logs_query = user_device.report_logs.filter(
@@ -154,11 +169,22 @@ def get_smoothed_location(user_device, new_location):
 
     kf.update(np.array([[new_lat], [new_lon]]))
 
+    # Compute speed if the previous location exists
+    average_speed = 0
+    if last_location:
+        last_lat, last_lon = last_location
+        distance = haversine_distance(last_lat, last_lon, new_lat, new_lon)
+        time_diff = (timezone.now() - last_processed_time).total_seconds() if last_processed_time else None
+        if time_diff and time_diff > 0:
+            average_speed = distance / time_diff  # Speed in meters per second
+
     # Cache the updated filter state and last processed log time
     cache.set(cache_key, {
-        'x': kf.x.tolist(),  # Convert to list for JSON serialization
-        'P': kf.P.tolist(),  # Convert to list for JSON serialization
-        'last_processed_time': timezone.now()
+        'x': kf.x.tolist(),
+        'P': kf.P.tolist(),
+        'last_processed_time': timezone.now(),
+        'last_location': (new_lat, new_lon)
     }, timeout=3600)  # Cache for 1 hour
 
-    return ','.join(f"{coord:.6f}" for coord in kf.get_state())
+    smoothed_location = ','.join(f"{coord:.6f}" for coord in kf.get_state())
+    return smoothed_location, average_speed
