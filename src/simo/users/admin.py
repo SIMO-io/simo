@@ -132,12 +132,11 @@ class UserDeviceLog(admin.ModelAdmin):
     model = UserDeviceReportLog
     readonly_fields = (
         'timestamp', 'app_open', 'relay', 'at_home',
-        'location', 'location_smoothed', 'users',
-        'speed_kmh_received', 'speed_kmh', 'phone_on_charge'
+        'location', 'users', 'speed_kmh', 'phone_on_charge'
     )
     list_display = (
         'timestamp', 'app_open', 'relay', 'at_home',
-        'location', 'location_smoothed', 'speed_kmh_received', 'speed_kmh',
+        'location', 'speed_kmh',
         'phone_on_charge', 'users'
     )
     fields = readonly_fields
