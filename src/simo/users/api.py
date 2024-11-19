@@ -207,7 +207,7 @@ class UserDeviceReport(InstanceMixin, viewsets.GenericViewSet):
                     location_smoothed, speed_ms = get_smoothed_location(
                         user_device, location
                     )
-                    speed_kmh *= 3.6
+                    speed_kmh = speed_ms * 3.6
                 except:
                     location_smoothed = None
 
