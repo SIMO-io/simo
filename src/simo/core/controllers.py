@@ -505,8 +505,7 @@ class Button(ControllerBase):
     def is_held(self):
         return self.component.value == 'hold'
 
-    @cached_property
-    def bonded_gear(self):
+    def get_bonded_gear(self):
         from simo.core.models import Component
         gear = []
         for comp in Component.objects.filter(config__has_key='controls'):
