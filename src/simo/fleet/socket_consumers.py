@@ -363,7 +363,7 @@ class FleetConsumer(AsyncWebsocketConsumer):
 
 
     async def receive(self, text_data=None, bytes_data=None):
-        introduce_instance(self.instance)
+        drop_current_instance()
         try:
             if text_data:
                 print(f"{self.colonel}: {text_data}")
