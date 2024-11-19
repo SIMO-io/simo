@@ -119,14 +119,6 @@ def haversine_distance(lat1, lon1, lat2, lon2):
 
 
 def get_smoothed_location(user_device, new_location, large_gap_threshold=600):
-    """
-    Get smoothed location and speed, handling large time gaps as resets.
-
-    :param user_device: The device reporting locations.
-    :param new_location: The latest location string in 'lat,lon' format.
-    :param large_gap_threshold: Time gap in seconds to reset the filter.
-    :return: Tuple of (smoothed location as 'lat,lon', average speed in m/s).
-    """
     try:
         new_lat, new_lon = map(float, new_location.split(','))
     except ValueError:
@@ -152,8 +144,7 @@ def get_smoothed_location(user_device, new_location, large_gap_threshold=600):
     last_log = None
     logs_query = user_device.report_logs.filter(
         location__isnull=False,
-        datetime__gt=last_processed_time or timezone.now() - datetime.timedelta(
-            minutes=20)
+        datetime__gt=last_processed_time or timezone.now() - datetime.timedelta(minutes=20)
     ).order_by('datetime')
 
     for log in logs_query:
@@ -165,8 +156,7 @@ def get_smoothed_location(user_device, new_location, large_gap_threshold=600):
         if last_log and log.location == last_log.location:
             continue  # Skip duplicate locations
 
-        delta_t = (
-                    log.datetime - last_log.datetime).total_seconds() if last_log else 0
+        delta_t = (log.datetime - last_log.datetime).total_seconds() if last_log else 0
         if delta_t > large_gap_threshold:
             # Reset filter if there's a large time gap
             kf = KalmanFilter(process_variance=1, measurement_variance=10)
@@ -191,8 +181,7 @@ def get_smoothed_location(user_device, new_location, large_gap_threshold=600):
     if last_location:
         last_lat, last_lon = last_location
         distance = haversine_distance(last_lat, last_lon, new_lat, new_lon)
-        time_diff = (
-                    timezone.now() - last_processed_time).total_seconds() if last_processed_time else None
+        time_diff = (timezone.now() - last_processed_time).total_seconds() if last_processed_time else None
         if time_diff and time_diff > 0:
             average_speed = distance / time_diff  # Speed in meters per second
 
