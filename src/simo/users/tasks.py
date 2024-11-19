@@ -1,5 +1,6 @@
 import datetime
 from django.utils import timezone
+from simo.core.middleware import introduce_instance
 from celeryc import celery_app
 
 
@@ -8,6 +9,7 @@ def clear_device_report_logs():
     from simo.core.models import Instance
     from .models import UserDeviceReportLog
     for instance in Instance.objects.all():
+        introduce_instance(instance)
         # keeping at least 1 hour of logs so that we could evaluate
         # user's current location using Kalman filter
         UserDeviceReportLog.objects.filter(

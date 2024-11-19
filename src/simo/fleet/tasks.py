@@ -1,6 +1,7 @@
 import datetime
 from django.db.models import Prefetch
 from django.utils import timezone
+from simo.core.middleware import drop_current_instance
 from celeryc import celery_app
 
 
@@ -8,6 +9,7 @@ from celeryc import celery_app
 def check_colonel_components_alive():
     from simo.core.models import Component
     from .models import Colonel
+    drop_current_instance()
     for lost_colonel in Colonel.objects.filter(
         last_seen__lt=timezone.now() - datetime.timedelta(seconds=60)
     ).prefetch_related(Prefetch(

@@ -1,5 +1,7 @@
 import pytz
 import math
+import time
+import random
 from django.utils import timezone
 from suntime import Sun
 from simo.core.models import Instance
@@ -89,3 +91,23 @@ def haversine_distance(location1, location2, units_of_measure='metric'):
         distance = distance_meters  # Keep in meters for 'metric'
 
     return distance
+
+
+def be_or_not_to_be(min_seconds, max_seconds, last_be_timestamp=0):
+    '''
+    Returns True if max_hours has passed after last_be or last_be is not provided
+    Returns False if min_hours not yet passed
+    Returns True or False if if last_be is in betwen of min_hours and max_hours
+    with rising probability of Trye from 0% (min_hours) to 100% (max_hours)
+    '''
+    if last_be_timestamp:
+        seconds_since_last = time.time() - last_be_timestamp
+    else:
+        seconds_since_last = max_seconds
+
+    if seconds_since_last >= max_seconds:
+        return True
+    if seconds_since_last >= min_seconds:  # Calculate probability after min_hours hours
+        probability = min((seconds_since_last - min_seconds) / (max_seconds - min_seconds), 1.0)
+        return random.random() < probability
+    return False

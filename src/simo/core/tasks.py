@@ -16,6 +16,7 @@ from django.utils import timezone
 from actstream.models import Action
 from simo.conf import dynamic_settings
 from simo.core.utils.helpers import get_self_ip
+from simo.core.middleware import introduce_instance
 from simo.users.models import PermissionsRole, InstanceUser
 from .models import Instance, Component, ComponentHistory, HistoryAggregate
 
@@ -301,6 +302,7 @@ def sync_with_remote():
 def clear_history():
     for instance in Instance.objects.all():
         print(f"Clear history of {instance}")
+        introduce_instance(instance)
         old_times = timezone.now() - datetime.timedelta(
             days=instance.history_days
         )
@@ -434,14 +436,25 @@ def restart_postgresql():
 @celery_app.task
 def low_battery_notifications():
     from simo.notifications.utils import notify_users
+    from simo.generic.scripting.helpers import be_or_not_to_be
     for instance in Instance.objects.filter(is_active=True):
         timezone.activate(instance.timezone)
-        if timezone.localtime().hour not in (10, 18):
+        hour = timezone.localtime().hour
+        if hour < 7:
             continue
+        if hour > 21:
+            continue
+
+        introduce_instance(instance)
         for comp in Component.objects.filter(
             zone__instance=instance,
             battery_level__isnull=False, battery_level__lt=20
         ):
+            last_warning = comp.meta.get('last_battery_warning', 0)
+            notify = be_or_not_to_be(12 * 60 * 60, 72 * 60 * 60, last_warning)
+            if not notify:
+                continue
+
             iusers = comp.zone.instance.instance_users.filter(
                 is_active=True, role__is_owner=True
             )
@@ -451,6 +464,8 @@ def low_battery_notifications():
                     f"Low battery ({comp.battery_level}%) on {comp}",
                     component=comp, instance_users=iusers
                 )
+            comp.meta['last_battery_warning'] = time.time()
+            comp.save()
 
 
 @celery_app.task
