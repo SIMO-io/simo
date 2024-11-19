@@ -1192,7 +1192,10 @@ class BlindsConfigForm(ColonelComponentForm):
     )
 
     def __init__(self, *args, **kwargs):
-        self.basic_fields.append('retain_angle')
+        self.basic_fields.extend(
+            ['open_duration', 'close_duration',
+             'slats_angle_duration', 'retain_angle']
+        )
         return super().__init__(*args, **kwargs)
 
     def clean(self):
