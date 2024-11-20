@@ -1379,13 +1379,13 @@ class GateConfigForm(ColonelComponentForm):
         return self.cleaned_data
 
     def save(self, commit=True):
-        if self.cleaned_data('open_pin'):
+        if self.cleaned_data.get('open_pin'):
             self.instance.config['open_pin_no'] = \
                 self.cleaned_data['open_pin'].no
         if self.cleaned_data.get('close_pin'):
             self.instance.config['close_pin_no'] = \
                 self.cleaned_data['close_pin'].no
-        if self.cleaned_data('sensor_pin'):
+        if self.cleaned_data.get('sensor_pin'):
             self.instance.config['sensor_pin_no'] = \
                 self.cleaned_data['sensor_pin'].no
         obj = super().save(commit=commit)
