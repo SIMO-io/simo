@@ -1267,23 +1267,38 @@ class BlindsConfigForm(ColonelComponentForm):
 
 
 class GateConfigForm(ColonelComponentForm):
-    control_pin = Select2ModelChoiceField(
-        label="Control Relay Port",
+    open_pin = Select2ModelChoiceField(
+        label="Open Relay Port",
         queryset=ColonelPin.objects.filter(output=True),
         url='autocomplete-colonel-pins',
         forward=[
             forward.Self(),
             forward.Field('colonel'),
             forward.Const({'output': True}, 'filters')
-        ]
+        ], help_text="If your gate is controlled by single input, "
+                     "using this port is enough."
     )
     open_action = forms.ChoiceField(
-        choices=(('HIGH', "HIGH"), ('LOW', "LOW")), initial='HIGH'
+        choices=(('HIGH', "HIGH"), ('LOW', "LOW")),
+    )
+    close_pin = Select2ModelChoiceField(
+        label="Close Relay Port",
+        queryset=ColonelPin.objects.filter(output=True),
+        url='autocomplete-colonel-pins',
+        forward=[
+            forward.Self(),
+            forward.Field('colonel'),
+            forward.Const({'output': True}, 'filters')
+        ], required=False
+    )
+    close_action = forms.ChoiceField(
+        choices=(('HIGH', "HIGH"), ('LOW', "LOW")),
     )
     control_method = forms.ChoiceField(
         choices=(('pulse', "Pulse"), ('hold', "Hold")), initial="pulse",
-        help_text="What your gate motor expects to receive as control command?"
+        help_text="What your gate motors expect to receive as control command?"
     )
+
     sensor_pin = Select2ModelChoiceField(
         label='Gate open/closed sensor port',
         queryset=ColonelPin.objects.filter(input=True),
@@ -1292,7 +1307,7 @@ class GateConfigForm(ColonelComponentForm):
             forward.Self(),
             forward.Field('colonel'),
             forward.Const({'input': True}, 'filters')
-        ]
+        ], required=False,
     )
     closed_value = forms.ChoiceField(
         label='Gate closed value',
@@ -1300,6 +1315,8 @@ class GateConfigForm(ColonelComponentForm):
         help_text="What is the input sensor value, "
                   "when your gate is in closed position?"
     )
+
+
     open_duration = forms.FloatField(
         initial=30, min_value=1, max_value=600,
         help_text="How much time in seconds does it take for your gate "
