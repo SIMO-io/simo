@@ -403,7 +403,8 @@ class NumericSensorForm(BaseComponentForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['value_units'].initial = self.controller.default_value_units
+        if 'value_units' in self.fields:
+            self.fields['value_units'].initial = self.controller.default_value_units
 
 
 
