@@ -203,7 +203,7 @@ class UserDeviceReport(InstanceMixin, viewsets.GenericViewSet):
 
         if relay:
             location = request.data.get('location')
-            if location == 'null':
+            if 'null' in location:
                 location = None
         else:
             location = self.instance.location
