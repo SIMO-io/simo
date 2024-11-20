@@ -1332,15 +1332,24 @@ class GateConfigForm(ColonelComponentForm):
     def clean(self):
         super().clean()
 
-        if self.cleaned_data.get('control_pin') \
-        and self.cleaned_data.get('sensor_pin') \
-        and self.cleaned_data['control_pin'] == self.cleaned_data['sensor_pin']:
-            self.add_error(
-                'sensor_pin', "Can't be the same as control port!"
-            )
+        check_pins = ('open_pin', 'close_pin', 'sensor_pin')
+        for pin in check_pins:
+            if not self.cleaned_data.get(pin):
+                continue
+            for p in check_pins:
+                if pin == pin:
+                    continue
+                if not self.cleaned_data.get(p):
+                    continue
+                if self.cleaned_data[pin] == self.cleaned_data[p]:
+                    self.add_error(
+                        pin, f"Can't be the same {p}!"
+                    )
 
-        if self.cleaned_data.get('control_pin'):
-            self._clean_pin('control_pin')
+        if self.cleaned_data.get('open_pin'):
+            self._clean_pin('open_pin')
+        if self.cleaned_data.get('close_pin'):
+            self._clean_pin('close_pin')
         if self.cleaned_data.get('sensor_pin'):
             self._clean_pin('sensor_pin')
 
@@ -1370,9 +1379,12 @@ class GateConfigForm(ColonelComponentForm):
         return self.cleaned_data
 
     def save(self, commit=True):
-        if 'control_pin' in self.cleaned_data:
-            self.instance.config['control_pin_no'] = \
-                self.cleaned_data['control_pin'].no
+        if 'open_pin' in self.cleaned_data:
+            self.instance.config['open_pin_no'] = \
+                self.cleaned_data['open_pin_pin'].no
+        if 'close_pin' in self.cleaned_data:
+            self.instance.config['close_pin_no'] = \
+                self.cleaned_data['close_pin_pin'].no
         if 'sensor_pin' in self.cleaned_data:
             self.instance.config['sensor_pin_no'] = \
                 self.cleaned_data['sensor_pin'].no
