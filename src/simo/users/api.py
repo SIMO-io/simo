@@ -196,17 +196,21 @@ class UserDeviceReport(InstanceMixin, viewsets.GenericViewSet):
         if request.META.get('HTTP_HOST', '').endswith('.simo.io'):
             relay = request.META.get('HTTP_HOST')
 
-        speed_kmh = request.data.get('speed', 0) * 3.6
+        try:
+            speed_kmh = request.data.get('speed', 0) * 3.6
+        except:
+            speed_kmh = 0
 
         if relay:
             location = request.data.get('location')
+            if location == 'null':
+                location = None
         else:
             location = self.instance.location
-            location_smoothed = location
 
         user_device.last_seen = timezone.now()
 
-        if request.data.get('app_open', False):
+        if request.data.get('app_open', False) == True:
             user_device.is_primary = True
             UserDevice.objects.filter(
                 users=request.user
@@ -214,7 +218,7 @@ class UserDeviceReport(InstanceMixin, viewsets.GenericViewSet):
         user_device.save()
 
         phone_on_charge = False
-        if request.data.get('is_charging'):
+        if request.data.get('is_charging') == True:
             phone_on_charge = True
 
 
