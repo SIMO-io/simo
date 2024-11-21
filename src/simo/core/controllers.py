@@ -285,6 +285,8 @@ class ControllerBase(ABC):
         self.component.alive = is_alive
         if error_msg != None:
             self.component.error_msg = error_msg if error_msg.strip() else None
+        else:
+            self.component.error_msg = None
         if battery_level:
             self.component.battery_level = battery_level
         self.component.save(update_fields=['alive', 'battery_level', 'error_msg'])
