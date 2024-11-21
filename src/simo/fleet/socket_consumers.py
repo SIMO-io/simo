@@ -392,10 +392,18 @@ class FleetConsumer(AsyncWebsocketConsumer):
                                         value=f"ttlock-{component.id}-{data.get('actor')}",
                                     ).first()
                                     component.change_init_fingerprint = fingerprint
-                                component.controller._receive_from_device(
-                                    data['val'], bool(data.get('alive')),
-                                    data.get('battery_level'), data.get('error_msg')
-                                )
+                                try:
+                                    alive = bool(data.get('alive', True))
+                                    error_msg = None
+                                    if not alive:
+                                        error_msg = data.get('error_msg')
+                                    component.controller._receive_from_device(
+                                        data['val'], alive,
+                                        data.get('battery_level'), error_msg
+                                    )
+                                except Exception as e:
+                                    print(traceback.format_exc(),
+                                          file=sys.stderr)
                             await sync_to_async(
                                 receive_val, thread_sensitive=True
                             )(data)

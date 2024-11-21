@@ -298,7 +298,7 @@ class ComponentAdminForm(forms.ModelForm):
             'alarm_category', 'arm_status',
             'notes'
         )
-        base_fields = ['id', 'gateway', 'base_type', 'info', 'name']
+        base_fields = ['id', 'gateway', 'base_type', 'controller_uid', 'info', 'name']
         if cls.has_icon:
             base_fields.append('icon')
 
