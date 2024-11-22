@@ -17,10 +17,10 @@ def get_timestamp(request):
 
 @login_required
 @csrf_exempt
-def update(request):
+def upgrade(request):
     if not request.user.is_master:
         raise Http404()
-    messages.warning(request, "Hub update initiated. ")
+    messages.warning(request, "Hub upgrade initiated. ")
     update_task.delay()
     if request.META.get('HTTP_REFERER'):
         return redirect(request.META.get('HTTP_REFERER'))

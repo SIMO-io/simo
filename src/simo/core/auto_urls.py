@@ -1,6 +1,6 @@
 from django.urls import path
 from .views import (
-    get_timestamp, update, restart, reboot, set_instance
+    get_timestamp, upgrade, restart, reboot, set_instance
 )
 from .autocomplete_views import (
     IconModelAutocomplete,
@@ -31,7 +31,7 @@ urlpatterns = [
         ComponentAutocomplete.as_view(), name='autocomplete-component'
     ),
     path('set-instance/<slug:instance_slug>/', set_instance, name='set-instance'),
-    path('update/', update, name='update'),
+    path('upgrade/', upgrade, name='upgrade'),
     path('restart/', restart, name='restart'),
     path('reboot/', reboot, name='reboot')
 ]
