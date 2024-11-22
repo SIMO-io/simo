@@ -42,16 +42,19 @@ class ColonelInterfaceSerializer(serializers.ModelSerializer):
 class ColonelSerializer(serializers.ModelSerializer):
     pins = serializers.SerializerMethodField()
     interfaces = serializers.SerializerMethodField()
+    newer_firmware_available = serializers.SerializerMethodField()
 
     class Meta:
         model = Colonel
         fields = (
-            'id', 'uid', 'name', 'type', 'firmware_version', 'firmware_auto_update',
+            'id', 'uid', 'name', 'type',
+            'firmware_version', 'firmware_auto_update',
+            'newer_firmware_available',
             'socket_connected', 'last_seen', 'pins', 'interfaces',
         )
         read_only_fields = [
-            'uid', 'type', 'firmware_version', 'socket_connected',
-            'last_seen', 'pins', 'interfaces',
+            'uid', 'type', 'firmware_version', 'newer_firmware_available',
+            'socket_connected', 'last_seen', 'pins', 'interfaces'
         ]
 
     def get_pins(self, obj):
@@ -65,6 +68,9 @@ class ColonelSerializer(serializers.ModelSerializer):
         for interface in obj.interfaces.all():
             result.append(ColonelInterfaceSerializer(interface).data)
         return result
+
+    def get_newer_firmware_available(self, obj):
+        return obj.newer_firmware_available()
 
     def update(self, instance, validated_data):
         instance = super().update(instance, validated_data)

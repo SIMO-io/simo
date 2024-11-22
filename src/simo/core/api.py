@@ -2,8 +2,7 @@ import datetime
 from calendar import monthrange
 import pytz
 import time
-import json
-from django.db.models import Q
+import pkg_resources
 from django.utils.translation import gettext_lazy as _
 from django.utils import timezone
 from django.http import HttpResponse, Http404
@@ -577,6 +576,8 @@ class SettingsViewSet(InstanceMixin, viewsets.GenericViewSet):
             'history_days': self.instance.history_days,
             'device_report_history_days': self.instance.device_report_history_days,
             'indoor_climate_sensor': self.instance.indoor_climate_sensor_id,
+            'version': pkg_resources.get_distribution('simo').version,
+            'new_version_available': dynamic_settings['core__latest_version_available'],
         })
 
     def update(self, request, *args, **kwargs):
