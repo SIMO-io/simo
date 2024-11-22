@@ -558,6 +558,11 @@ class SettingsViewSet(InstanceMixin, viewsets.GenericViewSet):
         else:
             main_state = None
 
+        try:
+            version = pkg_resources.get_distribution('simo').version
+        except:
+            version = 'dev'
+
         return RESTResponse({
             'hub_uid': dynamic_settings['core__hub_uid'],
             'instance_name': self.instance.name,
@@ -576,7 +581,7 @@ class SettingsViewSet(InstanceMixin, viewsets.GenericViewSet):
             'history_days': self.instance.history_days,
             'device_report_history_days': self.instance.device_report_history_days,
             'indoor_climate_sensor': self.instance.indoor_climate_sensor_id,
-            'version': pkg_resources.get_distribution('simo').version,
+            'version': version,
             'new_version_available': dynamic_settings['core__latest_version_available'],
         })
 
