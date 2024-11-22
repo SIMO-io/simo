@@ -3,6 +3,7 @@ import re
 from django.contrib.auth.decorators import login_required
 from django.urls import reverse
 from django.shortcuts import redirect
+from django.views.decorators.csrf import csrf_exempt
 from django.http import HttpResponse, Http404, JsonResponse
 from django.contrib import messages
 from simo.conf import dynamic_settings
@@ -15,8 +16,9 @@ def get_timestamp(request):
     return HttpResponse(time.time())
 
 @login_required
+@csrf_exempt
 def update(request):
-    if not request.user.is_superuser:
+    if not request.user.is_master:
         raise Http404()
     messages.warning(request, "Hub update initiated. ")
     update_task.delay()
@@ -26,8 +28,9 @@ def update(request):
 
 
 @login_required
+@csrf_exempt
 def restart(request):
-    if not request.user.is_superuser:
+    if not request.user.is_master:
         raise Http404()
     messages.warning(
         request, "Hub restart initiated. "
@@ -41,8 +44,9 @@ def restart(request):
 
 
 @login_required
+@csrf_exempt
 def reboot(request):
-    if not request.user.is_superuser:
+    if not request.user.is_master:
         raise Http404()
     messages.error(
         request,
