@@ -61,6 +61,24 @@ class LocalSun(Sun):
         return (self.get_sunrise_time(utc_datetime) - utc_datetime).total_seconds()
 
 
+def get_day_evening_night_morning(sun, localtime):
+
+    # It is daytime if the sun is up!
+    if not sun.is_night():
+        return 'day'
+
+    # it is evening if the sun is down at the evening
+    if sun.get_sunset_time(localtime) < localtime:
+        return 'evening'
+
+    # if it's past 6 AM but still dark - we consider this as morning
+    if localtime.hour >= 6:
+        return 'morning'
+
+    # 0 - 6AM and still dark
+    return 'night'
+
+
 def haversine_distance(location1, location2, units_of_measure='metric'):
     # Radius of Earth in meters
     R = 6371000

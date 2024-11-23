@@ -192,6 +192,12 @@ class UserDeviceReport(InstanceMixin, viewsets.GenericViewSet):
         )
         user_device.users.add(request.user)
 
+        log_datetime = timezone.now()
+        if request.data.get('timestamp'):
+            log_datetime = datetime.datetime.utcfromtimestamp(
+                int(float(request.GET['start_from']))
+            ).replace(tzinfo=pytz.utc)
+
         relay = None
         if request.META.get('HTTP_HOST', '').endswith('.simo.io'):
             relay = request.META.get('HTTP_HOST')
@@ -201,10 +207,23 @@ class UserDeviceReport(InstanceMixin, viewsets.GenericViewSet):
         except:
             speed_kmh = 0
 
+        avg_speed_kmh = 0
+
         if relay:
             location = request.data.get('location')
             if 'null' in location:
                 location = None
+            prev_log = UserDeviceReportLog.objects.filter(
+                user_device=user_device, instance=self.instance,
+                datetime__lt=log_datetime - datetime.timedelta(seconds=3),
+                datetime__gt=log_datetime - datetime.timedelta(seconds=10),
+                at_home=False, location__isnull=False
+            ).last()
+            if prev_log:
+                from simo.generic.scripting.helpers import haversine_distance
+                meters_traveled = haversine_distance(location, prev_log.location)
+                seconds_passed = (log_datetime - prev_log.datetime).total_seconds()
+                avg_speed_kmh = round(meters_traveled / seconds_passed * 3.6, 0)
         else:
             location = self.instance.location
 
@@ -220,7 +239,6 @@ class UserDeviceReport(InstanceMixin, viewsets.GenericViewSet):
         phone_on_charge = False
         if request.data.get('is_charging') == True:
             phone_on_charge = True
-
 
         at_home = False
         if not relay:
@@ -239,22 +257,17 @@ class UserDeviceReport(InstanceMixin, viewsets.GenericViewSet):
                 ) < dynamic_settings['users__at_home_radius']
 
             iu.last_seen = user_device.last_seen
-            iu.last_seen_location = location
+            if location:
+                iu.last_seen_location = location
             iu.last_seen_speed_kmh = speed_kmh
             iu.phone_on_charge = phone_on_charge
             iu.save()
-
-        log_datetime = timezone.now()
-        if request.data.get('timestamp'):
-            log_datetime = datetime.datetime.utcfromtimestamp(
-                int(float(request.GET['start_from']))
-            ).replace(tzinfo=pytz.utc)
 
         UserDeviceReportLog.objects.create(
             user_device=user_device, instance=self.instance,
             app_open=request.data.get('app_open', False),
             location=location, datetime=log_datetime,
-            relay=relay, speed_kmh=speed_kmh,
+            relay=relay, speed_kmh=speed_kmh, avg_speed_kmh=avg_speed_kmh,
             phone_on_charge=phone_on_charge, at_home=at_home
         )
 

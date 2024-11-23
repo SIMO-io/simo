@@ -448,6 +448,7 @@ class UserDeviceReportLog(models.Model):
     )
     location = PlainLocationField(zoom=7, null=True, blank=True)
     speed_kmh = models.FloatField(default=0)
+    avg_speed_kmh = models.FloatField(default=0)
     phone_on_charge = models.BooleanField(default=False, db_index=True)
     at_home = models.BooleanField(default=True)
 
