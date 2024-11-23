@@ -460,7 +460,7 @@ def low_battery_notifications():
             )
             if iusers:
                 notify_users(
-                    comp.zone.instance, 'warning',
+                    'warning',
                     f"Low battery ({comp.battery_level}%) on {comp}",
                     component=comp, instance_users=iusers
                 )
