@@ -89,6 +89,6 @@ class ComponentPermission(BasePermission):
             return True
         if request.method == 'POST':
             for perm in user_role.component_permissions.all():
-                if perm.component == obj:
+                if perm.component.id == obj.id:
                     return perm.write
         return False

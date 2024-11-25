@@ -318,12 +318,11 @@ class ComponentHistoryViewSet(InstanceMixin, viewsets.ReadOnlyModelViewSet):
         )
         if self.request.user.is_superuser:
             return qs
-        c_ids = [
-            cp.component.id for cp in
-            self.request.user.get_role(self.instance).component_permissions.filter(
-                read=True
-            ).select_related('component')
-        ]
+        role = self.request.user.get_role(self.instance)
+        c_ids = []
+        for p in role.component_permissions.all():
+            if p.read:
+                c_ids.append(p.component.id)
         qs = qs.filter(component__id__in=c_ids)
         return qs
 

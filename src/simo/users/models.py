@@ -391,23 +391,6 @@ class User(AbstractBaseUser, SimoAdminMixin):
     def has_perms(self, perm_list, obj=None):
         return True
 
-    def get_component_permissions(self):
-        if not self.instances:
-            return []
-        components = []
-        for instance in self.instances:
-            for comp in instance.components.all():
-                can_read = comp.can_read(self)
-                can_write = comp.can_write(self)
-                if not any([can_read, can_write]):
-                    continue
-                components.append({
-                    'component': comp,
-                    'can_read': can_read,
-                    'can_write': can_write
-                })
-        return components
-
 
 class Fingerprint(models.Model):
     value = models.CharField(max_length=200, db_index=True, unique=True)

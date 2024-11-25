@@ -565,12 +565,11 @@ class ZoneSerializer(serializers.ModelSerializer):
             return qs
         user = self.context.get('request').user
         instance = self.context.get('instance')
-        c_ids = [
-            cp.component.id for cp in
-            user.get_role(instance).component_permissions.filter(
-                read=True
-            ).select_related('component')
-        ]
+        role = user.get_role(instance)
+        c_ids = []
+        for p in role.component_permissions.all():
+            if p.read:
+                c_ids.append(p.component.id)
         qs = qs.filter(id__in=c_ids)
         return qs
 

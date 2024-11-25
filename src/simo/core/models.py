@@ -580,22 +580,19 @@ def is_in_alarm(self):
         return bool(self.value)
 
     def can_read(self, user):
-        if user.is_superuser:
+        if user.is_master:
             return True
-        perm = user.component_permissions.filter(component=self).first()
-        if not perm:
+        from .middleware import get_current_instance
+        instance = get_current_instance()
+        if instance:
+            role = user.get_role(instance)
+            if not role:
+                return False
+            for perm in role.component_permissions.all():
+                if perm.component.id == self.id:
+                    return any([perm.write, perm.read])
             return False
-        if perm.write:
-            return True
-        return perm.read
-
-    def can_write(self, user):
-        if user.is_superuser:
-            return True
-        perm = user.component_permissions.filter(component=self).first()
-        if not perm:
-            return False
-        return perm.write
+        return False
 
     def get_controller_methods(self):
         c_methods = []
