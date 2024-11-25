@@ -211,7 +211,14 @@ class ComponentViewSet(
         return permissions
 
     def get_queryset(self):
-        return get_components_queryset(self.instance, self.request.user)
+        qs = get_components_queryset(self.instance, self.request.user)
+        if self.request.GET.get('id'):
+            try:
+                ids = [int(id) for id in self.request.GET.get('id').split(',')]
+                return qs.filter(id__in=ids)
+            except:
+                return qs
+        return qs
 
     def get_view_name(self):
         singular = "Component"
