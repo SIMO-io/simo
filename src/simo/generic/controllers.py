@@ -169,6 +169,13 @@ class PresenceLighting(Script):
                 sensor.on_change(self._on_sensor)
                 self.sensors[id] = sensor
 
+        if self.component.config['off_value'] != 0:
+            for id in self.component.config['lights']:
+                light = Component.objects.filter(id=id).first()
+                if not light or not light.controller:
+                    continue
+                light.on_change(self._on_light_change)
+
         for condition in self.component.config.get('conditions', []):
             comp = Component.objects.filter(
                 id=condition.get('component', 0)
@@ -194,6 +201,11 @@ class PresenceLighting(Script):
                 if condition['component'].id == condition_comp.id:
                     condition['component'] = condition_comp
             self._regulate()
+
+
+    def _on_light_change(self, light):
+        if self.is_on:
+            self.light_org_values[light.id] = light.value
 
 
     def _regulate(self, on_val_change=True):
