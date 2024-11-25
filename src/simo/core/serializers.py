@@ -544,7 +544,7 @@ class ComponentSerializer(FormSerializer):
         return {'type': app_widget.uid, 'size': app_widget.size}
 
     def get_slaves(self, obj):
-        return [c['id'] for c in obj.slaves.all().values('id')]
+        return [s.id for s in obj.slaves.all()]
 
     def get_masters_only(self, obj):
         if not obj.controller:
