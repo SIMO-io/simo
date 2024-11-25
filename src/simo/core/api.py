@@ -12,6 +12,7 @@ from actstream.models import Action
 from rest_framework.pagination import PageNumberPagination
 from rest_framework import viewsets
 from django_filters.rest_framework import DjangoFilterBackend
+from django.core.cache import cache
 from rest_framework.decorators import action
 from rest_framework.response import Response as RESTResponse
 from rest_framework.exceptions import ValidationError as APIValidationError
@@ -143,43 +144,55 @@ class ZoneViewSet(InstanceMixin, viewsets.ModelViewSet):
         return RESTResponse({'status': 'success'})
 
 
-def get_components_queryset(instance, user):
-    qs = Component.objects.filter(zone__instance=instance)
-    if user.is_superuser:
-        return qs
+def get_main_components_ids(instance):
+    cache_key = f"main-components-{instance.id}"
+    ids = cache.get(cache_key)
+    if ids:
+        return ids
 
-    c_ids = set()
-
+    ids = []
     from simo.generic.controllers import Weather
 
     if instance.indoor_climate_sensor:
-        c_ids.add(instance.indoor_climate_sensor.id)
+        ids.append(instance.indoor_climate_sensor.id)
     wf_c = Component.objects.filter(
         zone__instance=instance,
         controller_uid=Weather.uid, config__is_main=True
     ).values('id').first()
     if wf_c:
-        c_ids.add(wf_c['id'])
+        ids.append(wf_c['id'])
     main_alarm_group = Component.objects.filter(
         zone__instance=instance,
         base_type='alarm-group', config__is_main=True
     ).values('id').first()
     if main_alarm_group:
-        c_ids.add(main_alarm_group['id'])
+        ids.append(main_alarm_group['id'])
     state = Component.objects.filter(
         zone__instance=instance,
         base_type='state-select', config__is_main=True
     ).values('id').first()
     if state:
-        c_ids.add(state['id'])
+        ids.append(state['id'])
 
-    user_role = user.get_role(instance)
-    if user_role:
-        for cp in user_role.component_permissions.all():
-            if cp.read:
-                c_ids.add(cp.component.id)
+    cache.set(cache_key, ids, 30)
+    return ids
 
-    return qs.filter(id__in=c_ids).select_related(
+
+def get_components_queryset(instance, user):
+    qs = Component.objects.filter(zone__instance=instance)
+    if user.is_master or user.is_superuser:
+        pass
+    else:
+        c_ids = get_main_components_ids(instance)
+
+        user_role = user.get_role(instance)
+        if user_role:
+            for cp in user_role.component_permissions.all():
+                if cp.read:
+                    c_ids.append(cp.component.id)
+        qs = qs.filter(id__in=c_ids)
+
+    return qs.select_related(
         'zone', 'category', 'icon'
     ).prefetch_related('slaves')
 
