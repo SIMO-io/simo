@@ -193,14 +193,18 @@ class User(AbstractBaseUser, SimoAdminMixin):
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['name']
 
-    _is_active = None
-    _instances = None
-    _instance_roles = {}
+
 
     class Meta:
         verbose_name = _('user')
         verbose_name_plural = _('users')
         abstract = False
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._is_active = None
+        self._instances = None
+        self._instance_roles = {}
 
     def __str__(self):
         return self.name
