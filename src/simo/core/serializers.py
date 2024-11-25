@@ -530,11 +530,11 @@ class ComponentSerializer(FormSerializer):
         role = user.get_role(instance)
         if not role:
             return True
-        return not bool(
-            role.component_permissions.filter(
-                component=obj, write=True
-            )
-        )
+        for perm in role.component_permissions.all(): # prefetched
+            if perm == obj:
+                return not perm.write
+        return True
+
 
     def get_app_widget(self, obj):
         try:
