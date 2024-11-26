@@ -34,7 +34,7 @@ class NotificationsViewSet(
                 archived = bool(int(self.request.query_params['archived']))
             except:
                 archived = False
-            qs = Notification.objects.filter(
+            qs = qs.objects.filter(
                 user_notifications__archived__isnull=not archived,
                 user_notifications__user=self.request.user
             )
