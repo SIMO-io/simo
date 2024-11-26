@@ -1468,6 +1468,10 @@ class TTLockConfigForm(ColonelComponentForm):
         help_text="Inverse operation (if supported by the lock)."
     )
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.basic_fields.extend(['auto_lock', 'inverse'])
+
     def clean(self):
         if not self.instance or not self.instance.pk:
             from .controllers import TTLock
