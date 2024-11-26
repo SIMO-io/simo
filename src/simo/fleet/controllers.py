@@ -661,6 +661,7 @@ class TTLock(FleeDeviceMixin, Lock):
         self.component.save(update_fields=['meta'])
 
 
+
 class DALIDevice(FleeDeviceMixin, ControllerBase):
     gateway_class = FleetGatewayHandler
     config_form = DALIDeviceConfigForm

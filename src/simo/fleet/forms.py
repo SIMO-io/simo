@@ -1459,6 +1459,14 @@ class TTLockConfigForm(ColonelComponentForm):
         ), required=False,
         help_text="Quickens up lock status reporting on open/close if provided."
     )
+    auto_lock = forms.IntegerField(
+        min_value=0, max_value=60, required=False,
+        help_text="Lock the lock after given amount of seconds."
+    )
+    inverse = forms.BooleanField(
+        required=False,
+        help_text="Inverse operation (if supported by the lock)."
+    )
 
     def clean(self):
         if not self.instance or not self.instance.pk:
