@@ -200,8 +200,8 @@ class ConditionForm(forms.Form):
         return self.cleaned_data
 
 
-class PresenceLightingConfigForm(BaseComponentForm):
-    lights = Select2ModelMultipleChoiceField(
+class LightTurnOnForm(forms.Form):
+    light = Select2ModelChoiceField(
         queryset=Component.objects.filter(
             base_type__in=('switch', 'dimmer', 'rgbw-light', 'rgb-light')
         ),
@@ -212,17 +212,19 @@ class PresenceLightingConfigForm(BaseComponentForm):
                           'base_type'),
         )
     )
-
     on_value = forms.IntegerField(
         min_value=0, initial=100,
         help_text="Value applicable for dimmers. "
-                  "Switches will receive tunrn on command."
+                  "Switches will receive turn on command."
     )
     off_value = forms.TypedChoiceField(
         coerce=int, initial=1, choices=(
-            (0, "0"), (1, "Original value before turning the lights on.")
+            (0, "0"), (1, "Original value before turning the light on.")
         )
     )
+
+
+class PresenceLightingConfigForm(BaseComponentForm):
     presence_sensors = Select2ModelMultipleChoiceField(
         queryset=Component.objects.filter(
             base_type__in=('binary-sensor', 'switch')
@@ -242,7 +244,8 @@ class PresenceLightingConfigForm(BaseComponentForm):
             (0, '----'),
             (1, "10 s"), (2, "20 s"), (3, "30 s"), (4, "40 s"), (5, "50 s"),
             (6, "1 min"), (9, "1.5 min"), (12, "2 min"), (18, "3 min"),
-            (30, "5 min"), (60, "10 min"), (120, "20 min"),
+            (30, "5 min"), (60, "10 min"), (120, "20 min"), (180, "30 min"),
+            (3600, "1 h")
         ),
         help_text="Hold off time after last presence detector is deactivated."
     )
@@ -251,6 +254,14 @@ class PresenceLightingConfigForm(BaseComponentForm):
             ConditionForm, can_delete=True, can_order=True, extra=0
         ), label='Additional conditions'
     )
+
+    lights = FormsetField(
+        formset_factory(
+            LightTurnOnForm, can_delete=True, can_order=True, extra=0
+        ), label='Lights'
+    )
+
+
     autostart = forms.BooleanField(
         initial=True, required=False,
         help_text="Start automatically on system boot."

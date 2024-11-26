@@ -169,12 +169,13 @@ class PresenceLighting(Script):
                 sensor.on_change(self._on_sensor)
                 self.sensors[id] = sensor
 
-        if self.component.config['off_value'] != 0:
-            for id in self.component.config['lights']:
-                light = Component.objects.filter(id=id).first()
-                if not light or not light.controller:
-                    continue
-                light.on_change(self._on_light_change)
+        for light_params in self.component.config['lights']:
+            light = Component.objects.filter(
+                id=light_params.get('light')
+            ).first()
+            if not light or not light.controller:
+                continue
+            light.on_change(self._on_light_change)
 
         for condition in self.component.config.get('conditions', []):
             comp = Component.objects.filter(
@@ -202,11 +203,9 @@ class PresenceLighting(Script):
                     condition['component'] = condition_comp
             self._regulate()
 
-
     def _on_light_change(self, light):
         if self.is_on:
             self.light_org_values[light.id] = light.value
-
 
     def _regulate(self, on_val_change=True):
         presence_values = [s.value for id, s in self.sensors.items()]
@@ -250,12 +249,15 @@ class PresenceLighting(Script):
             print("Turn the lights ON!")
             self.is_on = True
             self.light_org_values = {}
-            for id in self.component.config['lights']:
-                comp = Component.objects.filter(id=id).first()
+            for light_params in self.component.config['lights']:
+                comp = Component.objects.filter(
+                    id=light_params.get('light')
+                ).first()
                 if not comp or not comp.controller:
                     continue
                 self.light_org_values[comp.id] = comp.value
-                comp.controller.send(self.component.config['on_value'])
+                print(f"Send {light_params['on_value']} to {comp}!")
+                comp.controller.send(light_params['on_value'])
             return
 
         if self.is_on:
@@ -278,14 +280,14 @@ class PresenceLighting(Script):
         print("Turn the lights OFF!")
         self.is_on = False
         self.last_presence = 0
-        for id in self.component.config['lights']:
-            comp = Component.objects.filter(id=id).first()
+        for light_params in self.component.config['lights']:
+            comp = Component.objects.filter(
+                id=light_params.get('light')
+            ).first()
             if not comp or not comp.controller:
                 continue
-            if self.component.config['off_value'] == 0:
-                comp.send(0)
-            else:
-                comp.send(self.light_org_values.get(comp.id, 0))
+            print(f"Send {light_params['on_value']} to {comp}!")
+            comp.send(light_params.get('off_value', 0))
 
 
 # TODO: Night lighting
