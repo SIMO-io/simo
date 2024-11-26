@@ -1483,10 +1483,17 @@ class TTLockConfigForm(ColonelComponentForm):
 
     def save(self, commit=True):
         obj = super(ColonelComponentForm, self).save(commit)
-        if commit and 'door_sensor' in self.cleaned_data:
+        if commit:
+            if 'door_sensor' in self.cleaned_data:
+                GatewayObjectCommand(
+                    self.instance.gateway, self.cleaned_data['door_sensor'],
+                    command='watch_lock_sensor'
+                ).publish()
             GatewayObjectCommand(
-                self.instance.gateway, self.cleaned_data['door_sensor'],
-                command='watch_lock_sensor'
+                obj.gateway, self.cleaned_data['colonel'], id=obj.id,
+                command='call', method='update_config', args=[
+                    obj.controller._get_colonel_config()
+                ]
             ).publish()
         return obj
 
