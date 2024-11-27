@@ -98,9 +98,23 @@ def create_instance_defaults(sender, instance, created, **kwargs):
         controller_uid='simo.generic.controllers.StateSelect',
         value='day',
         config={"states": [
-            {"icon": "house-day", "name": "Day", "slug": "day"},
-            {"icon": "house-night", "name": "Evening", "slug": "evening"},
-            {"icon": "moon-cloud", "name": "Night", "slug": "night"},
+            {
+                "icon": "sunrise", "name": "Morning", "slug": "morning",
+                'help_text': "6:00 AM to sunrise. Activates only in dark time of a year."
+            },
+            {
+                "icon": "house-day", "name": "Day", "slug": "day",
+                'help_text': "From sunrise to sunset."
+            },
+            {
+                "icon": "house-night", "name": "Evening", "slug": "evening",
+                'help_text': "From sunrise to midnight"
+            },
+            {
+                "icon": "moon-cloud", "name": "Night", "slug": "night",
+                'help_text': "From midnight to sunrise or 6:00 AM."
+            },
+            {"icon": "snooze", "name": "Sleep time", "slug": "sleep"},
             {"icon": "house-person-leave", "name": "Away", "slug": "away"},
             {"icon": "island-tropical", "name": "Vacation", "slug": "vacation"}
         ], "is_main": True}
@@ -108,7 +122,7 @@ def create_instance_defaults(sender, instance, created, **kwargs):
 
 
     auto_state_code = render_to_string(
-        'core/auto_state_script.py', {'state_comp_id': state_comp.id}
+        'automations/auto_state_script.py', {'state_comp_id': state_comp.id}
     )
     Component.objects.create(
         name='Auto state', icon=Icon.objects.get(slug='bolt'),
@@ -119,20 +133,17 @@ def create_instance_defaults(sender, instance, created, **kwargs):
         config={
             "code": auto_state_code, 'autostart': True, 'keep_alive': True,
             "notes": f"""
-            The script automatically controls the states of the "State" component (ID:{state_comp.id}) — 'day,' 'evening,' 'night,' 'away.'
-            The 'day' state is activated on weekdays from 10 a.m., and on weekends from 11 a.m. When the sun sets, the 'evening' state is activated, and at midnight, the 'night' state is activated.            
-            If no one is home, the 'away' state is activated.            
-            If a different state, such as 'vacation,' is selected, the script stops running and waits until the State is switched back to one of the controlled states.            
-            If one of the controlled states is manually selected, the script waits until that state is reached automatically and, once aligned with the manually set state, resumes its operation in normal mode.
+            The script automatically controls the states of the "State" component (ID:{state_comp.id}) — 'morning', 'day', 'evening', 'night'. 
+            
             """
         }
     )
 
     code = render_to_string(
-        'core/auto_night_day_script.py', {'state_comp_id': state_comp.id}
+        'automations/phones_sleep_script.py', {'state_comp_id': state_comp.id}
     )
     Component.objects.create(
-        name='Auto night/day by owner phones on charge',
+        name='Sleep mode when owner phones are charge',
         icon=Icon.objects.get(slug='bolt'), zone=other_zone,
         category=other_category, show_in_app=False,
         gateway=automation, base_type='script',
@@ -140,10 +151,29 @@ def create_instance_defaults(sender, instance, created, **kwargs):
         config={
             "code": code, 'autostart': True, 'keep_alive': True,
             "notes": f"""
-Automatically sets State component (ID: {state_comp.id}) to "night" if it is later than 10pm and all home owners phones who are at home are put on charge.
-Sets State component to "day" state as soon as none of the home owners phones are on charge and it is 6am or later. 
+Automatically sets State component (ID: {state_comp.id}) to "Sleep" if it is later than 10pm and all home owners phones who are at home are put on charge.
+Sets State component back to regular state as soon as none of the home owners phones are on charge and it is 6am or later. 
 
 """
+        }
+    )
+
+    code = render_to_string(
+        'automations/auto_away.py', {'state_comp_id': state_comp.id}
+    )
+    Component.objects.create(
+        name='Auto Away State',
+        icon=Icon.objects.get(slug='bolt'), zone=other_zone,
+        category=other_category, show_in_app=False,
+        gateway=automation, base_type='script',
+        controller_uid='simo.automation.controllers.Script',
+        config={
+            "code": code, 'autostart': True, 'keep_alive': True,
+            "notes": f"""
+    Automatically set mode to "Away" there are no users at home and there was no motion for more than 30 seconds.
+    Set it back to a regular mode as soon as somebody comes back home or motion is detected.
+
+    """
         }
     )
 

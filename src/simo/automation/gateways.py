@@ -101,8 +101,9 @@ class AutomationsGatewayHandler(BaseObjectCommandsGatewayHandler):
             else:
                 if id not in self.terminating_scripts:
                     dead_scripts = True
-                    logger = get_component_logger(comp)
-                    logger.log(logging.INFO, "-------DEAD!-------")
+                    if comp:
+                        logger = get_component_logger(comp)
+                        logger.log(logging.INFO, "-------DEAD!-------")
                     self.stop_script(comp, 'error')
 
         if dead_scripts:

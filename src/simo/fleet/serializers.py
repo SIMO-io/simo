@@ -45,6 +45,7 @@ class ColonelSerializer(serializers.ModelSerializer):
     interfaces = serializers.SerializerMethodField()
     newer_firmware_available = serializers.SerializerMethodField()
     last_seen = TimestampField()
+    is_empty = serializers.SerializerMethodField()
 
     class Meta:
         model = Colonel
@@ -53,10 +54,12 @@ class ColonelSerializer(serializers.ModelSerializer):
             'firmware_version', 'firmware_auto_update',
             'newer_firmware_available',
             'socket_connected', 'last_seen', 'pins', 'interfaces',
+            'is_empty'
         )
         read_only_fields = [
             'uid', 'type', 'firmware_version', 'newer_firmware_available',
-            'socket_connected', 'last_seen', 'pins', 'interfaces'
+            'socket_connected', 'last_seen', 'pins', 'interfaces',
+            'is_empty'
         ]
 
     def get_pins(self, obj):
@@ -73,6 +76,9 @@ class ColonelSerializer(serializers.ModelSerializer):
 
     def get_newer_firmware_available(self, obj):
         return obj.newer_firmware_available()
+
+    def get_is_empty(self, obj):
+        return not bool(obj.components.all().count())
 
     def update(self, instance, validated_data):
         instance = super().update(instance, validated_data)
