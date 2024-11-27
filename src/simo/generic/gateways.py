@@ -83,8 +83,7 @@ class ScriptRunHandler(multiprocessing.Process):
         self.logger = get_component_logger(self.component)
         sys.stdout = StreamToLogger(self.logger, logging.INFO)
         sys.stderr = StreamToLogger(self.logger, logging.ERROR)
-        self.component.value = 'running'
-        self.component.save(update_fields=['value'])
+        self.component.set('running')
 
         if hasattr(self.component.controller, '_run'):
             def run_code():
@@ -106,13 +105,11 @@ class ScriptRunHandler(multiprocessing.Process):
             run_code()
         except:
             print("------ERROR------")
-            self.component.value = 'error'
-            self.component.save(update_fields=['value'])
+            self.component.set('error')
             raise
         else:
             print("------FINISH-----")
-            self.component.value = 'finished'
-            self.component.save(update_fields=['value'])
+            self.component.set('finished')
             return
 
 
@@ -340,8 +337,7 @@ class GenericGatewayHandler(BaseObjectCommandsGatewayHandler):
                     logger.log(logging.INFO, "-------KILL!-------")
                 self.running_scripts[component.id].kill()
 
-            component.value = stop_status
-            component.save(update_fields=['value'])
+            component.set(stop_status)
             self.terminating_scripts.remove(component.id)
             # making sure it's fully killed along with it's child processes
             self.running_scripts[component.id].kill()
