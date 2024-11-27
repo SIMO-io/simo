@@ -173,7 +173,7 @@ class UserDeviceReport(InstanceMixin, viewsets.GenericViewSet):
 
     @action(url_path='device-report', detail=False, methods=['post'])
     def report(self, request, *args, **kwargs):
-        from simo.generic.scripting.helpers import haversine_distance
+        from simo.automation.helpers import haversine_distance
         if not request.data.get('device_token'):
             return RESTResponse(
                 {'status': 'error', 'msg': 'device_token - not provided'},
@@ -220,7 +220,6 @@ class UserDeviceReport(InstanceMixin, viewsets.GenericViewSet):
                 at_home=False, location__isnull=False
             ).last()
             if prev_log:
-                from simo.generic.scripting.helpers import haversine_distance
                 meters_traveled = haversine_distance(location, prev_log.location)
                 seconds_passed = (log_datetime - prev_log.datetime).total_seconds()
                 avg_speed_kmh = round(meters_traveled / seconds_passed * 3.6, 0)
