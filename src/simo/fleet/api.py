@@ -1,6 +1,7 @@
 from django.db.models import Count
 from django.utils.translation import gettext_lazy as _
 from rest_framework import viewsets
+from rest_framework.response import Response as RESTResponse
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError as APIValidationError
 from simo.core.api import InstanceMixin
@@ -37,6 +38,7 @@ class ColonelsViewSet(InstanceMixin, viewsets.ModelViewSet):
     def check_for_upgrade(self, request, pk=None, *args, **kwargs):
         colonel = self.get_object()
         colonel.check_for_upgrade()
+        return RESTResponse({'status': 'success'})
 
     @action(detail=True, methods=['post'])
     def upgrade(self, request, pk=None, *args, **kwargs):
@@ -45,16 +47,19 @@ class ColonelsViewSet(InstanceMixin, viewsets.ModelViewSet):
             colonel.update_firmware(colonel.major_upgrade_available)
         elif colonel.minor_upgrade_available:
             colonel.update_firmware(colonel.minor_upgrade_available)
+        return RESTResponse({'status': 'success'})
 
     @action(detail=True, methods=['post'])
     def restart(self, request, pk=None, *args, **kwargs):
         colonel = self.get_object()
         colonel.restart()
+        return RESTResponse({'status': 'success'})
 
     @action(detail=True, methods=['post'])
     def update_config(self, request, pk=None, *args, **kwargs):
         colonel = self.get_object()
         colonel.update_config()
+        return RESTResponse({'status': 'success'})
 
     @action(detail=True, methods=['post'])
     def move_to(self, request, pk, *args, **kwargs):
@@ -68,6 +73,7 @@ class ColonelsViewSet(InstanceMixin, viewsets.ModelViewSet):
         if not target:
             raise APIValidationError(_('Invalid target.'), code=400)
         colonel.move_to(target)
+        return RESTResponse({'status': 'success'})
 
 
 class InterfaceViewSet(
