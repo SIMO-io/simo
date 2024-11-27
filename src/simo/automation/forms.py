@@ -112,14 +112,7 @@ class ScriptConfigForm(BaseComponentForm):
                 self.cleaned_data['code'] = self._ai_resp['result']
             if 'notes' in self.cleaned_data:
                 self.cleaned_data['notes'] = self._ai_resp['description']
-        obj = super().save(commit)
-        if commit:
-            obj.controller.stop()
-            if self.cleaned_data.get('keep_alive') \
-            or self.cleaned_data.get('autostart'):
-                time.sleep(2)
-                obj.controller.start()
-        return obj
+        return super().save(commit)
 
 
 class ConditionForm(forms.Form):
@@ -278,13 +271,3 @@ class PresenceLightingConfigForm(BaseComponentForm):
                     self.instance.id
                 )
             )
-
-    def save(self, commit=True):
-        obj = super().save(commit)
-        if commit:
-            obj.controller.stop()
-            if self.cleaned_data.get('keep_alive') \
-                    or self.cleaned_data.get('autostart'):
-                time.sleep(2)
-                obj.controller.start()
-        return obj
