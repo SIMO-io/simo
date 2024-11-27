@@ -1,4 +1,5 @@
 import time
+import random
 from django.utils import timezone
 from simo.core.middleware import get_current_instance
 from simo.core.models import Component
@@ -53,3 +54,5 @@ class Automation:
                         self.sun, timezone.localtime()
                     )
                     print(f"{new_state.upper()}!")
+                    self.state.send(new_state)
+            time.sleep(random.randint(60, 120))
