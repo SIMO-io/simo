@@ -286,8 +286,13 @@ class PresenceLighting(Script):
             ).first()
             if not comp or not comp.controller:
                 continue
-            print(f"Send {light_params['on_value']} to {comp}!")
-            comp.send(light_params.get('off_value', 0))
+
+            if not light_params.get('off_value', 0):
+                off_val = 0
+            else:
+                off_val = self.light_org_values.get(comp.id, 0)
+            print(f"Send {off_val} to {comp}!")
+            comp.send(off_val)
 
 
 # TODO: Night lighting
