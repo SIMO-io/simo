@@ -71,6 +71,7 @@ INSTALLED_APPS = [
     'simo.users',
     'simo.notifications',
     'simo.generic',
+    'simo.automation',
     'simo.multimedia',
     'simo.fleet',
     'simo.backups',

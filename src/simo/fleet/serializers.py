@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from simo.core.serializers import TimestampField
 from .models import InstanceOptions, Colonel, ColonelPin, Interface
 
 
@@ -43,6 +44,7 @@ class ColonelSerializer(serializers.ModelSerializer):
     pins = serializers.SerializerMethodField()
     interfaces = serializers.SerializerMethodField()
     newer_firmware_available = serializers.SerializerMethodField()
+    last_seen = TimestampField()
 
     class Meta:
         model = Colonel

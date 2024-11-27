@@ -22,7 +22,7 @@ from .forms import (
     CompTypeSelectForm,
     BaseComponentForm
 )
-from .filters import ZonesFilter
+from .filters import ZonesFilter, AvailableChoicesFilter
 from .widgets import AdminImageWidget
 from simo.conf import dynamic_settings
 
@@ -255,7 +255,8 @@ class ComponentPermissionInline(admin.TabularInline):
 class ComponentAdmin(EasyObjectsDeleteMixin, admin.ModelAdmin):
     form = BaseComponentForm
     list_display = (
-        'id', 'name_display', 'value_display', 'base_type', 'alive', 'battery_level',
+        'id', 'name_display', 'value_display', 'base_type', 'controller_uid',
+        'alive', 'battery_level',
         'alarm_category', 'show_in_app',
     )
     readonly_fields = (
@@ -264,8 +265,10 @@ class ComponentAdmin(EasyObjectsDeleteMixin, admin.ModelAdmin):
         'control', 'value', 'arm_status', 'history', 'meta'
     )
     list_filter = (
-        'gateway', 'base_type', ('zone', ZonesFilter), 'category', 'alive',
-        'alarm_category', 'arm_status'
+        'gateway', 'base_type', ('zone', ZonesFilter), 'category',
+        #'controller_uid',
+        ('controller_uid', AvailableChoicesFilter),
+        'alive', 'alarm_category', 'arm_status',
     )
 
     search_fields = 'id', 'name', 'value', 'config', 'meta', 'notes'

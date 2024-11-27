@@ -51,7 +51,7 @@ CONTROLLER_TYPES_MAP = get_controller_types_map()
 def get_controller_types_choices(gateway=None):
     choices = []
     for controller_cls in get_controller_types_map(gateway).values():
-        choices.append((controller_cls.uid, controller_cls.name))
+        choices.append((controller_cls.uid, f"{controller_cls.gateway_class.name} | {controller_cls.name}"))
     return choices
 
 

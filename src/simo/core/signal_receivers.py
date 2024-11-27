@@ -76,6 +76,9 @@ def create_instance_defaults(sender, instance, created, **kwargs):
     dummy, new = Gateway.objects.get_or_create(
         type='simo.generic.gateways.DummyGatewayHandler'
     )
+    automation, new = Gateway.objects.get_or_create(
+        type='simo.automation.gateways.AutomationsGatewayHandler'
+    )
     weather_icon = Icon.objects.get(slug='cloud-bolt-sun')
 
     Component.objects.create(
@@ -111,8 +114,8 @@ def create_instance_defaults(sender, instance, created, **kwargs):
         name='Auto state', icon=Icon.objects.get(slug='bolt'),
         zone=other_zone,
         category=other_category, show_in_app=False,
-        gateway=generic, base_type='script',
-        controller_uid='simo.generic.controllers.Script',
+        gateway=automation, base_type='script',
+        controller_uid='simo.automation.controllers.Script',
         config={
             "code": auto_state_code, 'autostart': True, 'keep_alive': True,
             "notes": f"""
@@ -132,8 +135,8 @@ def create_instance_defaults(sender, instance, created, **kwargs):
         name='Auto night/day by owner phones on charge',
         icon=Icon.objects.get(slug='bolt'), zone=other_zone,
         category=other_category, show_in_app=False,
-        gateway=generic, base_type='script',
-        controller_uid='simo.generic.controllers.Script',
+        gateway=automation, base_type='script',
+        controller_uid='simo.automation.controllers.Script',
         config={
             "code": code, 'autostart': True, 'keep_alive': True,
             "notes": f"""
