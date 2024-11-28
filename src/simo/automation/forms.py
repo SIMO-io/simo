@@ -149,7 +149,7 @@ class ConditionForm(forms.Form):
         controller_val_type = type(component.controller.default_value)
         for val in values:
             val = val.strip()
-            if controller_val_type == 'bool':
+            if controller_val_type == bool:
                 if val.lower() in ('0', 'false', 'none', 'null'):
                     final_val = False
                 else:
