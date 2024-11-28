@@ -121,15 +121,18 @@ class PresenceLighting(Script):
     name = _("Presence lighting")
     config_form = PresenceLightingConfigForm
 
-    # script specific variables
-    sensors = {}
-    condition_comps = {}
-    light_org_values = {}
-    is_on = False
-    turn_off_task = None
-    last_presence = 0
-    hold_time = 60
-    conditions = []
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # script specific variables
+        self.sensors = {}
+        self.condition_comps = {}
+        self.light_org_values = {}
+        self.light_send_values = {}
+        self.is_on = False
+        self.turn_off_task = None
+        self.last_presence = 0
+        self.hold_time = 60
+        self.conditions = []
 
     def _run(self):
         self.hold_time = self.component.config.get('hold_time', 0) * 10
@@ -174,7 +177,10 @@ class PresenceLighting(Script):
             self._regulate()
 
     def _on_light_change(self, light):
-        if self.is_on:
+        # change original value if it has been changed to something different
+        # than this script does.
+        if self.is_on and light.value != self.light_send_values[light.id]:
+            self.light_send_values[light.id] = light.value
             self.light_org_values[light.id] = light.value
 
     def _regulate(self, on_val_change=True):
@@ -226,8 +232,12 @@ class PresenceLighting(Script):
                 if not comp or not comp.controller:
                     continue
                 self.light_org_values[comp.id] = comp.value
-                print(f"Send {light_params['on_value']} to {comp}!")
-                comp.controller.send(light_params['on_value'])
+                on_val = light_params['on_value']
+                if type(comp.controller.default_value) == bool:
+                    on_val = bool(on_val)
+                print(f"Send {on_val} to {comp}!")
+                self.light_send_values[comp.id] = on_val
+                comp.controller.send(on_val)
             return
 
         if self.is_on:
