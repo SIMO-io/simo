@@ -161,20 +161,20 @@ class PresenceLighting(Script):
                 self.condition_comps[comp.id] = comp
 
         while True:
-            self._regulate(on_val_change=False)
+            self._regulate()
             time.sleep(random.randint(5, 15))
 
     def _on_sensor(self, sensor=None):
         if sensor:
             self.sensors[sensor.id] = sensor
-            self._regulate()
+            self._regulate(on_sensor=True)
 
     def _on_condition(self, condition_comp=None):
         if condition_comp:
             for condition in self.conditions:
                 if condition['component'].id == condition_comp.id:
                     condition['component'] = condition_comp
-            self._regulate()
+            self._regulate(on_condition_change=True)
 
     def _on_light_change(self, light):
         # change original value if it has been changed to something different
@@ -183,14 +183,14 @@ class PresenceLighting(Script):
             self.light_send_values[light.id] = light.value
             self.light_org_values[light.id] = light.value
 
-    def _regulate(self, on_val_change=True):
+    def _regulate(self, on_sensor=False, on_condition_change=False):
         presence_values = [s.value for id, s in self.sensors.items()]
         if self.component.config.get('act_on', 0) == 0:
             must_on = any(presence_values)
         else:
             must_on = all(presence_values)
 
-        if must_on and on_val_change:
+        if must_on and on_sensor:
             print("Presence detected!")
 
         additional_conditions_met = True
@@ -204,7 +204,7 @@ class PresenceLighting(Script):
 
             if condition['op'] == 'in':
                 if comp.value not in self._string_to_vals(condition['value']):
-                    if must_on and on_val_change:
+                    if must_on and on_sensor:
                         print(
                             f"Condition not met: [{comp} value:{comp.value} "
                             f"{condition['op']} {condition['value']}]"
@@ -213,7 +213,7 @@ class PresenceLighting(Script):
                     break
 
             if not op(comp.value, condition['value']):
-                if must_on and on_val_change:
+                if must_on and on_sensor:
                     print(
                         f"Condition not met: [{comp} value:{comp.value} "
                         f"{condition['op']} {condition['value']}]"
@@ -221,7 +221,15 @@ class PresenceLighting(Script):
                 additional_conditions_met = False
                 break
 
-        if must_on and additional_conditions_met and not self.is_on:
+
+        if not self.is_on:
+            if not must_on:
+                return
+            if not additional_conditions_met:
+                return
+            if on_condition_change:
+                return
+
             print("Turn the lights ON!")
             self.is_on = True
             self.light_org_values = {}
@@ -240,7 +248,7 @@ class PresenceLighting(Script):
                 comp.controller.send(on_val)
             return
 
-        if self.is_on:
+        else:
             if not additional_conditions_met:
                 return self._turn_it_off()
             if not any(presence_values):
