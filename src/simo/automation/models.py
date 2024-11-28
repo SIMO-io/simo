@@ -16,7 +16,7 @@ def post_script_change(sender, instance, created, **kwargs):
 
     def post_update():
         instance.controller.stop()
-        if instance.config.get('keep_alive') or instance.config('autostart'):
+        if instance.config.get('keep_alive') or instance.config.get('autostart'):
             time.sleep(2)
             instance.controller.start()
 
