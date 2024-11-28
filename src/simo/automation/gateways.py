@@ -1,3 +1,4 @@
+import os
 import sys
 import logging
 import pytz
@@ -45,6 +46,7 @@ class ScriptRunHandler(multiprocessing.Process):
         self.logger = get_component_logger(self.component)
         sys.stdout = StreamToLogger(self.logger, logging.INFO)
         sys.stderr = StreamToLogger(self.logger, logging.ERROR)
+        self.component.meta['pid'] = os.getpid()
         self.component.set('running')
 
         if hasattr(self.component.controller, '_run'):
