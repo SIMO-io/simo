@@ -1,4 +1,5 @@
 from dal import autocomplete
+from dal.views import BaseQuerySetView
 from django.db.models import Q
 from django.template.loader import render_to_string
 from simo.core.utils.helpers import search_queryset
@@ -13,7 +14,9 @@ class IconModelAutocomplete(autocomplete.Select2QuerySetView):
         if self.forwarded.get("id"):
             return qs.filter(pk=self.forwarded.get("id"))
 
-        if self.q:
+        if self.request.GET.get('value'):
+            qs = qs.filter(pk=self.request.GET['value'])
+        elif self.q:
             qs = search_queryset(qs, self.q, ('slug', 'keywords'))
         return qs.distinct()
 
@@ -56,7 +59,9 @@ class CategoryAutocomplete(autocomplete.Select2QuerySetView):
             return qs.filter(pk=self.forwarded.get("id"))
 
         qs = qs.filter(all=False)
-        if self.q:
+        if self.request.GET.get('value'):
+            qs = qs.filter(pk=self.request.GET['value'])
+        elif self.q:
             qs = search_queryset(qs, self.q, ('name'))
         return qs.distinct()
 
@@ -79,7 +84,9 @@ class ZoneAutocomplete(autocomplete.Select2QuerySetView):
         if self.forwarded.get("id"):
             return qs.filter(pk=self.forwarded.get("id"))
 
-        if self.q:
+        if self.request.GET.get('value'):
+            qs = qs.filter(pk=self.request.GET['value'])
+        elif self.q:
             qs = search_queryset(qs, self.q, ('name',))
         return qs.distinct()
 
@@ -116,7 +123,9 @@ class ComponentAutocomplete(autocomplete.Select2QuerySetView):
                 Q(alarm_category__in=self.forwarded['alarm_category'])
             )
 
-        if self.q:
+        if self.request.GET.get('value'):
+            qs = qs.filter(pk=self.request.GET['value'])
+        elif self.q:
             qs = search_queryset(qs, self.q, ('zone__name', 'name',))
         return qs.distinct()
 
