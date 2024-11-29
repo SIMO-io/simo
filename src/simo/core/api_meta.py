@@ -79,6 +79,7 @@ class SIMOAPIMetadata(SimpleMetadata):
                 field_info['autocomplete_url'] = reverse(form_field.url)
                 field_info['forward'] = form_field.forward
 
+
         attrs = [
             'read_only', 'label', 'help_text',
             'min_length', 'max_length',
@@ -92,9 +93,11 @@ class SIMOAPIMetadata(SimpleMetadata):
                 field_info[attr] = force_str(value, strings_only=True)
 
         if getattr(field, 'child', None):
+
             field_info['child'] = self.get_field_info(field.child)
         elif getattr(field, 'fields', None):
-            field_info['children'] = self.get_serializer_info(field)
+            field.Meta.form = form_field.formset_cls.form
+            field_info['children'] = self.get_formset_serializer_info(field)
 
         if form_field and hasattr(form_field, 'queryset'):
             if form_field.queryset.model == Icon:
@@ -123,3 +126,19 @@ class SIMOAPIMetadata(SimpleMetadata):
             ]
 
         return field_info
+
+
+    def get_formset_serializer_info(self, serializer):
+        """
+        Given an instance of a serializer, return a dictionary of metadata
+        about its fields.
+        """
+        if hasattr(serializer, 'child'):
+            # If this is a `ListSerializer` then we want to examine the
+            # underlying child serializer instance instead.
+            serializer = serializer.child
+        return OrderedDict([
+            (field_name, self.get_field_info(field))
+            for field_name, field in serializer.get_fields().items()
+            if not isinstance(field, serializers.HiddenField)
+        ])
