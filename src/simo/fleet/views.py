@@ -42,7 +42,7 @@ class PinsSelectAutocomplete(autocomplete.Select2QuerySetView):
 
 
         if self.request.GET.get('value'):
-            qs = qs.filter(pk=self.request.GET['value'])
+            qs = qs.filter(pk__in=self.request.GET['value'].split(','))
         elif self.q:
             qs = search_queryset(qs, self.q, ('label', ))
 
@@ -63,7 +63,7 @@ class InterfaceSelectAutocomplete(autocomplete.Select2QuerySetView):
         qs = Interface.objects.filter(colonel=colonel)
 
         if self.request.GET.get('value'):
-            qs = qs.filter(pk=self.request.GET['value'])
+            qs = qs.filter(pk__in=self.request.GET['value'].split(','))
         elif self.forwarded.get('filters'):
             qs = qs.filter(**self.forwarded.get('filters'))
 
@@ -103,7 +103,7 @@ class ControlInputSelectAutocomplete(autocomplete.Select2ListView):
             buttons_qs = buttons_qs.filter(**self.forwarded.get('button_filters'))
 
         if self.request.GET.get('value'):
-            qs = qs.filter(pk=self.request.GET['value'])
+            qs = buttons_qs.filter(pk__in=self.request.GET['value'].split(','))
         elif self.q:
             buttons_qs = search_queryset(
                 buttons_qs, self.q, ('name', 'zone__name', 'category__name')

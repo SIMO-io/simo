@@ -15,7 +15,7 @@ class IconModelAutocomplete(autocomplete.Select2QuerySetView):
             return qs.filter(pk=self.forwarded.get("id"))
 
         if self.request.GET.get('value'):
-            qs = qs.filter(pk=self.request.GET['value'])
+            qs = qs.filter(pk__in=self.request.GET['value'].split(','))
         elif self.q:
             qs = search_queryset(qs, self.q, ('slug', 'keywords'))
         return qs.distinct()
@@ -60,7 +60,7 @@ class CategoryAutocomplete(autocomplete.Select2QuerySetView):
 
         qs = qs.filter(all=False)
         if self.request.GET.get('value'):
-            qs = qs.filter(pk=self.request.GET['value'])
+            qs = qs.filter(pk__in=self.request.GET['value'].split(','))
         elif self.q:
             qs = search_queryset(qs, self.q, ('name'))
         return qs.distinct()
@@ -85,7 +85,7 @@ class ZoneAutocomplete(autocomplete.Select2QuerySetView):
             return qs.filter(pk=self.forwarded.get("id"))
 
         if self.request.GET.get('value'):
-            qs = qs.filter(pk=self.request.GET['value'])
+            qs = qs.filter(pk__in=self.request.GET['value'].split(','))
         elif self.q:
             qs = search_queryset(qs, self.q, ('name',))
         return qs.distinct()
@@ -124,7 +124,7 @@ class ComponentAutocomplete(autocomplete.Select2QuerySetView):
             )
 
         if self.request.GET.get('value'):
-            qs = qs.filter(pk=self.request.GET['value'])
+            qs = qs.filter(pk__in=self.request.GET['value'].split(','))
         elif self.q:
             qs = search_queryset(qs, self.q, ('zone__name', 'name',))
         return qs.distinct()
