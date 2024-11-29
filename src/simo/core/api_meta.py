@@ -97,7 +97,7 @@ class SIMOAPIMetadata(SimpleMetadata):
             field_info['child'] = self.get_field_info(field.child)
         elif getattr(field, 'fields', None):
             field.Meta.form = form_field.formset_cls.form
-            field_info['children'] = self.get_formset_serializer_info(field)
+            field_info['children'] = self.get_serializer_info(field)
 
         if form_field and hasattr(form_field, 'queryset'):
             if form_field.queryset.model == Icon:
