@@ -1,7 +1,6 @@
 from collections import OrderedDict
 from django.urls import reverse
 from django.utils.encoding import force_str
-from django.forms.utils import pretty_name
 from rest_framework.metadata import SimpleMetadata
 from rest_framework import serializers
 from rest_framework.utils.field_mapping import ClassLookupDict
@@ -116,7 +115,7 @@ class SIMOAPIMetadata(SimpleMetadata):
                         zone__instance=self.instance
                     )
 
-        if not field_info.get('read_only') and hasattr(field, 'choices'):
+        if not field_info.get('read_only') and hasattr(field, 'choices') and not hasattr(form_field, 'forward'):
             field_info['choices'] = [
                 {
                     'value': choice_value,
