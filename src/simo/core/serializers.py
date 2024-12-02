@@ -4,6 +4,7 @@ import re
 from django import forms
 from collections import OrderedDict
 from django.conf import settings
+from django.forms.utils import pretty_name
 from collections.abc import Iterable
 from easy_thumbnails.files import get_thumbnailer
 from simo.core.middleware import get_current_request
@@ -193,6 +194,9 @@ class ComponentFormsetField(FormSerializer):
             ret[field_name] = self._get_field(form_field, serializer_field_class)
             ret[field_name].initial = form_field.initial
             ret[field_name].default = form_field.initial
+            ret[field_name].label = form_field.label
+            if not ret[field_name].label:
+                ret[field_name].label = pretty_name(field_name)
 
         return ret
 
@@ -360,6 +364,8 @@ class ComponentSerializer(FormSerializer):
             )
             ret[field_name].initial = form_field.initial
             ret[field_name].default = form_field.initial
+            if not ret[field_name].label:
+                ret[field_name].label = pretty_name(field_name)
 
         for name, field in super(FormSerializerBase, self).get_fields().items():
             if name in ret:

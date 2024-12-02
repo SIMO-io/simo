@@ -1,6 +1,7 @@
 from collections import OrderedDict
 from django.urls import reverse
 from django.utils.encoding import force_str
+from django.forms.utils import pretty_name
 from rest_framework.metadata import SimpleMetadata
 from rest_framework import serializers
 from rest_framework.utils.field_mapping import ClassLookupDict
@@ -93,11 +94,10 @@ class SIMOAPIMetadata(SimpleMetadata):
                 field_info[attr] = force_str(value, strings_only=True)
 
         if getattr(field, 'child', None):
-
             field_info['child'] = self.get_field_info(field.child)
         elif getattr(field, 'fields', None):
             field.Meta.form = form_field.formset_cls.form
-            field_info['children'] = self.get_serializer_info(field)
+            field_info['children'] = self.get_formset_serializer_info(field)
 
         if form_field and hasattr(form_field, 'queryset'):
             if form_field.queryset.model == Icon:
