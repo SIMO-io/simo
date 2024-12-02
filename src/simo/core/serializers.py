@@ -152,7 +152,7 @@ class ComponentFormsetField(FormSerializer):
         }
 
     def __init__(self, formset_field, *args, **kwargs):
-        self.Meta.form = formset_field.formset_cls.form
+        self.form = formset_field.formset_cls.form
         super().__init__(*args, **kwargs)
 
     def get_fields(self):
@@ -164,7 +164,7 @@ class ComponentFormsetField(FormSerializer):
             FORM_SERIALIZER_FIELD_MAPPING
         )
 
-        form = self.Meta.form
+        form = self.form
         for field_name, form_field in getattr(form, 'all_base_fields', form.base_fields).items():
 
             if field_name in getattr(self.Meta, 'exclude', []):
