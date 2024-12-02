@@ -92,9 +92,6 @@ class ControlInputSelectAutocomplete(autocomplete.Select2ListView):
         if self.forwarded.get('pin_filters'):
             pins_qs = pins_qs.filter(**self.forwarded.get('pin_filters'))
 
-        if self.q:
-            pins_qs = search_queryset(pins_qs, self.q, ('label',))
-
         buttons_qs = Component.objects.filter(
             base_type='button'
         ).select_related('zone')
@@ -102,12 +99,29 @@ class ControlInputSelectAutocomplete(autocomplete.Select2ListView):
         if self.forwarded.get('button_filters'):
             buttons_qs = buttons_qs.filter(**self.forwarded.get('button_filters'))
 
+
         if self.request.GET.get('value'):
-            qs = buttons_qs.filter(pk__in=self.request.GET['value'].split(','))
+            pin_ids = []
+            button_ids = []
+            for v in self.request.GET['value'].split(','):
+                try:
+                    t, id = v.split('-')
+                    id = int(id)
+                except:
+                    continue
+                if  t == 'pin':
+                    pin_ids.append(id)
+                elif t == 'button':
+                    button_ids.append(id)
+            buttons_qs = buttons_qs.filter(id__in=button_ids)
+            pins_qs = pins_qs.filter(id__in=pin_ids)
+
         elif self.q:
             buttons_qs = search_queryset(
                 buttons_qs, self.q, ('name', 'zone__name', 'category__name')
             )
+            pins_qs = search_queryset(pins_qs, self.q, ('label',))
+
 
         return [(f'pin-{pin.id}', str(pin)) for pin in pins_qs] + \
                [(f'button-{button.id}',
