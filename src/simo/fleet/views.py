@@ -86,7 +86,7 @@ class ControlInputSelectAutocomplete(autocomplete.Select2ListView):
             pins_qs = pins_qs.filter(
                 Q(occupied_by_id=None) | Q(id=int(self.forwarded['self'][4:]))
             )
-        else:
+        elif 'value' not in self.request.GET:
             pins_qs = pins_qs.filter(occupied_by_id=None)
 
         if self.forwarded.get('pin_filters'):
@@ -99,7 +99,6 @@ class ControlInputSelectAutocomplete(autocomplete.Select2ListView):
         if self.forwarded.get('button_filters'):
             buttons_qs = buttons_qs.filter(**self.forwarded.get('button_filters'))
 
-
         if self.request.GET.get('value'):
             pin_ids = []
             button_ids = []
@@ -109,7 +108,7 @@ class ControlInputSelectAutocomplete(autocomplete.Select2ListView):
                     id = int(id)
                 except:
                     continue
-                if  t == 'pin':
+                if t == 'pin':
                     pin_ids.append(id)
                 elif t == 'button':
                     button_ids.append(id)
