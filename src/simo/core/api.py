@@ -716,6 +716,7 @@ class StatesViewSet(InstanceMixin, viewsets.GenericViewSet):
         })
 
 
+# Legacy.
 class ControllerTypes(InstanceMixin, viewsets.GenericViewSet):
     url = 'core/controller-types'
     basename = 'controller-types'
@@ -734,6 +735,39 @@ class ControllerTypes(InstanceMixin, viewsets.GenericViewSet):
             if cls.gateway_class.name not in data:
                 data[cls.gateway_class.name] = []
             data[cls.gateway_class.name].append({
+                'uid': uid,
+                'name': cls.name,
+                'is_discoverable': cls.is_discoverable,
+                'manual_add': cls.manual_add,
+                'discovery_msg': cls.discovery_msg,
+                'info': cls.info(cls)
+            })
+
+        return RESTResponse(data)
+
+
+class GWControllerTypes(InstanceMixin, viewsets.GenericViewSet):
+    url = 'core/gw-controller-types'
+    basename = 'gw-controller-types'
+    queryset = []
+
+    def get_permissions(self):
+        permissions = super().get_permissions()
+        permissions.append(IsInstanceSuperuser())
+        return permissions
+
+    def list(self, request, *args, **kwargs):
+        from .utils.type_constants import get_controller_types_map
+        data = {}
+
+        for uid, cls in get_controller_types_map(user=request.user).items():
+            if cls.gateway_class.uid not in data:
+                data[cls.gateway_class.uid] = {
+                    'name': cls.gateway_class.name,
+                    'info': cls.gateway_class.info,
+                    'controllers': []
+                }
+            data[cls.gateway_class.uid]['controllers'].append({
                 'uid': uid,
                 'name': cls.name,
                 'is_discoverable': cls.is_discoverable,

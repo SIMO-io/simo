@@ -80,6 +80,7 @@ class ScriptRunHandler(multiprocessing.Process):
 class AutomationsGatewayHandler(BaseObjectCommandsGatewayHandler):
     name = "Automation"
     config_form = BaseGatewayForm
+    info = "Provides various types of automation capabilities"
 
     running_scripts = {}
     periodic_tasks = (

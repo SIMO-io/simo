@@ -14,6 +14,8 @@ from simo.core.utils.serialization import deserialize_form_data
 class FleetGatewayHandler(BaseObjectCommandsGatewayHandler):
     name = "SIMO.io Fleet"
     config_form = BaseGatewayForm
+    info = "Provides components that run on SIMO.io colonel boards " \
+           "like The Game Changer"
 
     periodic_tasks = (
         ('look_for_updates', 600),

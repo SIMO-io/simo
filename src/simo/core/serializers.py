@@ -131,7 +131,6 @@ class ComponentManyToManyRelatedField(serializers.Field):
         return self.queryset.filter(pk__in=data)
 
 
-
 class ComponentFormsetField(FormSerializer):
 
     class Meta:

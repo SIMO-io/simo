@@ -62,6 +62,9 @@ class CameraWatcher(threading.Thread):
 class GenericGatewayHandler(BaseObjectCommandsGatewayHandler):
     name = "Generic"
     config_form = BaseGatewayForm
+    info = "Provides generic type components which use other components to operate like " \
+           "thermostats, alarm groups, watering programs, alarm clocks," \
+           "etc. "
 
     running_scripts = {}
     periodic_tasks = (
@@ -242,6 +245,8 @@ class GenericGatewayHandler(BaseObjectCommandsGatewayHandler):
 class DummyGatewayHandler(BaseObjectCommandsGatewayHandler):
     name = "Dummy"
     config_form = BaseGatewayForm
+    info = "Provides dummy components that do absolutely anything, " \
+           "but comes in super handy when configuring custom automations."
 
     def perform_value_send(self, component, value):
         component.controller.set(value)

@@ -3,7 +3,7 @@ import time
 import json
 import paho.mqtt.client as mqtt
 from django.conf import settings
-from django.db import close_old_connections
+from django.template.loader import render_to_string
 from abc import ABC, abstractmethod
 from simo.core.utils.helpers import classproperty
 from simo.core.events import GatewayObjectCommand, get_event_obj
@@ -32,6 +32,12 @@ class BaseGatewayHandler(ABC):
     @classmethod
     def uid(cls):
         return ".".join([cls.__module__, cls.__name__])
+
+
+    @classproperty
+    @classmethod
+    def info(cls):
+        return
 
     def __init__(self, gateway_instance):
         self.gateway_instance = gateway_instance
