@@ -25,7 +25,7 @@ from .forms import (
     ColonelSwitchConfigForm, ColonelPWMOutputConfigForm, DCDriverConfigForm,
     ColonelNumericSensorConfigForm, ColonelRGBLightConfigForm,
     ColonelDHTSensorConfigForm, DS18B20SensorConfigForm,
-    BME680SensorConfigForm, MPC9808SensorConfigForm, ENS160SensorConfigForm,
+    BME680SensorConfigForm, MCP9808SensorConfigForm, ENS160SensorConfigForm,
     DualMotorValveForm, BlindsConfigForm, GateConfigForm,
     BurglarSmokeDetectorConfigForm,
     TTLockConfigForm, DALIDeviceConfigForm, DaliLampForm, DaliGearGroupForm,
@@ -177,10 +177,10 @@ class BME680Sensor(FleeDeviceMixin, BaseMultiSensor):
     name = "BME680 Climate Sensor (I2C)"
 
 
-class MPC9808TempSensor(FleeDeviceMixin, BaseNumericSensor):
+class MCP9808TempSensor(FleeDeviceMixin, BaseNumericSensor):
     gateway_class = FleetGatewayHandler
-    config_form = MPC9808SensorConfigForm
-    name = "MPC9808 Temperature Sensor (I2C)"
+    config_form = MCP9808SensorConfigForm
+    name = "MCP9808 Temperature Sensor (I2C)"
 
     @property
     def default_value_units(self):

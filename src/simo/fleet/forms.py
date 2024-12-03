@@ -501,7 +501,7 @@ class BME680SensorConfigForm(ColonelComponentForm):
         return super().save(commit=commit)
 
 
-class MPC9808SensorConfigForm(ColonelComponentForm):
+class MCP9808SensorConfigForm(ColonelComponentForm):
     interface = Select2ModelChoiceField(
         queryset=Interface.objects.filter(type='i2c'),
         url='autocomplete-interfaces',
