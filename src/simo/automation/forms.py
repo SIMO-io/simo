@@ -151,9 +151,9 @@ class ConditionForm(forms.Form):
             val = val.strip()
             if controller_val_type == bool:
                 if val.lower() in ('0', 'false', 'none', 'null', 'off'):
-                    final_val = 'ON'
+                    final_val = True
                 else:
-                    final_val = 'OFF'
+                    final_val = False
             else:
                 try:
                     final_val = controller_val_type(val)
@@ -169,6 +169,12 @@ class ConditionForm(forms.Form):
                     'value', f"{val} is not compatible with selected component."
                 )
                 continue
+
+            if final_val == True:
+                final_val = 'ON'
+            elif final_val == False:
+                final_val = 'OFF'
+
             final_values.append(final_val)
 
         if self.cleaned_data['op'] == 'in':
