@@ -214,7 +214,23 @@ class ControllerBase(ABC):
         '''
         val_type = type(self.default_value)
         v = str(v).strip('(').strip('[').rstrip(')').rstrip(']')
-        return [val_type(val.strip()) for val in v.split(',')]
+        vals = []
+        for val in v.split(','):
+            val = val.strip()
+            if val.lower() in ('none', 'null'):
+                val = None
+            elif val_type == bool:
+                if val.lower() in ('0', 'false', 'off'):
+                    val = False
+                else:
+                    val = True
+            else:
+                try:
+                    val = val_type(val)
+                except:
+                    continue
+            vals.append(val)
+        return vals
 
     def send(self, value):
         self.component.refresh_from_db()

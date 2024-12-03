@@ -156,6 +156,11 @@ class PresenceLighting(Script):
             ).first()
             if comp:
                 condition['component'] = comp
+                condition['condition_value'] = \
+                    comp.controller._string_to_vals(condition['value'])
+                if condition['op'] != 'in':
+                    condition['condition_value'] = \
+                        condition['condition_value'][0]
                 self.conditions.append(condition)
                 comp.on_change(self._on_condition)
                 self.condition_comps[comp.id] = comp
@@ -203,20 +208,20 @@ class PresenceLighting(Script):
                 continue
 
             if condition['op'] == 'in':
-                if comp.value not in self._string_to_vals(condition['value']):
+                if comp.value not in condition['condition_value']:
                     if must_on and on_sensor:
                         print(
                             f"Condition not met: [{comp} value:{comp.value} "
-                            f"{condition['op']} {condition['value']}]"
+                            f"{condition['op']} {condition['condition_value']}]"
                         )
                     additional_conditions_met = False
                     break
 
-            if not op(comp.value, condition['value']):
+            if not op(comp.value, condition['condition_value']):
                 if must_on and on_sensor:
                     print(
                         f"Condition not met: [{comp} value:{comp.value} "
-                        f"{condition['op']} {condition['value']}]"
+                        f"{condition['op']} {condition['condition_value']}]"
                     )
                 additional_conditions_met = False
                 break

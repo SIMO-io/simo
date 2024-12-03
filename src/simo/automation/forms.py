@@ -150,10 +150,10 @@ class ConditionForm(forms.Form):
         for val in values:
             val = val.strip()
             if controller_val_type == bool:
-                if val.lower() in ('0', 'false', 'none', 'null'):
-                    final_val = False
+                if val.lower() in ('0', 'false', 'none', 'null', 'off'):
+                    final_val = 'ON'
                 else:
-                    final_val = True
+                    final_val = 'OFF'
             else:
                 try:
                     final_val = controller_val_type(val)
