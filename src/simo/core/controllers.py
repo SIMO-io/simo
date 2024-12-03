@@ -40,6 +40,7 @@ class ControllerBase(ABC):
     manual_add = True # Can be added manually
     family = None
     masters_only = False # component can be created/modified by hub masters only
+    info_template_path = None
 
     @property
     @abstractmethod
@@ -75,11 +76,6 @@ class ControllerBase(ABC):
         """
         :return: Default value of this base component type
         """
-
-    @property
-    def info_template_path(self) -> str:
-        return f"{self.__class__.__module__.split('.')[-2]}/" \
-               f"controllers_info/{self.__class__.__name__}.md"
 
     @abstractmethod
     def _validate_val(self, value, occasion=None):
@@ -121,7 +117,8 @@ class ControllerBase(ABC):
             cls, '_process_discovery'
         )
 
-    def info(self):
+    @classmethod
+    def info(cls, component=None):
         '''
         Override this to give users help on how to use this component type,
         after you do that, include any component instance specific information
@@ -130,10 +127,13 @@ class ControllerBase(ABC):
         along with any other relative information,
          regarding this particular component instance
         '''
+        if not cls.info_template_path:
+            cls.info_template_path = f"{cls.__module__.split('.')[-2]}/" \
+                                      f"controllers_info/{cls.__name__}.md"
         try:
             return render_to_string(
-                self.info_template_path, {
-                    'component': self.component if hasattr(self, 'component') else None
+                cls.info_template_path, {
+                    'component': component
                 }
             )
         except:
