@@ -154,6 +154,17 @@ class ComponentFormsetField(FormSerializer):
         self.form = formset_field.formset_cls.form
         super().__init__(*args, **kwargs)
 
+    def get_form(self, data=None, **kwargs):
+        form_cls = self.form
+        instance = form_cls(data=data, **kwargs)
+        # Handle partial validation on the form side
+        if self.partial:
+            set_form_partial_validation(
+                instance, self.Meta.minimum_required
+            )
+        instance.prefix = ''
+        return instance
+
     def get_fields(self):
         ret = super(FormSerializerBase, self).get_fields()
 
@@ -247,11 +258,6 @@ class ComponentFormsetField(FormSerializer):
                 ret[field.field_name] = field.to_representation(attribute)
 
         return ret
-
-    def get_form(self, data=None, **kwargs):
-        form = super().get_form(data=data, **kwargs)
-        form.prefix = ''
-        return form
 
     def create(self, validated_data):
         return validated_data
