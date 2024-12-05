@@ -198,6 +198,9 @@ class PresenceLighting(Script):
         if must_on and on_sensor:
             print("Presence detected!")
 
+        if must_on:
+            self.last_presence = 0
+
         additional_conditions_met = True
         for condition in self.conditions:
 
@@ -225,7 +228,6 @@ class PresenceLighting(Script):
                     )
                 additional_conditions_met = False
                 break
-
 
         if not self.is_on:
             if not must_on:
