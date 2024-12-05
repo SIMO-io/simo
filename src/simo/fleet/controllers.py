@@ -100,36 +100,21 @@ class BurglarSmokeDetector(BinarySensor):
         ]
 
 
-# class AnalogSensor(FleeDeviceMixin, BasicSensorMixin, BaseNumericSensor):
-#     config_form = ColonelNumericSensorConfigForm
-#     name = "Analog sensor"
-#
-#     def _get_occupied_pins(self):
-#         return [
-#             self.component.config['pin_no'],
-#         ]
-
-
 class DS18B20Sensor(FleeDeviceMixin, BasicSensorMixin, BaseNumericSensor):
     config_form = DS18B20SensorConfigForm
     name = "DS18B20 Temperature sensor"
 
 
-
-# TODO: need to change this to {
-#                 'temp': self.sensor.temperature, 'hum': self.sensor.humidity,
-#                 'pressure': self.sensor.pressure, 'gas': self.sensor.gas
-#             }
-# which is used by BME680Sensor
-
-class BaseClimateSensor(FleeDeviceMixin, BasicSensorMixin, BaseMultiSensor):
+class DHTSensor(FleeDeviceMixin, BasicSensorMixin, BaseMultiSensor):
+    config_form = ColonelDHTSensorConfigForm
+    name = "DHT climate sensor"
     app_widget = NumericSensorWidget
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.sys_temp_units = 'C'
         if hasattr(self.component, 'zone') \
-        and self.component.zone.instance.units_of_measure == 'imperial':
+                and self.component.zone.instance.units_of_measure == 'imperial':
             self.sys_temp_units = 'F'
 
     @property
@@ -162,13 +147,6 @@ class BaseClimateSensor(FleeDeviceMixin, BasicSensorMixin, BaseMultiSensor):
         )
         new_val[2] = ['real_feel', real_feel, self.sys_temp_units]
         return new_val
-
-
-
-
-class DHTSensor(BaseClimateSensor):
-    config_form = ColonelDHTSensorConfigForm
-    name = "DHT climate sensor"
 
 
 class BME680Sensor(FleeDeviceMixin, BaseMultiSensor):

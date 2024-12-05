@@ -734,11 +734,12 @@ class ControllerTypes(InstanceMixin, viewsets.GenericViewSet):
         for uid, cls in get_controller_types_map(user=request.user).items():
             if cls.gateway_class.name not in data:
                 data[cls.gateway_class.name] = []
+            if not cls.manual_add:
+                continue
             data[cls.gateway_class.name].append({
                 'uid': uid,
                 'name': cls.name,
                 'is_discoverable': cls.is_discoverable,
-                'manual_add': cls.manual_add,
                 'discovery_msg': cls.discovery_msg,
                 'info': cls.info(cls)
             })
@@ -767,6 +768,8 @@ class GWControllerTypes(InstanceMixin, viewsets.GenericViewSet):
                     'info': cls.gateway_class.info,
                     'controllers': []
                 }
+            if not cls.manual_add:
+                continue
             data[cls.gateway_class.uid]['controllers'].append({
                 'uid': uid,
                 'name': cls.name,
