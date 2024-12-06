@@ -303,7 +303,7 @@ class PresenceLighting(Script):
                 off_val = self.light_org_values.get(comp.id, 0)
             print(f"Send {off_val} to {comp}!")
             if comp.value != off_val:
-                self.c[comp.id] = [time.time(), off_val]
+                self.expected_light_values[comp.id] = [time.time(), off_val]
             comp.send(off_val)
 
 
