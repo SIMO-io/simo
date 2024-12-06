@@ -72,10 +72,17 @@ class GenericGatewayHandler(BaseObjectCommandsGatewayHandler):
         ('watch_alarm_clocks', 30),
         ('watch_watering', 60),
         ('watch_alarm_events', 1),
-        ('watch_timers', 1)
+        ('watch_timers', 1),
+        ('watch_main_states', 60)
     )
 
-    terminating_scripts = set()
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.last_sensor_actions = {}
+        self.sensors_on_watch = {}
+        self.sleep_is_on = {}
+
+
 
     def watch_thermostats(self):
         from .controllers import Thermostat
@@ -240,6 +247,78 @@ class GenericGatewayHandler(BaseObjectCommandsGatewayHandler):
                 component.controller._on_timer_end()
             except Exception as e:
                 print(traceback.format_exc(), file=sys.stderr)
+
+
+    def watch_main_state(self, state):
+        i_id = state.zone.instance.id
+        if state.value in ('day', 'night', 'evening', 'morning'):
+            new_state = state.get_day_evening_night_morning()
+            if new_state != state.value:
+                print(f"New main state of {state.zone.instance} - {new_state}")
+                state.send(new_state)
+
+        if state.config.get('away_on_no_action'):
+            for sensor in Component.objects.filter(
+                    zone__instance=state.zone.instance,
+                    base_type='binary-sensor', alarm_category='security'
+            ):
+                if state.id not in self.sensors_on_watch:
+                    self.sensors_on_watch[state.id] = {}
+
+                if sensor.id not in self.sensors_on_watch[state.id]:
+                    self.sensors_on_watch[state.id][sensor.id] = i_id
+                    self.last_sensor_actions[i_id] = time.time()
+                    sensor.on_change(self.security_sensor_change)
+
+            last_action = self.last_sensor_actions.get(i_id, time.time())
+            if state.check_is_away(last_action):
+                if state.value != 'away':
+                    print(f"New main state of "
+                          f"{state.zone.instance} - away")
+                    state.send('away')
+            else:
+                if state.value == 'away':
+                    try:
+                        new_state = state.get_day_evening_night_morning()
+                    except:
+                        new_state = 'day'
+                    print(f"New main state of "
+                          f"{state.zone.instance} - {new_state}")
+                    state.send(new_state)
+
+        if state.config.get('sleeping_phones_hour') is not None:
+            sleep_time = state.owner_phones_on_sleep()
+            if sleep_time and state.value != 'sleep':
+                print(f"New main state of {state.zone.instance} - sleep")
+                state.send('sleep')
+            elif state.value == 'sleep':
+                try:
+                    new_state = state.get_day_evening_night_morning()
+                except:
+                    new_state = 'day'
+                print(f"New main state of "
+                      f"{state.zone.instance} - {new_state}")
+                state.send(new_state)
+
+
+    def watch_main_states(self):
+        drop_current_instance()
+        from .controllers import MainState
+        for state in Component.objects.filter(
+            controller_uid=MainState.uid
+        ).select_related('zone', 'zone__instance'):
+            try:
+                self.watch_main_state(state)
+            except Exception as e:
+                print(traceback.format_exc(), file=sys.stderr)
+
+
+
+    def security_sensor_change(self, sensor):
+        self.last_sensor_actions[
+            self.sensors_on_watch[sensor.id]
+        ] = time.time()
+
 
 
 class DummyGatewayHandler(BaseObjectCommandsGatewayHandler):

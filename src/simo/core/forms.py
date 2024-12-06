@@ -79,10 +79,11 @@ class ConfigFieldsMixin:
             if field_name in self.model_fields:
                 continue
             self.config_fields.append(field_name)
-        if self.instance.pk:
-            for field_name in self.config_fields:
-                if field_name not in self.instance.config:
-                    continue
+
+        for field_name in self.config_fields:
+            if field_name not in self.instance.config:
+                continue
+            if self.instance.pk:
                 if hasattr(self.fields[field_name], 'queryset'):
                     if isinstance(self.instance.config.get(field_name), list):
                         self.fields[field_name].initial = \
@@ -97,6 +98,11 @@ class ConfigFieldsMixin:
                 else:
                     self.fields[field_name].initial = \
                         self.instance.config.get(field_name)
+            else:
+                if self.instance.config.get(field_name):
+                    self.fields[field_name].initial = self.instance.config.get(field_name)
+
+
 
     def save(self, commit=True):
         for field_name in self.config_fields:

@@ -425,19 +425,87 @@ class StateSelectForm(BaseComponentForm):
     states = FormsetField(
         formset_factory(StateForm, can_delete=True, can_order=True, extra=0)
     )
-    is_main = forms.BooleanField(
-        initial=False, required=False,
-        help_text="Will be displayed in the app "
-                  "right top corner for quick access."
+
+
+class MainStateSelectForm(BaseComponentForm):
+    weekdays_morning_hour = forms.IntegerField(
+        initial=6, min_value=3, max_value=12
+    )
+    weekends_morning_hour = forms.IntegerField(
+        initial=6, min_value=3, max_value=12
+    )
+    away_on_no_action = forms.IntegerField(
+        required=False, initial=40, min_value=1, max_value=360,
+        help_text="Set state to Away if nobody is at home "
+                  "(requires location and fitness permissions on mobile app) "
+                  "and there were "
+                  "no action for more than given amount of minutes from any "
+                  "security alarm acategory sensors (motion sensors, door sensors etc..).<br>"
+                  "No value disables this behavior."
+    )
+    sleeping_phones_hour = forms.IntegerField(
+        initial=True, required=False, min_value=18, max_value=24,
+        help_text='Set mode to "Sleep" if it is later than given hour '
+                  'and all home owners phones who are at home are put on charge '
+                  '(requires location and fitness permissions on mobile app). <br>'
+                  'Set back to regular state as soon as none of the home owners phones '
+                  'are on charge and it is morning hour or past it.'
+    )
+    states = FormsetField(
+        formset_factory(StateForm, can_delete=True, can_order=True, extra=0)
     )
 
+    def clean(self):
+        if not self.instance.id:
+            if Component.objects.filter(
+                controller_uid='simo.generic.controllers.MainState'
+            ).count():
+                raise forms.ValidationError("Main state already exists!")
+
+        formset_errors = {}
+        required_states = {
+            'morning', 'day', 'evening', 'night', 'sleep', 'away', 'vacation'
+        }
+        found_states = set()
+        for i, state in enumerate(self.cleaned_data.get('states', [])):
+            if state.get('slug') in found_states:
+                formset_errors['i'] = {'slug': "Duplicate!"}
+                continue
+            found_states.add(state.get('slug'))
+
+        errors_list = []
+        if formset_errors:
+            for i, control in enumerate(self.cleaned_data['states']):
+                errors_list.append(formset_errors.get(i, {}))
+        if errors_list:
+            self._errors['states'] = errors_list
+            if 'states' in self.cleaned_data:
+                del self.cleaned_data['states']
+
+        else:
+            missing_states = required_states - found_states
+            if missing_states:
+                if len(missing_states) == 1:
+                    self.add_error(
+                        'states',
+                        f'"{list(missing_states)[0]}" state is missing!'
+                    )
+                self.add_error(
+                    'states',
+                    f"Required states are missing: {list(missing_states)}!"
+                )
+
+        return self.cleaned_data
+
     def save(self, commit=True):
-        if commit and self.cleaned_data['is_main']:
-            from .controllers import StateSelect
-            for c in Component.objects.filter(controller_uid=StateSelect.uid):
-                c.config['is_main'] = False
-                c.save()
+        if commit:
+            for s in Component.objects.filter(
+                base_type='state-select', config__is_main=True
+            ).exclude(id=self.instance.id):
+                s.config['is_main'] = False
+                s.save()
         return super().save(commit)
+
 
 
 class AlarmClockEventForm(forms.Form):

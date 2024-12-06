@@ -1,6 +1,7 @@
 import threading
 import time
 import json
+import random
 import paho.mqtt.client as mqtt
 from django.conf import settings
 from django.template.loader import render_to_string
@@ -78,13 +79,22 @@ class BaseObjectCommandsGatewayHandler(BaseGatewayHandler):
         self.mqtt_client.loop_stop()
 
     def _run_periodic_task(self, exit, task, period):
+        first_run = True
         while not exit.is_set():
             try:
                 #print(f"Run periodic task {task}!")
                 getattr(self, task)()
             except Exception as e:
                 self.logger.error(e, exc_info=True)
-            time.sleep(period)
+            # spread tasks around so that they do not happen all
+            # at once all the time
+            if first_run:
+                first_run = False
+                randomized_sleep = random.randint(0, period) + random.random()
+                time.sleep(randomized_sleep)
+            else:
+                time.sleep(period)
+
 
     def _on_mqtt_connect(self, mqtt_client, userdata, flags, rc):
         print("MQTT Connected!")

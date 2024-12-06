@@ -1,6 +1,7 @@
 import pytz
 import datetime
 import json
+import time
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 from django.utils.functional import cached_property
@@ -34,11 +35,14 @@ from .app_widgets import (
 from .forms import (
     ThermostatConfigForm, AlarmGroupConfigForm,
     IPCameraConfigForm, WeatherForm,
-    WateringConfigForm, StateSelectForm,
+    WateringConfigForm, StateSelectForm, MainStateSelectForm,
     AlarmClockConfigForm
 )
 
 # ----------- Generic controllers -----------------------------
+
+
+
 
 class Thermostat(ControllerBase):
     name = _("Thermostat")
@@ -319,6 +323,7 @@ class Weather(ControllerBase):
     admin_widget_template = 'admin/controller_widgets/weather.html'
     default_config = {}
     default_value = {}
+    manual_add = False
 
     def _validate_val(self, value, occasion=None):
         return value
@@ -1052,6 +1057,120 @@ class StateSelect(ControllerBase):
         if value not in available_options:
             raise ValidationError("Unsupported value!")
         return value
+
+
+class MainState(StateSelect):
+    name = _("Main State")
+    config_form = MainStateSelectForm
+    default_value = 'day'
+
+    default_config = {
+        'is_main': True,
+        'weekdays_morning_hour': 6,
+        'weekends_morning_hour': 7,
+        'away_on_no_action': 30,
+        'sleeping_phones_hour': 21,
+        'states': [
+            {
+                "icon": "sunrise", "name": "Morning", "slug": "morning",
+                'help_text': "Morning hour to sunrise. Activates in dark time of a year."
+            },
+            {
+                "icon": "house-day", "name": "Day", "slug": "day",
+                'help_text': "From sunrise to sunset."
+            },
+            {
+                "icon": "house-night", "name": "Evening", "slug": "evening",
+                'help_text': "From sunrise to midnight"
+            },
+            {
+                "icon": "moon-cloud", "name": "Night", "slug": "night",
+                'help_text': "From midnight to sunrise or static morning hour."
+            },
+            {"icon": "snooze", "name": "Sleep time", "slug": "sleep"},
+            {"icon": "house-person-leave", "name": "Away", "slug": "away"},
+            {"icon": "island-tropical", "name": "Vacation", "slug": "vacation"}
+        ]
+    }
+
+    def get_day_evening_night_morning(self):
+        from simo.automation.helpers import LocalSun
+        sun = LocalSun(self.component.zone.instance.location)
+        timezone.activate(self.component.zone.instance.timezone)
+        localtime = timezone.localtime()
+
+        # It is daytime if the sun is up!
+        if not sun.is_night():
+            return 'day'
+
+        # it is evening if the sun is down at the evening
+        if sun.get_sunset_time(localtime) < localtime:
+            return 'evening'
+
+        if localtime.weekday() < 5:
+            if localtime.hour >= self.component.config['weekdays_morning_hour']:
+                return 'morning'
+        else:
+            if localtime.hour >= self.component.config['weekends_morning_hour']:
+                return 'morning'
+
+        # 0 - 6AM and still dark
+        return 'night'
+
+
+    def check_is_away(self, last_sensor_action):
+        away_on_no_action = not self.component.config.get('away_on_no_action')
+        if not away_on_no_action:
+            return False
+        from simo.users.models import InstanceUser
+        if InstanceUser.objects.filter(
+            is_active=True, at_home=True, instance=self.component.zone.instance
+        ).count():
+            return False
+
+        return (time.time() - last_sensor_action) // 60 >= away_on_no_action
+
+
+    def is_sleep_time(self):
+        timezone.activate(self.component.zone.instance.timezone)
+        localtime = timezone.localtime()
+        if localtime.weekday() < 5:
+            if localtime.hour < self.component.config['weekdays_morning_hour']:
+                return True
+        else:
+            if localtime.hour < self.component.config['weekends_morning_hour']:
+                return True
+        sleeping_phones_hour = self.component.config.get(
+            'sleeping_phones_hour'
+        )
+        if localtime.hour >= sleeping_phones_hour:
+            return True
+
+        return False
+
+
+    def owner_phones_on_sleep(self):
+        sleeping_phones_hour = self.component.config.get('sleeping_phones_hour')
+        if sleeping_phones_hour is not None:
+            return False
+
+        if not self.is_sleep_time():
+            return False
+
+        from simo.users.models import InstanceUser
+
+        for iuser in InstanceUser.objects.filter(
+            is_active=True, role__is_owner=True,
+            instance=self.component.zone.instance
+        ):
+            # skipping users that are not at home
+            if not iuser.at_home:
+                continue
+            if not iuser.phone_on_charge:
+                # at least one user's phone is not yet on charge
+                return False
+
+        return True
 
 
 # ----------- Dummy controllers -----------------------------
