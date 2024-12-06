@@ -11,6 +11,7 @@ from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
 from simo.conf import dynamic_settings
 from simo.core.api import InstanceMixin
+from simo.core.middleware import drop_current_instance
 from .models import (
     User, UserDevice, UserDeviceReportLog, PermissionsRole, InstanceInvitation,
     Fingerprint, ComponentPermission, InstanceUser
@@ -247,6 +248,7 @@ class UserDeviceReport(InstanceMixin, viewsets.GenericViewSet):
                 self.instance.location, location
             ) < dynamic_settings['users__at_home_radius']
 
+        drop_current_instance()
         for iu in request.user.instance_roles.filter(is_active=True):
             if not relay:
                 iu.at_home = True
