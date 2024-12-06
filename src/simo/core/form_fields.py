@@ -92,3 +92,7 @@ class Select2ListMultipleChoiceField(
     Select2MultipleMixin, forms.MultipleChoiceField
 ):
     pass
+
+
+class LocationField(forms.CharField):
+    pass

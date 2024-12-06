@@ -25,7 +25,12 @@ from .drf_braces.serializers.form_serializer import (
     find_matching_class_kwargs
 )
 from .forms import ComponentAdminForm
+from .form_fields import LocationField
 from .models import Category, Zone, Icon, ComponentHistory
+
+
+class LocationSerializer(serializers.CharField):
+    pass
 
 
 
@@ -139,6 +144,7 @@ class ComponentFormsetField(FormSerializer):
         form = forms.Form
         field_mapping = {
             HiddenField: HiddenSerializerField,
+            LocationField: LocationSerializer,
             Select2ListChoiceField: serializers.ChoiceField,
             forms.ModelChoiceField: FormsetPrimaryKeyRelatedField,
             Select2ModelChoiceField: FormsetPrimaryKeyRelatedField,
@@ -293,6 +299,7 @@ class ComponentSerializer(FormSerializer):
             forms.TypedChoiceField: serializers.ChoiceField,
             forms.FloatField: serializers.FloatField,
             forms.SlugField: serializers.CharField,
+            LocationField: LocationSerializer,
             forms.ModelChoiceField: ComponentPrimaryKeyRelatedField,
             Select2ModelChoiceField: ComponentPrimaryKeyRelatedField,
             forms.ModelMultipleChoiceField: ComponentManyToManyRelatedField,

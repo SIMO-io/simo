@@ -8,7 +8,7 @@ from simo.core.models import Icon, Instance, Category, Zone
 from simo.core.middleware import introduce_instance
 from .serializers import (
     HiddenSerializerField, ComponentManyToManyRelatedField,
-    TextAreaSerializerField, Component
+    TextAreaSerializerField, Component, LocationSerializer
 )
 
 
@@ -41,6 +41,7 @@ class SIMOAPIMetadata(SimpleMetadata):
         ComponentManyToManyRelatedField: 'many related objects',
         HiddenSerializerField: 'hidden',
         TextAreaSerializerField: 'textarea',
+        LocationSerializer: 'location',
     })
 
     def determine_metadata(self, request, view):

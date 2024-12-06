@@ -16,10 +16,13 @@ from simo.core.utils.easing import EASING_CHOICES
 from simo.core.utils.validators import validate_slaves
 from simo.core.utils.admin import AdminFormActionForm
 from simo.core.events import GatewayObjectCommand
+from simo.core.middleware import get_current_instance
 from simo.core.form_fields import (
     Select2ModelChoiceField, Select2ListChoiceField,
     Select2ModelMultipleChoiceField
 )
+from simo.core.form_fields import LocationField
+from simo.users.models import PermissionsRole
 from .models import Colonel, ColonelPin, Interface
 from .utils import INTERFACES_PINS_MAP, get_all_control_input_choices
 
@@ -1316,7 +1319,6 @@ class GateConfigForm(ColonelComponentForm):
                   "when your gate is in closed position?"
     )
 
-
     open_duration = forms.FloatField(
         initial=30, min_value=1, max_value=600,
         help_text="How much time in seconds does it take for your gate "
@@ -1328,6 +1330,26 @@ class GateConfigForm(ColonelComponentForm):
             ControlForm, can_delete=True, can_order=True, extra=0, max_num=2
         )
     )
+
+    auto_open_distance = forms.IntegerField(
+        default=100, min_value=20, max_value=4000, required=False,
+        help_text="Open the gate automatically whenever somebody is coming home"
+                  "and comes closer than this distance. Clear this value out, "
+                  "to disable auto opening."
+    )
+    auto_open_for = forms.ModelMultipleChoiceField(
+        queryset=PermissionsRole.objects.filter(
+            instance=get_current_instance()
+        ), required=False,
+        help_text="Open the gates automatically only for these user roles. "
+                  "Leaving this field blank opens the gate for all system users."
+    )
+    location = LocationField(
+        help_text="Location of your gate. Required only for automatic opening. "
+                  "Adjust this if this gate is significantly distanced from "
+                  "your actual home location."
+    )
+
 
     def clean(self):
         super().clean()
