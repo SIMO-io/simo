@@ -55,7 +55,8 @@ class InterfaceSelectAutocomplete(autocomplete.Select2QuerySetView):
 
         try:
             colonel = Colonel.objects.get(
-                pk=self.forwarded.get("colonel")
+                pk=self.forwarded.get("colonel"),
+                instance=get_current_instance()
             )
         except:
             return Interface.objects.none()
@@ -76,11 +77,14 @@ class ControlInputSelectAutocomplete(autocomplete.Select2ListView):
 
         try:
             colonel = Colonel.objects.get(
-                pk=self.forwarded.get("colonel")
+                pk=self.forwarded.get("colonel"),
+                instance=get_current_instance()
             )
             pins_qs = ColonelPin.objects.filter(colonel=colonel)
         except:
-            pins_qs = ColonelPin.objects.all()
+            pins_qs = ColonelPin.objects.all(
+                colonel__instance=get_current_instance()
+            )
 
         if self.forwarded.get('self') and self.forwarded['self'].startswith('pin-'):
             pins_qs = pins_qs.filter(
@@ -93,7 +97,7 @@ class ControlInputSelectAutocomplete(autocomplete.Select2ListView):
             pins_qs = pins_qs.filter(**self.forwarded.get('pin_filters'))
 
         buttons_qs = Component.objects.filter(
-            base_type='button'
+            base_type='button', zone__instance=get_current_instance()
         ).select_related('zone')
 
         if self.forwarded.get('button_filters'):
@@ -127,3 +131,4 @@ class ControlInputSelectAutocomplete(autocomplete.Select2ListView):
                  f"{button.zone.name} | {button.name}"
                  if button.zone else button.name)
                 for button in buttons_qs]
+

@@ -3,6 +3,7 @@ from dal.views import BaseQuerySetView
 from django.db.models import Q
 from django.template.loader import render_to_string
 from simo.core.utils.helpers import search_queryset
+from simo.core.middleware import get_current_instance
 from .models import Icon, Category, Zone, Component
 
 
@@ -53,7 +54,7 @@ class IconModelAutocomplete(autocomplete.Select2QuerySetView):
 class CategoryAutocomplete(autocomplete.Select2QuerySetView):
 
     def get_queryset(self):
-        qs = Category.objects.all()
+        qs = Category.objects.filter(instance=get_current_instance())
 
         if self.forwarded.get("id"):
             return qs.filter(pk=self.forwarded.get("id"))
@@ -79,7 +80,7 @@ class CategoryAutocomplete(autocomplete.Select2QuerySetView):
 class ZoneAutocomplete(autocomplete.Select2QuerySetView):
 
     def get_queryset(self):
-        qs = Zone.objects.all()
+        qs = Zone.objects.filter(instance=get_current_instance())
 
         if self.forwarded.get("id"):
             return qs.filter(pk=self.forwarded.get("id"))
@@ -104,7 +105,7 @@ class ZoneAutocomplete(autocomplete.Select2QuerySetView):
 class ComponentAutocomplete(autocomplete.Select2QuerySetView):
 
     def get_queryset(self):
-        qs = Component.objects.all()
+        qs = Component.objects.filter(zone__instance=get_current_instance())
 
         if self.forwarded.get("id"):
             if isinstance(self.forwarded['id'], list):

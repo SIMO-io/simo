@@ -1,5 +1,6 @@
 import re
 from django.contrib.auth.decorators import login_required
+from dal import autocomplete
 from django.contrib.auth import logout
 from django.urls import re_path
 from django.shortcuts import get_object_or_404, render
@@ -11,8 +12,10 @@ from django.template.loader import render_to_string
 from django.http import (
     JsonResponse, HttpResponseRedirect, HttpResponse, Http404
 )
+from simo.core.middleware import get_current_instance
+from simo.core.utils.helpers import search_queryset
 from simo.conf import dynamic_settings
-from .models import InstanceInvitation
+from .models import InstanceInvitation, PermissionsRole, InstanceUser
 
 
 @atomic
@@ -104,3 +107,19 @@ def protected_static(prefix, **kwargs):
         r'^%s(?P<path>.*)$' % re.escape(prefix.lstrip('/')),
         serve_protected, kwargs={'prefix': prefix}
     )
+
+
+class RolesAutocomplete(autocomplete.Select2QuerySetView):
+
+    def get_queryset(self):
+        if not self.request.user.is_authenticated:
+            raise Http404()
+
+        qs = PermissionsRole.objects.filter(instance=get_current_instance())
+
+        if self.request.GET.get('value'):
+            qs = qs.filter(pk__in=self.request.GET['value'].split(','))
+        elif self.q:
+            qs = search_queryset(qs, self.q, ('name',))
+
+        return qs.distinct()

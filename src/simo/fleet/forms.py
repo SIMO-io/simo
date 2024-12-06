@@ -1337,10 +1337,9 @@ class GateConfigForm(ColonelComponentForm):
                   "and comes closer than this distance. Clear this value out, "
                   "to disable auto opening."
     )
-    auto_open_for = forms.ModelMultipleChoiceField(
-        queryset=PermissionsRole.objects.filter(
-            instance=get_current_instance()
-        ), required=False,
+    auto_open_for = Select2ModelMultipleChoiceField(
+        queryset=PermissionsRole.objects.all(),
+        url='autocomplete-user-roles',  required=False,
         help_text="Open the gates automatically only for these user roles. "
                   "Leaving this field blank opens the gate for all system users."
     )
@@ -1350,9 +1349,10 @@ class GateConfigForm(ColonelComponentForm):
                   "your actual home location."
     )
 
-    # def __init__(self, *args, **kwargs):
-    #
-
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if not self.fields['location'].initial:
+            self.fields['location'].initial = get_current_instance().location
 
     def clean(self):
         super().clean()
