@@ -14,7 +14,7 @@ from .models import (
     Icon, Category, Gateway, Component
 )
 from .form_fields import Select2ModelMultipleChoiceField
-from .widgets import SVGFileWidget, LogOutputWidget
+from .widgets import SVGFileWidget, LogOutputWidget, PythonCode
 from .utils.formsets import FormsetField
 from .utils.validators import validate_slaves
 
@@ -242,6 +242,7 @@ class ComponentAdminForm(forms.ModelForm):
             'category': autocomplete.ModelSelect2(
                 url='autocomplete-category', attrs={'data-html': True}
             ),
+            'value_translation': PythonCode()
         }
 
     def __init__(self, *args, **kwargs):
@@ -299,7 +300,6 @@ class ComponentAdminForm(forms.ModelForm):
         main_fields = (
             'name', 'icon', 'zone', 'category',
             'show_in_app', 'battery_level',
-            #'instance_methods',
             'value_units',
             'alarm_category', 'arm_status',
             'notes'
@@ -315,12 +315,11 @@ class ComponentAdminForm(forms.ModelForm):
             if field_name not in main_fields:
                 base_fields.append(field_name)
 
-        base_fields.append('show_in_app')
         base_fields.append('control')
         base_fields.append('notes')
 
         fieldsets = [
-            (_("Base settings"), {'fields': base_fields}),
+            (_("Base settings"), {'fields': base_fields + ['value_units', 'value_translation']}),
         ]
         if cls.has_alarm:
             fieldsets.append(
@@ -336,7 +335,7 @@ class ComponentAdminForm(forms.ModelForm):
                 'fields': (
                     'alive', 'error_msg', 'battery_level',
                     'config', 'meta',
-                    'value', 'value_units',
+                    'value',
                     'history'
                 ),
                 'classes': ('collapse',),
@@ -354,22 +353,19 @@ class ComponentAdminForm(forms.ModelForm):
             ))
         return self.cleaned_data['category']
 
-    def clean_instance_methods(self):
-        custom_methods = {}
+    def clean_value_translation(self):
+        if 'value_translation' not in self.cleaned_data:
+            return
         try:
-            # need new line at the beginning to display correct
-            # line numbering in an event of exception
-            exec(
-                '\n' + self.cleaned_data['instance_methods'],
-                None, custom_methods
-            )
+            namespace = {}
+            exec(self.cleaned_data['value_translation'], namespace)
+            translate = namespace['translate']
+            translate(self.instance.controller.default_value, 'before-set')
         except Exception:
             error = traceback.format_exc()
-            error = error[error.find('File') + 5:]
-            error = error[error.find('File'):]
             error = error.replace('\n', '<br>').replace(' ', '&nbsp;')
             raise forms.ValidationError(mark_safe(error))
-        return self.cleaned_data['instance_methods']
+        return self.cleaned_data['value_translation']
 
 
 class BaseComponentForm(ConfigFieldsMixin, ComponentAdminForm):

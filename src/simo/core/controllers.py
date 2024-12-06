@@ -259,6 +259,15 @@ class ControllerBase(ABC):
             update_fields=['change_init_by', 'change_init_date']
         )
         value = self._prepare_for_send(value)
+        if self.component.value_translation:
+            try:
+                namespace = {}
+                exec(self.component.value_translation, namespace)
+                val_translate = namespace['translate']
+                value = val_translate(value, BEFORE_SEND)
+            except:
+                pass
+
         GatewayObjectCommand(
             self.component.gateway, self.component, set_val=value
         ).publish()
@@ -267,6 +276,14 @@ class ControllerBase(ABC):
             self.component.value = value
 
     def set(self, value, actor=None):
+        if self.component.value_translation:
+            try:
+                namespace = {}
+                exec(self.component.value_translation, namespace)
+                val_translate = namespace['translate']
+                value = val_translate(value, BEFORE_SET)
+            except:
+                pass
         value = self._validate_val(value, BEFORE_SET)
 
         if not actor:

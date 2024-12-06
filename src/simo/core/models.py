@@ -8,6 +8,7 @@ from django.utils.translation import gettext_lazy as _
 from django.db import models
 from django.db.models.signals import post_delete
 from django.dispatch import receiver
+from django.template.loader import render_to_string
 from timezone_utils.choices import ALL_TIMEZONES_CHOICES
 from location_field.models.plain import PlainLocationField
 from model_utils import FieldTracker
@@ -343,6 +344,12 @@ class Component(DirtyFieldsMixin, models.Model, SimoAdminMixin, OnChangeMixin):
     value = models.JSONField(null=True, blank=True)
     value_previous = models.JSONField(null=True, blank=True, editable=False)
     value_units = models.CharField(max_length=100, null=True, blank=True)
+    value_translation = models.TextField(
+        default=render_to_string('core/value_translation.py'), blank=True,
+        help_text="Adjust this to make value translations before value is"
+                  "set on to a component and before it is sent to a device "
+                  "from your SIMO.io smart home instance."
+    )
 
     slaves = models.ManyToManyField(
         'Component', null=True, blank=True, related_name='masters'
