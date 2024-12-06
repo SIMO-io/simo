@@ -81,100 +81,24 @@ def create_instance_defaults(sender, instance, created, **kwargs):
     )
     weather_icon = Icon.objects.get(slug='cloud-bolt-sun')
 
+    from simo.generic.controllers import Weather, MainState
     Component.objects.create(
         name='Weather', icon=weather_icon,
         zone=other_zone,
         category=climate_category,
         gateway=generic, base_type='weather',
-        controller_uid='simo.generic.controllers.Weather',
+        controller_uid=Weather.uid,
         config={'is_main': True}
     )
 
-    state_comp = Component.objects.create(
-        name='State', icon=Icon.objects.get(slug='home'),
+    Component.objects.create(
+        name='Main State', icon=Icon.objects.get(slug='home'),
         zone=other_zone,
         category=other_category,
-        gateway=generic, base_type='state-select',
-        controller_uid='simo.generic.controllers.StateSelect',
+        gateway=generic, base_type=MainState.base_type,
+        controller_uid=MainState.uid,
         value='day',
-        config={"states": [
-            {
-                "icon": "sunrise", "name": "Morning", "slug": "morning",
-                'help_text': "6:00 AM to sunrise. Activates only in dark time of a year."
-            },
-            {
-                "icon": "house-day", "name": "Day", "slug": "day",
-                'help_text': "From sunrise to sunset."
-            },
-            {
-                "icon": "house-night", "name": "Evening", "slug": "evening",
-                'help_text': "From sunrise to midnight"
-            },
-            {
-                "icon": "moon-cloud", "name": "Night", "slug": "night",
-                'help_text': "From midnight to sunrise or 6:00 AM."
-            },
-            {"icon": "snooze", "name": "Sleep time", "slug": "sleep"},
-            {"icon": "house-person-leave", "name": "Away", "slug": "away"},
-            {"icon": "island-tropical", "name": "Vacation", "slug": "vacation"}
-        ], "is_main": True}
-    )
-
-
-    auto_state_code = render_to_string(
-        'automations/auto_state_script.py', {'state_comp_id': state_comp.id}
-    )
-    Component.objects.create(
-        name='Auto state', icon=Icon.objects.get(slug='bolt'),
-        zone=other_zone,
-        category=other_category, show_in_app=False,
-        gateway=automation, base_type='script',
-        controller_uid='simo.automation.controllers.Script',
-        config={
-            "code": auto_state_code, 'autostart': True, 'keep_alive': True,
-            "notes": f"""
-            The script automatically controls the states of the "State" component (ID:{state_comp.id}) — 'morning', 'day', 'evening', 'night'. 
-            
-            """
-        }
-    )
-
-    code = render_to_string(
-        'automations/phones_sleep_script.py', {'state_comp_id': state_comp.id}
-    )
-    Component.objects.create(
-        name='Sleep mode when owner phones are charge',
-        icon=Icon.objects.get(slug='bolt'), zone=other_zone,
-        category=other_category, show_in_app=False,
-        gateway=automation, base_type='script',
-        controller_uid='simo.automation.controllers.Script',
-        config={
-            "code": code, 'autostart': True, 'keep_alive': True,
-            "notes": f"""
-Automatically sets State component (ID: {state_comp.id}) to "Sleep" if it is later than 10pm and all home owners phones who are at home are put on charge.
-Sets State component back to regular state as soon as none of the home owners phones are on charge and it is 6am or later. 
-
-"""
-        }
-    )
-
-    code = render_to_string(
-        'automations/auto_away.py', {'state_comp_id': state_comp.id}
-    )
-    Component.objects.create(
-        name='Auto Away State',
-        icon=Icon.objects.get(slug='bolt'), zone=other_zone,
-        category=other_category, show_in_app=False,
-        gateway=automation, base_type='script',
-        controller_uid='simo.automation.controllers.Script',
-        config={
-            "code": code, 'autostart': True, 'keep_alive': True,
-            "notes": f"""
-    Automatically set mode to "Away" there are no users at home and there was no motion for more than 30 seconds.
-    Set it back to a regular mode as soon as somebody comes back home or motion is detected.
-
-    """
-        }
+        config=MainState.default_config
     )
 
     # Create default User permission roles
