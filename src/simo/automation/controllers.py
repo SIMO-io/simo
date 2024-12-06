@@ -133,6 +133,7 @@ class PresenceLighting(Script):
         self.last_presence = 0
         self.hold_time = 60
         self.conditions = []
+        self.expected_light_values = {}
 
     def _run(self):
         self.hold_time = self.component.config.get('hold_time', 0) * 10
@@ -166,6 +167,16 @@ class PresenceLighting(Script):
                 self.condition_comps[comp.id] = comp
 
         while True:
+            # Resend expected values if they have failed to reach
+            # corresponding light
+            for c_id, [timestamp, expected_val] in self.expected_light_values.items():
+                if time.time() - timestamp < 5:
+                    continue
+                comp = Component.objects.filter(id=c_id).first()
+                if not comp:
+                    continue
+                print(f"Resending [{expected_val}] to {comp}")
+                comp.send(expected_val)
             self._regulate()
             time.sleep(random.randint(5, 15))
 
@@ -182,8 +193,10 @@ class PresenceLighting(Script):
             self._regulate(on_condition_change=True)
 
     def _on_light_change(self, light):
+        # If we were expecting some value change from the light
+        # We have received something. So we stop demanding it!
+        self.expected_light_values.pop(light.id, None)
         # change original value if it has been changed to something different
-        # than this script does.
         if self.is_on and light.value != self.light_send_values[light.id]:
             self.light_send_values[light.id] = light.value
             self.light_org_values[light.id] = light.value
@@ -252,6 +265,8 @@ class PresenceLighting(Script):
                     on_val = bool(on_val)
                 print(f"Send {on_val} to {comp}!")
                 self.light_send_values[comp.id] = on_val
+                if comp.value != on_val:
+                    self.expected_light_values[comp.id] = [time.time(), on_val]
                 comp.controller.send(on_val)
             return
 
@@ -287,6 +302,8 @@ class PresenceLighting(Script):
             else:
                 off_val = self.light_org_values.get(comp.id, 0)
             print(f"Send {off_val} to {comp}!")
+            if comp.value != off_val:
+                self.c[comp.id] = [time.time(), off_val]
             comp.send(off_val)
 
 

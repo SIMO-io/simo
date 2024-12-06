@@ -88,6 +88,10 @@ class GatesHandler:
     # go out at least this amount of meters away from the gate
     GEOFENCE_CROSS_ZONE = 200
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.gate_iusers = {}
+
     def _is_out_of_geofence(self, gate, location):
         '''
         Returns True if given location is out of geofencing zone
@@ -178,7 +182,6 @@ class GatesHandler:
                         print(f"YES {iuser.user.name} is out!")
 
     def watch_gates(self):
-        self.gate_iusers = {}
         drop_current_instance()
         for gate in Component.objects.filter(base_type='gate').select_related(
             'zone', 'zone__instance'
