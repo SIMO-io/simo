@@ -158,11 +158,12 @@ class LocationWidget(forms.widgets.TextInput):
 
 class PlainLocationField(forms.fields.CharField):
     def __init__(self, based_fields=None, zoom=None, suffix='', *args, **kwargs):
+        self.zoom = zoom
         if not based_fields:
             based_fields = []
-        if not zoom:
-            zoom = settings.LOCATION_FIELD['map.zoom']
-        self.widget = LocationWidget(based_fields=based_fields, zoom=zoom,
+        if not self.zoom:
+            self.zoom = settings.LOCATION_FIELD['map.zoom']
+        self.widget = LocationWidget(based_fields=based_fields, zoom=self.zoom,
                                      suffix=suffix, **kwargs)
 
         dwargs = {
