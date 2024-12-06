@@ -85,7 +85,7 @@ class SIMOAPIMetadata(SimpleMetadata):
             'read_only', 'label', 'help_text',
             'min_length', 'max_length',
             'min_value', 'max_value',
-            'initial', 'zoom'
+            'initial',
         ]
 
         for attr in attrs:
@@ -115,6 +115,9 @@ class SIMOAPIMetadata(SimpleMetadata):
                     form_field.queryset = form_field.queryset.filter(
                         zone__instance=self.instance
                     )
+
+        if form_field and hasattr(form_field, 'zoom'):
+            field_info['zoom'] = form_field.zoom
 
         if not field_info.get('read_only') and hasattr(field, 'choices'):# and not hasattr(form_field, 'forward'):
             field_info['choices'] = [

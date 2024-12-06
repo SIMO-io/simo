@@ -1,6 +1,7 @@
 from django.urls import path, re_path
 from .views import (
     colonels_ping,
+    ColonelsAutocomplete,
     PinsSelectAutocomplete,
     InterfaceSelectAutocomplete,
     ControlInputSelectAutocomplete
@@ -9,6 +10,10 @@ from .views import (
 urlpatterns = [
     re_path(
         r"^colonels-ping/$", colonels_ping, name='colonels-ping'
+    ),
+    path(
+        'autocomplete-colonels',
+        ColonelsAutocomplete.as_view(), name='autocomplete-colonels'
     ),
     path(
         'autocomplete-colonel-pins',

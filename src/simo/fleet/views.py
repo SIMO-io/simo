@@ -11,11 +11,33 @@ def colonels_ping(request):
     return HttpResponse('pong')
 
 
+class ColonelsAutocomplete(autocomplete.Select2QuerySetView):
+
+    def get_queryset(self):
+        if not self.request.user.is_authenticated:
+            raise Http404()
+
+        instance = get_current_instance(self.request)
+        if not instance:
+            return Colonel.objects.none()
+
+        qs = Colonel.objects.filter(instance=instance)
+
+        if self.request.GET.get('value'):
+            qs = qs.filter(pk__in=self.request.GET['value'].split(','))
+        elif self.q:
+            qs = search_queryset(qs, self.q, ('name', ))
+        return qs
+
+
 class PinsSelectAutocomplete(autocomplete.Select2QuerySetView):
 
     def get_queryset(self):
 
-        instance = get_current_instance()
+        if not self.request.user.is_authenticated:
+            raise Http404()
+
+        instance = get_current_instance(self.request)
         if not instance:
             return ColonelPin.objects.none()
 
@@ -52,11 +74,13 @@ class PinsSelectAutocomplete(autocomplete.Select2QuerySetView):
 class InterfaceSelectAutocomplete(autocomplete.Select2QuerySetView):
 
     def get_queryset(self):
+        if not self.request.user.is_authenticated:
+            raise Http404()
 
         try:
             colonel = Colonel.objects.get(
                 pk=self.forwarded.get("colonel"),
-                instance=get_current_instance()
+                instance=get_current_instance(self.request)
             )
         except:
             return Interface.objects.none()
@@ -74,16 +98,18 @@ class InterfaceSelectAutocomplete(autocomplete.Select2QuerySetView):
 class ControlInputSelectAutocomplete(autocomplete.Select2ListView):
 
     def get_list(self):
+        if not self.request.user.is_authenticated:
+            raise Http404()
 
         try:
             colonel = Colonel.objects.get(
                 pk=self.forwarded.get("colonel"),
-                instance=get_current_instance()
+                instance=get_current_instance(self.request)
             )
             pins_qs = ColonelPin.objects.filter(colonel=colonel)
         except:
             pins_qs = ColonelPin.objects.all(
-                colonel__instance=get_current_instance()
+                colonel__instance=get_current_instance(self.request)
             )
 
         if self.forwarded.get('self') and self.forwarded['self'].startswith('pin-'):
@@ -97,7 +123,7 @@ class ControlInputSelectAutocomplete(autocomplete.Select2ListView):
             pins_qs = pins_qs.filter(**self.forwarded.get('pin_filters'))
 
         buttons_qs = Component.objects.filter(
-            base_type='button', zone__instance=get_current_instance()
+            base_type='button', zone__instance=get_current_instance(self.request)
         ).select_related('zone')
 
         if self.forwarded.get('button_filters'):

@@ -54,7 +54,7 @@ class IconModelAutocomplete(autocomplete.Select2QuerySetView):
 class CategoryAutocomplete(autocomplete.Select2QuerySetView):
 
     def get_queryset(self):
-        qs = Category.objects.filter(instance=get_current_instance())
+        qs = Category.objects.filter(instance=get_current_instance(self.request))
 
         if self.forwarded.get("id"):
             return qs.filter(pk=self.forwarded.get("id"))
@@ -80,7 +80,7 @@ class CategoryAutocomplete(autocomplete.Select2QuerySetView):
 class ZoneAutocomplete(autocomplete.Select2QuerySetView):
 
     def get_queryset(self):
-        qs = Zone.objects.filter(instance=get_current_instance())
+        qs = Zone.objects.filter(instance=get_current_instance(self.request))
 
         if self.forwarded.get("id"):
             return qs.filter(pk=self.forwarded.get("id"))
@@ -105,7 +105,7 @@ class ZoneAutocomplete(autocomplete.Select2QuerySetView):
 class ComponentAutocomplete(autocomplete.Select2QuerySetView):
 
     def get_queryset(self):
-        qs = Component.objects.filter(zone__instance=get_current_instance())
+        qs = Component.objects.filter(zone__instance=get_current_instance(self.request))
 
         if self.forwarded.get("id"):
             if isinstance(self.forwarded['id'], list):

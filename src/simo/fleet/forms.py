@@ -92,8 +92,9 @@ class InterfaceAdminForm(forms.ModelForm):
 
 
 class ColonelComponentForm(BaseComponentForm):
-    colonel = forms.ModelChoiceField(
-        label="Colonel", queryset=Colonel.objects.all()
+    colonel = Select2ModelChoiceField(
+        label="Colonel", queryset=Colonel.objects.all(),
+        url='autocomplete-colonels',
     )
 
     def clean_colonel(self):
@@ -1345,7 +1346,7 @@ class GateConfigForm(ColonelComponentForm):
                   "Leaving this field blank opens the gate for all system users."
     )
     location = PlainLocationField(
-        zoom=18, based_fields=[],
+        zoom=18,
         help_text="Location of your gate. Required only for automatic opening. "
                   "Adjust this if this gate is significantly distanced from "
                   "your actual home location."

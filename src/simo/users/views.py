@@ -115,7 +115,7 @@ class RolesAutocomplete(autocomplete.Select2QuerySetView):
         if not self.request.user.is_authenticated:
             raise Http404()
 
-        qs = PermissionsRole.objects.filter(instance=get_current_instance())
+        qs = PermissionsRole.objects.filter(instance=get_current_instance(self.request))
 
         if self.request.GET.get('value'):
             qs = qs.filter(pk__in=self.request.GET['value'].split(','))

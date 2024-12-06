@@ -157,6 +157,9 @@ class LocationWidget(forms.widgets.TextInput):
 
 
 class PlainLocationField(forms.fields.CharField):
+
+    zoom = 13
+
     def __init__(self, based_fields=None, zoom=None, suffix='', *args, **kwargs):
         self.zoom = zoom
         if not based_fields:
