@@ -6,7 +6,7 @@ def input_to_meters(distance: str) -> float:
     Converts a distance string to meters based on the units provided.
 
     Args:
-        distance (str): A string containing a numerical value and a unit (e.g., "10meters", "32ft.").
+        distance (str): A string containing a numerical value and a unit (e.g., "10 meters", "32ft.").
 
     Returns:
         float: The distance converted to meters.
@@ -30,15 +30,15 @@ def input_to_meters(distance: str) -> float:
         "in": 0.0254
     }
 
-    # Normalize the input: remove trailing dots, and lowercase
+    # Normalize the input: remove trailing dots and extra spaces, and lowercase
     distance = distance.strip().rstrip('.').lower()
 
-    # Regular expression to extract the numerical value and the unit
-    match = re.match(r"^([\d\.]+)([a-z]+)$", distance)
+    # Regular expression to handle both spaced and unspaced inputs
+    match = re.match(r"^([\d\.]+)\s*([a-z]+)$", distance)
 
     if not match:
         raise ValueError(
-            "Please specify a numerical value followed by a valid unit of measure (e.g., '10meters', '32ft').")
+            "Please specify a numerical value followed by a valid unit of measure (e.g., '10 meters', '32ft').")
 
     # Extract the numerical part and the unit part
     value_str, unit = match.groups()
@@ -55,4 +55,5 @@ def input_to_meters(distance: str) -> float:
 
     # Convert the value to meters
     return value * unit_conversions[unit]
+
 

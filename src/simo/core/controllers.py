@@ -1032,7 +1032,10 @@ class Gate(ControllerBase, TimerMixin):
     base_type = 'gate'
     app_widget = GateWidget
     admin_widget_template = 'admin/controller_widgets/gate.html'
-    default_config = {}
+    default_config = {
+        'auto_open_distance': '150 m',
+        'auto_open_for': [],
+    }
 
     @property
     def default_value(self):
@@ -1071,3 +1074,4 @@ class Gate(ControllerBase, TimerMixin):
 
     def call(self):
         self.send('call')
+

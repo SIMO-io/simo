@@ -17,8 +17,11 @@ from simo.core.middleware import introduce_instance, drop_current_instance
 from simo.core.gateways import BaseObjectCommandsGatewayHandler
 from simo.core.forms import BaseGatewayForm
 from simo.core.utils.logs import StreamToLogger
+from simo.core.utils.converters import input_to_meters
 from simo.core.events import GatewayObjectCommand, get_event_obj
 from simo.core.loggers import get_gw_logger, get_component_logger
+from simo.users.models import InstanceUser
+from .helpers import haversine_distance
 
 
 class ScriptRunHandler(multiprocessing.Process):
@@ -77,7 +80,129 @@ class ScriptRunHandler(multiprocessing.Process):
             return
 
 
-class AutomationsGatewayHandler(BaseObjectCommandsGatewayHandler):
+class GatesHandler:
+    '''
+      Handles automatic gates openning
+    '''
+    # users are considered out of gate geofence, when they
+    # go out at least this amount of meters away from the gate
+    GEOFENCE_CROSS_ZONE = 200
+
+    def _is_out_of_geofence(self, gate, location):
+        '''
+        Returns True if given location is out of geofencing zone
+        '''
+
+        auto_open_distance = gate.config.get('auto_open_distance')
+        if not auto_open_distance:
+            return False
+        auto_open_distance = input_to_meters(auto_open_distance)
+
+        gate_location = gate.config.get('location')
+        try:
+            distance_meters = haversine_distance(
+                gate_location,
+                location, units_of_measure='metric'
+            )
+        except:
+            gate_location = gate.zone.instance.location
+            try:
+                distance_meters = haversine_distance(
+                    gate_location,
+                    location, units_of_measure='metric'
+                )
+            except:
+                print(f"Bad location of {gate}!")
+                return False
+        print(f"Distance from {gate} : {distance_meters}m")
+        return distance_meters > (
+            auto_open_distance + self.GEOFENCE_CROSS_ZONE
+        )
+
+    def _is_in_geofence(self, gate, location):
+        '''
+        Returns True if given location is within geofencing zone
+        '''
+        auto_open_distance = gate.config.get('auto_open_distance')
+        if not auto_open_distance:
+            return False
+        auto_open_distance = input_to_meters(auto_open_distance)
+        gate_location = gate.config.get('location')
+        try:
+            distance_meters = haversine_distance(
+                gate_location,
+                location, units_of_measure='metric'
+            )
+        except:
+            gate_location = gate.zone.instance.location
+            try:
+                distance_meters = haversine_distance(
+                    gate_location,
+                    location, units_of_measure='metric'
+                )
+            except:
+                print(f"Bad location of {gate}!")
+                return False
+
+        print(f"Distance from {gate} : {distance_meters}m")
+        return distance_meters <= auto_open_distance
+
+    def check_gates(self, iuser):
+        if not iuser.last_seen_location:
+            print("User's last seen location is unknown")
+            return
+        for gate_id, geofence_data in self.gate_iusers.items():
+            for iu_id, is_out in geofence_data.items():
+                if iu_id != iuser.id:
+                    continue
+                gate = Component.objects.get(id=gate_id)
+                if is_out:
+                    print(
+                        f"{iuser.user.name} is out, "
+                        f"let's see if we must open the gates for him"
+                    )
+                    # user was fully out, we must check if
+                    # he is now coming back and open the gate for him
+                    if self._is_in_geofence(gate, iuser.last_seen_location):
+                        print("Yes he is back in a geofence! Open THE GATEEE!!")
+                        self.gate_iusers[gate_id][iuser.id] = False
+                        gate.open()
+                    else:
+                        print("No he is not back yet.")
+                else:
+                    print(f"Check if {iuser.user.name} is out.")
+                    self.gate_iusers[gate_id][iuser.id] = self._is_out_of_geofence(
+                        gate, iuser.last_seen_location
+                    )
+                    if self.gate_iusers[gate_id][iuser.id]:
+                        print(f"YES {iuser.user.name} is out!")
+
+    def watch_gates(self):
+        self.gate_iusers = {}
+        drop_current_instance()
+        for gate in Component.objects.filter(base_type='gate').select_related(
+            'zone', 'zone__instance'
+        ):
+            if not gate.config.get('auto_open_distance'):
+                continue
+            # Track new users as they appear in the system
+            for iuser in InstanceUser.objects.filter(
+                is_active=True, instance=gate.zone.instance
+            ):
+                if gate.config.get('auto_open_for'):
+                    if iuser.role.id not in gate.config['auto_open_for']:
+                        continue
+                if gate.id not in self.gate_iusers:
+                    self.gate_iusers[gate.id] = {}
+                if iuser.id not in self.gate_iusers[gate.id]:
+                    if iuser.last_seen_location:
+                        self.gate_iusers[gate.id][iuser.id] = self._is_out_of_geofence(
+                            gate, iuser.last_seen_location
+                        )
+                    iuser.on_change(self.check_gates)
+
+
+class AutomationsGatewayHandler(GatesHandler, BaseObjectCommandsGatewayHandler):
     name = "Automation"
     config_form = BaseGatewayForm
     info = "Provides various types of automation capabilities"
@@ -85,6 +210,7 @@ class AutomationsGatewayHandler(BaseObjectCommandsGatewayHandler):
     running_scripts = {}
     periodic_tasks = (
         ('watch_scripts', 10),
+        ('watch_gates', 60)
     )
 
     terminating_scripts = set()
