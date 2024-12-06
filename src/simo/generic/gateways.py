@@ -335,8 +335,8 @@ class GenericGatewayHandler(BaseObjectCommandsGatewayHandler):
 
         if state.config.get('away_on_no_action'):
             for sensor in Component.objects.filter(
-                    zone__instance=state.zone.instance,
-                    base_type='binary-sensor', alarm_category='security'
+                zone__instance=state.zone.instance,
+                base_type='binary-sensor', alarm_category='security'
             ):
                 if state.id not in self.sensors_on_watch:
                     self.sensors_on_watch[state.id] = {}
@@ -389,10 +389,9 @@ class GenericGatewayHandler(BaseObjectCommandsGatewayHandler):
                 print(traceback.format_exc(), file=sys.stderr)
 
 
-
     def security_sensor_change(self, sensor):
         self.last_sensor_actions[
-            self.sensors_on_watch[sensor.id]
+            sensor.zone.instance.id
         ] = time.time()
 
 
