@@ -15,10 +15,10 @@ from actstream.models import Action
 from simo.core.forms import HiddenField, FormsetField
 from simo.core.form_fields import (
     Select2ListChoiceField, Select2ModelChoiceField,
-    Select2ListMultipleChoiceField, Select2ModelMultipleChoiceField
+    Select2ListMultipleChoiceField, Select2ModelMultipleChoiceField,
+    PlainLocationField
 )
 from simo.core.models import Component
-from location_field.forms.plain import PlainLocationField
 from rest_framework.relations import PrimaryKeyRelatedField, ManyRelatedField
 from .drf_braces.serializers.form_serializer import (
     FormSerializer, FormSerializerBase, reduce_attr_dict_from_instance,

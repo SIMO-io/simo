@@ -11,6 +11,7 @@ from simo.core.forms import (
     BaseComponentForm, ValueLimitForm, NumericSensorForm
 )
 from simo.core.utils.formsets import FormsetField
+from simo.core.utils.converters import input_to_meters
 from simo.core.widgets import LogOutputWidget
 from simo.core.utils.easing import EASING_CHOICES
 from simo.core.utils.validators import validate_slaves
@@ -21,7 +22,7 @@ from simo.core.form_fields import (
     Select2ModelChoiceField, Select2ListChoiceField,
     Select2ModelMultipleChoiceField
 )
-from location_field.forms.plain import PlainLocationField
+from simo.core.form_fields import PlainLocationField
 from simo.users.models import PermissionsRole
 from .models import Colonel, ColonelPin, Interface
 from .utils import INTERFACES_PINS_MAP, get_all_control_input_choices
@@ -1331,8 +1332,8 @@ class GateConfigForm(ColonelComponentForm):
         )
     )
 
-    auto_open_distance = forms.IntegerField(
-        initial=100, min_value=20, max_value=4000, required=False,
+    auto_open_distance = forms.CharField(
+        initial='100 m', required=False,
         help_text="Open the gate automatically whenever somebody is coming home"
                   "and comes closer than this distance. Clear this value out, "
                   "to disable auto opening."
@@ -1344,6 +1345,7 @@ class GateConfigForm(ColonelComponentForm):
                   "Leaving this field blank opens the gate for all system users."
     )
     location = PlainLocationField(
+        zoom=18, based_fields=[],
         help_text="Location of your gate. Required only for automatic opening. "
                   "Adjust this if this gate is significantly distanced from "
                   "your actual home location."
@@ -1353,6 +1355,27 @@ class GateConfigForm(ColonelComponentForm):
         super().__init__(*args, **kwargs)
         if not self.fields['location'].initial:
             self.fields['location'].initial = get_current_instance().location
+
+    def clean_distance(self):
+        distance = self.cleaned_data.get('auto_open_distance')
+        if not distance:
+            return distance
+        try:
+            distance = input_to_meters(distance)
+        except Exception as e:
+            raise forms.ValidationError(str(e))
+
+        if distance < 20:
+            raise forms.ValidationError(
+                "That is to little of a distance. At least 20 meters is required."
+            )
+        if distance > 2000:
+            raise forms.ValidationError(
+                "This is to high of a distance. Max 2 km is allowed."
+            )
+
+        return distance
+
 
     def clean(self):
         super().clean()

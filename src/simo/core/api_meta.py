@@ -85,7 +85,7 @@ class SIMOAPIMetadata(SimpleMetadata):
             'read_only', 'label', 'help_text',
             'min_length', 'max_length',
             'min_value', 'max_value',
-            'initial'
+            'initial', 'zoom'
         ]
 
         for attr in attrs:

@@ -1,5 +1,10 @@
 import copy
+import json
+import six
+from django.template.loader import render_to_string
+from django.utils.safestring import mark_safe
 from django import forms
+from django.conf import settings
 from dal import autocomplete
 
 
@@ -92,3 +97,85 @@ class Select2ListMultipleChoiceField(
     Select2MultipleMixin, forms.MultipleChoiceField
 ):
     pass
+
+
+class LocationWidget(forms.widgets.TextInput):
+    def __init__(self, **kwargs):
+        attrs = kwargs.pop('attrs', None)
+
+        self.options = dict(settings.LOCATION_FIELD)
+        self.options['map.zoom'] = kwargs.get('zoom')
+        self.options['field_options'] = {
+            'based_fields': kwargs.pop('based_fields')
+        }
+
+        super(LocationWidget, self).__init__(attrs)
+
+    def render(self, name, value, attrs=None, renderer=None):
+        if value is not None:
+            try:
+                if isinstance(value, six.string_types):
+                    lat, lng = value.split(',')
+                else:
+                    lng = value.x
+                    lat = value.y
+
+                value = '%s,%s' % (
+                    float(lat),
+                    float(lng),
+                )
+            except ValueError:
+                value = ''
+        else:
+            value = ''
+
+        if '-' not in name:
+            prefix = ''
+        else:
+            prefix = name[:name.rindex('-') + 1]
+
+        self.options['field_options']['prefix'] = prefix
+
+        attrs = attrs or {}
+        attrs['data-location-field-options'] = json.dumps(self.options)
+
+        # Django added renderer parameter in 1.11, made it mandatory in 2.1
+        kwargs = {}
+        if renderer is not None:
+            kwargs['renderer'] = renderer
+        text_input = super(LocationWidget, self).render(name, value, attrs=attrs, **kwargs)
+
+        return render_to_string('location_field/map_widget.html', {
+            'field_name': name,
+            'field_input': mark_safe(text_input)
+        })
+
+    @property
+    def media(self):
+        return forms.Media(**settings.LOCATION_FIELD['resources.media'])
+
+
+
+class PlainLocationField(forms.fields.CharField):
+    def __init__(self, based_fields=None, zoom=None, suffix='', *args, **kwargs):
+        if not based_fields:
+            based_fields = []
+        if not zoom:
+            zoom = settings.LOCATION_FIELD['map.zoom']
+        self.widget = LocationWidget(based_fields=based_fields, zoom=zoom,
+                                     suffix=suffix, **kwargs)
+
+        dwargs = {
+            'required': True,
+            'label': None,
+            'initial': None,
+            'help_text': None,
+            'error_messages': None,
+            'show_hidden_initial': False,
+        }
+
+        for attr in dwargs:
+            if attr in kwargs:
+                dwargs[attr] = kwargs[attr]
+
+        super(PlainLocationField, self).__init__(*args, **dwargs)
