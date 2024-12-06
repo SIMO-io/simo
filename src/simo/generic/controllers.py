@@ -33,6 +33,7 @@ from .app_widgets import (
     WeatherWidget
 )
 from .forms import (
+    DimmableLightsGroupConfigForm, SwitchGroupConfigForm,
     ThermostatConfigForm, AlarmGroupConfigForm,
     IPCameraConfigForm, WeatherForm,
     WateringConfigForm, StateSelectForm, MainStateSelectForm,
@@ -42,6 +43,17 @@ from .forms import (
 # ----------- Generic controllers -----------------------------
 
 
+
+class DimmableLightsGroup(Dimmer):
+    name = _("Dimmable Lights Group")
+    gateway_class = GenericGatewayHandler
+    config_form = DimmableLightsGroupConfigForm
+
+
+class SwitchGroup(Switch):
+    name = _("On/Off Group")
+    gateway_class = GenericGatewayHandler
+    config_form = SwitchGroupConfigForm
 
 
 class Thermostat(ControllerBase):

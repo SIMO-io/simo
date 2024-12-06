@@ -59,6 +59,82 @@ class CameraWatcher(threading.Thread):
 
 
 
+class GroupButtonsHandler:
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.group_buttons = {}
+        self.fade_directions = {}
+
+    def watch_groups(self):
+        from .controllers import DimmableLightsGroup, SwitchGroup
+        current_group_buttons = {}
+        for group_comp in Component.objects.filter(
+            controller_uid__in=(DimmableLightsGroup.uid, SwitchGroup.uid)
+        ):
+            for ctrl in group_comp.config.get('controls', []):
+                if ctrl['button'] not in current_group_buttons:
+                    current_group_buttons[ctrl['button']] = set(group_comp.id)
+                else:
+                    current_group_buttons[ctrl['button']].add(group_comp.id)
+
+                if ctrl['button'] not in self.group_buttons:
+                    self.group_buttons[ctrl['button']] = set()
+                if group_comp.id not in self.group_buttons[ctrl['button']]:
+                    self.group_buttons[ctrl['button']].add(group_comp.id)
+                    btn = Component.objects.filter(id=ctrl['button']).first()
+                    if btn:
+                        btn.on_change(self.watch_group_button)
+
+        # remove groups and buttons that are no longer in use
+        for btn_id, groups in self.group_buttons.items():
+            if btn_id not in current_group_buttons:
+                self.group_buttons[btn_id] = set()
+                continue
+            self.group_buttons[btn_id] = current_group_buttons[btn_id]
+
+
+    def watch_group_button(self, button):
+        group_ids = self.group_buttons.get(button.id)
+        if not group_ids:
+            return
+
+        btn_type = button.config.get('btn_type', 'momentary')
+
+        if btn_type == 'momentary':
+            if button.value not in ('click', 'hold', 'up', 'double-click'):
+                return
+            for g_id in group_ids:
+                group = Component.objects.filter(id=g_id).first()
+                if not group:
+                    continue
+                if button.value == 'click':
+                    group.toggle()
+                elif button.value == 'double-click':
+                    group.send(group.config.get('max', 100))
+                elif button.value == 'down':
+                    if self.fade_directions.get(group.id, 0) < 0:
+                        self.fade_directions[group.id] = 1
+                        group.fade_up()
+                    else:
+                        self.fade_directions[group.id] = -1
+                        group.fade_down()
+                elif button.value == 'up':
+                    if self.fade_directions.get(group.id):
+                        self.fade_directions[group.id] = 0
+                        group.fade_stop()
+
+        else: # toggle
+            if button.value not in ('down', 'up'):
+                return
+            for g_id in group_ids:
+                group = Component.objects.filter(id=g_id).first()
+                if not group:
+                    continue
+                group.toggle()
+
+
+
 class GenericGatewayHandler(BaseObjectCommandsGatewayHandler):
     name = "Generic"
     config_form = BaseGatewayForm

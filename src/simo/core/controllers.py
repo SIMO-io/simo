@@ -608,6 +608,15 @@ class Dimmer(ControllerBase, TimerMixin, OnOffPokerMixin):
         else:
             self.turn_on()
 
+    def fade_up(self):
+        raise NotImplemented()
+
+    def fade_down(self):
+        raise NotImplemented()
+
+    def fade_stop(self):
+        raise NotImplemented()
+
 
 class DimmerPlus(ControllerBase, TimerMixin, OnOffPokerMixin):
     name = _("Dimmer Plus")
@@ -689,6 +698,16 @@ class DimmerPlus(ControllerBase, TimerMixin, OnOffPokerMixin):
             self.turn_on()
 
 
+    def fade_up(self):
+        raise NotImplemented()
+
+    def fade_down(self):
+        raise NotImplemented()
+
+    def fade_stop(self):
+        raise NotImplemented()
+
+
 class RGBWLight(ControllerBase, TimerMixin, OnOffPokerMixin):
     name = _("RGB(W) Light")
     base_type = 'rgbw-light'
@@ -745,6 +764,16 @@ class RGBWLight(ControllerBase, TimerMixin, OnOffPokerMixin):
         self.component.refresh_from_db()
         self.component.value['is_on'] = not self.component.value['is_on']
         self.send(self.component.value)
+
+
+    def fade_up(self):
+        raise NotImplemented()
+
+    def fade_down(self):
+        raise NotImplemented()
+
+    def fade_stop(self):
+        raise NotImplemented()
 
 
 class MultiSwitchBase(ControllerBase):

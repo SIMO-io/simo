@@ -306,6 +306,12 @@ class ColonelButtonConfigForm(ColonelComponentForm):
             ('up', "UP (On +5V delivery)")
         )
     )
+    btn_type = forms.ChoiceField(
+        label="Type", initial='momentary',
+        choices=(
+            ('momentary', "Momentary"), ('toggle', "Toggle")
+        )
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

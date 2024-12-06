@@ -16,7 +16,7 @@ from simo.core.form_fields import (
     Select2ModelChoiceField, Select2ListChoiceField,
     Select2ModelMultipleChoiceField
 )
-
+from simo.core.forms import DimmerConfigForm, SwitchForm
 
 ACTION_METHODS = (
     ('turn_on', "Turn ON"), ('turn_off', "Turn OFF"),
@@ -24,6 +24,46 @@ ACTION_METHODS = (
     ('open', 'Open'), ('close', 'Close'),
     ('lock', "Lock"), ('unlock', "Unlock"),
 )
+
+
+class ControlForm(forms.Form):
+    button = Select2ModelChoiceField(
+        queryset=Component.objects.filter(base_type='button'),
+        url='autocomplete-component'
+    )
+    prefix = 'controls'
+
+
+class DimmableLightsGroupConfigForm(DimmerConfigForm):
+    slaves = Select2ModelMultipleChoiceField(
+        queryset=Component.objects.filter(
+            base_type__in=('dimmer', 'switch')
+        ),
+        url='autocomplete-component',
+        forward=(forward.Const(['dimmer', 'switch'], 'base_type'),),
+        required=False
+    )
+    controls = FormsetField(
+        formset_factory(
+            ControlForm, can_delete=True, can_order=True, extra=0, max_num=999
+        )
+    )
+
+
+class SwitchGroupConfigForm(SwitchForm):
+    slaves = Select2ModelMultipleChoiceField(
+        queryset=Component.objects.filter(
+            base_type__in=('dimmer', 'switch')
+        ),
+        url='autocomplete-component',
+        forward=(forward.Const(['dimmer', 'switch'], 'base_type'),),
+        required=False
+    )
+    controls = FormsetField(
+        formset_factory(
+            ControlForm, can_delete=True, can_order=True, extra=0, max_num=999
+        )
+    )
 
 
 class ThermostatConfigForm(BaseComponentForm):
