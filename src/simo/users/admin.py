@@ -32,6 +32,15 @@ class PermissionsRoleAdmin(admin.ModelAdmin):
     inlines = ComponentPermissionInline,
     list_filter = 'is_superuser', 'is_owner', 'can_manage_users', 'is_default'
 
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        instance = get_current_instance()
+        if instance:
+            return qs.filter(instance=instance)
+        return qs
+
+
     def save_model(self, request, obj, form, change):
         if not obj.id:
             obj.instance = request.instance

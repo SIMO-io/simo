@@ -21,7 +21,7 @@ from simo.core.form_fields import (
     Select2ModelChoiceField, Select2ListChoiceField,
     Select2ModelMultipleChoiceField
 )
-from simo.core.form_fields import LocationField
+from location_field.forms.plain import PlainLocationField
 from simo.users.models import PermissionsRole
 from .models import Colonel, ColonelPin, Interface
 from .utils import INTERFACES_PINS_MAP, get_all_control_input_choices
@@ -1332,7 +1332,7 @@ class GateConfigForm(ColonelComponentForm):
     )
 
     auto_open_distance = forms.IntegerField(
-        default=100, min_value=20, max_value=4000, required=False,
+        initial=100, min_value=20, max_value=4000, required=False,
         help_text="Open the gate automatically whenever somebody is coming home"
                   "and comes closer than this distance. Clear this value out, "
                   "to disable auto opening."
@@ -1344,16 +1344,18 @@ class GateConfigForm(ColonelComponentForm):
         help_text="Open the gates automatically only for these user roles. "
                   "Leaving this field blank opens the gate for all system users."
     )
-    location = LocationField(
+    location = PlainLocationField(
         help_text="Location of your gate. Required only for automatic opening. "
                   "Adjust this if this gate is significantly distanced from "
                   "your actual home location."
     )
 
+    # def __init__(self, *args, **kwargs):
+    #
+
 
     def clean(self):
         super().clean()
-
         check_pins = ('open_pin', 'close_pin', 'sensor_pin')
         for pin in check_pins:
             if not self.cleaned_data.get(pin):
