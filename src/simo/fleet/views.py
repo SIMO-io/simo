@@ -108,7 +108,7 @@ class ControlInputSelectAutocomplete(autocomplete.Select2ListView):
             )
             pins_qs = ColonelPin.objects.filter(colonel=colonel)
         except:
-            pins_qs = ColonelPin.objects.all(
+            pins_qs = ColonelPin.objects.filter(
                 colonel__instance=get_current_instance(self.request)
             )
 
