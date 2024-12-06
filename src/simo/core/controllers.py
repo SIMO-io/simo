@@ -233,7 +233,12 @@ class ControllerBase(ABC):
         return vals
 
     def send(self, value):
-        self.component.refresh_from_db()
+        from .models import Component
+        try:
+            self.component.refresh_from_db()
+        except Component.DoesNotExist:
+            return
+
 
         # Bulk send if it is a switch or dimmer and has slaves
         if self.component.base_type in ('switch', 'dimmer') \
@@ -241,7 +246,7 @@ class ControllerBase(ABC):
             bulk_send_map = {self.component: value}
             for slave in self.component.slaves.all():
                 bulk_send_map[slave] = value
-            from .models import Component
+
             Component.objects.bulk_send(bulk_send_map)
             return
 
