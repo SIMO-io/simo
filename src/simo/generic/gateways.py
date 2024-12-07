@@ -334,20 +334,19 @@ class GenericGatewayHandler(BaseObjectCommandsGatewayHandler):
                 state.send(new_state)
 
         if state.config.get('away_on_no_action'):
+            if i_id not in self.last_sensor_actions:
+                self.last_sensor_actions[i_id] = time.time()
+            if state.id not in self.sensors_on_watch:
+                self.sensors_on_watch[state.id] = {}
             for sensor in Component.objects.filter(
                 zone__instance=state.zone.instance,
                 base_type='binary-sensor', alarm_category='security'
             ):
-                if state.id not in self.sensors_on_watch:
-                    self.sensors_on_watch[state.id] = {}
-
                 if sensor.id not in self.sensors_on_watch[state.id]:
                     self.sensors_on_watch[state.id][sensor.id] = i_id
-                    self.last_sensor_actions[i_id] = time.time()
                     sensor.on_change(self.security_sensor_change)
 
-            last_action = self.last_sensor_actions.get(i_id, time.time())
-            if state.check_is_away(last_action):
+            if state.check_is_away(self.last_sensor_actions.get(i_id, 0)):
                 if state.value != 'away':
                     print(f"New main state of "
                           f"{state.zone.instance} - away")

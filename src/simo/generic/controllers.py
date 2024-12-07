@@ -1131,7 +1131,7 @@ class MainState(StateSelect):
 
 
     def check_is_away(self, last_sensor_action):
-        away_on_no_action = not self.component.config.get('away_on_no_action')
+        away_on_no_action = self.component.config.get('away_on_no_action')
         if not away_on_no_action:
             return False
         from simo.users.models import InstanceUser
