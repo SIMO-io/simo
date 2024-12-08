@@ -722,11 +722,6 @@ class ControllerTypes(InstanceMixin, viewsets.GenericViewSet):
     basename = 'controller-types'
     queryset = []
 
-    def get_permissions(self):
-        permissions = super().get_permissions()
-        permissions.append(IsInstanceSuperuser())
-        return permissions
-
     def list(self, request, *args, **kwargs):
         from .utils.type_constants import get_controller_types_map
         data = {}
@@ -751,11 +746,6 @@ class GWControllerTypes(InstanceMixin, viewsets.GenericViewSet):
     url = 'core/gw-controller-types'
     basename = 'gw-controller-types'
     queryset = []
-
-    def get_permissions(self):
-        permissions = super().get_permissions()
-        permissions.append(IsInstanceSuperuser())
-        return permissions
 
     def list(self, request, *args, **kwargs):
         from .utils.type_constants import get_controller_types_map
