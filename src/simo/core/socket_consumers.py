@@ -217,8 +217,6 @@ class ComponentController(SIMOWebsocketConsumer):
         if not self.scope['user'].is_active:
             return self.close()
 
-        introduce_instance(self.component.zone.instance)
-
         self._mqtt_client = mqtt.Client()
         self._mqtt_client.username_pw_set('root', settings.SECRET_KEY)
         self._mqtt_client.on_connect = self._on_mqtt_connect
@@ -236,7 +234,6 @@ class ComponentController(SIMOWebsocketConsumer):
         payload = json.loads(msg.payload)
         component = get_event_obj(payload, Component)
         if component == self.component:
-            introduce_instance(self.component.zone.instance)
             # print("Object changed [%s], %s" % (str(component), payload))
             self.component = component
             if self.send_value:
@@ -253,7 +250,6 @@ class ComponentController(SIMOWebsocketConsumer):
 
     def receive(self, text_data=None, bytes_data=None, **kwargs):
         introduce(self.scope['user'])
-        introduce_instance(self.component.zone.instance)
         json_data = json.loads(text_data)
         self.send_value = json_data.pop('send_value', False)
         for method, param in json_data.items():

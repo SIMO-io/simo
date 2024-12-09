@@ -176,7 +176,6 @@ class GenericGatewayHandler(BaseObjectCommandsGatewayHandler):
         for alarm_clock in Component.objects.filter(
             controller_uid=AlarmClock.uid
         ):
-            introduce_instance(alarm_clock.zone.instance)
             tz = pytz.timezone(alarm_clock.zone.instance.timezone)
             timezone.activate(tz)
             alarm_clock.tick()
@@ -185,7 +184,6 @@ class GenericGatewayHandler(BaseObjectCommandsGatewayHandler):
         drop_current_instance()
         from .controllers import Watering
         for watering in Component.objects.filter(controller_uid=Watering.uid):
-            introduce_instance(watering.zone.instance)
             tz = pytz.timezone(watering.zone.instance.timezone)
             timezone.activate(tz)
             if watering.value['status'] == 'running_program':
@@ -237,7 +235,6 @@ class GenericGatewayHandler(BaseObjectCommandsGatewayHandler):
         component = get_event_obj(payload, Component)
         if not component:
             return
-        introduce_instance(component.zone.instance)
         try:
             if component.controller_uid == AlarmGroup.uid:
                 self.control_alarm_group(component, payload.get('set_val'))
