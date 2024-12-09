@@ -157,6 +157,7 @@ class GenericGatewayHandler(BaseObjectCommandsGatewayHandler):
         self.last_sensor_actions = {}
         self.sensors_on_watch = {}
         self.sleep_is_on = {}
+        self.last_set_state = None
 
 
 
@@ -322,13 +323,32 @@ class GenericGatewayHandler(BaseObjectCommandsGatewayHandler):
                 print(traceback.format_exc(), file=sys.stderr)
 
 
+    def set_get_day_evening_night_morning(self, state):
+        if state.value  not in ('day', 'night', 'evening', 'morning'):
+            return
+        new_state = state.get_day_evening_night_morning()
+        if new_state == state.value:
+            self.last_set_state = state.value
+            return
+        if self.last_set_state:
+            # check if user maybe changed the state manually.
+            # If that's the case, we should not intervene
+            if new_state == 'day' and self.last_set_state not in ('night', 'morning'):
+                return
+            if new_state == 'evening' and self.last_set_state != 'day':
+                return
+            if new_state == 'night' and self.last_set_state != 'evening':
+                return
+            if new_state == 'morning' and self.last_set_state != 'night':
+                return
+
+        print(f"New main state of {state.zone.instance} - {new_state}")
+        state.send(new_state)
+
+
     def watch_main_state(self, state):
         i_id = state.zone.instance.id
-        if state.value in ('day', 'night', 'evening', 'morning'):
-            new_state = state.get_day_evening_night_morning()
-            if new_state != state.value:
-                print(f"New main state of {state.zone.instance} - {new_state}")
-                state.send(new_state)
+        self.set_get_day_evening_night_morning(state)
 
         if state.config.get('away_on_no_action'):
             if i_id not in self.last_sensor_actions:
