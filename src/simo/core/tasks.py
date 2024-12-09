@@ -436,7 +436,7 @@ def restart_postgresql():
 @celery_app.task
 def low_battery_notifications():
     from simo.notifications.utils import notify_users
-    from simo.generic.scripting.helpers import be_or_not_to_be
+    from simo.automation.helpers import be_or_not_to_be
     for instance in Instance.objects.filter(is_active=True):
         timezone.activate(instance.timezone)
         hour = timezone.localtime().hour
