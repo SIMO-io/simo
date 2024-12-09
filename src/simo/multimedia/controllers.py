@@ -66,9 +66,9 @@ class BasePlayer(Switch):
 
     def toggle(self):
         if self.component.value == 'playing':
-            self.turn_off()
+            self.pause()
         else:
-            self.turn_on()
+            self.play()
 
 
 class BaseAudioPlayer(BasePlayer):

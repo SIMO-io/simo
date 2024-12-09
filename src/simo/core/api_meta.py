@@ -119,7 +119,8 @@ class SIMOAPIMetadata(SimpleMetadata):
         if form_field and hasattr(form_field, 'zoom'):
             field_info['zoom'] = form_field.zoom
 
-        if not field_info.get('read_only') and hasattr(field, 'choices'):# and not hasattr(form_field, 'forward'):
+        if not field_info.get('read_only') and hasattr(field, 'choices')\
+        and not hasattr(form_field, 'forward'):
             field_info['choices'] = [
                 {
                     'value': choice_value,
