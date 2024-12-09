@@ -1163,7 +1163,7 @@ class MainState(StateSelect):
 
     def owner_phones_on_sleep(self):
         sleeping_phones_hour = self.component.config.get('sleeping_phones_hour')
-        if sleeping_phones_hour is not None:
+        if sleeping_phones_hour is None:
             return False
 
         if not self.is_sleep_time():
