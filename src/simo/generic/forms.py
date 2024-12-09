@@ -30,7 +30,7 @@ class ControlForm(forms.Form):
     button = Select2ModelChoiceField(
         queryset=Component.objects.filter(base_type='button'),
         url='autocomplete-component',
-        forward=(forward.Const(['button',], 'base_type'))
+        forward=(forward.Const(['button',], 'base_type'),)
     )
     prefix = 'controls'
 
