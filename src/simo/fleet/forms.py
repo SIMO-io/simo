@@ -782,8 +782,9 @@ class ColonelPWMOutputConfigForm(ColonelComponentForm):
         help_text="easeOutSine - offers most naturally looking effect."
     )
     on_value = forms.FloatField(
-        required=True, initial=100,
-        help_text="ON value when used with toggle switch"
+        required=False,
+        help_text="Static ON value used to turn the light on with physical controls. <br>"
+                  "Leaving this field empty turns the light on to the last used value."
     )
 
     slaves = Select2ModelMultipleChoiceField(
