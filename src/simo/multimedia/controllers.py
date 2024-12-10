@@ -50,19 +50,54 @@ class BasePlayer(Switch):
 
     def set_volume(self, val):
         assert 0 <= val <= 100
+        self.component.meta['volume'] = val
+        self.component.save()
         self.send({'set_volume': val})
 
     def get_volume(self):
         return self.component.meta['volume']
 
     def set_shuffle_play(self, val):
+        self.component.meta['shuffle'] = bool(val)
+        self.component.save()
         self.send({'shuffle': bool(val)})
 
     def set_loop_play(self, val):
+        self.component.meta['loop'] = bool(val)
+        self.component.save()
         self.send({'loop': bool(val)})
 
-    def play_library_item(self, val):
-        self.send({'play_from_library': val})
+    def play_library_item(self, id, volume=None, fade_in=None):
+        '''
+        :param id: Library item ID
+        :param volume: Volume to play at. Current volume will be used if not provided
+        :param fade_in: number of seconds to fade in
+        :return:
+        '''
+        self.send({'play_from_library': id, 'volume': volume, 'fade_in': fade_in})
+
+    def play_uri(self, uri, volume=None):
+        '''
+        Replace que with this single uri and play it immediately
+        :param uri: playable uri or url
+        :param volume: volume at which to play
+        :return:
+        '''
+        if volume:
+            assert 0 <= volume <= 100
+        self.send({"play_uri": uri, 'volume': volume})
+
+    def play_alert(self, val, volume=None):
+        '''
+        Plays alert and goes back to whatever was playing initially
+        :param val: Sound.id or uri
+        :param volume: volume at which to play
+        :return:
+        '''
+        assert type(val) in (int, str)
+        if volume:
+            assert 0 <= volume <= 100
+        self.send({"alert": val, 'volume': volume})
 
     def toggle(self):
         if self.component.value == 'playing':
