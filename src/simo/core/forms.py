@@ -310,6 +310,7 @@ class ComponentAdminForm(forms.ModelForm):
 
         base_fields.append('zone')
         base_fields.append('category')
+        base_fields.append('show_in_app')
 
         for field_name in cls.declared_fields:
             if field_name not in main_fields:
@@ -319,7 +320,9 @@ class ComponentAdminForm(forms.ModelForm):
         base_fields.append('notes')
 
         fieldsets = [
-            (_("Base settings"), {'fields': base_fields + ['value_units', 'value_translation']}),
+            (_("Base settings"), {
+                'fields': base_fields + ['value_units', 'value_translation']}
+             ),
         ]
         if cls.has_alarm:
             fieldsets.append(
