@@ -1161,7 +1161,7 @@ class MainState(StateSelect):
         return False
 
 
-    def owner_phones_on_sleep(self):
+    def owner_phones_on_sleep(self, all_phones=False):
         sleeping_phones_hour = self.component.config.get('sleeping_phones_hour')
         if sleeping_phones_hour is None:
             return False
@@ -1171,6 +1171,7 @@ class MainState(StateSelect):
 
         from simo.users.models import InstanceUser
 
+        phones_on_charge = []
         for iuser in InstanceUser.objects.filter(
             is_active=True, role__is_owner=True,
             instance=self.component.zone.instance
@@ -1178,11 +1179,13 @@ class MainState(StateSelect):
             # skipping users that are not at home
             if not iuser.at_home:
                 continue
-            if not iuser.phone_on_charge:
-                # at least one user's phone is not yet on charge
-                return False
+            phones_on_charge.append(iuser.phone_on_charge)
 
-        return True
+
+        if all:
+            return all(phones_on_charge)
+        else:
+            return any(phones_on_charge)
 
 
 # ----------- Dummy controllers -----------------------------

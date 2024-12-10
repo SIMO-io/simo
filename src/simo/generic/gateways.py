@@ -379,18 +379,19 @@ class GenericGatewayHandler(BaseObjectCommandsGatewayHandler):
                     state.send(new_state)
 
         if state.config.get('sleeping_phones_hour') is not None:
-            sleep_time = state.owner_phones_on_sleep()
-            if sleep_time and state.value != 'sleep':
-                print(f"New main state of {state.zone.instance} - sleep")
-                state.send('sleep')
-            elif state.value == 'sleep':
-                try:
-                    new_state = state.get_day_evening_night_morning()
-                except:
-                    new_state = 'day'
-                print(f"New main state of "
-                      f"{state.zone.instance} - {new_state}")
-                state.send(new_state)
+            if state.value != 'sleep':
+                if state.owner_phones_on_sleep(True):
+                    print(f"New main state of {state.zone.instance} - sleep")
+                    state.send('sleep')
+            else:
+                if not state.owner_phones_on_sleep(False):
+                    try:
+                        new_state = state.get_day_evening_night_morning()
+                    except:
+                        new_state = 'day'
+                    print(f"New main state of "
+                          f"{state.zone.instance} - {new_state}")
+                    state.send(new_state)
 
 
     def watch_main_states(self):
