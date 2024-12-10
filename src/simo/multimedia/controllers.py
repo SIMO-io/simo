@@ -4,6 +4,7 @@ from .app_widgets import AudioPlayerWidget, VideoPlayerWidget
 
 
 class BasePlayer(Switch):
+    admin_widget_template = 'admin/controller_widgets/player.html'
     default_config = {
         'has_volume_control': True,
     }
