@@ -41,6 +41,12 @@ class PinsSelectAutocomplete(autocomplete.Select2QuerySetView):
         if not instance:
             return ColonelPin.objects.none()
 
+        if self.request.GET.get('value'):
+            return ColonelPin.objects.filter(
+                pk__in=self.request.GET['value'].split(','),
+                colonel__instance=instance
+            )
+
         try:
             colonel = Colonel.objects.get(
                 pk=self.forwarded.get("colonel"), instance=instance
@@ -62,11 +68,7 @@ class PinsSelectAutocomplete(autocomplete.Select2QuerySetView):
         if self.forwarded.get('filters'):
             qs = qs.filter(**self.forwarded.get('filters'))
 
-
-        if self.request.GET.get('value'):
-            qs = qs.filter(pk__in=self.request.GET['value'].split(','))
-        elif self.q:
-            qs = search_queryset(qs, self.q, ('label', ))
+        qs = search_queryset(qs, self.q, ('label', ))
 
         return qs
 
