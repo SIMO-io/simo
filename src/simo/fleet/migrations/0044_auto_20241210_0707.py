@@ -23,7 +23,7 @@ def reverse_func(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('fleet', '0042_auto_20241120_1028'),
+        ('fleet', '0043_auto_20241203_0930'),
     ]
 
     operations = [
