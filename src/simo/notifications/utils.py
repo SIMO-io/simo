@@ -1,4 +1,6 @@
-from simo.core.middleware import get_current_instance
+from simo.core.middleware import (
+    get_current_instance, drop_current_instance, introduce_instance
+)
 from .models import Notification, UserNotification
 
 
@@ -12,6 +14,7 @@ def notify_users(severity, title, body=None, component=None, instance_users=None
     :param instance_users: List of instance users to receive this notification. All active instance users will receive the message if not specified.
     :return:
     '''
+    current_instance = get_current_instance()
     if not instance:
         if component:
             instance = component.zone.instance
@@ -19,6 +22,7 @@ def notify_users(severity, title, body=None, component=None, instance_users=None
             instance = get_current_instance()
     if not instance:
         return
+    drop_current_instance()
     if component and component.zone.instance != instance:
         # something is completely wrong!
         return
@@ -45,3 +49,6 @@ def notify_users(severity, title, body=None, component=None, instance_users=None
             user=iuser.user, notification=notification,
         )
     notification.dispatch()
+    if current_instance:
+        introduce_instance(current_instance)
+
