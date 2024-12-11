@@ -4,6 +4,7 @@ import subprocess
 from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 from django.db import models
+from django.db.models import Q
 from django.db import transaction
 from django.db.models.signals import post_save, post_delete, m2m_changed
 from django.dispatch import receiver
@@ -128,6 +129,27 @@ class InstanceUser(DirtyFieldsMixin, models.Model, OnChangeMixin):
 
     def get_instance(self):
         return self.instance
+
+    def can_read(self, component):
+        if self.user.is_master:
+            return True
+        if self.role.is_superuser:
+            return True
+        return bool(
+            self.role.component_permissions.filter(component=component).filter(
+            Q(read=True) | Q(write=True)
+        ).count())
+
+    def can_write(self, component):
+        if self.user.is_master:
+            return True
+        if self.role.is_superuser:
+            return True
+        return bool(
+            self.role.component_permissions.filter(
+                component=component, write=True
+            ).count()
+        )
 
 
 @receiver(post_save, sender=InstanceUser)

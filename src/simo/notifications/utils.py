@@ -33,7 +33,7 @@ def notify_users(severity, title, body=None, component=None, instance_users=None
         severity=severity, body=body,
         component=component
     )
-    if not instance_users:
+    if instance_users is None:
         instance_users = instance.instance_users.filter(
             is_active=True
         ).select_related('user')
@@ -43,7 +43,7 @@ def notify_users(severity, title, body=None, component=None, instance_users=None
             continue
         if iuser.instance.id != instance.id:
             continue
-        if component and not component.can_read(iuser.user):
+        if not iuser.can_read(component):
             continue
         UserNotification.objects.create(
             user=iuser.user, notification=notification,

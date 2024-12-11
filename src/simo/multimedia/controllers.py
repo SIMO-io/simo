@@ -56,6 +56,7 @@ class BasePlayer(Switch):
         self.send({'set_volume': val})
 
     def get_volume(self):
+        '''override of possible with something more reliable'''
         return self.component.meta['volume']
 
     def set_shuffle_play(self, val):

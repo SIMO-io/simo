@@ -33,11 +33,11 @@ class CamStreamConsumer(AsyncWebsocketConsumer):
         except:
             return self.close()
 
-        can_read = await sync_to_async(
-            self.component.can_read, thread_sensitive=True
-        )(self.scope['user'])
-        if not can_read:
-            return self.close()
+        # can_read = await sync_to_async(
+        #     self.component.can_read, thread_sensitive=True
+        # )(self.scope['user'])
+        # if not can_read:
+        #     return self.close()
 
         # self.video = cv2.VideoCapture(self.component.config['rtsp_address'])
         # asyncio.create_task(self.send_cam())

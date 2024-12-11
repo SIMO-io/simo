@@ -586,21 +586,6 @@ def is_in_alarm(self):
             return self.is_in_alarm()
         return bool(self.value)
 
-    def can_read(self, user):
-        if user.is_master:
-            return True
-        from .middleware import get_current_instance
-        instance = get_current_instance()
-        if instance:
-            role = user.get_role(instance)
-            if not role:
-                return False
-            for perm in role.component_permissions.all():
-                if perm.component.id == self.id:
-                    return any([perm.write, perm.read])
-            return False
-        return False
-
     def get_controller_methods(self):
         c_methods = []
         for m in inspect.getmembers(
