@@ -2,9 +2,11 @@ import time
 import re
 from django.contrib.auth.decorators import login_required
 from django.urls import reverse
-from django.shortcuts import redirect
+from django.shortcuts import redirect, get_object_or_404
 from django.views.decorators.csrf import csrf_exempt
-from django.http import HttpResponse, Http404, JsonResponse
+from django.http import (
+    HttpResponse, Http404, JsonResponse, HttpResponseForbidden
+)
 from django.contrib import messages
 from simo.conf import dynamic_settings
 from .models import Instance
@@ -67,6 +69,18 @@ def set_instance(request, instance_slug):
     if request.META.get('HTTP_REFERER'):
         return redirect(request.META.get('HTTP_REFERER'))
     return redirect(reverse('admin:index'))
+
+
+@login_required
+@csrf_exempt
+def delete_instance(request):
+    if request.method != 'POST':
+        raise Http404()
+    if not request.user.is_master:
+        return HttpResponseForbidden()
+    instance = get_object_or_404(Instance, uid=request.GET['uid'])
+    instance.delete()
+    return HttpResponse('success')
 
 
 def hub_info(request):
