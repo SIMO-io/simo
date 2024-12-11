@@ -89,10 +89,11 @@ class BasePlayer(Switch):
             assert 0 <= volume <= 100
         self.send({"play_uri": uri, 'volume': volume})
 
-    def play_alert(self, val, volume=None):
+    def play_alert(self, val, loop=False, volume=None):
         '''
         Plays alert and goes back to whatever was playing initially
         :param val: Sound.id or uri
+        :param loop: Repeat infinitely
         :param volume: volume at which to play
         :return:
         '''
@@ -100,6 +101,10 @@ class BasePlayer(Switch):
         if volume:
             assert 0 <= volume <= 100
         self.send({"alert": val, 'volume': volume})
+
+    def cancel_alert(self):
+        '''Cancel alert if it's currently playing'''
+        self.send({"alert": None})
 
     def toggle(self):
         if self.component.value == 'playing':
@@ -120,3 +125,6 @@ class BaseVideoPlayer(BasePlayer):
     name = _("Video Player")
     base_type = 'video-player'
     app_widget = VideoPlayerWidget
+
+
+

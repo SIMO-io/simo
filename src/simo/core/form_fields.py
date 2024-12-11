@@ -183,3 +183,9 @@ class PlainLocationField(forms.fields.CharField):
                 dwargs[attr] = kwargs[attr]
 
         super(PlainLocationField, self).__init__(*args, **dwargs)
+
+
+
+class SoundField(forms.fields.FileField):
+    pass
+

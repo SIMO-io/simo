@@ -7,10 +7,9 @@ from .forms import SoundModelForm
 
 @admin.register(Sound)
 class SoundAdmin(admin.ModelAdmin):
-    list_display = 'id', 'name', 'slug', 'file', 'length_display'
-    search_fields = 'name', 'slug', 'file'
-    prepopulated_fields = {"slug": ["name"]}
-    list_display_links = 'id', 'name', 'slug'
+    list_display = 'id', 'name', 'file', 'length_display', 'date_uploaded'
+    search_fields = 'name', 'file'
+    list_display_links = 'id', 'name',
     form = SoundModelForm
     readonly_fields = 'length_display',
 
@@ -22,6 +21,7 @@ class SoundAdmin(admin.ModelAdmin):
 
     def save_model(self, request, obj, form, change):
         super().save_model(request, obj, form, change)
+        # need to keep it here as using admin interface skips post_save signals
         try:
             obj.length = int(
                 librosa.core.get_duration(

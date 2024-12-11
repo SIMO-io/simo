@@ -16,7 +16,7 @@ from simo.core.forms import HiddenField, FormsetField
 from simo.core.form_fields import (
     Select2ListChoiceField, Select2ModelChoiceField,
     Select2ListMultipleChoiceField, Select2ModelMultipleChoiceField,
-    PlainLocationField
+    PlainLocationField, SoundField
 )
 from simo.core.models import Component
 from rest_framework.relations import PrimaryKeyRelatedField, ManyRelatedField
@@ -30,6 +30,10 @@ from .models import Category, Zone, Icon, ComponentHistory
 
 
 class LocationSerializer(serializers.CharField):
+    pass
+
+
+class SoundSerializer(serializers.FileField):
     pass
 
 
@@ -145,6 +149,7 @@ class ComponentFormsetField(FormSerializer):
         field_mapping = {
             HiddenField: HiddenSerializerField,
             PlainLocationField: LocationSerializer,
+            SoundField: SoundSerializer,
             Select2ListChoiceField: serializers.ChoiceField,
             forms.ModelChoiceField: FormsetPrimaryKeyRelatedField,
             Select2ModelChoiceField: FormsetPrimaryKeyRelatedField,

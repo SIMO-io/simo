@@ -1,4 +1,4 @@
-import traceback
+import traceback, json
 from dal import forward
 from django.contrib.admin.forms import AdminAuthenticationForm as OrgAdminAuthenticationForm
 from django.db import models
@@ -117,8 +117,11 @@ class ConfigFieldsMixin:
                     obj.pk for obj in self.cleaned_data[field_name]
                 ]
             else:
-                self.instance.config[field_name] = \
-                    self.cleaned_data[field_name]
+                try:
+                    self.instance.config[field_name] = \
+                        json.loads(json.dumps(self.cleaned_data[field_name]))
+                except:
+                    continue
 
         if commit:
             from simo.users.middleware import get_current_user

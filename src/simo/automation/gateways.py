@@ -33,9 +33,12 @@ class ScriptRunHandler(multiprocessing.Process):
     component = None
     logger = None
 
-    def __init__(self, component_id, *args, **kwargs):
+    def __init__(self, component_id, exit_event, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.component_id = component_id
+        self.exit_event = exit_event
+        self.exit_in_use = multiprocessing.Event()
+        self.exin_in_use_fail = multiprocessing.Event()
 
     def run(self):
         db_connection.connect()
@@ -51,33 +54,39 @@ class ScriptRunHandler(multiprocessing.Process):
         sys.stderr = StreamToLogger(self.logger, logging.ERROR)
         self.component.meta['pid'] = os.getpid()
         self.component.set('running')
-
-        if hasattr(self.component.controller, '_run'):
-            def run_code():
-                self.component.controller._run()
-        else:
-            code = self.component.config.get('code')
-            def run_code():
-                start = time.time()
-                exec(code, globals())
-                if 'class Automation:' in code and time.time() - start < 1:
-                    Automation().run()
-
-            if not code:
-                self.component.value = 'finished'
-                self.component.save(update_fields=['value'])
-                return
         print("------START-------")
         try:
-            run_code()
+            self.run_code()
         except:
             print("------ERROR------")
             self.component.set('error')
             raise
         else:
-            print("------FINISH-----")
-            self.component.set('finished')
+            if not self.exit_event.is_set():
+                print("------FINISH-----")
+                self.component.set('finished')
             return
+
+    def run_code(self):
+        if hasattr(self.component.controller, '_run'):
+            self.component.controller._run()
+        else:
+            code = self.component.config.get('code')
+            if not code:
+                self.component.value = 'finished'
+                self.component.save(update_fields=['value'])
+                return
+            start = time.time()
+            namespace = {}
+            exec(code, namespace)
+            if 'Automation' in namespace and time.time() - start < 1:
+                self.exit_in_use.set()
+                try:
+                    namespace['Automation']().run(self.exit_event)
+                except:
+                    self.exin_in_use_fail.set()
+                    namespace['Automation']().run()
+
 
 
 class GatesHandler:
@@ -225,6 +234,9 @@ class AutomationsGatewayHandler(GatesHandler, BaseObjectCommandsGatewayHandler):
         dead_scripts = False
         for id, process in list(self.running_scripts.items()):
             comp = Component.objects.filter(id=id).first()
+            if comp.value == 'finished':
+                self.running_scripts.pop(id)
+                continue
             if process.is_alive():
                 if not comp and id not in self.terminating_scripts:
                     # script is deleted, or instance deactivated
@@ -236,7 +248,7 @@ class AutomationsGatewayHandler(GatesHandler, BaseObjectCommandsGatewayHandler):
                     if comp:
                         logger = get_component_logger(comp)
                         logger.log(logging.INFO, "-------DEAD!-------")
-                    self.stop_script(comp, 'error')
+                    self.stop_script(comp, 'dead')
 
         if dead_scripts:
             # give 10s air before we wake these dead scripts up!
@@ -326,7 +338,9 @@ class AutomationsGatewayHandler(GatesHandler, BaseObjectCommandsGatewayHandler):
     def start_script(self, component):
         print("START SCRIPT %s" % str(component))
         if component.id in self.running_scripts:
-            if component.id not in self.terminating_scripts:
+            if component.value == 'finished':
+                self.running_scripts.pop(component.id)
+            elif component.id not in self.terminating_scripts:
                 if component.value != 'running':
                     component.value = 'running'
                     component.save()
@@ -343,7 +357,8 @@ class AutomationsGatewayHandler(GatesHandler, BaseObjectCommandsGatewayHandler):
                     return self.stop_script(component, 'error')
 
         self.running_scripts[component.id] = ScriptRunHandler(
-            component.id, daemon=True
+            component.id, multiprocessing.Event(),
+            daemon=True
         )
         self.running_scripts[component.id].start()
 
@@ -360,9 +375,14 @@ class AutomationsGatewayHandler(GatesHandler, BaseObjectCommandsGatewayHandler):
         logger = get_component_logger(component)
         if stop_status == 'error':
             logger.log(logging.INFO, "-------GATEWAY STOP-------")
-        else:
+        elif stop_status == 'stopped':
             logger.log(logging.INFO, "-------STOP-------")
-        self.running_scripts[component.id].terminate()
+
+        if self.running_scripts[component.id].exit_in_use.is_set()\
+        and not self.running_scripts[component.id].exin_in_use_fail.is_set():
+            self.running_scripts[component.id].exit_event.set()
+        else:
+            self.running_scripts[component.id].terminate()
 
         def kill():
             start = time.time()

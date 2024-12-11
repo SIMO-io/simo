@@ -8,7 +8,8 @@ from simo.core.models import Icon, Instance, Category, Zone
 from simo.core.middleware import introduce_instance
 from .serializers import (
     HiddenSerializerField, ComponentManyToManyRelatedField,
-    TextAreaSerializerField, Component, LocationSerializer
+    TextAreaSerializerField, Component, LocationSerializer,
+    SoundSerializer
 )
 
 
@@ -33,6 +34,7 @@ class SIMOAPIMetadata(SimpleMetadata):
         serializers.MultipleChoiceField: 'multiple choice',
         serializers.FileField: 'file upload',
         serializers.ImageField: 'image upload',
+        SoundSerializer: 'sound upload',
         serializers.ListField: 'list',
         serializers.DictField: 'nested object',
         serializers.Serializer: 'nested object',

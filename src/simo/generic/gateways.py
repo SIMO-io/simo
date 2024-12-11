@@ -134,8 +134,47 @@ class GroupButtonsHandler:
                 group.toggle()
 
 
+class AudioAlertsHandler:
 
-class GenericGatewayHandler(BaseObjectCommandsGatewayHandler):
+    def control_audio_alert(self, component, val):
+        if val:
+            from simo.multimedia.models import Sound
+            sound = Sound.objects.filter(
+                id=component.config.get('sound_id')
+            ).first()
+            if not sound:
+                return
+            loop = component.config.get('loop', False)
+            for pl_id in component.config.get('players', []):
+                player = Component.objects.filter(
+                    id=pl_id, base_type='audio-player'
+                ).first()
+                if not player:
+                    continue
+                player.play_alert(
+                    sound.id,
+                    component.config.get('loop', False),
+                    component.config.get('volume', 50)
+                )
+                if not loop:
+                    def set_done(comp):
+                        comp.set(False)
+                    threading.Timer(sound.length, set_done, args=[component])
+            component.set(True)
+        else:
+            for pl_id in component.config.get('players', []):
+                player = Component.objects.filter(
+                    id=pl_id, base_type='audio-player'
+                ).first()
+                if not player:
+                    continue
+                player.cancel_alert()
+            component.set(False)
+
+
+class GenericGatewayHandler(
+    BaseObjectCommandsGatewayHandler, GroupButtonsHandler, AudioAlertsHandler
+):
     name = "Generic"
     config_form = BaseGatewayForm
     info = "Provides generic type components which use other components to operate like " \
@@ -149,7 +188,8 @@ class GenericGatewayHandler(BaseObjectCommandsGatewayHandler):
         ('watch_watering', 60),
         ('watch_alarm_events', 1),
         ('watch_timers', 1),
-        ('watch_main_states', 60)
+        ('watch_main_states', 60),
+        ('watch_groups', 60)
     )
 
     def __init__(self, *args, **kwargs):
@@ -229,7 +269,7 @@ class GenericGatewayHandler(BaseObjectCommandsGatewayHandler):
 
     def on_mqtt_message(self, client, userdata, msg):
         print("Mqtt message: ", msg.payload)
-        from simo.generic.controllers import AlarmGroup
+        from simo.generic.controllers import AlarmGroup, AudioAlert
 
         payload = json.loads(msg.payload)
         drop_current_instance()
@@ -239,6 +279,8 @@ class GenericGatewayHandler(BaseObjectCommandsGatewayHandler):
         try:
             if component.controller_uid == AlarmGroup.uid:
                 self.control_alarm_group(component, payload.get('set_val'))
+            elif component.controller_uid == AudioAlert.uid:
+                self.control_audio_alert(component, payload.get('set_val'))
             else:
                 component.controller.set(payload.get('set_val'))
         except Exception:

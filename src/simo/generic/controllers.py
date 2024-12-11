@@ -37,7 +37,7 @@ from .forms import (
     ThermostatConfigForm, AlarmGroupConfigForm,
     IPCameraConfigForm, WeatherForm,
     WateringConfigForm, StateSelectForm, MainStateSelectForm,
-    AlarmClockConfigForm
+    AlarmClockConfigForm, AudioAlertConfigForm
 )
 
 # ----------- Generic controllers -----------------------------
@@ -1054,6 +1054,12 @@ class AlarmClock(ControllerBase):
         return current_value
 
 
+class AudioAlert(Switch):
+    gateway_class = GenericGatewayHandler
+    name = _("Audio Alert")
+    config_form = AudioAlertConfigForm
+
+
 class StateSelect(ControllerBase):
     gateway_class = GenericGatewayHandler
     name = _("State select")
@@ -1186,6 +1192,9 @@ class MainState(StateSelect):
             return all(phones_on_charge)
         else:
             return any(phones_on_charge)
+
+
+
 
 
 # ----------- Dummy controllers -----------------------------

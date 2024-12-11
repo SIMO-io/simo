@@ -17,6 +17,8 @@ from simo.core.form_fields import (
     Select2ModelMultipleChoiceField
 )
 from simo.core.forms import DimmerConfigForm, SwitchForm
+from simo.core.form_fields import SoundField
+from simo.multimedia.models import Sound
 
 ACTION_METHODS = (
     ('turn_on', "Turn ON"), ('turn_off', "Turn OFF"),
@@ -613,3 +615,37 @@ class AlarmClockConfigForm(BaseComponentForm):
                 if c:
                     obj.slaves.add(c)
         return obj
+
+
+class AudioAlertConfigForm(BaseComponentForm):
+    sound = SoundField()
+    loop = forms.BooleanField(initial=False, required=False)
+    volume = forms.IntegerField(initial=30, min_value=2, max_value=100)
+    players = Select2ModelMultipleChoiceField(
+        queryset=Component.objects.all(),#filter(base_type='audio-player'),
+        url='autocomplete-component',
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.basic_fields.extend(['sound', 'loop', 'volume', 'players'])
+        if self.instance.id:
+            sound = Sound.objects.filter(
+                id=self.instance.config.get('sound_id', 0)
+            ).first()
+            if sound:
+                self.fields['sound'].initial = sound.file
+
+    def save(self, commit=True):
+        if commit and self.cleaned_data['sound'] \
+        and self.cleaned_data['sound'] != self.fields['sound'].initial:
+            sound = Sound(
+                name=self.cleaned_data['sound'].name,
+            )
+            sound.file.save(
+                self.cleaned_data['sound'].name, self.cleaned_data['sound'],
+                save=True
+            )
+            self.instance.config['sound_id'] = sound.id
+            self.cleaned_data.pop('sound')
+        return super().save(commit=commit)
