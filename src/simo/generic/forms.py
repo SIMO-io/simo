@@ -671,9 +671,10 @@ class AudioAlertConfigForm(BaseComponentForm):
 
 
     def save(self, commit=True):
+        obj = super().save(commit=commit)
         if commit and self.cleaned_data.get('sound') \
         and self.cleaned_data['sound'] != self.fields['sound'].initial:
-            public_file = PublicFile(component=self.instance)
+            public_file = PublicFile(component=obj)
             public_file.file.save(
                 self.cleaned_data['sound'].name, self.cleaned_data['sound'],
                 save=True
@@ -685,5 +686,5 @@ class AudioAlertConfigForm(BaseComponentForm):
                 org.delete()
             self.instance.config['public_file_id'] = public_file.id
             self.instance.config['duration'] = self.cleaned_data['sound'].duration
-            #self.cleaned_data.pop('sound')
-        return super().save(commit=commit)
+            self.instance.save()
+        return obj
