@@ -1,5 +1,6 @@
 import inspect
 import time
+import os
 from collections.abc import Iterable
 from django.utils.text import slugify
 from django.utils.functional import cached_property
@@ -9,6 +10,8 @@ from django.db import models
 from django.db.models.signals import post_delete
 from django.dispatch import receiver
 from django.template.loader import render_to_string
+from django.conf import settings
+from django.core.files.storage import FileSystemStorage
 from timezone_utils.choices import ALL_TIMEZONES_CHOICES
 from location_field.models.plain import PlainLocationField
 from model_utils import FieldTracker
@@ -600,6 +603,35 @@ def is_in_alarm(self):
         if self.alarm_category:
             c_methods.extend(['arm', 'disarm'])
         return c_methods
+
+
+class PublicFile(models.Model):
+    component = models.ForeignKey(
+        Component, on_delete=models.CASCADE, related_name='public_files'
+    )
+    file = models.FileField(
+        upload_to='public_files', storage=FileSystemStorage(
+            location=os.path.join(settings.VAR_DIR, 'public_media'),
+            base_url='/public_media/'
+        )
+    )
+    date_uploaded = models.DateTimeField(auto_now_add=True)
+    meta = models.JSONField(default=dict)
+
+    def get_absolute_url(self):
+        return self.file.url
+
+
+class PrivateFile(models.Model):
+    component = models.ForeignKey(
+        Component, on_delete=models.CASCADE, related_name='private_files'
+    )
+    file = models.FileField(upload_to='private_files')
+    date_uploaded = models.DateTimeField(auto_now_add=True)
+    meta = models.JSONField(default=dict)
+
+    def get_absolute_url(self):
+        return self.file.url
 
 
 class ComponentHistory(models.Model):

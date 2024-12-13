@@ -92,15 +92,15 @@ class BasePlayer(Switch):
     def play_alert(self, val, loop=False, volume=None):
         '''
         Plays alert and goes back to whatever was playing initially
-        :param val: Sound.id or uri
+        :param val: uri
         :param loop: Repeat infinitely
         :param volume: volume at which to play
         :return:
         '''
-        assert type(val) in (int, str)
+        assert type(val) == str
         if volume:
             assert 0 <= volume <= 100
-        self.send({"alert": val, 'volume': volume})
+        self.send({"alert": val, 'loop': loop, 'volume': volume})
 
     def cancel_alert(self):
         '''Cancel alert if it's currently playing'''

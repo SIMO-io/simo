@@ -8,7 +8,9 @@ from django.conf import settings
 from django.template.loader import render_to_string
 from actstream import action
 from simo.users.models import PermissionsRole
-from .models import Instance, Gateway, Component, Icon, Zone, Category
+from .models import (
+    Instance, Gateway, Component, Icon, Zone, Category, PublicFile, PrivateFile
+)
 
 
 @receiver(post_save, sender=Instance)
@@ -193,3 +195,12 @@ def gateway_post_save(sender, instance, created, *args, **kwargs):
 @receiver(post_delete, sender=Gateway)
 def gateway_post_delete(sender, instance, *args, **kwargs):
     instance.stop()
+
+
+@receiver(post_delete, sender=PublicFile)
+@receiver(post_delete, sender=PrivateFile)
+def delete_file_itself(sender, instance, *args, **kwargs):
+    try:
+        os.remove(instance.file.path)
+    except:
+        pass

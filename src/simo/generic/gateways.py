@@ -1,21 +1,17 @@
 import sys
-import logging
 import pytz
 import json
 import time
-import multiprocessing
 import threading
 import traceback
 from django.conf import settings
 from django.utils import timezone
-from django.db import connection as db_connection
-from django.db.models import Q
 import paho.mqtt.client as mqtt
-from simo.core.models import Component
+from simo.core.utils.helpers import get_self_ip
+from simo.core.models import Component, PublicFile
 from simo.core.middleware import introduce_instance, drop_current_instance
 from simo.core.gateways import BaseObjectCommandsGatewayHandler
 from simo.core.forms import BaseGatewayForm
-from simo.core.utils.logs import StreamToLogger
 from simo.core.events import GatewayObjectCommand, get_event_obj
 from simo.core.loggers import get_gw_logger, get_component_logger
 
@@ -138,12 +134,12 @@ class AudioAlertsHandler:
 
     def control_audio_alert(self, component, val):
         if val:
-            from simo.multimedia.models import Sound
-            sound = Sound.objects.filter(
-                id=component.config.get('sound_id')
+            public_file = PublicFile.objects.filter(
+                component=component
             ).first()
-            if not sound:
+            if not public_file:
                 return
+            uri = f"http://{get_self_ip()}{public_file.get_absolute_url()}"
             loop = component.config.get('loop', False)
             for pl_id in component.config.get('players', []):
                 player = Component.objects.filter(
@@ -152,14 +148,17 @@ class AudioAlertsHandler:
                 if not player:
                     continue
                 player.play_alert(
-                    sound.id,
+                    uri,
                     component.config.get('loop', False),
                     component.config.get('volume', 50)
                 )
                 if not loop:
                     def set_done(comp):
                         comp.set(False)
-                    threading.Timer(sound.length, set_done, args=[component])
+                    threading.Timer(
+                        component.config.get('duration', 1),
+                        set_done, args=[component]
+                    )
             component.set(True)
         else:
             for pl_id in component.config.get('players', []):

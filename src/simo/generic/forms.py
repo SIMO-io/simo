@@ -1,9 +1,12 @@
+import os
+import librosa
+import tempfile
 from django import forms
 from django.forms import formset_factory
 from django.db.models import Q
 from django.utils.translation import gettext_lazy as _
 from simo.core.forms import HiddenField, BaseComponentForm
-from simo.core.models import Icon, Component
+from simo.core.models import Icon, Component, PublicFile
 from simo.core.controllers import (
     NumericSensor, MultiSensor, Switch, Dimmer
 )
@@ -18,7 +21,6 @@ from simo.core.form_fields import (
 )
 from simo.core.forms import DimmerConfigForm, SwitchForm
 from simo.core.form_fields import SoundField
-from simo.multimedia.models import Sound
 
 ACTION_METHODS = (
     ('turn_on', "Turn ON"), ('turn_off', "Turn OFF"),
@@ -618,7 +620,7 @@ class AlarmClockConfigForm(BaseComponentForm):
 
 
 class AudioAlertConfigForm(BaseComponentForm):
-    sound = SoundField()
+    sound = SoundField(required=False)
     loop = forms.BooleanField(initial=False, required=False)
     volume = forms.IntegerField(initial=30, min_value=2, max_value=100)
     players = Select2ModelMultipleChoiceField(
@@ -630,22 +632,58 @@ class AudioAlertConfigForm(BaseComponentForm):
         super().__init__(*args, **kwargs)
         self.basic_fields.extend(['sound', 'loop', 'volume', 'players'])
         if self.instance.id:
-            sound = Sound.objects.filter(
-                id=self.instance.config.get('sound_id', 0)
+            public_file = PublicFile.objects.filter(
+                component=self.instance
             ).first()
-            if sound:
-                self.fields['sound'].initial = sound.file
+            if public_file:
+                self.fields['sound'].help_text = f"Currently: {public_file.file}"
+
+    def clean_sound(self):
+        if not self.cleaned_data.get('sound'):
+            if not self.instance.pk:
+                raise forms.ValidationError("Please pick a sound!")
+            return
+        if self.cleaned_data['sound'].size > 1024 * 1024 * 50:
+            raise forms.ValidationError("No more than 50Mb please.")
+        temp_path = os.path.join(
+            tempfile.gettempdir(), self.cleaned_data['sound'].name
+        )
+        with open(temp_path, 'wb') as temp_file:
+            for chunk in self.cleaned_data['sound'].chunks():
+                temp_file.write(chunk)
+
+        try:
+            self.cleaned_data['sound'].duration = int(
+                librosa.core.get_duration(sr=22050, filename=temp_path)
+            )
+        except:
+            try:
+                os.remove(temp_path)
+            except:
+                pass
+            raise forms.ValidationError("This doesn't look like audio file!")
+        try:
+            os.remove(temp_path)
+        except:
+            pass
+
+        return self.cleaned_data['sound']
+
 
     def save(self, commit=True):
-        if commit and self.cleaned_data['sound'] \
+        if commit and self.cleaned_data.get('sound') \
         and self.cleaned_data['sound'] != self.fields['sound'].initial:
-            sound = Sound(
-                name=self.cleaned_data['sound'].name,
-            )
-            sound.file.save(
+            public_file = PublicFile(component=self.instance)
+            public_file.file.save(
                 self.cleaned_data['sound'].name, self.cleaned_data['sound'],
                 save=True
             )
-            self.instance.config['sound_id'] = sound.id
-            self.cleaned_data.pop('sound')
+            org = PublicFile.objects.filter(
+                id=self.instance.config.get('public_file_id', 0)
+            )
+            if org:
+                org.delete()
+            self.instance.config['public_file_id'] = public_file.id
+            self.instance.config['duration'] = self.cleaned_data['sound'].duration
+            #self.cleaned_data.pop('sound')
         return super().save(commit=commit)

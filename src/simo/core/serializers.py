@@ -311,6 +311,7 @@ class ComponentSerializer(FormSerializer):
             Select2ListMultipleChoiceField: ComponentManyToManyRelatedField,
             Select2ModelMultipleChoiceField: ComponentManyToManyRelatedField,
             FormsetField: ComponentFormsetField,
+            SoundField: SoundSerializer
         }
 
 

@@ -272,9 +272,9 @@ class ComponentAdminForm(forms.ModelForm):
                 self.instance.config = self.controller.default_config
                 self.instance.meta = self.controller.default_meta
 
-        self.cleanup_missing_keys(kwargs.get("data"))
+        self.cleanup_missing_keys(kwargs.get("data"), kwargs.get("files"))
 
-    def cleanup_missing_keys(self, data):
+    def cleanup_missing_keys(self, data, files=None):
         """
         Removes missing keys from fields on form submission.
         This avoids resetting fields that are not present in
@@ -289,6 +289,11 @@ class ComponentAdminForm(forms.ModelForm):
             return
 
         got_keys = list(data.keys())
+        if files:
+            try:
+                got_keys += list(files.keys())
+            except:
+                pass
         formset_fields = set()
         for key in got_keys:
             if key.endswith('-TOTAL_FORMS'):
