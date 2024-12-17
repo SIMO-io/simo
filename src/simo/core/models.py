@@ -544,7 +544,7 @@ def is_in_alarm(self):
                     kwargs['update_fields'].append('last_change')
 
             modifying_fields = (
-                'name', 'icon', 'zone', 'category', 'config', 'meta',
+                'name', 'icon', 'zone', 'category', 'config',
                 'value_units', 'slaves', 'show_in_app', 'alarm_category'
             )
             if any(f in dirty_fields for f in modifying_fields):
