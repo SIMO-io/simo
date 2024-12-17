@@ -5,6 +5,7 @@ from django import forms
 from django.forms import formset_factory
 from django.db.models import Q
 from django.utils.translation import gettext_lazy as _
+from django.core.files.uploadedfile import InMemoryUploadedFile
 from simo.core.forms import HiddenField, BaseComponentForm
 from simo.core.models import Icon, Component, PublicFile
 from simo.core.controllers import (
@@ -631,18 +632,17 @@ class AudioAlertConfigForm(BaseComponentForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.basic_fields.extend(['sound', 'loop', 'volume', 'players'])
-        if self.instance.id:
-            public_file = PublicFile.objects.filter(
-                component=self.instance
-            ).first()
-            if public_file:
-                self.fields['sound'].help_text = f"Currently: {public_file.file}"
+        if self.instance.config.get('sound'):
+            self.fields['sound'].help_text = \
+                f"Currently: {self.instance.config['sound']}"
 
     def clean_sound(self):
         if not self.cleaned_data.get('sound'):
             if not self.instance.pk:
                 raise forms.ValidationError("Please pick a sound!")
             return
+        if type(self.cleaned_data['sound']) != InMemoryUploadedFile:
+            return self.cleaned_data['sound']
         if self.cleaned_data['sound'].size > 1024 * 1024 * 50:
             raise forms.ValidationError("No more than 50Mb please.")
         temp_path = os.path.join(
@@ -672,19 +672,21 @@ class AudioAlertConfigForm(BaseComponentForm):
 
     def save(self, commit=True):
         obj = super().save(commit=commit)
-        if commit and self.cleaned_data.get('sound') \
-        and self.cleaned_data['sound'] != self.fields['sound'].initial:
-            public_file = PublicFile(component=obj)
-            public_file.file.save(
-                self.cleaned_data['sound'].name, self.cleaned_data['sound'],
-                save=True
-            )
-            org = PublicFile.objects.filter(
-                id=self.instance.config.get('public_file_id', 0)
-            )
-            if org:
-                org.delete()
-            self.instance.config['public_file_id'] = public_file.id
-            self.instance.config['duration'] = self.cleaned_data['sound'].duration
-            self.instance.save()
+        if type(self.cleaned_data['sound']) != InMemoryUploadedFile:
+            return obj
+
+        public_file = PublicFile(component=obj)
+        public_file.file.save(
+            self.cleaned_data['sound'].name, self.cleaned_data['sound'],
+            save=True
+        )
+        org = PublicFile.objects.filter(
+            id=self.instance.config.get('public_file_id', 0)
+        )
+        if org:
+            org.delete()
+        self.instance.config['public_file_id'] = public_file.id
+        self.instance.config['duration'] = self.cleaned_data['sound'].duration
+        self.instance.config['sound'] = self.cleaned_data['sound'].name
+        self.instance.save()
         return obj

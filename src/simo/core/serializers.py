@@ -1,6 +1,7 @@
 import inspect
 import datetime
 import re
+import json
 from django import forms
 from collections import OrderedDict
 from django.conf import settings
@@ -137,6 +138,8 @@ class ComponentManyToManyRelatedField(serializers.Field):
     def to_internal_value(self, data):
         if data == [] and self.allow_blank:
             return []
+        if type(data) == str:
+            data = json.loads(data)
         return self.queryset.filter(pk__in=data)
 
 
@@ -165,9 +168,9 @@ class ComponentFormsetField(FormSerializer):
         self.form = formset_field.formset_cls.form
         super().__init__(*args, **kwargs)
 
-    def get_form(self, data=None, **kwargs):
+    def get_form(self, data=None, files=None, **kwargs):
         form_cls = self.form
-        instance = form_cls(data=data, **kwargs)
+        instance = form_cls(data=data, files=files, **kwargs)
         # Handle partial validation on the form side
         if self.partial:
             set_form_partial_validation(
@@ -435,7 +438,7 @@ class ComponentSerializer(FormSerializer):
                 if controller:
                     self.Meta.form = controller.config_form
 
-    def get_form(self, data=None, instance=None, **kwargs):
+    def get_form(self, data=None, instance=None, files=None, **kwargs):
         if 'forms' not in self.context:
             self.context['forms'] = {}
         form_key = None
@@ -453,7 +456,7 @@ class ComponentSerializer(FormSerializer):
         else:
             controller_uid = self.instance.controller_uid
         form = self.Meta.form(
-            data=data, request=self.context['request'],
+            data=data, files=files, request=self.context['request'],
             controller_uid=controller_uid, instance=instance,
             **kwargs
         )
@@ -508,7 +511,8 @@ class ComponentSerializer(FormSerializer):
         a_data = self.accomodate_formsets(form, data)
 
         form = self.get_form(
-            data=a_data, instance=self.instance
+            data=a_data, files=self.context['request'].FILES,
+            instance=self.instance
         )
         if not form.is_valid():
             raise serializers.ValidationError(form.errors)
@@ -520,7 +524,10 @@ class ComponentSerializer(FormSerializer):
     def update(self, instance, validated_data):
         form = self.get_form(instance=instance)
         a_data = self.accomodate_formsets(form, validated_data)
-        form = self.get_form(instance=instance, data=a_data)
+        form = self.get_form(
+            instance=instance, data=a_data,
+            files=self.context['request'].FILES
+        )
         if form.is_valid():
             instance = form.save(commit=True)
             return instance
@@ -529,7 +536,9 @@ class ComponentSerializer(FormSerializer):
     def create(self, validated_data):
         form = self.get_form()
         a_data = self.accomodate_formsets(form, validated_data)
-        form = self.get_form(data=a_data)
+        form = self.get_form(
+            data=a_data, files=self.context['request'].FILES
+        )
         if form.is_valid():
             if form.controller.is_discoverable:
                 form.controller.init_discovery(form.cleaned_data)

@@ -285,7 +285,6 @@ class ComponentViewSet(
 
     @action(detail=True, methods=['post'])
     def controller(self, request, pk=None, *args, **kwargs):
-        start = time.time()
         component = self.get_object()
         data = request.data
         if not isinstance(request.data, dict):
