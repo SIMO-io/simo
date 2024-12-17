@@ -227,30 +227,42 @@ class AutomationsGatewayHandler(GatesHandler, BaseObjectCommandsGatewayHandler):
 
     terminating_scripts = set()
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.last_death = 0
+
 
     def watch_scripts(self):
         drop_current_instance()
         # observe running scripts and drop the ones that are no longer alive
         dead_scripts = False
         for id, process in list(self.running_scripts.items()):
+
             comp = Component.objects.filter(id=id).first()
-            if comp.value == 'finished':
+            if comp and comp.value == 'finished':
                 self.running_scripts.pop(id)
                 continue
+
             if process.is_alive():
                 if not comp and id not in self.terminating_scripts:
-                    # script is deleted, or instance deactivated
+                    # script is deleted and was not properly called to stop
+                    self.running_scripts.pop(id)
                     process.kill()
                 continue
             else:
-                if id not in self.terminating_scripts:
-                    dead_scripts = True
-                    if comp:
-                        logger = get_component_logger(comp)
-                        logger.log(logging.INFO, "-------DEAD!-------")
-                    self.stop_script(comp, 'dead')
+                self.last_death = time.time()
+                self.running_scripts.pop(id, None) # no longer running for sure!
+                if not comp or comp.value != 'running':
+                    continue
 
-        if dead_scripts:
+                if id not in self.terminating_scripts: # was not intentionaly terminated
+                    logger = get_component_logger(comp)
+                    logger.log(logging.INFO, "-------DEAD!-------")
+                    comp.value = 'error'
+                    comp.save()
+
+
+        if self.last_death and time.time() - self.last_death < 5:
             # give 10s air before we wake these dead scripts up!
             return
 
@@ -338,23 +350,14 @@ class AutomationsGatewayHandler(GatesHandler, BaseObjectCommandsGatewayHandler):
     def start_script(self, component):
         print("START SCRIPT %s" % str(component))
         if component.id in self.running_scripts:
-            if component.value == 'finished':
+            if component.value in ('finished', 'error', 'stopped'):
                 self.running_scripts.pop(component.id)
-            elif component.id not in self.terminating_scripts:
+            elif component.id not in self.terminating_scripts \
+            and self.running_scripts[component.id].is_alive():
                 if component.value != 'running':
                     component.value = 'running'
                     component.save()
-                    return
-            else:
-                good_to_go = False
-                for i in range(12): # wait for 3s
-                    time.sleep(0.2)
-                    component.refresh_from_db()
-                    if component.id not in self.running_scripts:
-                        good_to_go = True
-                        break
-                if not good_to_go:
-                    return self.stop_script(component, 'error')
+                return
 
         self.running_scripts[component.id] = ScriptRunHandler(
             component.id, multiprocessing.Event(),
