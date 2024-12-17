@@ -140,6 +140,8 @@ class ComponentManyToManyRelatedField(serializers.Field):
             return []
         if type(data) == str:
             data = json.loads(data)
+        if not isinstance(data, Iterable):
+            data = [data]
         return self.queryset.filter(pk__in=data)
 
 
