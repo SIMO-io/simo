@@ -9,7 +9,7 @@ from simo.core.middleware import introduce_instance
 from .serializers import (
     HiddenSerializerField, ComponentManyToManyRelatedField,
     TextAreaSerializerField, Component, LocationSerializer,
-    SoundSerializer
+    SoundSerializer, PasswordSerializer
 )
 
 
@@ -19,6 +19,7 @@ class SIMOAPIMetadata(SimpleMetadata):
         serializers.Field: 'field',
         serializers.BooleanField: 'boolean',
         serializers.CharField: 'string',
+        PasswordSerializer: 'password',
         serializers.UUIDField: 'string',
         serializers.URLField: 'url',
         serializers.EmailField: 'email',

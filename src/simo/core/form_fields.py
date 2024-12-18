@@ -189,3 +189,9 @@ class PlainLocationField(forms.fields.CharField):
 class SoundField(forms.fields.FileField):
     pass
 
+
+
+class PasswordField(forms.fields.CharField):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(widget=forms.PasswordInput, *args, **kwargs)

@@ -17,7 +17,7 @@ from simo.core.forms import HiddenField, FormsetField
 from simo.core.form_fields import (
     Select2ListChoiceField, Select2ModelChoiceField,
     Select2ListMultipleChoiceField, Select2ModelMultipleChoiceField,
-    PlainLocationField, SoundField
+    PlainLocationField, SoundField, PasswordField
 )
 from simo.core.models import Component
 from rest_framework.relations import PrimaryKeyRelatedField, ManyRelatedField
@@ -37,6 +37,9 @@ class LocationSerializer(serializers.CharField):
 class SoundSerializer(serializers.FileField):
     pass
 
+
+class PasswordSerializer(serializers.CharField):
+    pass
 
 
 class TimestampField(serializers.Field):
@@ -163,7 +166,8 @@ class ComponentFormsetField(FormSerializer):
             Select2ModelMultipleChoiceField: ComponentManyToManyRelatedField,
             forms.TypedChoiceField: serializers.ChoiceField,
             forms.FloatField: serializers.FloatField,
-            forms.SlugField: serializers.CharField
+            forms.SlugField: serializers.CharField,
+            PasswordField: PasswordSerializer
         }
 
     def __init__(self, formset_field, *args, **kwargs):
@@ -316,7 +320,8 @@ class ComponentSerializer(FormSerializer):
             Select2ListMultipleChoiceField: ComponentManyToManyRelatedField,
             Select2ModelMultipleChoiceField: ComponentManyToManyRelatedField,
             FormsetField: ComponentFormsetField,
-            SoundField: SoundSerializer
+            SoundField: SoundSerializer,
+            PasswordField: PasswordSerializer
         }
 
 
