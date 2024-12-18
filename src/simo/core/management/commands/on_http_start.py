@@ -4,6 +4,9 @@ import pwd
 import grp
 import sys
 import subprocess
+import importlib
+import traceback
+from django.apps import apps
 from crontab import CronTab
 from django.conf import settings
 from django.template.loader import render_to_string
@@ -81,3 +84,16 @@ class Command(BaseCommand):
         from simo.core.tasks import maybe_update_to_latest
         maybe_update_to_latest.delay()
         update_auto_update()
+        for name, app in apps.app_configs.items():
+            if name in (
+                'auth', 'admin', 'contenttypes', 'sessions', 'messages',
+                'staticfiles'
+            ):
+                continue
+            try:
+                importlib.import_module('%s.on_start' % app.name)
+            except ModuleNotFoundError:
+                continue
+            except:
+                print(traceback.format_exc(), file=sys.stderr)
+
