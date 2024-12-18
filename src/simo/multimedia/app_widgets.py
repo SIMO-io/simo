@@ -5,7 +5,7 @@ from simo.core.app_widgets import BaseAppWidget
 class AudioPlayerWidget(BaseAppWidget):
     uid = 'audio-player'
     name = _('Audio Player')
-    size = [2, 2]
+    size = [4, 1]
 
 
 class VideoPlayerWidget(BaseAppWidget):
