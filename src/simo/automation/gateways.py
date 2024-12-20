@@ -266,10 +266,8 @@ class AutomationsGatewayHandler(GatesHandler, BaseObjectCommandsGatewayHandler):
             # give 10s air before we wake these dead scripts up!
             return
 
-        from .controllers import Script
         for script in Component.objects.filter(
-            controller_uid=Script.uid,
-            config__keep_alive=True
+            base_type='script', config__keep_alive=True
         ).exclude(value__in=('running', 'stopped', 'finished')):
             self.start_script(script)
 
