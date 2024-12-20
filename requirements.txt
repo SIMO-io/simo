@@ -22,7 +22,7 @@ django-redis==4.12.1
 webservices==0.7
 numpy>=1.24.4
 geopy==2.2.0
-requests==2.26.0
+requests>=2.26.0
 suntime==1.2.5
 django-location-field==2.1.0
 django_taggit==2.0.0
@@ -39,3 +39,5 @@ gunicorn==23.0.0
 python-crontab==3.2.0
 django-object-actions==4.3.0
 tqdm==4.67.0
+bs4==0.0.2
+lxml==5.3.0

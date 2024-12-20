@@ -625,8 +625,9 @@ class AudioAlertConfigForm(BaseComponentForm):
     loop = forms.BooleanField(initial=False, required=False)
     volume = forms.IntegerField(initial=30, min_value=2, max_value=100)
     players = Select2ModelMultipleChoiceField(
-        queryset=Component.objects.all(),#filter(base_type='audio-player'),
+        queryset=Component.objects.filter(base_type='audio-player'),
         url='autocomplete-component',
+        forward=(forward.Const(['audio-player',], 'base_type'),)
     )
 
     def __init__(self, *args, **kwargs):

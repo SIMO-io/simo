@@ -17,6 +17,7 @@ class BasePlayer(Switch):
         'duration': None,
         'position': None,
         'title': None,
+        'image_url': None,
         'library': []
     }
     default_value = 'stopped'

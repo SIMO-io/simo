@@ -72,6 +72,14 @@ class FleeDeviceMixin:
                 config[key] = val
         return config
 
+    def _call_cmd(self, method, *args, **kwargs):
+        GatewayObjectCommand(
+            self.component.gateway,
+            Colonel(id=self.component.config['colonel']),
+            id=self.component.id, command='call', method=method,
+            args=args, kwargs=kwargs
+        ).publish()
+
 
 class BasicSensorMixin:
     gateway_class = FleetGatewayHandler
