@@ -90,18 +90,22 @@ class BasePlayer(Switch):
             assert 0 <= volume <= 100
         self.send({"play_uri": uri, 'volume': volume})
 
-    def play_alert(self, val, loop=False, volume=None):
-        '''
-        Plays alert and goes back to whatever was playing initially
-        :param val: uri
-        :param loop: Repeat infinitely
-        :param volume: volume at which to play
-        :return:
-        '''
-        assert type(val) == str
-        if volume:
-            assert 0 <= volume <= 100
-        self.send({"alert": val, 'loop': loop, 'volume': volume})
+    # def play_alert(self, val, loop=False, volume=None):
+    #     '''
+    #     Plays alert and goes back to whatever was playing initially
+    #     :param val: uri
+    #     :param loop: Repeat infinitely
+    #     :param volume: volume at which to play
+    #     :return:
+    #     '''
+    #     assert type(val) == str
+    #     if volume:
+    #         assert 0 <= volume <= 100
+    #     self.send({"alert": val, 'loop': loop, 'volume': volume})
+
+
+    def play_alert(self, id):
+        self.send({"alert": id})
 
     def cancel_alert(self):
         '''Cancel alert if it's currently playing'''

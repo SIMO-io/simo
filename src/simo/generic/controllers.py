@@ -1059,6 +1059,16 @@ class AudioAlert(Switch):
     name = _("Audio Alert")
     config_form = AudioAlertConfigForm
 
+    def send(self, value):
+        for player in Component.objects.filter(
+            id__in=self.component.config['players']
+        ):
+            if value:
+                player.play_alert(self.component.id)
+            else:
+                self.component.set(False)
+                player.cancel_alert()
+
 
 class StateSelect(ControllerBase):
     gateway_class = GenericGatewayHandler

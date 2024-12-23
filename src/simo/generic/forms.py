@@ -7,7 +7,7 @@ from django.db.models import Q
 from django.utils.translation import gettext_lazy as _
 from django.core.files.uploadedfile import InMemoryUploadedFile
 from simo.core.forms import HiddenField, BaseComponentForm
-from simo.core.models import Icon, Component, PublicFile
+from simo.core.models import Component
 from simo.core.controllers import (
     NumericSensor, MultiSensor, Switch, Dimmer
 )
@@ -22,6 +22,7 @@ from simo.core.form_fields import (
 )
 from simo.core.forms import DimmerConfigForm, SwitchForm
 from simo.core.form_fields import SoundField
+from simo.multimedia.models import Sound
 
 ACTION_METHODS = (
     ('turn_on', "Turn ON"), ('turn_off', "Turn OFF"),
@@ -670,24 +671,26 @@ class AudioAlertConfigForm(BaseComponentForm):
 
         return self.cleaned_data['sound']
 
-
     def save(self, commit=True):
         obj = super().save(commit=commit)
         if type(self.cleaned_data['sound']) != InMemoryUploadedFile:
             return obj
 
-        public_file = PublicFile(component=obj)
-        public_file.file.save(
+        sound = Sound(
+            name=self.cleaned_data['sound'].name,
+            duration=self.cleaned_data['sound'].duration
+        )
+        sound.file.save(
             self.cleaned_data['sound'].name, self.cleaned_data['sound'],
             save=True
         )
-        org = PublicFile.objects.filter(
-            id=self.instance.config.get('public_file_id', 0)
-        )
-        if org:
-            org.delete()
-        self.instance.config['public_file_id'] = public_file.id
+        Sound.objects.filter(
+            id=self.instance.config.get('sound_id', 0)
+        ).delete()
+        self.instance.config['sound_id'] = sound.id
         self.instance.config['duration'] = self.cleaned_data['sound'].duration
+        self.instance.config['stream_url'] = sound.stream_url()
+        self.instance.config['file_url'] = sound.get_absolute_url()
         self.instance.config['sound'] = self.cleaned_data['sound'].name
         self.instance.save()
         return obj

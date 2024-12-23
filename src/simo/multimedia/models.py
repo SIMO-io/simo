@@ -1,4 +1,5 @@
 import os, librosa
+from django.urls import reverse
 from django.db import models
 from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
@@ -15,8 +16,8 @@ class Sound(models.Model):
         )
     )
     note = models.TextField(null=True, blank=True)
-    length = models.PositiveIntegerField(
-        editable=False, default=0, help_text='Sound length in seconds'
+    duration = models.PositiveIntegerField(
+        editable=False, default=0, help_text='Sound duration in seconds'
     )
     date_uploaded = models.DateTimeField(auto_now_add=True)
 
@@ -26,11 +27,14 @@ class Sound(models.Model):
     def get_absolute_url(self):
         return self.file.url
 
+    def stream_url(self):
+        return reverse('sound-stream', kwargs={'sound_id': self.id})
+
 
 @receiver(post_save, sender=Sound)
 def determine_duration(sender, instance, created, **kwargs):
-    if not instance.length:
-        instance.length = int(
+    if not instance.duration:
+        instance.duration = int(
             librosa.core.get_duration(
                 sr=22050, filename=instance.file.path
             )

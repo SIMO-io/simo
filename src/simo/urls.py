@@ -55,10 +55,14 @@ for name, app in apps.app_configs.items():
         'staticfiles'
     ):
         continue
+
     try:
         urls = importlib.import_module('%s.auto_urls' % app.name)
-    except ModuleNotFoundError:
-        continue
+    except ModuleNotFoundError as e:
+        if '%s.auto_urls' % app.name not in e.msg:
+            raise e
+        else:
+            continue
 
     for var_name, item in urls.__dict__.items():
         if isinstance(item, list) and var_name == 'urlpatterns':
