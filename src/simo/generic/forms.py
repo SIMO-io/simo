@@ -491,7 +491,7 @@ class MainStateSelectForm(BaseComponentForm):
                   "No value disables this behavior."
     )
     sleeping_phones_hour = forms.IntegerField(
-        initial=True, required=False, min_value=18, max_value=24,
+        initial=22, required=False, min_value=18, max_value=24,
         help_text='Set mode to "Sleep" if it is later than given hour '
                   'and all home owners phones who are at home are put on charge '
                   '(requires location and fitness permissions on mobile app). <br>'

@@ -1177,12 +1177,9 @@ class MainState(StateSelect):
         return False
 
 
-    def owner_phones_on_sleep(self, all_phones=False):
+    def owner_phones_on_charge(self, all_phones=False):
         sleeping_phones_hour = self.component.config.get('sleeping_phones_hour')
         if sleeping_phones_hour is None:
-            return False
-
-        if not self.is_sleep_time():
             return False
 
         from simo.users.models import InstanceUser
@@ -1198,7 +1195,7 @@ class MainState(StateSelect):
             phones_on_charge.append(iuser.phone_on_charge)
 
 
-        if all:
+        if all_phones:
             return all(phones_on_charge)
         else:
             return any(phones_on_charge)

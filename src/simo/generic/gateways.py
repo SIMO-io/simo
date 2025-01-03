@@ -421,11 +421,12 @@ class GenericGatewayHandler(
 
         if state.config.get('sleeping_phones_hour') is not None:
             if state.value != 'sleep':
-                if state.owner_phones_on_sleep(True):
+                if state.is_sleep_time() and state.owner_phones_on_charge(True):
                     print(f"New main state of {state.zone.instance} - sleep")
                     state.send('sleep')
             else:
-                if not state.owner_phones_on_sleep(False):
+                if not state.owner_phones_on_charge(True) \
+                and not state.is_sleep_time():
                     try:
                         new_state = state.get_day_evening_night_morning()
                     except:
