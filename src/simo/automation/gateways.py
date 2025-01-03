@@ -240,14 +240,16 @@ class AutomationsGatewayHandler(GatesHandler, BaseObjectCommandsGatewayHandler):
 
             comp = Component.objects.filter(id=id).first()
             if comp and comp.value == 'finished':
+                if process.is_alive():
+                    process.kill()
                 self.running_scripts.pop(id)
                 continue
 
             if process.is_alive():
                 if not comp and id not in self.terminating_scripts:
                     # script is deleted and was not properly called to stop
-                    self.running_scripts.pop(id)
                     process.kill()
+                    self.running_scripts.pop(id)
                 continue
             else:
                 self.last_death = time.time()
@@ -260,7 +262,6 @@ class AutomationsGatewayHandler(GatesHandler, BaseObjectCommandsGatewayHandler):
                     logger.log(logging.INFO, "-------DEAD!-------")
                     comp.value = 'error'
                     comp.save()
-
 
         if self.last_death and time.time() - self.last_death < 5:
             # give 10s air before we wake these dead scripts up!
@@ -349,6 +350,7 @@ class AutomationsGatewayHandler(GatesHandler, BaseObjectCommandsGatewayHandler):
         print("START SCRIPT %s" % str(component))
         if component.id in self.running_scripts:
             if component.value in ('finished', 'error', 'stopped'):
+                self.running_scripts[component.id].kill()
                 self.running_scripts.pop(component.id)
             elif component.id not in self.terminating_scripts \
             and self.running_scripts[component.id].is_alive():
@@ -356,6 +358,7 @@ class AutomationsGatewayHandler(GatesHandler, BaseObjectCommandsGatewayHandler):
                     component.value = 'running'
                     component.save()
                 return
+            self.running_scripts[component.id].kill()
 
         self.running_scripts[component.id] = ScriptRunHandler(
             component.id, multiprocessing.Event(),
