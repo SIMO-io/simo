@@ -358,7 +358,8 @@ class AutomationsGatewayHandler(GatesHandler, BaseObjectCommandsGatewayHandler):
                     component.value = 'running'
                     component.save()
                 return
-            self.running_scripts[component.id].kill()
+            else:
+                self.running_scripts[component.id].kill()
 
         self.running_scripts[component.id] = ScriptRunHandler(
             component.id, multiprocessing.Event(),
