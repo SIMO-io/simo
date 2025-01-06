@@ -350,8 +350,11 @@ class AutomationsGatewayHandler(GatesHandler, BaseObjectCommandsGatewayHandler):
         print("START SCRIPT %s" % str(component))
         if component.id in self.running_scripts:
             if component.value in ('finished', 'error', 'stopped'):
-                self.running_scripts[component.id].kill()
-                self.running_scripts.pop(component.id)
+                try:
+                    self.running_scripts[component.id].kill()
+                except:
+                    pass
+                self.running_scripts.pop(component.id, None)
             elif component.id not in self.terminating_scripts \
             and self.running_scripts[component.id].is_alive():
                 if component.value != 'running':
@@ -359,7 +362,10 @@ class AutomationsGatewayHandler(GatesHandler, BaseObjectCommandsGatewayHandler):
                     component.save()
                 return
             else:
-                self.running_scripts[component.id].kill()
+                try:
+                    self.running_scripts[component.id].kill()
+                except:
+                    pass
 
         self.running_scripts[component.id] = ScriptRunHandler(
             component.id, multiprocessing.Event(),
