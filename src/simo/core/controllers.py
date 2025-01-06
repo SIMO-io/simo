@@ -509,6 +509,12 @@ class MultiSensor(ControllerBase):
         return vectors
 
 
+    def get_val(self, param):
+        for item in self.component.value:
+            if item[0] == param:
+                return item[1]
+
+
 class BinarySensor(ControllerBase):
     name = _("Binary sensor")
     base_type = 'binary-sensor'
