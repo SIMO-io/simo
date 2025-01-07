@@ -476,8 +476,13 @@ def maybe_update_to_latest():
     if resp.status_code != 200:
         print("Bad response from server")
         return
-    latest = list(resp.json()['releases'].keys())[-1]
-    dynamic_settings['core__latest_version_available'] = latest
+
+    versions = list(resp.json()['releases'].keys())
+    def version_no(v):
+        major, minor, patch = v.split('.')
+        return int(major) * 1000000 + int(minor) * 1000 + int(patch)
+    versions.sort(reverse=True, key=version_no)
+    dynamic_settings['core__latest_version_available'] = versions[0]
 
     try:
         version = pkg_resources.get_distribution('simo').version
