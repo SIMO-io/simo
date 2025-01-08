@@ -80,8 +80,6 @@ class ComponentPermission(BasePermission):
             return True
         if request.user.is_master:
             return True
-        if obj.controller and obj.controller.masters_only:
-            return False
         user_role = request.user.get_role(view.instance)
         if user_role.is_superuser:
             return True
