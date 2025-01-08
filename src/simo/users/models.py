@@ -216,7 +216,6 @@ class User(AbstractBaseUser, SimoAdminMixin):
     REQUIRED_FIELDS = ['name']
 
 
-
     class Meta:
         verbose_name = _('user')
         verbose_name_plural = _('users')
@@ -225,8 +224,6 @@ class User(AbstractBaseUser, SimoAdminMixin):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._is_active = None
-        self._instances = None
-        self._instance_roles = {}
 
     def __str__(self):
         return self.name
@@ -270,8 +267,6 @@ class User(AbstractBaseUser, SimoAdminMixin):
         return self.is_active and self.is_master
 
     def get_role(self, instance):
-        if instance.id in self._instance_roles:
-            return self._instance_roles[instance.id]
         cache_key = f'user-{self.id}_instance-{instance.id}_role'
         role = cache.get(cache_key)
         if role is None:
@@ -282,8 +277,7 @@ class User(AbstractBaseUser, SimoAdminMixin):
             ).first()
             if role:
                 cache.set(cache_key, role, 20)
-        self._instance_roles[instance.id] = role
-        return self._instance_roles[instance.id]
+        return role
 
     @property
     def role_id(self):
@@ -329,8 +323,6 @@ class User(AbstractBaseUser, SimoAdminMixin):
         from simo.core.models import Instance
         if not self.is_active:
             return Instance.objects.none()
-        if self._instances != None:
-            return self._instances
 
         cache_key = f'user-{self.id}_instances'
         instances = cache.get(cache_key)
@@ -344,8 +336,8 @@ class User(AbstractBaseUser, SimoAdminMixin):
                     )
                 ], is_active=True)
             cache.set(cache_key, instances, 10)
-        self._instances = instances
-        return self._instances
+
+        return instances
 
     @property
     def component_permissions(self):
@@ -356,8 +348,6 @@ class User(AbstractBaseUser, SimoAdminMixin):
 
     @property
     def is_active(self):
-        if self._is_active != None:
-            return self._is_active
         cache_key = f'user-{self.id}_is_active'
         cached_value = cache.get(cache_key)
         if cached_value is None:
@@ -383,9 +373,7 @@ class User(AbstractBaseUser, SimoAdminMixin):
                     self.instance_roles.filter(is_active=True).count()
                 )
             cache.set(cache_key, cached_value, 20)
-
-        self._is_active = cached_value
-        return self._is_active
+        return cached_value
 
 
     @is_active.setter
