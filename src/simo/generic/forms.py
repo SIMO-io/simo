@@ -689,8 +689,8 @@ class AudioAlertConfigForm(BaseComponentForm):
         ).delete()
         self.instance.config['sound_id'] = sound.id
         self.instance.config['duration'] = self.cleaned_data['sound'].duration
-        self.instance.config['stream_url'] = sound.stream_url()
-        self.instance.config['file_url'] = sound.get_absolute_url()
+        self.instance.config['stream_url'] = sound.stream_url() # DENON Heos
+        self.instance.config['file_url'] = sound.get_absolute_url() # SONOS
         self.instance.config['sound'] = self.cleaned_data['sound'].name
         self.instance.save()
         return obj
