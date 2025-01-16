@@ -65,3 +65,20 @@ def update_mqtt_acls():
     subprocess.run(
         ['service', 'mosquitto', 'reload'], stdout=subprocess.PIPE
     )
+
+
+class _CurrentUerStore:
+    user = None
+
+
+_current_user_store = _CurrentUerStore()
+
+
+def introduce_user(user):
+    _current_user_store.user = user
+
+
+def get_current_user():
+    if not _current_user_store.user:
+        _current_user_store.user = get_system_user()
+    return _current_user_store.user

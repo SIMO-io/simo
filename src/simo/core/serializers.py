@@ -8,7 +8,6 @@ from django.conf import settings
 from django.forms.utils import pretty_name
 from collections.abc import Iterable
 from easy_thumbnails.files import get_thumbnailer
-from simo.core.middleware import get_current_request
 from rest_framework import serializers
 from rest_framework.fields import SkipField
 from rest_framework.relations import Hyperlink, PKOnlyObject
@@ -81,7 +80,7 @@ class CategorySerializer(serializers.ModelSerializer):
                 {'size': (830, 430), 'crop': True}
             )
             url = '/' + thumb.path.strip(settings.VAR_DIR)
-            request = get_current_request()
+            request = self.context['request']
             if request:
                 url = request.build_absolute_uri(url)
             return url

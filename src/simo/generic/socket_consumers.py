@@ -4,7 +4,7 @@ import base64
 import time
 from asgiref.sync import sync_to_async
 from channels.generic.websocket import AsyncWebsocketConsumer
-from simo.users.middleware import introduce
+from simo.users.utils import introduce_user
 from simo.core.models import Component
 
 
@@ -22,7 +22,7 @@ class CamStreamConsumer(AsyncWebsocketConsumer):
         if not self.scope['user'].is_active:
             return self.close()
 
-        introduce(self.scope['user'])
+        introduce_user(self.scope['user'])
 
         try:
             self.component = await sync_to_async(

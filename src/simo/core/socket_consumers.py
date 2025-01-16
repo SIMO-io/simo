@@ -9,7 +9,7 @@ from channels.generic.websocket import AsyncWebsocketConsumer, WebsocketConsumer
 from simo.core.events import ObjectChangeEvent, get_event_obj
 from simo.core.utils.logs import capture_socket_errors
 import paho.mqtt.client as mqtt
-from simo.users.middleware import introduce
+from simo.users.utils import introduce_user
 from simo.core.models import Component, Gateway
 from simo.core.utils.model_helpers import get_log_file_path
 from simo.core.middleware import introduce_instance
@@ -41,7 +41,6 @@ class LogConsumer(AsyncWebsocketConsumer):
         )(
             pk=self.scope['url_route']['kwargs']['object_pk'],
         )
-        introduce(self.scope['user'])
         await self.accept()
 
         if not self.scope['user'].is_authenticated:
@@ -137,7 +136,7 @@ class GatewayController(SIMOWebsocketConsumer):
 
     def connect(self):
 
-        introduce(self.scope['user'])
+        introduce_user(self.scope['user'])
 
         self.gateway = Gateway.objects.get(
             pk=self.scope['url_route']['kwargs']['gateway_id']
@@ -194,7 +193,7 @@ class ComponentController(SIMOWebsocketConsumer):
 
     def connect(self):
 
-        introduce(self.scope['user'])
+        introduce_user(self.scope['user'])
         self.accept()
 
         try:
@@ -249,7 +248,7 @@ class ComponentController(SIMOWebsocketConsumer):
                 ))
 
     def receive(self, text_data=None, bytes_data=None, **kwargs):
-        introduce(self.scope['user'])
+        introduce_user(self.scope['user'])
         json_data = json.loads(text_data)
         self.send_value = json_data.pop('send_value', False)
         for method, param in json_data.items():

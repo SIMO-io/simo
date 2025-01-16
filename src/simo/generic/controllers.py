@@ -197,9 +197,6 @@ class Thermostat(ControllerBase):
         low = target_temp - self.component.config['reaction_difference'] / 2
         high = target_temp + self.component.config['reaction_difference'] / 2
 
-        if not get_current_user():
-            introduce(get_system_user())
-
         if mode in ('auto', 'heater'):
             if (not heater or not heater.alive) and mode == 'heater':
                 self.component.error_msg = "No heater"
@@ -671,7 +668,6 @@ class Watering(ControllerBase):
                     minute_to_start -= 24*60
 
             if minute_to_start <= local_minute < minute_to_start + gap:
-                introduce(get_system_user())
                 self.reset()
                 self.start()
 
@@ -929,7 +925,6 @@ class AlarmClock(ControllerBase):
                     continue
                 if event['uid'] in current_value['events_triggered']:
                     continue
-                introduce(get_system_user())
                 self._execute_event(event)
                 current_value['events_triggered'].append(event['uid'])
 

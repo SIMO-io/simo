@@ -1,7 +1,7 @@
 from rest_framework.authentication import SessionAuthentication, BasicAuthentication
 from rest_framework import HTTP_HEADER_ENCODING, exceptions
 from simo.users.models import User
-from simo.users.middleware import introduce as introduce_user
+from simo.users.utils import introduce_user
 
 
 class SecretKeyAuth(BasicAuthentication):

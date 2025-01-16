@@ -1,25 +1,19 @@
 import pytz
-import threading
-import re
 from django.utils import timezone
 from django.shortcuts import render
 
 
-_thread_locals = threading.local()
+class InstanceCarrier:
+    instance = None
 
-
-def get_current_request():
-    try:
-        return _thread_locals.request
-    except:
-        pass
+_instance_carrier = InstanceCarrier()
 
 
 def introduce_instance(instance, request=None):
     if request and request.user.is_authenticated \
     and instance not in request.user.instances:
         return
-    _thread_locals.instance = instance
+    _instance_carrier.instance = instance
     if request:
         request.session['instance_id'] = instance.id
         request.instance = instance
@@ -28,7 +22,7 @@ def introduce_instance(instance, request=None):
 def drop_current_instance(request=None):
     if request and 'instance_id' in request.session:
         request.session.pop('instance_id')
-    _thread_locals.instance = None
+    _instance_carrier.instance = None
 
 
 def get_current_instance(request=None):
@@ -42,7 +36,7 @@ def get_current_instance(request=None):
         else:
             introduce_instance(instance, request)
 
-    instance = getattr(_thread_locals, 'instance', None)
+    instance = getattr(_instance_carrier, 'instance', None)
 
     # NEVER FORCE THIS! IT's A very BAD IDEA!
     # For example gateways run on an instance neutral environment!
@@ -57,7 +51,6 @@ def get_current_instance(request=None):
 def simo_router_middleware(get_response):
 
     def middleware(request):
-        _thread_locals.request = request
 
         request.relay = None
 

@@ -9,7 +9,7 @@ from django.utils import timezone
 import paho.mqtt.client as mqtt
 from simo.core.utils.helpers import get_self_ip
 from simo.core.models import Component, PublicFile
-from simo.core.middleware import introduce_instance, drop_current_instance
+from simo.core.middleware import drop_current_instance
 from simo.core.gateways import BaseObjectCommandsGatewayHandler
 from simo.core.forms import BaseGatewayForm
 from simo.core.events import GatewayObjectCommand, get_event_obj

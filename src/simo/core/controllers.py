@@ -10,8 +10,7 @@ from django.core.exceptions import ValidationError
 from django.utils import timezone
 from django.template.loader import render_to_string
 from django.utils.translation import gettext_lazy as _
-from simo.users.middleware import introduce, get_current_user
-from simo.users.utils import get_device_user
+from simo.users.utils import introduce_user, get_current_user, get_device_user
 from .utils.helpers import is_hex_color, classproperty
 # from django.utils.functional import classproperty
 from .gateways import BaseGatewayHandler
@@ -291,10 +290,6 @@ class ControllerBase(ABC):
         if not actor:
             actor = get_current_user()
 
-        # Introducing user to this thread for changes that might happen to other components
-        # in relation to the change of this component
-        introduce(actor)
-
         self.component.refresh_from_db()
         if value != self.component.value:
             self.component.value_previous = self.component.value
@@ -319,7 +314,7 @@ class ControllerBase(ABC):
 
         # Introducing user to this thread for changes that might happen to other components
         # in relation to the change of this component
-        introduce(actor)
+        introduce_user(actor)
         self.component.alive = is_alive
         if error_msg != None:
             self.component.error_msg = error_msg if error_msg.strip() else None

@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from collections.abc import Iterable
-from simo.core.middleware import get_current_request, get_current_instance
+from simo.core.middleware import get_current_instance
 from simo.core.utils.api import ReadWriteSerializerMethodField
 from .models import (
     User, PermissionsRole, ComponentPermission,
@@ -38,7 +38,7 @@ class UserSerializer(serializers.ModelSerializer):
             url = obj.avatar['avatar'].url
         except:
             return
-        request = get_current_request()
+        request = self.context['request']
         if request:
             url = request.build_absolute_uri(url)
         return {

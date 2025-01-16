@@ -123,3 +123,5 @@ class RolesAutocomplete(autocomplete.Select2QuerySetView):
             qs = search_queryset(qs, self.q, ('name',))
 
         return qs.distinct()
+
+
