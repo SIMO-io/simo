@@ -124,7 +124,7 @@ class ConfigFieldsMixin:
                     continue
 
         if commit:
-            from simo.users.middleware import get_current_user
+            from simo.users.utils import get_current_user
             actor = get_current_user()
             if self.instance.pk:
                 verb = 'modified'

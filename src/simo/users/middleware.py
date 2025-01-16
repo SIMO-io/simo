@@ -1,6 +1,9 @@
 # -*- coding: utf-8 -*-
 
-from .utils import introduce_user
+from .utils import introduce_user, get_current_user # legacy support for older third party apps
+
+# legacy support
+introduce = introduce_user
 
 
 class IntroduceUser:

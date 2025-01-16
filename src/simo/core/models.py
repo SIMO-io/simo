@@ -494,7 +494,7 @@ def is_in_alarm(self):
         )
 
     def save(self, *args, **kwargs):
-        from simo.users.middleware import get_current_user
+        from simo.users.utils import get_current_user
         if self.alarm_category is not None:
             if self.arm_status == 'pending-arm':
                 if not self.is_in_alarm():

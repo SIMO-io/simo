@@ -58,7 +58,7 @@ class ComponentsManager(models.Manager):
         """
         from .models import Component
         from .controllers import BEFORE_SEND
-        from simo.users.middleware import get_current_user
+        from simo.users.utils import get_current_user
         from .events import GatewayObjectCommand
 
         for component, value in data.items():

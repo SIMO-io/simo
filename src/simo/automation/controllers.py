@@ -8,7 +8,7 @@ from bs4 import BeautifulSoup
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 from simo.conf import dynamic_settings
-from simo.users.middleware import get_current_user
+from simo.users.utils import get_current_user
 from simo.core.models import RUN_STATUS_CHOICES_MAP, Component
 from simo.core.utils.operations import OPERATIONS
 from simo.core.middleware import get_current_instance

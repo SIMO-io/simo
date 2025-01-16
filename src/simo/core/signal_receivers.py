@@ -18,7 +18,7 @@ def create_instance_defaults(sender, instance, created, **kwargs):
     if not created:
         return
 
-    from simo.users.middleware import get_current_user
+    from simo.users.utils import get_current_user
     actor = get_current_user()
     action.send(
         actor, target=instance, verb="instance created",
@@ -121,7 +121,7 @@ def create_instance_defaults(sender, instance, created, **kwargs):
 @receiver(post_save, sender=Zone)
 @receiver(post_save, sender=Category)
 def post_save_actions_dispatcher(sender, instance, created, **kwargs):
-    from simo.users.middleware import get_current_user
+    from simo.users.utils import get_current_user
     actor = get_current_user()
     if created:
         verb = 'created'

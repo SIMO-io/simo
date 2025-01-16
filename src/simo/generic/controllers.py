@@ -8,8 +8,6 @@ from django.utils.functional import cached_property
 from django.utils.translation import gettext_lazy as _
 from django.conf import settings
 from django.urls import reverse_lazy
-from simo.users.middleware import get_current_user, introduce
-from simo.users.utils import get_system_user
 from simo.core.models import Component
 from simo.core.utils.helpers import get_random_string
 from simo.core.middleware import get_current_instance

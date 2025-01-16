@@ -24,8 +24,7 @@ from simo.core.utils.mixins import SimoAdminMixin
 from simo.core.utils.helpers import get_random_string
 from simo.core.events import OnChangeMixin
 from simo.core.middleware import get_current_instance
-from .middleware import get_current_user
-from .utils import rebuild_authorized_keys
+from .utils import get_current_user, rebuild_authorized_keys
 from .managers import ActiveInstanceManager
 
 
