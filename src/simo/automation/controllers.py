@@ -297,10 +297,11 @@ class PresenceLighting(Script):
             ).first()
             if not comp or not comp.controller:
                 continue
-
-            if not light_params.get('off_value', 0):
+            try:
+                off_val = int(light_params.get('off_value', 0))
+            except:
                 off_val = 0
-            else:
+            if off_val != 0:
                 off_val = self.light_org_values.get(comp.id, 0)
             print(f"Send {off_val} to {comp}!")
             if comp.value != off_val:

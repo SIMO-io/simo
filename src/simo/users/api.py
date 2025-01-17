@@ -194,10 +194,10 @@ class UserDeviceReport(InstanceMixin, viewsets.GenericViewSet):
         user_device.users.add(request.user)
 
         log_datetime = timezone.now()
-        if request.data.get('timestamp'):
-            log_datetime = datetime.datetime.fromtimestamp(
-                int(float(request.GET['timestamp'])), pytz.utc
-            )
+        # if request.data.get('timestamp'):
+        #     log_datetime = datetime.datetime.fromtimestamp(
+        #         int(float(request.GET['timestamp'])), pytz.utc
+        #     )
 
         relay = None
         if request.META.get('HTTP_HOST', '').endswith('.simo.io'):
