@@ -6,7 +6,6 @@ import json
 import time
 import multiprocessing
 import threading
-import traceback
 from django.conf import settings
 from django.utils import timezone
 from django.db import connection as db_connection
@@ -43,10 +42,7 @@ class ScriptRunHandler(multiprocessing.Process):
     def run(self):
         db_connection.connect()
         self.component = Component.objects.get(id=self.component_id)
-        try:
-            tz = pytz.timezone(self.component.zone.instance.timezone)
-        except:
-            tz = pytz.timezone('UTC')
+        tz = pytz.timezone(self.component.zone.instance.timezone)
         timezone.activate(tz)
         introduce_instance(self.component.zone.instance)
         self.logger = get_component_logger(self.component)
@@ -235,8 +231,10 @@ class AutomationsGatewayHandler(GatesHandler, BaseObjectCommandsGatewayHandler):
     def watch_scripts(self):
         drop_current_instance()
         # observe running scripts and drop the ones that are no longer alive
-        dead_scripts = False
-        for id, process in list(self.running_scripts.items()):
+        for id, data in list(self.running_scripts.items()):
+            if time.time() - data['start_time'] < 5:
+                continue
+            process = data['proc']
 
             comp = Component.objects.filter(id=id).first()
             if comp and comp.value == 'finished':
@@ -252,12 +250,18 @@ class AutomationsGatewayHandler(GatesHandler, BaseObjectCommandsGatewayHandler):
                     self.running_scripts.pop(id)
                 continue
             else:
+                # it as been observed that is_alive might sometimes report false
+                # however the process is actually still running
+                process.kill()
                 self.last_death = time.time()
                 self.running_scripts.pop(id, None) # no longer running for sure!
                 if not comp or comp.value != 'running':
                     continue
 
                 if id not in self.terminating_scripts: # was not intentionaly terminated
+                    if comp:
+                        tz = pytz.timezone(comp.zone.instance.timezone)
+                        timezone.activate(tz)
                     logger = get_component_logger(comp)
                     logger.log(logging.INFO, "-------DEAD!-------")
                     comp.value = 'error'
@@ -348,30 +352,35 @@ class AutomationsGatewayHandler(GatesHandler, BaseObjectCommandsGatewayHandler):
 
     def start_script(self, component):
         print("START SCRIPT %s" % str(component))
+
         if component.id in self.running_scripts:
-            if component.value in ('finished', 'error', 'stopped'):
-                try:
-                    self.running_scripts[component.id].kill()
-                except:
-                    pass
-                self.running_scripts.pop(component.id, None)
-            elif component.id not in self.terminating_scripts \
-            and self.running_scripts[component.id].is_alive():
+            # it appears that the script is running and is perfectly healthy
+            # so we make sure it has correct value, do nothing else and return!
+            if component.id not in self.terminating_scripts \
+            and self.running_scripts[component.id]['proc'].is_alive():
                 if component.value != 'running':
                     component.value = 'running'
                     component.save()
                 return
-            else:
-                try:
-                    self.running_scripts[component.id].kill()
-                except:
-                    pass
 
-        self.running_scripts[component.id] = ScriptRunHandler(
-            component.id, multiprocessing.Event(),
-            daemon=True
+            # script is in terminating state or is no longer alive
+            # since starting of a new script was requested, we kill it viciously
+            # and continue on!
+            try:
+                self.running_scripts[component.id]['proc'].kill()
+            except:
+                pass
+            self.running_scripts.pop(component.id, None)
+
+
+        process = ScriptRunHandler(
+            component.id, multiprocessing.Event(), daemon=True
         )
-        self.running_scripts[component.id].start()
+        process.start()
+        self.running_scripts[component.id] = {
+            'proc': process, 'start_time': time.time()
+        }
+
 
     def stop_script(self, component, stop_status='stopped'):
         self.terminating_scripts.add(component.id)
@@ -389,17 +398,17 @@ class AutomationsGatewayHandler(GatesHandler, BaseObjectCommandsGatewayHandler):
         elif stop_status == 'stopped':
             logger.log(logging.INFO, "-------STOP-------")
 
-        if self.running_scripts[component.id].exit_in_use.is_set()\
-        and not self.running_scripts[component.id].exin_in_use_fail.is_set():
-            self.running_scripts[component.id].exit_event.set()
+        if self.running_scripts[component.id]['proc'].exit_in_use.is_set()\
+        and not self.running_scripts[component.id]['proc'].exin_in_use_fail.is_set():
+            self.running_scripts[component.id]['proc'].exit_event.set()
         else:
-            self.running_scripts[component.id].terminate()
+            self.running_scripts[component.id]['proc'].terminate()
 
         def kill():
             start = time.time()
             terminated = False
             while start > time.time() - 2:
-                if not self.running_scripts[component.id].is_alive():
+                if not self.running_scripts[component.id]['proc'].is_alive():
                     terminated = True
                     break
                 time.sleep(0.1)
@@ -408,12 +417,12 @@ class AutomationsGatewayHandler(GatesHandler, BaseObjectCommandsGatewayHandler):
                     logger.log(logging.INFO, "-------GATEWAY KILL-------")
                 else:
                     logger.log(logging.INFO, "-------KILL!-------")
-                self.running_scripts[component.id].kill()
+                self.running_scripts[component.id]['proc'].kill()
 
             component.set(stop_status)
             self.terminating_scripts.remove(component.id)
             # making sure it's fully killed along with it's child processes
-            self.running_scripts[component.id].kill()
+            self.running_scripts[component.id]['proc'].kill()
             self.running_scripts.pop(component.id, None)
             logger.handlers = []
 
