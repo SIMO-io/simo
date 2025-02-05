@@ -1,12 +1,14 @@
 import time
 import sys
 import traceback
-from threading import Timer
 from django.db.models.signals import pre_save, post_save, post_delete
 from django.dispatch import receiver
-from simo.core.models import Instance, Component
+from simo.core.models import Component
 from simo.users.models import InstanceUser
-
+from .tasks import (
+    notify_users_on_alarm_group_breach,
+    fire_breach_events
+)
 
 
 @receiver(post_save, sender=Component)
@@ -21,7 +23,7 @@ def handle_alarm_groups(sender, instance, *args, **kwargs):
 
     from .controllers import AlarmGroup
 
-    for alarm_group in Component.objects.filter(
+    for ag in Component.objects.filter(
         controller_uid=AlarmGroup.uid,
         config__components__contains=instance.id,
     ).exclude(value='disarmed'):
@@ -30,48 +32,44 @@ def handle_alarm_groups(sender, instance, *args, **kwargs):
         }
         stats[instance.arm_status] += 1
         for slave in Component.objects.filter(
-            pk__in=alarm_group.config['components'],
+            pk__in=ag.config['components'],
         ).exclude(pk=instance.pk):
             stats[slave.arm_status] += 1
-        alarm_group.config['stats'] = stats
-        alarm_group.save(update_fields=['config'])
 
-        if stats['disarmed'] == len(alarm_group.config['components']):
+        print(f"STATS OF {ag} are: {stats}")
+        ag.config['stats'] = stats
+
+
+        if stats['disarmed'] == len(ag.config['components']):
             alarm_group_value = 'disarmed'
-        elif stats['armed'] == len(alarm_group.config['components']):
+        elif stats['armed'] == len(ag.config['components']):
             alarm_group_value = 'armed'
         elif stats['breached']:
-            if alarm_group.value != 'breached':
-                def notify_users_security_breach(alarm_group_component_id):
-                    alarm_group_component = Component.objects.filter(
-                        id=alarm_group_component_id, value='breached'
-                    ).first()
-                    if not alarm_group_component:
-                        return
-                    breached_components = Component.objects.filter(
-                        pk__in=alarm_group_component.config['components'],
-                        arm_status='breached'
-                    )
-                    body = "Security Breach! " + '; '.join(
-                        [str(c) for c in breached_components]
-                    )
-                    from simo.notifications.utils import notify_users
-                    notify_users(
-                        'alarm', str(alarm_group_component), body,
-                        component=alarm_group_component
-                    )
-                if alarm_group.config.get('notify_on_breach') is not None:
-                    t = Timer(
-                        # give it one second to finish with other db processes.
-                        alarm_group.config['notify_on_breach'] + 1,
-                        notify_users_security_breach, [alarm_group.id]
-                    )
-                    t.start()
             alarm_group_value = 'breached'
         else:
             alarm_group_value = 'pending-arm'
 
-        alarm_group.controller.set(alarm_group_value)
+        print(f"{ag} value: {alarm_group_value}")
+
+        if alarm_group_value == 'breached' and instance.arm_status == 'breached':
+            if ag.value != 'breached':
+                ag.meta['breach_times'] = [time.time()]
+            else:
+                ag.meta['breach_times'].append(time.time())
+
+        ag.save(update_fields=['meta', 'config'])
+        ag.controller.set(alarm_group_value)
+
+        if alarm_group_value == 'breached' and instance.arm_status == 'breached':
+            for event in ag.config['breach_events']:
+                if event['uid'] in ag.meta.get('events_triggered', []):
+                    continue
+                threshold = event.get('threshold', 1)
+                if len(ag.meta['breach_times']) < threshold:
+                    continue
+                fire_breach_events.apply_async(
+                    args=[ag.id], countdown=event['delay']
+                )
 
 
 @receiver(pre_save, sender=Component)
@@ -85,8 +83,14 @@ def manage_alarm_groups(sender, instance, *args, **kwargs):
         return
 
     if instance.value == 'breached':
-        instance.meta['breach_start'] = time.time()
         instance.meta['events_triggered'] = []
+
+        if instance.config.get('notify_on_breach') is not None:
+            notify_users_on_alarm_group_breach.apply_async(
+                args=[instance.id],
+                countdown=instance.config['notify_on_breach']
+            )
+
     elif instance.get_dirty_fields()['value'] == 'breached' \
     and instance.value == 'disarmed':
         instance.meta['breach_start'] = None

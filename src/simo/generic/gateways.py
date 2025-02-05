@@ -185,8 +185,6 @@ class GenericGatewayHandler(
         ('watch_thermostats', 60),
         ('watch_alarm_clocks', 30),
         ('watch_watering', 60),
-        ('watch_alarm_events', 1),
-        ('watch_timers', 1),
         ('watch_main_states', 60),
         ('watch_groups', 60)
     )
@@ -326,42 +324,6 @@ class GenericGatewayHandler(
 
         for pk, other_group in other_alarm_groups.items():
             other_group.refresh_status()
-
-
-    def watch_alarm_events(self):
-        from .controllers import AlarmGroup
-        drop_current_instance()
-        for alarm in Component.objects.filter(
-            controller_uid=AlarmGroup.uid, value='breached',
-            meta__breach_start__gt=0
-        ):
-            for uid, event in alarm.controller.events_map.items():
-                if uid in alarm.meta.get('events_triggered', []):
-                    continue
-                if time.time() - alarm.meta['breach_start'] < event['delay']:
-                    continue
-                try:
-                    getattr(event['component'], event['breach_action'])()
-                except Exception:
-                    print(traceback.format_exc(), file=sys.stderr)
-                if not alarm.meta.get('events_triggered'):
-                    alarm.meta['events_triggered'] = [uid]
-                else:
-                    alarm.meta['events_triggered'].append(uid)
-                alarm.save(update_fields=['meta'])
-
-    def watch_timers(self):
-        drop_current_instance()
-        for component in Component.objects.filter(
-            meta__timer_to__gt=0
-        ).filter(meta__timer_to__lt=time.time()):
-            component.meta['timer_to'] = 0
-            component.meta['timer_start'] = 0
-            component.save()
-            try:
-                component.controller._on_timer_end()
-            except Exception as e:
-                print(traceback.format_exc(), file=sys.stderr)
 
 
     def set_get_day_evening_night_morning(self, state):

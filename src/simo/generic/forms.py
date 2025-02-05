@@ -157,6 +157,11 @@ class ThermostatConfigForm(BaseComponentForm):
 
 class AlarmBreachEventForm(forms.Form):
     uid = HiddenField(required=False)
+    threshold = forms.IntegerField(
+        label="Number of sensors breached",
+        min_value=1, max_value=5, initial=1,
+        help_text="React when at least given amount of sensors were breached."
+    )
     component = Select2ModelChoiceField(
         queryset=Component.objects.all(),
         url='autocomplete-component',
@@ -173,6 +178,7 @@ class AlarmBreachEventForm(forms.Form):
         help_text="Event will not fire if alarm group is disarmed "
                   "within given timeframe of seconds after the breach."
     )
+
     prefix = 'breach_events'
 
     def clean(self):

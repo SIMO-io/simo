@@ -289,6 +289,8 @@ class ControllerBase(ABC):
             actor = self._get_actor(value)
         if not actor:
             actor = get_current_user()
+        if actor:
+            introduce_user(actor)
 
         self.component.refresh_from_db()
         if value != self.component.value:
