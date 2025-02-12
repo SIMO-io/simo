@@ -3,6 +3,7 @@ Django settings for SIMO.io project.
 """
 import sys
 import os
+import datetime
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = '/etc/SIMO'
@@ -289,3 +290,17 @@ ACTSTREAM_SETTINGS = {
     'USE_JSONFIELD': True,
     'GFK_FETCH_DEPTH': 1,
 }
+
+
+class TimestampedStream:
+    def __init__(self, stream):
+        self.stream = stream
+    def write(self, data):
+        # Only add timestamp if the data isn’t just a newline.
+        if data != '\n':
+            timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            self.stream.write(f'[{timestamp}] {data}')
+        else:
+            self.stream.write(data)
+    def flush(self):
+        self.stream.flush()
