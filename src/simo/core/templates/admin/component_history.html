@@ -2,7 +2,7 @@
   <h3>Value:</h3>
   <ul style="margin-left: 1.5em;">
   {% for history_item in value_history %}
-    <li>[{{ history_item.user }}] {{ history_item.date }} - <strong>{{ history_item.value }}</strong></li>
+    <li>[{{ history_item.user }}] {{ history_item.date|date:"Y-m-d H:i:s" }} - <strong>{{ history_item.value }}</strong></li>
   {% endfor %}
   </ul>
 {% endif %}
@@ -12,7 +12,7 @@
   <h3>Security:</h3>
   <ul style="margin-left: 1.5em;">
   {% for history_item in arm_status_history %}
-    <li>[{{ history_item.user }}] {{ history_item.date }} - <strong>{{ history_item.value }}</strong></li>
+    <li>[{{ history_item.user }}] {{ history_item.date|date:"Y-m-d H:i:s" }} - <strong>{{ history_item.value }}</strong></li>
   {% endfor %}
   </ul>
 {% endif %}

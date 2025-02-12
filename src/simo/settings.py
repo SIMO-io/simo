@@ -294,6 +294,7 @@ ACTSTREAM_SETTINGS = {
 
 DATETIME_FORMAT = 'Y-m-d H:i:s'
 
+
 class TimestampedStream:
     """Adds timestamps to all the prints"""
 

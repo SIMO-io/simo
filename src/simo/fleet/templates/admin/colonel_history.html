@@ -1,5 +1,5 @@
 <ul style="margin-left: 1.5em;">
 {% for action in actions %}
-	<li>{{ action.timestamp }} - <strong>{{ action.verb }}</strong></li>
+	<li>{{ action.timestamp|date:"Y-m-d H:i:s" }} - <strong>{{ action.verb }}</strong></li>
 {% endfor %}
 </ul>
