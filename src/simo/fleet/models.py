@@ -288,7 +288,7 @@ def after_colonel_save(sender, instance, created, *args, **kwargs):
         else:
             verb = 'disconnected'
         action.send(
-            target=instance, verb=verb,
+            instance, target=instance, verb=verb,
             instance_id=instance.instance.id,
             action_type='colonel_status', value=verb
         )
