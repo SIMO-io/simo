@@ -5,6 +5,7 @@ import pytz
 import traceback
 import sys
 import zlib
+import time
 from django.db import transaction
 from logging.handlers import RotatingFileHandler
 from django.utils import timezone
@@ -27,10 +28,15 @@ from .controllers import TTLock
 
 @capture_socket_errors
 class FleetConsumer(AsyncWebsocketConsumer):
-    colonel = None
-    colonel_logger = None
-    connected = False
-    mqtt_client = None
+
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.colonel = None
+        self.colonel_logger = None
+        self.connected = False
+        self.mqtt_client = None
+        self.last_seen = 0
 
 
     async def disconnect(self, code):
@@ -190,9 +196,25 @@ class FleetConsumer(AsyncWebsocketConsumer):
                 )
 
             await asyncio.sleep(10)
+
             # Default pinging system sometimes get's lost somewhere,
-            # therefore we use our own to ensure connection
+            # therefore we use our own to ensure connection and understand if
+            # colonel is connected or not
+
             await self.send_data({'command': 'ping'})
+            ping_start = time.time()
+            await asyncio.sleep(0.1)
+
+            while ping_start > self.last_seen:
+                if time.time() - ping_start > 3:
+                    def disconnect_socket():
+                        self.colonel.socket_connected = False
+                        self.colonel.save(update_fields=['socket_connected'])
+                    await sync_to_async(disconnect_socket, thread_sensitive=True)()
+                    break
+                await asyncio.sleep(0.1)
+
+
 
     async def firmware_update(self, to_version):
         print("Firmware update: ", str(self.colonel))
@@ -453,6 +475,7 @@ class FleetConsumer(AsyncWebsocketConsumer):
 
 
     async def log_colonel_connected(self):
+        self.last_seen = time.time()
 
         def save_last_seen():
             self.colonel.socket_connected = True
