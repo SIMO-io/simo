@@ -1,4 +1,5 @@
 from threading import Timer
+from actstream.models import actor_stream
 from django.contrib import admin
 from django.utils.safestring import mark_safe
 from django.template.loader import render_to_string
@@ -60,10 +61,8 @@ class ColonelAdmin(admin.ModelAdmin):
     readonly_fields = (
         'type', 'uid', 'connected', 'last_seen',
         'firmware_version', 'newer_firmware_available',
+        'history',
     )
-    fields = (
-        'name', 'instance', 'enabled', 'firmware_auto_update'
-    ) + readonly_fields + ('pwm_frequency', 'logs_stream', 'log', )
 
     actions = (
         'check_for_upgrade', 'update_firmware', 'update_config', 'restart',
@@ -72,6 +71,19 @@ class ColonelAdmin(admin.ModelAdmin):
     )
 
     inlines = InterfaceInline, ColonelPinsInline
+
+    fieldsets = (
+        ("", {'fields': (
+            'name', 'instance', 'enabled', 'firmware_auto_update',
+            'type', 'uid', 'connected', 'last_seen',
+            'firmware_version', 'newer_firmware_available',
+            'pwm_frequency', 'logs_stream', 'log'
+        )}),
+        ("History", {
+            'fields': ('history',),
+            'classes': ('collapse',),
+        }),
+    )
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
@@ -165,6 +177,15 @@ class ColonelAdmin(admin.ModelAdmin):
             return mark_safe('<img src="%s" alt="True">' % static('admin/img/icon-yes.svg'))
         return mark_safe('<img src="%s" alt="False">' % static('admin/img/icon-no.svg'))
 
+    def history(self, obj):
+        if not obj:
+            return ''
+        actions = actor_stream(obj)[:100]
+        if not len(actions):
+            return ''
+        return render_to_string(
+            'admin/colonel_history.html', {'actions': actor_stream(obj)[:100]}
+        )
 
 @admin.register(Interface)
 class InterfaceAdmin(admin.ModelAdmin):

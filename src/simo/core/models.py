@@ -14,6 +14,7 @@ from django.conf import settings
 from django.core.files.storage import FileSystemStorage
 from timezone_utils.choices import ALL_TIMEZONES_CHOICES
 from location_field.models.plain import PlainLocationField
+from actstream import action # do not delete from here!
 from model_utils import FieldTracker
 from dirtyfields import DirtyFieldsMixin
 from simo.core.utils.mixins import SimoAdminMixin

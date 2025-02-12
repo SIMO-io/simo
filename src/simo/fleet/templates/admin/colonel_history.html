@@ -1,0 +1,6 @@
+<h3>History:</h3>
+<ul style="margin-left: 1.5em;">
+{% for action in actions %}
+	<li>{{ action.timestamp }} - <strong>{{ action.verb }}</strong></li>
+{% endfor %}
+</ul>

@@ -1,5 +1,6 @@
 import requests
 import time
+from actstream import action
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db import models
@@ -281,6 +282,17 @@ def after_colonel_save(sender, instance, created, *args, **kwargs):
             Interface.objects.create(colonel=instance, no=1)
             Interface.objects.create(colonel=instance, no=2)
 
+    if 'socket_connected' in instance.get_dirty_fields():
+        if instance.socket_connected:
+            verb = 'connected'
+        else:
+            verb = 'disconnected'
+        action.send(
+            target=instance, verb=verb,
+            instance_id=instance.instance.id,
+            action_type='colonel_status', value=verb
+        )
+
 
 @receiver(post_save, sender=Component)
 def post_component_save(sender, instance, created, *args, **kwargs):
@@ -469,7 +481,6 @@ def post_interface_save(sender, instance, created, *args, **kwargs):
             )
     else:
         InterfaceAddress.objects.filter(interface=instance).delete()
-
 
 
 

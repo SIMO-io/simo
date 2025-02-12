@@ -6,6 +6,18 @@ from celeryc import celery_app
 
 
 @celery_app.task
+def check_colonels_connected():
+    from .models import Colonel
+    drop_current_instance()
+    for lost_colonel in Colonel.objects.filter(
+        socket_connected=True,
+        last_seen__lt=timezone.now() - datetime.timedelta(seconds=20)
+    ):
+        lost_colonel.socket_connected = False
+        lost_colonel.save()
+
+
+@celery_app.task
 def check_colonel_components_alive():
     from simo.core.models import Component
     from .models import Colonel
@@ -24,4 +36,5 @@ def check_colonel_components_alive():
 
 @celery_app.on_after_finalize.connect
 def setup_periodic_tasks(sender, **kwargs):
+    sender.add_periodic_task(10, check_colonels_connected.s())
     sender.add_periodic_task(20, check_colonel_components_alive.s())
