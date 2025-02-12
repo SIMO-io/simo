@@ -195,7 +195,7 @@ class FleetConsumer(AsyncWebsocketConsumer):
                     self.colonel.minor_upgrade_available
                 )
 
-            await asyncio.sleep(10)
+            await asyncio.sleep(1)
 
             # Default pinging system sometimes get's lost somewhere,
             # therefore we use our own to ensure connection and understand if
