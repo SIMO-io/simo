@@ -315,7 +315,7 @@ def perform_backup():
 
     if other_month_folders:
         # delete old backups to free up at least 20G of space
-        while shutil.disk_usage('/media/backup').free < 20 * 1024 * 1024 * 1024:
+        while shutil.disk_usage(sd_mountpoint).free < 20 * 1024 * 1024 * 1024:
             remove_folder = other_month_folders.pop()[0]
             print(f"REMOVE: {remove_folder}")
             shutil.rmtree(remove_folder)
