@@ -195,7 +195,7 @@ class FleetConsumer(AsyncWebsocketConsumer):
                     self.colonel.minor_upgrade_available
                 )
 
-            await asyncio.sleep(1)
+            await asyncio.sleep(2)
 
             # Default pinging system sometimes get's lost somewhere,
             # therefore we use our own to ensure connection and understand if
@@ -388,8 +388,9 @@ class FleetConsumer(AsyncWebsocketConsumer):
         drop_current_instance()
         try:
             if text_data:
-                print(f"{self.colonel}: {text_data}")
                 data = json.loads(text_data)
+                if 'ping' not in data:
+                    print(f"{self.colonel}: {text_data}")
                 if 'get_config' in data:
                     config = await self.get_config_data()
                     print("Send config: ", config)
