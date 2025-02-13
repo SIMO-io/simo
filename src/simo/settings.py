@@ -295,21 +295,3 @@ ACTSTREAM_SETTINGS = {
 DATETIME_FORMAT = 'Y-m-d H:i:s'
 
 
-class TimestampedStream:
-    """Adds timestamps to all the prints"""
-
-    def __init__(self, stream):
-        self.stream = stream
-
-    def write(self, data):
-        if data != '\n':
-            timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            self.stream.write(f'[{timestamp}] {data}')
-        else:
-            self.stream.write(data)
-
-    def flush(self):
-        self.stream.flush()
-
-
-sys.stdout = TimestampedStream(sys.stdout)

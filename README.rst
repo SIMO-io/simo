@@ -1,5 +1,5 @@
 =================================
-`SIMO.io <https://simo.io>`_ - Automation on Steroids!
+`SIMO.io <https://simo.io>`_ - Smart Home Supremacy
 =================================
 
 Fully fledged `Python/Django <https://www.djangoproject.com/>`_ based smart home automation platform built by professionals
