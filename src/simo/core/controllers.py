@@ -289,12 +289,23 @@ class ControllerBase(ABC):
             actor = self._get_actor(value)
         if not actor:
             actor = get_current_user()
-        if actor:
-            introduce_user(actor)
 
         self.component.refresh_from_db()
         if value != self.component.value:
             self.component.value_previous = self.component.value
+            from .models import ComponentHistory
+            ComponentHistory.objects.create(
+                component=self.component, type='value', value=value,
+                user=actor
+            )
+            from actstream import action
+            action.send(
+                actor, target=self, verb="value change",
+                instance_id=self.component.zone.instance.id,
+                action_type='comp_value', value=value
+            )
+            actor.last_action = timezone.now()
+            actor.save()
         self.component.value = value
 
         self.component.change_init_by = None
@@ -302,6 +313,8 @@ class ControllerBase(ABC):
         self.component.change_init_to = None
         self.component.change_init_fingerprint = None
         self.component.save()
+
+
 
     def _receive_from_device(
         self, value, is_alive=True, battery_level=None, error_msg=None
@@ -314,9 +327,6 @@ class ControllerBase(ABC):
             init_by_device = True
             actor = get_device_user()
 
-        # Introducing user to this thread for changes that might happen to other components
-        # in relation to the change of this component
-        introduce_user(actor)
         self.component.alive = is_alive
         if error_msg != None:
             self.component.error_msg = error_msg if error_msg.strip() else None

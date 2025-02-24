@@ -510,18 +510,7 @@ def is_in_alarm(self):
 
         if self.pk:
             actor = get_current_user()
-            action_performed = False
-            if 'value' in dirty_fields:
-                ComponentHistory.objects.create(
-                    component=self, type='value', value=self.value,
-                    user=actor
-                )
-                action.send(
-                    actor, target=self, verb="value change",
-                    instance_id=self.zone.instance.id,
-                    action_type='comp_value', value=self.value
-                )
-                action_performed = True
+
             if 'arm_status' in dirty_fields:
                 ComponentHistory.objects.create(
                     component=self, type='security',
@@ -533,7 +522,6 @@ def is_in_alarm(self):
                     action_type='security', value=self.value
                 )
                 action_performed = True
-            if action_performed:
                 actor.last_action = timezone.now()
                 actor.save()
 
