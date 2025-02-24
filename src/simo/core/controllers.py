@@ -275,6 +275,7 @@ class ControllerBase(ABC):
             self.component.value = value
 
     def set(self, value, actor=None):
+        from simo.users.models import InstanceUser
         if self.component.value_translation:
             try:
                 namespace = {}
@@ -307,11 +308,14 @@ class ControllerBase(ABC):
             actor.last_action = timezone.now()
             actor.save()
         self.component.value = value
-
         self.component.change_init_by = None
         self.component.change_init_date = None
         self.component.change_init_to = None
         self.component.change_init_fingerprint = None
+        self.component.change_actor = InstanceUser.objects.filter(
+            instance=self.component.zone.instance,
+            user=actor
+        ).first()
         self.component.save()
 
 

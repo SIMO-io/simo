@@ -164,6 +164,7 @@ def post_save_change_events(sender, instance, created, **kwargs):
             ObjectChangeEvent(
                 target.zone.instance, target,
                 dirty_fields=dirty_fields,
+                actor=getattr(target, 'change_actor', None),
                 **data
             ).publish()
             for master in target.masters.all():

@@ -131,16 +131,16 @@ class OnChangeMixin:
 
         self.refresh_from_db()
 
-        if inspect.getfullargspec(self._on_change_function).args:
-            try:
-                self._on_change_function(self)
-            except Exception:
-                print(traceback.format_exc(), file=sys.stderr)
-        else:
-            try:
-                self._on_change_function()
-            except Exception:
-                print(traceback.format_exc(), file=sys.stderr)
+        no_args = len(inspect.getfullargspec(self._on_change_function).args)
+        args = []
+        if no_args > 0:
+            args = [self]
+        if no_args > 1:
+            args.append(payload.get('actor'))
+        try:
+            self._on_change_function(*args)
+        except Exception:
+            print(traceback.format_exc(), file=sys.stderr)
 
     def on_change(self, function):
         if function:
