@@ -300,7 +300,7 @@ class ControllerBase(ABC):
             )
             from actstream import action
             action.send(
-                actor, target=self, verb="value change",
+                actor, target=self.component, verb="value change",
                 instance_id=self.component.zone.instance.id,
                 action_type='comp_value', value=value
             )
