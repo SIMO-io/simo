@@ -132,6 +132,8 @@ class OnChangeMixin:
         self.refresh_from_db()
 
         no_args = len(inspect.getfullargspec(self._on_change_function).args)
+        if inspect.ismethod(self._on_change_function):
+            no_args -= 1
         args = []
         if no_args > 0:
             args = [self]
