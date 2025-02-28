@@ -106,10 +106,12 @@ def create_instance_defaults(sender, instance, created, **kwargs):
     # Create default User permission roles
 
     PermissionsRole.objects.create(
-        instance=instance, name="Admin", is_owner=True, is_superuser=True
+        instance=instance, name="Admin", is_owner=True, is_superuser=True,
+        can_manage_users = True
     )
     PermissionsRole.objects.create(
-        instance=instance, name="Owner", is_owner=True, is_default=True
+        instance=instance, name="Owner",
+        is_owner=True, is_default=True, can_manage_users=True
     )
     PermissionsRole.objects.create(
         instance=instance, name="Guest", is_owner=False
