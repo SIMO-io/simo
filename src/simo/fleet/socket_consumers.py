@@ -195,25 +195,14 @@ class FleetConsumer(AsyncWebsocketConsumer):
                     self.colonel.minor_upgrade_available
                 )
 
-            await asyncio.sleep(2)
-
             # Default pinging system sometimes get's lost somewhere,
             # therefore we use our own to ensure connection and understand if
             # colonel is connected or not
 
-            await self.send_data({'command': 'ping'})
-            ping_start = time.time()
-            await asyncio.sleep(0.1)
+            if time.time() - self.last_seen > 2:
+                await self.send_data({'command': 'ping'})
 
-            while ping_start > self.last_seen:
-                if time.time() - ping_start > 3:
-                    def disconnect_socket():
-                        self.colonel.socket_connected = False
-                        self.colonel.save(update_fields=['socket_connected'])
-                    await sync_to_async(disconnect_socket, thread_sensitive=True)()
-                    break
-                await asyncio.sleep(0.1)
-
+            await asyncio.sleep(2)
 
 
     async def firmware_update(self, to_version):
