@@ -2,7 +2,7 @@
 {% get_current_language as LANGUAGE_CODE %}{% get_current_language_bidi as LANGUAGE_BIDI %}
 <html lang="{{ LANGUAGE_CODE|default:"en-us" }}" {% if LANGUAGE_BIDI %}dir="rtl"{% endif %}>
 <head>
-<title>SIMO.io | {% if instances|length == 1 %}{{ instance.name }}{% else %}Hub{% endif %} Admin</title>
+<title>{{ current_instance.name }} Admin | SIMO.io</title>
 
 
 <style>
@@ -45,7 +45,7 @@
 
 {% block extrastyle %}{% endblock %}
 
-<link rel="shortcut icon" type="image/png" href="{% static 'logo/favicon_color_bg_w.svg' %}"/>
+<link rel="shortcut icon" type="image/png" href="{% static 'logo/favicon.png' %}"/>
 <link rel="stylesheet" href="{% static 'third_party/fontawesome-pro/css/all.min.css' %}" rel="stylesheet">
 
 <style>
@@ -53,8 +53,8 @@
       background: url({% static 'img/bg_dots.png' %}) repeat scroll 0 0 #ffffff;
   }
   #header{
-      background: linear-gradient(0.4turn, #091832, #000000);
-      background-image: url({% static 'img/setup_bg.jpg' %});
+      background: linear-gradient(0.4turn, #092632, #000000);
+      background-image: url({% static 'img/setup_bg1.jpg' %});
       background-position-y: -723px;
     }
 </style>
@@ -85,7 +85,7 @@
 <style>
   #instance-select{
     background: none;
-    color: #f3ff4a;
+    color: #fdff90;
     font-family: 'Russo One';
     font-size: 1rem;
     border: none;
@@ -102,7 +102,7 @@
     <div id="header" style="display:flex">
       <div style="display:flex">
         <a href="/admin/" >
-          <div id="branding" style="background-image: url({% static 'logo/logo_color_bg_b.svg' %})"></div>
+          <div id="branding" style="background-image: url({% static 'logo/logo_on_dark_white.png' %})"></div>
         </a>
         <div style="
               color: white;

@@ -95,13 +95,13 @@ a.section:link, a.section:visited{
 }
 
 .module h2, .module caption, .inline-group h2 {
-    background: linear-gradient(0.3turn, #202934, #08172a);
+    background: linear-gradient(0.3turn, #182f3a, #08222a);
     border-radius: 3px 3px 0px 0px;
     /*box-shadow: 0 8px 6px -6px #bbbbbb;*/
 }
 
 .module h2, .module caption, .inline-group h2 {
-    background: linear-gradient(0.3turn, #202934, #08172a);
+    background: linear-gradient(0.3turn, #182f3a, #08222a);
     border-radius: 3px 3px 0px 0px;
     /*box-shadow: 0 8px 6px -6px #bbbbbb;*/
 }
@@ -119,8 +119,8 @@ a.section:link, a.section:visited{
     background-repeat: no-repeat;
     position: relative;
     height: 37px;
-    width: 120px;
-    margin: 7px;
+    width: 130px;
+    margin: 7px 19px 7px 7px;
 }
 
 div.admin_shortcuts > ul.shortcuts {
