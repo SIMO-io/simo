@@ -157,10 +157,11 @@ class DHTSensor(FleeDeviceMixin, BasicSensorMixin, BaseMultiSensor):
         return new_val
 
 
-class BME680Sensor(FleeDeviceMixin, BaseMultiSensor):
+class BME680Sensor(DHTSensor):
     gateway_class = FleetGatewayHandler
     config_form = BME680SensorConfigForm
-    name = "BME680 Climate Sensor (I2C)"
+    name = "BME68X Climate Sensor (I2C)"
+
 
 
 class MCP9808TempSensor(FleeDeviceMixin, BaseNumericSensor):
