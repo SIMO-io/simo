@@ -106,6 +106,8 @@ class OnChangeMixin:
         mqtt_client.subscribe(event.get_topic())
 
     def on_mqtt_message(self, client, userdata, msg):
+        from simo.users.models import InstanceUser
+
         payload = json.loads(msg.payload)
         if not self._on_change_function:
             return
@@ -138,7 +140,9 @@ class OnChangeMixin:
         if no_args > 0:
             args = [self]
         if no_args > 1:
-            args.append(payload.get('actor'))
+            actor = payload.get('actor')
+            if isinstance(actor, InstanceUser):
+                args.append(actor)
         try:
             self._on_change_function(*args)
         except Exception:
