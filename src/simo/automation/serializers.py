@@ -22,7 +22,7 @@ class CategorySerializer(serializers.ModelSerializer):
 class ComponentSerializer(serializers.ModelSerializer):
     '''Component serializer for AI scripts helper'''
 
-    MAX_LENGTH = 500
+    MAX_LENGTH = 1000
 
     value = serializers.SerializerMethodField()
     meta = serializers.SerializerMethodField()
@@ -37,19 +37,20 @@ class ComponentSerializer(serializers.ModelSerializer):
 
     def get_value(self, obj):
         if obj.base_type in ('ip-camera', ):
-            return 'SKIP'
+            return ''
+
         if len(str(obj.value)) > self.MAX_LENGTH:
-            return 'SKIP'
+            return str(obj.value)[:self.MAX_LENGTH] + "...TRUNCATED!"
         return obj.value
 
     def get_meta(self, obj):
         if len(str(obj.value)) > self.MAX_LENGTH:
-            return 'SKIP'
+            return str(obj.value)[:self.MAX_LENGTH] + "...TRUNCATED!"
         return obj.value
 
     def get_config(self, obj):
         if len(str(obj.value)) > self.MAX_LENGTH:
-            return 'SKIP'
+            return str(obj.value)[:self.MAX_LENGTH] + "...TRUNCATED!"
         return obj.value
 
 
