@@ -44,14 +44,14 @@ class ComponentSerializer(serializers.ModelSerializer):
         return obj.value
 
     def get_meta(self, obj):
-        if len(str(obj.value)) > self.MAX_LENGTH:
-            return str(obj.value)[:self.MAX_LENGTH] + "...TRUNCATED!"
-        return obj.value
+        if len(str(obj.meta)) > self.MAX_LENGTH:
+            return str(obj.meta)[:self.MAX_LENGTH] + "...TRUNCATED!"
+        return obj.meta
 
     def get_config(self, obj):
-        if len(str(obj.value)) > self.MAX_LENGTH:
-            return str(obj.value)[:self.MAX_LENGTH] + "...TRUNCATED!"
-        return obj.value
+        if len(str(obj.config)) > self.MAX_LENGTH:
+            return str(obj.config)[:self.MAX_LENGTH] + "...TRUNCATED!"
+        return obj.config
 
 
 class UserSerializer(serializers.ModelSerializer):

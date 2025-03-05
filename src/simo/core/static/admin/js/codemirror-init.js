@@ -20,7 +20,7 @@
         var editor = CodeMirror.fromTextArea(
           element, settings
         );
-        editor.setSize(650, "100%");
+        editor.setSize(900, "100%");
         editor.on('change', function(editor){
           $(element).val(editor.doc.getValue());
         });

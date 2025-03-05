@@ -1071,7 +1071,13 @@ class StateSelect(ControllerBase):
     config_form = StateSelectForm
 
     default_config = {'states': []}
-    default_value = ''
+
+    @property
+    def default_value(self):
+        try:
+            return self.component.config['states'][0]['slug']
+        except:
+            return ''
 
     def _validate_val(self, value, occasion=None):
         available_options = [s.get('slug') for s in self.component.config.get('states', [])]

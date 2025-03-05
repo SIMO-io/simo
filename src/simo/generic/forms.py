@@ -89,6 +89,7 @@ class ThermostatConfigForm(BaseComponentForm):
             ], 'base_type'),
         )
     )
+    # TODO: support for multiple heaters
     heater = Select2ModelChoiceField(
         queryset=Component.objects.filter(base_type=Switch.base_type),
         required=False,
@@ -99,6 +100,7 @@ class ThermostatConfigForm(BaseComponentForm):
             ], 'base_type'),
         )
     )
+    # TODO: support for multiple coolers
     cooler = Select2ModelChoiceField(
         queryset=Component.objects.filter(base_type=Switch.base_type),
         required=False,

@@ -284,6 +284,7 @@ class ComponentAdminForm(forms.ModelForm):
         patched to send all keys, even for checkboxes, via
         input[type="hidden"] fields or some JS magic.
         """
+        # TODO: When creating new component, via admin interface and disabling show_in_app, show_in_app field get's removed, cince there is no "input[type="hidden"] fields or some JS magic" logic implemented.
         if data is None:
             # not a form submission, don't modify self.fields
             return
