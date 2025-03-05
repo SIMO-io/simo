@@ -55,7 +55,7 @@ class SIMOUserBackend(ModelBackend):
 
 class SSOBackend(ModelBackend):
 
-    @transaction.atomic
+
     def authenticate(self, request, user_data=None, **kwargs):
         system_user_emails = ('system@simo.io', 'device@simo.io')
         if not user_data:
@@ -113,9 +113,12 @@ class SSOBackend(ModelBackend):
         if user_data.get('avatar_url') \
         and user.avatar_url != user_data.get('avatar_url'):
             user.avatar_url = user_data.get('avatar_url')
-            resp = requests.get(user.avatar_url)
-            user.avatar.save(
-                os.path.basename(user.avatar_url), io.BytesIO(resp.content)
-            )
+            try:
+                resp = requests.get(user.avatar_url)
+                user.avatar.save(
+                    os.path.basename(user.avatar_url), io.BytesIO(resp.content)
+                )
+            except:
+                pass
 
         return user
