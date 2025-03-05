@@ -29,7 +29,10 @@ class UserSerializer(serializers.ModelSerializer):
         )
 
     def get_is_active(self, obj):
-        return obj.is_active
+        iu = InstanceUser.objects.filter(
+            user=obj, instance=get_current_instance()
+        ).first()
+        return iu.is_active
 
     def get_avatar(self, obj):
         if not obj.avatar:
@@ -45,7 +48,6 @@ class UserSerializer(serializers.ModelSerializer):
             'url': url,
             'last_change': obj.avatar_last_change.timestamp()
         }
-
 
     def get_at_home(self, obj):
         iu = InstanceUser.objects.filter(
@@ -79,6 +81,7 @@ class InstanceInvitationSerializer(serializers.ModelSerializer):
         read_only_fields = (
             'instance', 'token', 'from_user', 'taken_by',
         )
+
 
 class FingerprintSerializer(serializers.ModelSerializer):
     type = serializers.SerializerMethodField()

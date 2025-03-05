@@ -103,7 +103,6 @@ class AuthenticateView(LoginView):
                 )
             })
 
-
         login(request, user, backend=user.backend)
         next = self.get_next()
         if request.headers.get('User-Agent', '').startswith("SIMO"):

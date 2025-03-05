@@ -363,7 +363,7 @@ class User(AbstractBaseUser, SimoAdminMixin):
         if cached_value is None:
             if self.is_master:
                 if not self.instance_roles.all().count():
-                    # Master who have no roles on any instance are in GOD mode!
+                    # Masters who have no roles on any instances are in GOD mode!
                     # It can not be disabled by anybody, nor it is seen by anybody. :)
                     cached_value = True
                 else:
@@ -396,7 +396,7 @@ class User(AbstractBaseUser, SimoAdminMixin):
         self.instance_roles.filter(
             instance=instance
         ).update(is_active=bool(val))
-        cache_key = f'user-{self.id}_is_active_instance-{instance.id}'
+        cache_key = f'user-{self.id}_is_active'
         try:
             cache.delete(cache_key)
         except:
