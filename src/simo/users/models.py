@@ -354,7 +354,6 @@ class User(AbstractBaseUser, SimoAdminMixin):
             role__in=self.roles.all()
         )
 
-
     @property
     def is_active(self):
         if self._is_active is not None:

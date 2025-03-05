@@ -81,13 +81,12 @@ class SSOBackend(ModelBackend):
                 token=user_data.get('invitation_token'),
                 taken_by__isnull=True, expire_date__gt=timezone.now()
             )
-        except InstanceInvitation.DoesNotExist:
-            invitation = None
-        else:
             if not user:
                 user = User.objects.create(
                     email=user_data['email'], name=user_data['name']
                 )
+        except InstanceInvitation.DoesNotExist:
+            invitation = None
 
         if not user:
             return
@@ -95,13 +94,14 @@ class SSOBackend(ModelBackend):
         if invitation:
             invitation.taken_by = user
             invitation.save()
+            from simo.core.middleware import introduce_instance
+            introduce_instance(invitation.instance)
             InstanceUser.objects.update_or_create(
                 user=user, instance=invitation.instance,
                 defaults={'role': invitation.role}
             )
-            if not user.is_active:
-                user.is_active = True
-                user.save()
+            user.is_active = True
+            user.save()
 
         if not user.is_active:
             return
