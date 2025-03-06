@@ -190,6 +190,7 @@ def get_components_queryset(instance, user):
             for cp in user_role.component_permissions.all():
                 if cp.read:
                     c_ids.append(cp.component.id)
+
         qs = qs.filter(id__in=c_ids)
 
     return qs.select_related(
@@ -221,8 +222,12 @@ class ComponentViewSet(
         return qs
 
     def perform_create(self, serializer):
-        serializer.save()
+        new_component = serializer.save()
+        print("NEW COMPONENT: ", new_component)
         cache.delete(f"main-components-{self.instance.id}")
+        role = self.request.user.get_role(self.instance)
+        role_cache_key = f'user-{role.id}_instance-{self.instance.id}_role'
+        cache.delete(role_cache_key)
 
     def get_view_name(self):
         singular = "Component"
