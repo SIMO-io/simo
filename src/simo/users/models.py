@@ -269,8 +269,8 @@ class User(AbstractBaseUser, SimoAdminMixin):
         return self.is_active and self.is_master
 
     def get_role(self, instance):
-        if instance.id in self._instance_roles:
-            return self._instance_roles[instance.id]
+        # if instance.id in self._instance_roles:
+        #     return self._instance_roles[instance.id]
         cache_key = f'user-{self.id}_instance-{instance.id}_role'
         role = cache.get(cache_key)
         if role is None:
