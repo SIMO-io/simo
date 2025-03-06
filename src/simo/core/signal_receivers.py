@@ -189,9 +189,7 @@ def post_save_change_events(sender, instance, created, **kwargs):
         def clear_api_cache():
             cache.delete(f"main-components-{instance.zone.instance.id}")
             from simo.users.models import User
-            for user in User.objects.filter(
-                instance=instance.zone.instance
-            ):
+            for user in User.objects.all():
                 role_cache_key = f'user-{user.id}_instance-' \
                                  f'{instance.zone.instance.id}_role'
                 cache.delete(role_cache_key)
