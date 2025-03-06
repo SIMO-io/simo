@@ -280,7 +280,7 @@ class User(AbstractBaseUser, SimoAdminMixin):
                 'component_permissions', 'component_permissions__component'
             ).first()
             if role:
-                cache.set(cache_key, role, 5)
+                cache.set(cache_key, role, 60)
         self._instance_roles[instance.id] = role
         return self._instance_roles[instance.id]
 
