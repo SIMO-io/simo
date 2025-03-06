@@ -79,7 +79,7 @@ class Thermostat(ControllerBase):
         }
 
     def _validate_val(self, value, occasion=None):
-       pass
+       return value
 
     def _get_default_user_config(self):
         instance = get_current_instance()
