@@ -180,11 +180,8 @@ def get_main_components_ids(instance):
 
 def get_components_queryset(instance, user):
     qs = Component.objects.filter(zone__instance=instance)
-    if user.is_master or user.is_superuser:
-        pass
-    else:
+    if not user.is_master:
         c_ids = get_main_components_ids(instance)
-
         user_role = user.get_role(instance)
         if user_role:
             for cp in user_role.component_permissions.all():
