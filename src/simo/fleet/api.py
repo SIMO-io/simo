@@ -75,6 +75,14 @@ class ColonelsViewSet(InstanceMixin, viewsets.ModelViewSet):
         colonel.move_to(target)
         return RESTResponse({'status': 'success'})
 
+    def perform_destroy(self, instance):
+        if instance.components.all().count():
+            raise APIValidationError(
+                _('Deleting colonel which has components is not allowed!'),
+                code=400
+            )
+        instance.delete()
+
 
 class InterfaceViewSet(
     InstanceMixin,
