@@ -220,6 +220,10 @@ class ComponentViewSet(
                 return qs
         return qs
 
+    def perform_create(self, serializer):
+        serializer.save()
+        cache.delete(f"main-components-{self.instance.id}")
+
     def get_view_name(self):
         singular = "Component"
         plural = "Components"
