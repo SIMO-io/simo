@@ -188,10 +188,11 @@ def post_save_change_events(sender, instance, created, **kwargs):
     if created:
         def clear_api_cache():
             cache.delete(f"main-components-{instance.zone.instance.id}")
-            for role in PermissionsRole.objects.filter(
+            from simo.users.models import User
+            for user in User.objects.filter(
                 instance=instance.zone.instance
             ):
-                role_cache_key = f'user-{role.id}_instance-' \
+                role_cache_key = f'user-{user.id}_instance-' \
                                  f'{instance.zone.instance.id}_role'
                 cache.delete(role_cache_key)
         transaction.on_commit(clear_api_cache)
