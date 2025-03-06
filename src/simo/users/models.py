@@ -297,7 +297,7 @@ class User(AbstractBaseUser, SimoAdminMixin):
             for role in self.roles.all().select_related('instance'):
                 if role.instance == instance:
                     cached_val = role.id
-                    cache.set(cache_key, role.id, 20)
+                    cache.set(cache_key, role.id, 60)
                     return cached_val
         return cached_val
 
