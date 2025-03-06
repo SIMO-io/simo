@@ -1,5 +1,6 @@
 import os
 import shutil
+from django.core.cache import cache
 from django.db import transaction
 from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
@@ -183,6 +184,17 @@ def post_save_change_events(sender, instance, created, **kwargs):
                 ).publish()
 
     transaction.on_commit(post_update)
+
+    if created:
+        def clear_api_cache():
+            cache.delete(f"main-components-{instance.zone.instance.id}")
+            for role in PermissionsRole.objects.filter(
+                instance=instance.zone.instance
+            ):
+                role_cache_key = f'user-{role.id}_instance-' \
+                                 f'{instance.zone.instance.id}_role'
+                cache.delete(role_cache_key)
+        transaction.on_commit(clear_api_cache)
 
 
 @receiver(post_save, sender=Gateway)

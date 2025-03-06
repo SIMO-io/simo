@@ -221,14 +221,6 @@ class ComponentViewSet(
                 return qs
         return qs
 
-    def perform_create(self, serializer):
-        new_component = serializer.save()
-        print("NEW COMPONENT: ", new_component)
-        cache.delete(f"main-components-{self.instance.id}")
-        role = self.request.user.get_role(self.instance)
-        role_cache_key = f'user-{role.id}_instance-{self.instance.id}_role'
-        cache.delete(role_cache_key)
-
     def get_view_name(self):
         singular = "Component"
         plural = "Components"
