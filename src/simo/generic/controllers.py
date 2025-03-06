@@ -8,6 +8,7 @@ from django.utils.functional import cached_property
 from django.utils.translation import gettext_lazy as _
 from django.conf import settings
 from django.urls import reverse_lazy
+from simo.users.utils import get_system_user
 from simo.core.models import Component
 from simo.core.utils.helpers import get_random_string
 from simo.core.middleware import get_current_instance
@@ -78,7 +79,7 @@ class Thermostat(ControllerBase):
         }
 
     def _validate_val(self, value, occasion=None):
-        raise ValidationError("This component type does not accept set value!")
+       pass
 
     def _get_default_user_config(self):
         instance = get_current_instance()
@@ -152,6 +153,7 @@ class Thermostat(ControllerBase):
             data['weekly'][str(localtime.weekday() + 1)])
 
     def evaluate(self):
+
         from simo.core.models import Component
         self.component.refresh_from_db()
         tz = pytz.timezone(self.component.zone.instance.timezone)
@@ -185,12 +187,12 @@ class Thermostat(ControllerBase):
         target_temp = self.get_current_target_temperature()
         mode = self.component.config['user_config'].get('mode', 'auto')
 
-        self.component.value = {
+        self.component.set({
             'mode': mode,
             'current_temp': current_temp,
             'target_temp': target_temp,
             'heating': False, 'cooling': False
-        }
+        }, actor=get_system_user())
 
         low = target_temp - self.component.config['reaction_difference'] / 2
         high = target_temp + self.component.config['reaction_difference'] / 2

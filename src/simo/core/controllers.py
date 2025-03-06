@@ -318,8 +318,6 @@ class ControllerBase(ABC):
         ).first()
         self.component.save()
 
-
-
     def _receive_from_device(
         self, value, is_alive=True, battery_level=None, error_msg=None
     ):
