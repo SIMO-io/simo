@@ -224,7 +224,7 @@ CELERY_BROKER_URL = 'redis://127.0.0.1:6379/%d' % REDIS_DB['celery']
 
 LOGIN_URL = "login"
 LOGIN_REDIRECT_URL = "/admin/"
-LOGOUT_REDIRECT_URL = 'https://simo.io/hubs/my-hubs/'
+LOGOUT_REDIRECT_URL = 'https://simo.io/hubs/my-instances/'
 
 
 SITE_ID = 1
