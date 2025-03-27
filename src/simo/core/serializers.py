@@ -310,7 +310,6 @@ class ComponentSerializer(FormSerializer):
         field_mapping = {
             HiddenField: HiddenSerializerField,
             forms.TypedChoiceField: serializers.ChoiceField,
-            forms.FloatField: serializers.FloatField,
             forms.SlugField: serializers.CharField,
             PlainLocationField: LocationSerializer,
             forms.ModelChoiceField: ComponentPrimaryKeyRelatedField,
@@ -322,8 +321,6 @@ class ComponentSerializer(FormSerializer):
             SoundField: SoundSerializer,
             PasswordField: PasswordSerializer
         }
-
-
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
