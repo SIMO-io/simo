@@ -855,13 +855,13 @@ class AirQualitySensor(FleeDeviceMixin, BaseMultiSensor):
 
     def _receive_from_device(self, value, *args, **kwargs):
         aqi = 5
-        if aqi < 812:
+        if value < 812:
             aqi = 4
-        if aqi < 325:
+        if value < 325:
             aqi = 3
-        if aqi < 162:
+        if value < 162:
             aqi = 2
-        if aqi < 65:
+        if value < 65:
             aqi = 1
         value = [
             ["TVOC", value, "ppb"],
@@ -1008,58 +1008,3 @@ class RoomZonePresenceSensor(FleeDeviceMixin, BaseBinarySensor):
             }
         ).publish()
         return [new_component]
-
-    @classmethod
-    @atomic
-    def _process_discovery(cls, started_with, data):
-        if data['discovery-result'] == 'fail':
-            return {'error': 'Error!'}
-
-        from simo.core.models import Component
-
-        comp = Component.objects.filter(
-            controller_uid=cls.uid,
-            meta__finalization_data__temp_id=data['result']['id']
-        ).first()
-        if comp:
-            print(f"{comp} is already created.")
-            GatewayObjectCommand(
-                comp.gateway, Colonel(
-                    id=comp.config['colonel']
-                ), command='finalize',
-                data=comp.meta['finalization_data']
-            ).publish()
-            return [comp]
-
-        started_with = deserialize_form_data(started_with)
-        form = cls.config_form(
-            controller_uid=cls.uid, data=started_with
-        )
-
-        if form.is_valid():
-            new_component = form.save()
-            new_component = Component.objects.get(id=new_component.id)
-            new_component.config.update(data.get('result', {}).get('config'))
-
-            # saving it to meta, for repeated delivery
-            new_component.meta['finalization_data'] = {
-                'temp_id': data['result']['id'],
-                'permanent_id': new_component.id,
-                'comp_config': {
-                    'type': cls.split('.')[-1],
-                    'family': new_component.controller.family,
-                    'config': json.loads(json.dumps(new_component.config))
-                }
-            }
-            new_component.save()
-            GatewayObjectCommand(
-                new_component.gateway, Colonel(
-                    id=new_component.config['colonel']
-                ), command='finalize',
-                data=new_component.meta['finalization_data']
-            ).publish()
-            return [new_component]
-
-        # Literally impossible, but just in case...
-        return {'error': 'INVALID INITIAL DISCOVERY FORM!'}
-
