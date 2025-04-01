@@ -1886,13 +1886,13 @@ class RoomZonePresenceConfigForm(BaseComponentForm):
     main_sensor = Select2ModelChoiceField(
         queryset=Component.objects.filter(
             controller_uid="simo.fleet.controllers.RoomPresenceSensor",
-            is_alive=True
+            alive=True
         ),
         url='autocomplete-component',
         forward=(
             forward.Const([
                 "simo.fleet.controllers.RoomPresenceSensor"
             ], 'controller_uid'),
-            forward.Const([True], 'is_alive'),
+            forward.Const([True], 'alive'),
         )
     )
