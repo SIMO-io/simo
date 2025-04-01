@@ -1840,7 +1840,8 @@ class RoomSensorDeviceConfigForm(BaseComponentForm):
         if not colonel:
             return
         from .controllers import (
-            AirQualitySensor, TempHumSensor, AmbientLightSensor, PresenceSensor
+            AirQualitySensor, TempHumSensor, AmbientLightSensor,
+            RoomPresenceSensor
         )
 
         org_name = self.cleaned_data['name']
@@ -1849,7 +1850,7 @@ class RoomSensorDeviceConfigForm(BaseComponentForm):
             (AirQualitySensor, 'leaf', 'air quality'),
             (TempHumSensor, 'temperature-half', 'temperature'),
             (AmbientLightSensor, 'brightness-low', 'brightness'),
-            (PresenceSensor, 'person', 'presence')
+            (RoomPresenceSensor, 'person', 'presence')
         ):
             default_icon = Icon.objects.filter(slug=icon).first()
             if default_icon:
