@@ -1818,3 +1818,81 @@ class DALILightSensorConfigForm(DALIDeviceConfigForm, BaseComponentForm):
 
 class DALIButtonConfigForm(DALIDeviceConfigForm, BaseComponentForm):
     pass
+
+
+class RoomSensorDeviceConfigForm(BaseComponentForm):
+    device = forms.ChoiceField()
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        choices = []
+        for colonel in Colonel.objects.filter(type='room-sensor'):
+            if not colonel.is_connected:
+                continue
+            choices.append((f"wifi-{colonel.id}", colonel.name))
+        self.fields['device'].choices = choices
+
+    def save(self, commit=True):
+        from simo.core.models import Icon
+        colonel = Colonel.objects.filter(
+            id=self.cleaned_data['device'][5:]
+        ).first()
+        if not colonel:
+            return
+        from .controllers import (
+            AirQualitySensor, TempHumSensor, AmbientLightSensor, PresenceSensor
+        )
+
+        org_name = self.cleaned_data['name']
+        org_icon = self.cleaned_data['icon']
+        for CtrlClass, icon, suffix in (
+            (AirQualitySensor, 'leaf', 'air quality'),
+            (TempHumSensor, 'temperature-half', 'temperature'),
+            (AmbientLightSensor, 'brightness-low', 'brightness'),
+            (PresenceSensor, 'person', 'presence')
+        ):
+            default_icon = Icon.objects.filter(slug=icon).first()
+            if default_icon:
+                self.cleaned_data['icon'] = default_icon.slug
+            else:
+                self.cleaned_data['icon'] = org_icon
+            self.cleaned_data['name'] = f"{org_name} {suffix}"
+            comp = Component.objects.filter(
+                config__colonel=colonel.id, controller_uid=CtrlClass.uid
+            ).first()
+
+            form = CtrlClass.config_form(
+                controller_uid=CtrlClass.uid, instance=comp,
+                data=self.cleaned_data
+            )
+            if form.is_valid():
+                comp = form.save()
+                comp.config['colonel'] = colonel.id
+                comp.save()
+            else:
+                raise Exception(form.errors)
+
+        GatewayObjectCommand(
+            comp.gateway, colonel, id=comp.id,
+            command='call', method='update_config', args=[
+                comp.controller._get_colonel_config()
+            ]
+        ).publish()
+
+        return comp
+
+
+class RoomZonePresenceConfigForm(BaseComponentForm):
+    main_sensor = Select2ModelChoiceField(
+        queryset=Component.objects.filter(
+            controller_uid="simo.fleet.controllers.RoomPresenceSensor",
+            is_alive=True
+        ),
+        url='autocomplete-component',
+        forward=(
+            forward.Const([
+                "simo.fleet.controllers.RoomPresenceSensor"
+            ], 'controller_uid'),
+            forward.Const([True], 'is_alive'),
+        )
+    )

@@ -366,7 +366,7 @@ class ComponentAdmin(EasyObjectsDeleteMixin, admin.ModelAdmin):
                     pop_fields_from_form(ctx['form'])
                     if ctx['form'].is_valid():
                         if ctx['form'].controller.is_discoverable:
-                            ctx['form'].controller.init_discovery(
+                            ctx['form'].controller._init_discovery(
                                 ctx['form'].cleaned_data
                             )
                             ctx['discovery_msg'] = ctx['form'].controller.discovery_msg

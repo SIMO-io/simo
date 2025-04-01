@@ -310,12 +310,20 @@ class Gateway(DirtyFieldsMixin, models.Model, SimoAdminMixin):
                     if result not in self.discovery['result']:
                         self.discovery['result'].append(result)
 
-
         self.save(update_fields=['discovery'])
+
 
     def finish_discovery(self):
+        from .utils.type_constants import CONTROLLER_TYPES_MAP
         self.discovery['finished'] = time.time()
         self.save(update_fields=['discovery'])
+        ControllerClass = CONTROLLER_TYPES_MAP.get(
+            self.discovery['controller_uid']
+        )
+        if hasattr(ControllerClass, '_finish_discovery'):
+            ControllerClass._finish_discovery(self.discovery['init_data'])
+
+
 
 
 class Component(DirtyFieldsMixin, models.Model, SimoAdminMixin, OnChangeMixin):

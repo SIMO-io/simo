@@ -1,4 +1,4 @@
-import json
+import json, ast
 from django.utils.translation import gettext_lazy as _
 from django.db.transaction import atomic
 from simo.core.middleware import get_current_instance
@@ -9,7 +9,7 @@ from simo.core.controllers import (
     NumericSensor as BaseNumericSensor,
     Switch as BaseSwitch, Dimmer as BaseDimmer,
     MultiSensor as BaseMultiSensor, RGBWLight as BaseRGBWLight,
-    Blinds as BaseBlinds, Gate as BaseGate
+    Blinds as BaseBlinds, Gate as BaseGate,
 )
 from simo.core.app_widgets import NumericSensorWidget, AirQualityWidget
 from simo.core.controllers import Lock, ControllerBase, SingleSwitchWidget
@@ -17,6 +17,7 @@ from simo.core.utils.helpers import heat_index
 from simo.core.utils.serialization import (
     serialize_form_data, deserialize_form_data
 )
+from simo.core.forms import BaseComponentForm
 from .models import Colonel
 from .gateways import FleetGatewayHandler
 from .forms import (
@@ -31,7 +32,8 @@ from .forms import (
     TTLockConfigForm, DALIDeviceConfigForm, DaliLampForm, DaliGearGroupForm,
     DaliSwitchConfigForm,
     DaliOccupancySensorConfigForm, DALILightSensorConfigForm,
-    DALIButtonConfigForm
+    DALIButtonConfigForm, RoomSensorDeviceConfigForm,
+    RoomZonePresenceConfigForm
 )
 
 
@@ -465,7 +467,7 @@ class TTLock(FleeDeviceMixin, Lock):
     discovery_msg = _("Please activate your TTLock so it can be discovered.")
 
     @classmethod
-    def init_discovery(self, form_cleaned_data):
+    def _init_discovery(self, form_cleaned_data):
         from simo.core.models import Gateway
         print("INIT discovery form cleaned data: ", form_cleaned_data)
         print("Serialized form: ", serialize_form_data(form_cleaned_data))
@@ -663,7 +665,7 @@ class DALIDevice(FleeDeviceMixin, ControllerBase):
         return value
 
     @classmethod
-    def init_discovery(self, form_cleaned_data):
+    def _init_discovery(self, form_cleaned_data):
         from simo.core.models import Gateway
         gateway = Gateway.objects.filter(type=self.gateway_class.uid).first()
         gateway.start_discovery(
@@ -825,3 +827,239 @@ class DALIButton(BaseButton, DALIDevice):
     manual_add = False
     name = 'DALI Button'
     config_form = DALIButtonConfigForm
+
+
+class RoomSensor(FleeDeviceMixin, ControllerBase):
+    gateway_class = FleetGatewayHandler
+    config_form = RoomSensorDeviceConfigForm
+    name = "Room Sensor"
+    base_type = 'room-sensor'
+    default_value = 0
+    app_widget = NumericSensorWidget
+
+    def _validate_val(self, value, occasion=None):
+        return value
+
+
+class AirQualitySensor(FleeDeviceMixin, BaseMultiSensor):
+    gateway_class = FleetGatewayHandler
+    config_form = BaseComponentForm
+    name = "Air Quality Sensor"
+    app_widget = AirQualityWidget
+    manual_add = False
+
+    default_value = [
+        ["TVOC", 0, "ppb"],
+        ["AQI (UBA)", 0, ""]
+    ]
+
+    def _receive_from_device(self, value, *args, **kwargs):
+        aqi = 5
+        if aqi < 812:
+            aqi = 4
+        if aqi < 325:
+            aqi = 3
+        if aqi < 162:
+            aqi = 2
+        if aqi < 65:
+            aqi = 1
+        value = [
+            ["TVOC", value, "ppb"],
+            ["AQI (UBA)", aqi, ""]
+        ]
+        return super()._receive_from_device(value, *args, **kwargs)
+
+    def get_tvoc(self):
+        try:
+            for entry in self.component.value:
+                if entry[0] == 'TVOC':
+                    return entry[1]
+        except:
+            return
+
+    def get_aqi(self):
+        try:
+            for entry in self.component.value:
+                if entry[0] == 'AQI (UBA)':
+                    return entry[1]
+        except:
+            return
+
+
+class TempHumSensor(FleeDeviceMixin, BasicSensorMixin, BaseMultiSensor):
+    gateway_class = FleetGatewayHandler
+    config_form = BaseComponentForm
+    name = "Temperature & Humidity sensor"
+    app_widget = NumericSensorWidget
+    manual_add = False
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.sys_temp_units = 'C'
+        if hasattr(self.component, 'zone') \
+                and self.component.zone.instance.units_of_measure == 'imperial':
+            self.sys_temp_units = 'F'
+
+    @property
+    def default_value(self):
+        return [
+            ['temperature', 0, self.sys_temp_units],
+            ['humidity', 20, '%'],
+            ['real_feel', 0, self.sys_temp_units]
+        ]
+
+    def _receive_from_device(self, value, *args, **kwargs):
+
+        buf = ast.literal_eval(value)
+        humidity = (
+            (buf[0] << 12) | (buf[1] << 4) | (buf[2] >> 4)
+        )
+        temp = ((buf[2] & 0xF) << 16) | (buf[3] << 8) | buf[4]
+        temp = ((temp * 200.0) / 0x100000) - 50
+
+        new_val = [
+            ['temperature', temp, self.sys_temp_units],
+            ['humidity', humidity, '%']
+        ]
+
+        if self.sys_temp_units == 'F':
+            new_val[0][1] = round((new_val[0][1] * 9 / 5) + 32, 1)
+
+        real_feel = heat_index(
+            new_val[0][1], new_val[1][1], self.sys_temp_units == 'F'
+        )
+        new_val[2] = ['real_feel', real_feel, self.sys_temp_units]
+
+        return super()._receive_from_device(new_val, *args, **kwargs)
+
+
+class AmbientLightSensor(FleeDeviceMixin, BaseNumericSensor):
+    gateway_class = FleetGatewayHandler
+    name = "Ambient lighting sensor"
+    manual_add = False
+    default_config = {
+        'widget': 'numeric-sensor',
+        'value_units': 'lux',
+        'limits': [
+            {"name": "Dark", "value": 20},
+            {"name": "Moderate", "value": 300},
+            {"name": "Bright", "value": 800},
+        ]
+    }
+
+
+class RoomPresenceSensor(FleeDeviceMixin, BaseBinarySensor):
+    gateway_class = FleetGatewayHandler
+    name = "Human presence sensor"
+    manual_add = False
+
+
+class RoomZonePresenceSensor(FleeDeviceMixin, BaseBinarySensor):
+    gateway_class = FleetGatewayHandler
+    config_form = RoomZonePresenceConfigForm
+    name = "Room zone presence"
+    discovery_msg = _(
+        "Now move vigorously in particular zone of the room, "
+        "where presence needs to be detected. "
+        "Your movements are being recorded. "
+        "Hit Done, once you are done."
+    )
+
+    @classmethod
+    def info(cls, component=None):
+        return _(
+            "Detects human presence in particular zone of a room. \n"
+            "!!!IMPORTANT!!! Make sure the room is empty. "
+            "Take position in desired area where presence needs to be detected, "
+            "before continuing."
+        )
+
+    @classmethod
+    def _init_discovery(self, form_cleaned_data):
+        from simo.core.models import Gateway
+        gateway = Gateway.objects.filter(type=self.gateway_class.uid).first()
+        gateway.start_discovery(
+            self.uid, serialize_form_data(form_cleaned_data),
+            timeout=60
+        )
+        GatewayObjectCommand(
+            gateway, form_cleaned_data['colonel'],
+            command='discover', type=self.uid,
+        ).publish()
+
+    @atomic
+    @classmethod
+    def _finish_discovery(cls, started_with):
+        started_with = deserialize_form_data(started_with)
+        form = cls.config_form(
+            controller_uid=cls.uid, data=started_with
+        )
+        new_component = form.save()
+        GatewayObjectCommand(
+            new_component.gateway, Colonel(
+                id=new_component.config['colonel']
+            ), command='finalize',
+            data={
+                'comp_config': {
+                    'type': cls.split('.')[-1],
+                    'family': new_component.controller.family,
+                    'config': json.loads(json.dumps(new_component.config))
+                }
+            }
+        ).publish()
+        return [new_component]
+
+    @classmethod
+    @atomic
+    def _process_discovery(cls, started_with, data):
+        if data['discovery-result'] == 'fail':
+            return {'error': 'Error!'}
+
+        from simo.core.models import Component
+
+        comp = Component.objects.filter(
+            controller_uid=cls.uid,
+            meta__finalization_data__temp_id=data['result']['id']
+        ).first()
+        if comp:
+            print(f"{comp} is already created.")
+            GatewayObjectCommand(
+                comp.gateway, Colonel(
+                    id=comp.config['colonel']
+                ), command='finalize',
+                data=comp.meta['finalization_data']
+            ).publish()
+            return [comp]
+
+        started_with = deserialize_form_data(started_with)
+        form = cls.config_form(
+            controller_uid=cls.uid, data=started_with
+        )
+
+        if form.is_valid():
+            new_component = form.save()
+            new_component = Component.objects.get(id=new_component.id)
+            new_component.config.update(data.get('result', {}).get('config'))
+
+            # saving it to meta, for repeated delivery
+            new_component.meta['finalization_data'] = {
+                'temp_id': data['result']['id'],
+                'permanent_id': new_component.id,
+                'comp_config': {
+                    'type': cls.split('.')[-1],
+                    'family': new_component.controller.family,
+                    'config': json.loads(json.dumps(new_component.config))
+                }
+            }
+            new_component.save()
+            GatewayObjectCommand(
+                new_component.gateway, Colonel(
+                    id=new_component.config['colonel']
+                ), command='finalize',
+                data=new_component.meta['finalization_data']
+            ).publish()
+            return [new_component]
+
+        # Literally impossible, but just in case...
+        return {'error': 'INVALID INITIAL DISCOVERY FORM!'}
+

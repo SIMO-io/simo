@@ -544,7 +544,7 @@ class ComponentSerializer(FormSerializer):
         )
         if form.is_valid():
             if form.controller.is_discoverable:
-                form.controller.init_discovery(form.cleaned_data)
+                form.controller._init_discovery(form.cleaned_data)
                 return form.save(commit=False)
             return form.save(commit=True)
         raise serializers.ValidationError(form.errors)

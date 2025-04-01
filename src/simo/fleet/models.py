@@ -61,6 +61,7 @@ class Colonel(DirtyFieldsMixin, models.Model):
             ('ample-wall', "Ample Wall"),
             ('game-changer', "Game Changer"),
             ('game-changer-mini', "Game Changer Mini"),
+            ('room-sensor', "Room Sensor")
         )
     )
     firmware_version = models.CharField(
@@ -258,7 +259,7 @@ class ColonelPin(models.Model):
 @receiver(post_save, sender=Colonel)
 def after_colonel_save(sender, instance, created, *args, **kwargs):
     if created:
-        for no, data in GPIO_PINS.get(instance.type).items():
+        for no, data in GPIO_PINS.get(instance.type, {}).items():
             ColonelPin.objects.get_or_create(
                 colonel=instance, no=no,
                 defaults={
@@ -306,11 +307,13 @@ def post_component_save(sender, instance, created, *args, **kwargs):
     colonel.components.add(instance)
     from .controllers import (
         TTLock, DALILamp, DALIGearGroup, DALIRelay, DALIOccupancySensor,
-        DALILightSensor, DALIButton
+        DALILightSensor, DALIButton,
+        AirQualitySensor, TempHumSensor, AmbientLightSensor, PresenceSensor
     )
     if instance.controller and instance.controller_cls in (
         TTLock, DALILamp, DALIGearGroup, DALIRelay, DALIOccupancySensor,
-        DALILightSensor, DALIButton
+        DALILightSensor, DALIButton,
+        AirQualitySensor, TempHumSensor, AmbientLightSensor, PresenceSensor
     ):
         return
     colonel.rebuild_occupied_pins()
