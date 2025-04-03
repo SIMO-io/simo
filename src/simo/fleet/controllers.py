@@ -914,8 +914,11 @@ class TempHumSensor(FleeDeviceMixin, BasicSensorMixin, BaseMultiSensor):
         humidity = (
             (buf[0] << 12) | (buf[1] << 4) | (buf[2] >> 4)
         )
+        humidity = (humidity * 100) / 0x100000
+        humidity = int(round(humidity, 0))
         temp = ((buf[2] & 0xF) << 16) | (buf[3] << 8) | buf[4]
         temp = ((temp * 200.0) / 0x100000) - 50
+        temp = round(temp, 1)
 
         new_val = [
             ['temperature', temp, self.sys_temp_units],
