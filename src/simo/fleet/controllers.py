@@ -919,7 +919,8 @@ class TempHumSensor(FleeDeviceMixin, BasicSensorMixin, BaseMultiSensor):
 
         new_val = [
             ['temperature', temp, self.sys_temp_units],
-            ['humidity', humidity, '%']
+            ['humidity', humidity, '%'],
+            ['real_feel', 0, self.sys_temp_units]
         ]
 
         if self.sys_temp_units == 'F':
