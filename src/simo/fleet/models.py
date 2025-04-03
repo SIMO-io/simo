@@ -469,16 +469,13 @@ def post_interface_save(sender, instance, created, *args, **kwargs):
                 address=addr,
             )
     elif instance.type == 'dali':
-        InterfaceAddress.objects.filter(
-            interface=instance
-        ).exclude(address_type__startswith='dali').delete()
         for addr in range(64):
-            InterfaceAddress.objects.create(
+            InterfaceAddress.objects.get_or_create(
                 interface=instance, address_type='dali-gear',
                 address=addr,
             )
         for addr in range(16):
-            InterfaceAddress.objects.create(
+            InterfaceAddress.objects.get_or_create(
                 interface=instance, address_type='dali-group',
                 address=addr,
             )
