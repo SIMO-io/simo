@@ -1,5 +1,6 @@
 import requests
 import time
+import random
 from actstream import action
 from django.core.exceptions import ValidationError
 from django.db import transaction
@@ -493,3 +494,30 @@ def post_interface_delete(sender, instance, *args, **kwargs):
             occupied_by_id=instance.id
         ):
             pin.occupied_by_content_type = None
+
+
+class CustomDaliDevice(models.Model):
+    '''
+    Our own custom dali line device, not compatible with anything else of DALI! :)
+    '''
+    instance = models.ForeignKey(Instance, on_delete=models.CASCADE)
+    random_address = models.PositiveIntegerField(primary_key=True)
+    name = models.CharField(
+        max_length=200, help_text="User given name on initial pairing"
+    )
+    colonel = models.ForeignKey(
+        Colonel, null=True, blank=True, editable=False, on_delete=models.SET_NULL,
+        help_text="Colonel on which it has already appeared."
+    )
+
+    def save(self, *args, **kwargs):
+        if not self.random_address:
+            while True:
+                self.random_address = random.randint(0, 16777215)
+                if CustomDaliDevice.objects.filter(
+                    random_address=self.random_address
+                ).first():
+                    continue
+                break
+        return super().save(*args, **kwargs)
+

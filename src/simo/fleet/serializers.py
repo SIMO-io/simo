@@ -1,6 +1,8 @@
 from rest_framework import serializers
 from simo.core.serializers import TimestampField
-from .models import InstanceOptions, Colonel, ColonelPin, Interface
+from .models import (
+    InstanceOptions, Colonel, ColonelPin, Interface, CustomDaliDevice
+)
 
 
 class InstanceOptionsSerializer(serializers.ModelSerializer):
@@ -84,3 +86,11 @@ class ColonelSerializer(serializers.ModelSerializer):
         instance = super().update(instance, validated_data)
         instance.update_config()
         return instance
+
+
+class CustomDaliDeviceSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = CustomDaliDevice
+        fields = 'random_address', 'name'
+        read_only_fields = 'random_address',

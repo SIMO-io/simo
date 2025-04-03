@@ -6,9 +6,10 @@ from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError as APIValidationError
 from simo.core.api import InstanceMixin
 from simo.core.permissions import IsInstanceSuperuser
-from .models import InstanceOptions, Colonel, Interface
+from .models import InstanceOptions, Colonel, Interface, CustomDaliDevice
 from .serializers import (
-    InstanceOptionsSerializer, ColonelSerializer, ColonelInterfaceSerializer
+    InstanceOptionsSerializer, ColonelSerializer, ColonelInterfaceSerializer,
+    CustomDaliDeviceSerializer
 )
 
 
@@ -100,3 +101,21 @@ class InterfaceViewSet(
 
     def get_queryset(self):
         return Interface.objects.filter(colonel__instance=self.instance)
+
+
+class CustomDaliDeviceViewSet(
+    InstanceMixin,
+    viewsets.mixins.RetrieveModelMixin, viewsets.mixins.UpdateModelMixin,
+    viewsets.mixins.ListModelMixin, viewsets.GenericViewSet
+):
+    url = 'fleet/custom-dali-devices'
+    basename = 'custom-dali-devices'
+    serializer_class = CustomDaliDeviceSerializer
+
+    def get_permissions(self):
+        permissions = super().get_permissions()
+        permissions.append(IsInstanceSuperuser())
+        return permissions
+
+    def get_queryset(self):
+        return CustomDaliDevice.objects.filter(instance=self.instance)
