@@ -107,7 +107,8 @@ class InterfaceViewSet(
 class CustomDaliDeviceViewSet(
     InstanceMixin,
     viewsets.mixins.RetrieveModelMixin, viewsets.mixins.UpdateModelMixin,
-    viewsets.mixins.ListModelMixin, viewsets.GenericViewSet
+    viewsets.mixins.ListModelMixin, viewsets.mixins.CreateModelMixin,
+    viewsets.GenericViewSet
 ):
     url = 'fleet/custom-dali-devices'
     basename = 'custom-dali-devices'
