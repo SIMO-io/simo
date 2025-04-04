@@ -501,7 +501,7 @@ class CustomDaliDevice(models.Model):
     Our own custom dali line device, not compatible with anything else of DALI! :)
     '''
     instance = models.ForeignKey(Instance, on_delete=models.CASCADE)
-    random_address = models.PositiveIntegerField(primary_key=True)
+    random_address = models.PositiveIntegerField(db_index=True, editable=False)
     name = models.CharField(
         max_length=200, help_text="User given name on initial pairing"
     )
@@ -510,12 +510,16 @@ class CustomDaliDevice(models.Model):
         help_text="Colonel on which it has already appeared."
     )
 
+    class Meta:
+        unique_together = 'instance', 'random_address'
+
     def save(self, *args, **kwargs):
         if not self.random_address:
             while True:
                 self.random_address = random.randint(0, 16777215)
                 if CustomDaliDevice.objects.filter(
-                    random_address=self.random_address
+                    random_address=self.random_address,
+                    instance=self.instance
                 ).first():
                     continue
                 break

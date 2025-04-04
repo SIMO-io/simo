@@ -4,6 +4,7 @@ from rest_framework import viewsets
 from rest_framework.response import Response as RESTResponse
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError as APIValidationError
+from django_filters.rest_framework import DjangoFilterBackend
 from simo.core.api import InstanceMixin
 from simo.core.permissions import IsInstanceSuperuser
 from .models import InstanceOptions, Colonel, Interface, CustomDaliDevice
@@ -111,6 +112,8 @@ class CustomDaliDeviceViewSet(
     url = 'fleet/custom-dali-devices'
     basename = 'custom-dali-devices'
     serializer_class = CustomDaliDeviceSerializer
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ['random_address', 'name']
 
     def get_permissions(self):
         permissions = super().get_permissions()
