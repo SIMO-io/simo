@@ -92,5 +92,9 @@ class CustomDaliDeviceSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CustomDaliDevice
-        fields = 'random_address', 'name'
+        fields = 'id', 'random_address', 'name'
         read_only_fields = 'random_address',
+
+    def create(self, validated_data):
+        validated_data['instance'] = self.context['instance']
+        return super().create(validated_data)
