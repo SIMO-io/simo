@@ -508,7 +508,7 @@ class CustomDaliDevice(models.Model):
     )
     interface = models.ForeignKey(
         Interface, null=True, blank=True, editable=False,
-        on_delete=models.SET_NULL,
+        on_delete=models.SET_NULL, related_name='custom_devices',
         help_text="Colonel interface on which it operates."
     )
     last_seen = models.DateTimeField(null=True, editable=False)

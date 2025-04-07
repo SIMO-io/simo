@@ -20,16 +20,36 @@ def check_colonels_connected():
 @celery_app.task
 def check_colonel_components_alive():
     from simo.core.models import Component
-    from .models import Colonel
+    from .gateways import FleetGatewayHandler
+    from .models import Colonel, CustomDaliDevice
     drop_current_instance()
     for lost_colonel in Colonel.objects.filter(
         last_seen__lt=timezone.now() - datetime.timedelta(seconds=60)
     ).prefetch_related(Prefetch(
         'components', queryset=Component.objects.filter(alive=True),
         to_attr='alive_components'
-    )):
+    ), 'interfaces'):
         for comp in lost_colonel.alive_components:
             print(f"{comp} is no longer alive!")
+            comp.alive = False
+            comp.save()
+        for interface in lost_colonel.interfaces.all():
+            if interface.type == 'dali':
+                for device in interface.custom_devices.all():
+                    for comp in Component.objects.filter(
+                        gateway__type=FleetGatewayHandler.uid,
+                        config__dali_device=device.id, alive=True
+                    ):
+                        comp.alive = False
+                        comp.save()
+
+    for device in CustomDaliDevice.objects.filter(
+        last_seen__gt=timezone.now() - datetime.timedelta(seconds=60)
+    ):
+        for comp in Component.objects.filter(
+            gateway__type=FleetGatewayHandler.uid,
+            config__dali_device=device.id, alive=True
+        ):
             comp.alive = False
             comp.save()
 
