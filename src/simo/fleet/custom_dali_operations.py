@@ -218,13 +218,13 @@ def process_frame(colonel_id, interface_no, data):
         temp = (frame[12:21] - 512) / 10
         humidity = round(frame[22:27] / 64 * 100)
         comp = Component.objects.filter(
-            controller_uid=TempHumSensor.uid, conf__dali_device=device.id
+            controller_uid=TempHumSensor.uid, config__dali_device=device.id
         ).first()
         if comp:
             comp._receive_from_device({'temp': temp, 'humidity': humidity})
         voc = frame[28:38]
         comp = Component.objects.filter(
-            controller_uid=AirQualitySensor.uid, conf__dali_device=device.id
+            controller_uid=AirQualitySensor.uid, config__dali_device=device.id
         ).first()
         if comp:
             comp._receive_from_device(voc)
