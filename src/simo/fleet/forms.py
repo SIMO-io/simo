@@ -1,10 +1,11 @@
 import time
+import datetime
 from django import forms
 from django.utils.translation import gettext_lazy as _
 from django.forms import formset_factory
 from django.urls.base import get_script_prefix
 from django.contrib.contenttypes.models import ContentType
-from dal import autocomplete
+from django.utils import timezone
 from dal import forward
 from simo.core.models import Component
 from simo.core.forms import (
@@ -24,7 +25,7 @@ from simo.core.form_fields import (
 )
 from simo.core.form_fields import PlainLocationField
 from simo.users.models import PermissionsRole
-from .models import Colonel, ColonelPin, Interface
+from .models import Colonel, ColonelPin, Interface, CustomDaliDevice
 from .utils import INTERFACES_PINS_MAP, get_all_control_input_choices
 
 
@@ -1826,19 +1827,36 @@ class RoomSensorDeviceConfigForm(BaseComponentForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         choices = []
-        for colonel in Colonel.objects.filter(type='room-sensor'):
+        instance = get_current_instance()
+        for colonel in Colonel.objects.filter(
+            type='room-sensor', instance=instance
+        ):
             if not colonel.is_connected:
                 continue
             choices.append((f"wifi-{colonel.id}", colonel.name))
+        for device in CustomDaliDevice.objects.filter(
+            instance=instance,
+            last_seen__gt=timezone.now() - datetime.timedelta(minutes=10)
+        ):
+            choices.append((f"dali-{device.id}", device.name))
         self.fields['device'].choices = choices
 
     def save(self, commit=True):
         from simo.core.models import Icon
-        colonel = Colonel.objects.filter(
-            id=self.cleaned_data['device'][5:]
-        ).first()
-        if not colonel:
-            return
+        colonel = None
+        dali_device = None
+        if self.cleaned_data['device'].startswith('wifi'):
+            colonel = Colonel.objects.filter(
+                id=self.cleaned_data['device'][5:]
+            ).first()
+            if not colonel:
+                return
+        else:
+            dali_device = CustomDaliDevice.objects.filter(
+                id=self.cleaned_data['device'][5:]
+            ).first()
+            if not dali_device:
+                return
         from .controllers import (
             AirQualitySensor, TempHumSensor, AmbientLightSensor,
             RoomPresenceSensor
@@ -1858,9 +1876,17 @@ class RoomSensorDeviceConfigForm(BaseComponentForm):
             else:
                 self.cleaned_data['icon'] = org_icon
             self.cleaned_data['name'] = f"{org_name} {suffix}"
-            comp = Component.objects.filter(
-                config__colonel=colonel.id, controller_uid=CtrlClass.uid
-            ).first()
+
+            if colonel:
+                comp = Component.objects.filter(
+                    config__colonel=colonel.id,
+                    controller_uid=CtrlClass.uid
+                ).first()
+            else:
+                comp = Component.objects.filter(
+                    config__dali_device=dali_device.id,
+                    controller_uid=CtrlClass.uid
+                ).first()
 
             form = CtrlClass.config_form(
                 controller_uid=CtrlClass.uid, instance=comp,
@@ -1868,17 +1894,21 @@ class RoomSensorDeviceConfigForm(BaseComponentForm):
             )
             if form.is_valid():
                 comp = form.save()
-                comp.config['colonel'] = colonel.id
+                if colonel:
+                    comp.config['colonel'] = colonel.id
+                else:
+                    comp.config['dali_device'] = dali_device.id
                 comp.save()
             else:
                 raise Exception(form.errors)
 
-        GatewayObjectCommand(
-            comp.gateway, colonel, id=comp.id,
-            command='call', method='update_config', args=[
-                comp.controller._get_colonel_config()
-            ]
-        ).publish()
+        if colonel:
+            GatewayObjectCommand(
+                comp.gateway, colonel, id=comp.id,
+                command='call', method='update_config', args=[
+                    comp.controller._get_colonel_config()
+                ]
+            ).publish()
 
         return comp
 

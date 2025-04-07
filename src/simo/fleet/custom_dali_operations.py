@@ -1,5 +1,7 @@
 from django.utils import timezone
+from simo.core.models import Component
 from .models import Interface, CustomDaliDevice
+from .controllers import TempHumSensor, AirQualitySensor
 
 
 class Frame:
@@ -196,7 +198,6 @@ def process_frame(colonel_id, interface_no, data):
     if not interface:
         return
 
-
     frame = Frame(len(data) * 8, bytes.fromhex(data))
 
     device_address = frame[0:8]
@@ -211,3 +212,19 @@ def process_frame(colonel_id, interface_no, data):
     device.save()
 
     print("Frame received: ", frame.pack)
+
+    if frame[8:11] == 0:
+        # climate and air quality data
+        temp = (frame[12:21] - 512) / 10
+        humidity = round(frame[22:27] / 64 * 100)
+        comp = Component.objects.filter(
+            controller_uid=TempHumSensor.uid, conf__dali_device=device.id
+        ).first()
+        if comp:
+            comp._receive_from_device({'temp': temp, 'humidity': humidity})
+        voc = frame[28:38]
+        comp = Component.objects.filter(
+            controller_uid=AirQualitySensor.uid, conf__dali_device=device.id
+        ).first()
+        if comp:
+            comp._receive_from_device(voc)
