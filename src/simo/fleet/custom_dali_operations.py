@@ -203,7 +203,7 @@ def process_frame(colonel_id, interface_no, data):
     data = bytes.fromhex(data)
     frame = Frame(len(data) * 8, data)
 
-    device_address = frame[0:8]
+    device_address = frame[0:7]
     device = CustomDaliDevice.objects.filter(
         random_address=device_address, instance=interface.colonel.instance
     ).first()
