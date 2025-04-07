@@ -200,7 +200,8 @@ def process_frame(colonel_id, interface_no, data):
     if not interface:
         return
 
-    frame = Frame(len(data) * 8, bytes.fromhex(data))
+    data = bytes.fromhex(data)
+    frame = Frame(len(data) * 8, data)
 
     device_address = frame[0:8]
     device = CustomDaliDevice.objects.filter(
