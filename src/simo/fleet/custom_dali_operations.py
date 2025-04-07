@@ -1,7 +1,9 @@
 from django.utils import timezone
 from simo.core.models import Component
 from .models import Interface, CustomDaliDevice
-from .controllers import TempHumSensor, AirQualitySensor
+from .controllers import (
+    TempHumSensor, AirQualitySensor, AmbientLightSensor, RoomPresenceSensor
+)
 
 
 class Frame:
@@ -228,3 +230,15 @@ def process_frame(colonel_id, interface_no, data):
         ).first()
         if comp:
             comp.controller._receive_from_device(voc)
+
+    elif frame[8:11] == 1:
+        comp = Component.objects.filter(
+            controller_uid=AmbientLightSensor.uid, config__dali_device=device.id
+        ).first()
+        if comp:
+            comp.controller._receive_from_device(frame[12:23])
+        comp = Component.objects.filter(
+            controller_uid=RoomPresenceSensor.uid, config__dali_device=device.id
+        ).first()
+        if comp:
+            comp.controller._receive_from_device(frame[24])
