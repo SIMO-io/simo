@@ -451,7 +451,7 @@ class FleetConsumer(AsyncWebsocketConsumer):
                     )()
 
                 elif 'dali-raw' in data:
-                    from custom_dali_operations import process_frame
+                    from .custom_dali_operations import process_frame
                     await sync_to_async(process_frame, thread_sensitive=True)(
                         self.colonel.id, data['dali-raw'], data['data']
                     )
