@@ -528,3 +528,13 @@ class CustomDaliDevice(models.Model):
                 break
         return super().save(*args, **kwargs)
 
+    def transmit(self, frame):
+        from .gateways import FleetGatewayHandler
+        frame[0:7] = self.random_address
+        gateway = Gateway.objects.filter(type=FleetGatewayHandler.uid).first()
+        GatewayObjectCommand(
+            gateway, self.interface.colonel,
+            command='da-tx', interface=self.interface.no,
+            msg=frame.pack.hex()
+        ).publish()
+

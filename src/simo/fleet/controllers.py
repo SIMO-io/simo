@@ -18,7 +18,7 @@ from simo.core.utils.serialization import (
     serialize_form_data, deserialize_form_data
 )
 from simo.core.forms import BaseComponentForm
-from .models import Colonel
+from .models import Colonel, CustomDaliDevice
 from .gateways import FleetGatewayHandler
 from .forms import (
     ColonelPinChoiceField,
@@ -964,7 +964,6 @@ class RoomPresenceSensor(FleeDeviceMixin, BaseBinarySensor):
 
 class RoomZonePresenceSensor(FleeDeviceMixin, BaseBinarySensor):
     gateway_class = FleetGatewayHandler
-    config_form = RoomZonePresenceConfigForm
     name = "Room zone presence"
     discovery_msg = _(
         "Now move vigorously in particular zone of the room, "
@@ -972,6 +971,13 @@ class RoomZonePresenceSensor(FleeDeviceMixin, BaseBinarySensor):
         "Your movements are being recorded. "
         "Hit Done, once you are done."
     )
+
+    @property
+    def config_form(self):
+        if self.component.id:
+            return BaseComponentForm
+        else:
+            return RoomZonePresenceConfigForm
 
     @classmethod
     def info(cls, component=None):
@@ -990,10 +996,24 @@ class RoomZonePresenceSensor(FleeDeviceMixin, BaseBinarySensor):
             self.uid, serialize_form_data(form_cleaned_data),
             timeout=60
         )
-        GatewayObjectCommand(
-            gateway, form_cleaned_data['colonel'],
-            command='discover', type=self.uid,
-        ).publish()
+        if form_cleaned_data['device'].startswith('wifi'):
+            colonel = Colonel.objects.filter(
+                id=form_cleaned_data['device'][5:]
+            ).first()
+            GatewayObjectCommand(
+                gateway, colonel,
+                command='discover', type=self.uid.split('.')[-1],
+            ).publish()
+        else:
+            dali_device = CustomDaliDevice.objects.filter(
+                id=form_cleaned_data['device'][5:]
+            ).first()
+            from .custom_dali_operations import Frame
+            frame = Frame(40, bytes(bytearray(5)))
+            frame[8:11] = 16 # command to custom dali device
+            frame[12:15] = 1 # action to perform: start room zone discovery
+            dali_device.transmit(frame)
+
 
     @atomic
     @classmethod
@@ -1002,17 +1022,51 @@ class RoomZonePresenceSensor(FleeDeviceMixin, BaseBinarySensor):
         form = cls.config_form(
             controller_uid=cls.uid, data=started_with
         )
-        new_component = form.save()
-        GatewayObjectCommand(
-            new_component.gateway, Colonel(
-                id=new_component.config['colonel']
-            ), command='finalize',
-            data={
-                'comp_config': {
-                    'type': cls.split('.')[-1],
-                    'family': new_component.controller.family,
-                    'config': json.loads(json.dumps(new_component.config))
+        if form.cleaned_data['device'].startswith('wifi'):
+            form.instance.alive = False
+            form.instance.config['colonel'] = int(
+                form.cleaned_data['device'][5:]
+            )
+            new_component = form.save()
+            GatewayObjectCommand(
+                new_component.gateway, Colonel(
+                    id=new_component.config['colonel']
+                ), command='finalize',
+                data={
+                    'comp_config': {
+                        'type': cls.split('.')[-1],
+                        'family': new_component.controller.family,
+                        'config': json.loads(json.dumps(new_component.config))
+                    }
                 }
-            }
-        ).publish()
+            ).publish()
+        else:
+            from simo.core.models import Component
+            dali_device = CustomDaliDevice.objects.filter(
+                id=form.cleaned_data['device'][5:]
+            ).first()
+            free_slots = {0, 1, 2, 3, 4, 5, 6, 7}
+            for comp in Component.objects.filter(
+                controller_uid=cls.uid, config__dali_device=dali_device.id
+            ):
+                try:
+                    free_slots.remove(int(comp.config['slot']))
+                except:
+                    continue
+            if not free_slots:
+                return []
+
+            form.instance.alive = False
+            form.instance.config['dali_device'] = int(
+                form.cleaned_data['device'][5:]
+            )
+            form.instance.config['slot'] = free_slots.pop()
+            new_component = form.save()
+            from .custom_dali_operations import Frame
+            frame = Frame(40, bytes(bytearray(5)))
+            frame[8:11] = 16  # command to custom dali device
+            frame[12:15] = 2  # action to perform: stop room zone discovery
+            frame[16:18] = new_component.config['slot']
+            dali_device.transmit(frame)
+
         return [new_component]

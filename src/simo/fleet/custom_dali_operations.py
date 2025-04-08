@@ -2,7 +2,8 @@ from django.utils import timezone
 from simo.core.models import Component
 from .models import Interface, CustomDaliDevice
 from .controllers import (
-    TempHumSensor, AirQualitySensor, AmbientLightSensor, RoomPresenceSensor
+    TempHumSensor, AirQualitySensor, AmbientLightSensor,
+    RoomPresenceSensor, RoomZonePresenceSensor
 )
 
 
@@ -237,9 +238,27 @@ def process_frame(colonel_id, interface_no, data):
             controller_uid=AmbientLightSensor.uid, config__dali_device=device.id
         ).first()
         if comp:
-            comp.controller._receive_from_device(frame[12:23])
+            comp.controller._receive_from_device(frame[12:22] * 2)
         comp = Component.objects.filter(
             controller_uid=RoomPresenceSensor.uid, config__dali_device=device.id
         ).first()
         if comp:
-            comp.controller._receive_from_device(frame[24])
+            comp.controller._receive_from_device(frame[23])
+        for slot in range(8):
+            if frame[24 + slot * 2]:
+                comp = Component.objects.filter(
+                    controller_uid=RoomZonePresenceSensor.uid,
+                    config__dali_device=device.id, config__slot=slot
+                ).first()
+                if comp:
+                    comp.controller._receive_from_device(frame[25 + slot * 2])
+                else:
+                    # component no longer exists, need to inform device about that!
+                    f = Frame(40, bytes(bytearray(5)))
+                    frame[8:11] = 16  # command to custom dali device
+                    frame[12:15] = 3  # action to perform: delete zone sensor
+                    frame[16:18] = slot
+                    device.transmit()
+
+
+

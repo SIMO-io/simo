@@ -1821,7 +1821,7 @@ class DALIButtonConfigForm(DALIDeviceConfigForm, BaseComponentForm):
     pass
 
 
-class RoomSensorDeviceConfigForm(BaseComponentForm):
+class CustomDaliDeviceForm(BaseComponentForm):
     device = forms.ChoiceField()
 
     def __init__(self, *args, **kwargs):
@@ -1829,34 +1829,43 @@ class RoomSensorDeviceConfigForm(BaseComponentForm):
         choices = []
         instance = get_current_instance()
         for colonel in Colonel.objects.filter(
-            type='room-sensor', instance=instance
+                type='room-sensor', instance=instance
         ):
             if not colonel.is_connected:
                 continue
             choices.append((f"wifi-{colonel.id}", colonel.name))
         for device in CustomDaliDevice.objects.filter(
-            instance=instance,
-            last_seen__gt=timezone.now() - datetime.timedelta(minutes=10)
+                instance=instance,
+                last_seen__gt=timezone.now() - datetime.timedelta(minutes=10)
         ):
             choices.append((f"dali-{device.id}", device.name))
         self.fields['device'].choices = choices
+
+    def get_device(self, field_val):
+        if field_val.startswith('wifi'):
+            return Colonel.objects.filter(
+                id=self.cleaned_data['device'][5:]
+            ).first()
+        else:
+            return CustomDaliDevice.objects.filter(
+                id=self.cleaned_data['device'][5:]
+            )
+
+
+class RoomSensorDeviceConfigForm(CustomDaliDeviceForm):
 
     def save(self, commit=True):
         from simo.core.models import Icon
         colonel = None
         dali_device = None
-        if self.cleaned_data['device'].startswith('wifi'):
-            colonel = Colonel.objects.filter(
-                id=self.cleaned_data['device'][5:]
-            ).first()
-            if not colonel:
-                return
+        device = self.get_device(self.cleaned_data['device'])
+        if not device:
+            return
+        if isinstance(device, CustomDaliDevice):
+            dali_device = device
         else:
-            dali_device = CustomDaliDevice.objects.filter(
-                id=self.cleaned_data['device'][5:]
-            ).first()
-            if not dali_device:
-                return
+            colonel = device
+
         from .controllers import (
             AirQualitySensor, TempHumSensor, AmbientLightSensor,
             RoomPresenceSensor
@@ -1913,17 +1922,27 @@ class RoomSensorDeviceConfigForm(BaseComponentForm):
         return comp
 
 
-class RoomZonePresenceConfigForm(BaseComponentForm):
-    main_sensor = Select2ModelChoiceField(
-        queryset=Component.objects.filter(
-            controller_uid="simo.fleet.controllers.RoomPresenceSensor",
-            alive=True
-        ),
-        url='autocomplete-component',
-        forward=(
-            forward.Const([
-                "simo.fleet.controllers.RoomPresenceSensor"
-            ], 'controller_uid'),
-            forward.Const([True], 'alive'),
-        )
-    )
+class RoomZonePresenceConfigForm(CustomDaliDeviceForm):
+
+    def clean_device(self, value):
+        if value.startswith('wifi'):
+            return value
+        from .controllers import RoomZonePresenceSensor
+        dali_device = CustomDaliDevice.objects.filter(
+            id=value[5:]
+        ).first()
+        free_slots = {0, 1, 2, 3, 4, 5, 6, 7}
+        for comp in Component.objects.filter(
+            controller_uid=RoomZonePresenceSensor.uid,
+            config__dali_device=dali_device.id
+        ):
+            try:
+                free_slots.remove(int(comp.config['slot']))
+            except:
+                continue
+        if not free_slots:
+            raise forms.ValidationError(
+                "This device already has 8 zones defined. "
+                "Please first delete some to add a new one."
+            )
+        return value
