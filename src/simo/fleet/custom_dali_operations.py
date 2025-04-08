@@ -244,21 +244,32 @@ def process_frame(colonel_id, interface_no, data):
         ).first()
         if comp:
             comp.controller._receive_from_device(frame[23])
+
+        zone_sensors = {}
+        for slot in range(8):
+            comp = Component.objects.filter(
+                controller_uid=RoomZonePresenceSensor.uid,
+                config__dali_device=device.id, config__slot=slot
+            ).first()
+            if comp:
+                zone_sensors[slot] = comp
+
         for slot in range(8):
             if frame[24 + slot * 2]:
-                comp = Component.objects.filter(
-                    controller_uid=RoomZonePresenceSensor.uid,
-                    config__dali_device=device.id, config__slot=slot
-                ).first()
+                comp = zone_sensors.get(slot)
                 if comp:
                     comp.controller._receive_from_device(frame[25 + slot * 2])
                 else:
-                    # component no longer exists, need to inform device about that!
+                    # component no longer exists, probably deleted by user
+                    # need to inform device about that!
                     f = Frame(40, bytes(bytearray(5)))
-                    frame[8:11] = 15  # command to custom dali device
-                    frame[12:15] = 2  # action to perform: delete zone sensor
-                    frame[16:18] = slot
-                    device.transmit()
-
-
-
+                    f[8:11] = 15  # command to custom dali device
+                    f[12:15] = 2  # action to perform: delete zone sensor
+                    f[16:18] = slot
+                    device.transmit(f)
+            elif zone_sensors.get(slot):
+                # not yet picked up by the device itself or
+                # was never successfully created
+                if zone_sensors[slot].alive:
+                    zone_sensors[slot].alive = False
+                    zone_sensors[slot].save()
