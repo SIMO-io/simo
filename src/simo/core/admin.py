@@ -383,6 +383,9 @@ class ComponentAdmin(EasyObjectsDeleteMixin, admin.ModelAdmin):
                                 'components-list',
                                 kwargs={'instance_slug': instance.slug}
                             )
+                            ctx['finish_url'] = reverse(
+                                'finish-discovery',
+                            ) + f"?uid={ctx['form'].controller.uid}"
                             return render(
                                 request, 'admin/wizard/discovery.html', ctx
                             )
@@ -486,7 +489,7 @@ class ComponentAdmin(EasyObjectsDeleteMixin, admin.ModelAdmin):
     def info(self, obj):
         if not obj.controller:
             return
-        info = obj.controller.info()
+        info = obj.controller.info(obj)
         if not info:
             return
         return mark_safe(

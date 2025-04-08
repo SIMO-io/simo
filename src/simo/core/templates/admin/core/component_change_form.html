@@ -56,7 +56,7 @@
 					<h2 style="background: linear-gradient(0.3turn, #5c7ca5, #5a95df);">Info</h2>
 					<div class="form-row">
 						{% if original.controller %}
-						  {{ original.info|markdownify }}
+						  {{ original.info|markdownify|linebreaksbr }}
 						{% endif %}
 					</div>
 				</div>

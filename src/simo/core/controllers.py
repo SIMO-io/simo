@@ -112,8 +112,6 @@ class ControllerBase(ABC):
     def is_discoverable(cls):
         return hasattr(
             cls, '_init_discovery'
-        ) and hasattr(
-            cls, '_process_discovery'
         )
 
     @classmethod

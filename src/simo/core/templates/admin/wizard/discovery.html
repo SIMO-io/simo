@@ -64,8 +64,7 @@
     
     <div id="running-discovery">
       <p style="margin: 30px 15px">
-        <i class="fas fa-spinner fa-spin fa-lg" style="margin-right: 10px"></i> DISCOVERY MODE ACTIVATED! <br>
-        Your new components will appear down bellow once discovered.
+        <i class="fas fa-spinner fa-spin fa-lg" style="margin-right: 10px"></i> DISCOVERY MODE ACTIVATED!
       </p>
       {% if discovery_msg %}
         <p style="margin: 30px 15px">{{ discovery_msg }}</p>
@@ -108,8 +107,8 @@
 
     <div class="submit-row" style="text-align: left;">
 
-    <a href="{% url 'admin:core_component_changelist' %}" class="cancel-link" style="display: block; padding:9px 15px">
-      <i class="fa fa-check"></i> Done
+    <a href="{{ finish_url }}" class="cancel-link" style="display: block; padding:9px 15px">
+      <i class="fa fa-check"></i> Finish
     </a>
 
     </div>

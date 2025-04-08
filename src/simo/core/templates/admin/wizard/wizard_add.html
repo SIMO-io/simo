@@ -63,7 +63,7 @@
     {% if info %}
       <div class="form-row">
         <div class="markdownified-info">
-          {{ info|markdownify }}
+          {{ info|markdownify|linebreaksbr }}
         </div>
       </div>
     {% endif %}

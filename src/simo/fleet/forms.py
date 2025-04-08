@@ -1924,7 +1924,8 @@ class RoomSensorDeviceConfigForm(CustomDaliDeviceForm):
 
 class RoomZonePresenceConfigForm(CustomDaliDeviceForm):
 
-    def clean_device(self, value):
+    def clean_device(self):
+        value = self.cleaned_data['device']
         if value.startswith('wifi'):
             return value
         from .controllers import RoomZonePresenceSensor

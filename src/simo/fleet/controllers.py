@@ -964,29 +964,15 @@ class RoomPresenceSensor(FleeDeviceMixin, BaseBinarySensor):
 
 class RoomZonePresenceSensor(FleeDeviceMixin, BaseBinarySensor):
     gateway_class = FleetGatewayHandler
+    add_form = RoomZonePresenceConfigForm
+    config_form = BaseComponentForm
     name = "Room zone presence"
     discovery_msg = _(
-        "Now move vigorously in particular zone of the room, "
+        "Move vigorously in particular zone of the room, "
         "where presence needs to be detected. "
         "Your movements are being recorded. "
         "Hit Done, once you are done."
     )
-
-    @property
-    def config_form(self):
-        if self.component.id:
-            return BaseComponentForm
-        else:
-            return RoomZonePresenceConfigForm
-
-    @classmethod
-    def info(cls, component=None):
-        return _(
-            "Detects human presence in particular zone of a room. \n"
-            "!!!IMPORTANT!!! Make sure the room is empty. "
-            "Take position in desired area where presence needs to be detected, "
-            "before continuing."
-        )
 
     @classmethod
     def _init_discovery(self, form_cleaned_data):
@@ -1015,13 +1001,14 @@ class RoomZonePresenceSensor(FleeDeviceMixin, BaseBinarySensor):
             dali_device.transmit(frame)
 
 
-    @atomic
     @classmethod
+    @atomic
     def _finish_discovery(cls, started_with):
         started_with = deserialize_form_data(started_with)
-        form = cls.config_form(
+        form = cls.add_form(
             controller_uid=cls.uid, data=started_with
         )
+        form.is_valid()
         if form.cleaned_data['device'].startswith('wifi'):
             form.instance.alive = False
             form.instance.config['colonel'] = int(
@@ -1034,7 +1021,7 @@ class RoomZonePresenceSensor(FleeDeviceMixin, BaseBinarySensor):
                 ), command='finalize',
                 data={
                     'comp_config': {
-                        'type': cls.split('.')[-1],
+                        'type': str(cls).split('.')[-1],
                         'family': new_component.controller.family,
                         'config': json.loads(json.dumps(new_component.config))
                     }
@@ -1069,4 +1056,5 @@ class RoomZonePresenceSensor(FleeDeviceMixin, BaseBinarySensor):
             frame[16:18] = new_component.config['slot']
             dali_device.transmit(frame)
 
-        return [new_component]
+        print("NEW COMPONENT: ", new_component)
+        return new_component

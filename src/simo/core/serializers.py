@@ -554,7 +554,7 @@ class ComponentSerializer(FormSerializer):
 
     def get_info(self, obj):
         if obj.controller:
-            return obj.controller.info()
+            return obj.controller.info(obj)
 
     def get_read_only(self, obj):
         user = self.context.get('user')

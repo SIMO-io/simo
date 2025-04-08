@@ -9,7 +9,7 @@ from django.http import (
 )
 from django.contrib import messages
 from simo.conf import dynamic_settings
-from .models import Instance
+from .models import Instance, Component, Gateway
 from .tasks import update as update_task, supervisor_restart, hardware_reboot
 from .middleware import introduce_instance
 
@@ -92,3 +92,27 @@ def hub_info(request):
         ):
             data['hub_secret'] = dynamic_settings['core__hub_secret']
     return JsonResponse(data)
+
+
+@login_required
+def finish_discovery(request):
+    # finish discovery function for admin discovery view
+    if not request.user.is_authenticated:
+        raise Http404()
+    if not request.user.is_master:
+        raise Http404()
+    result = None
+    for gateway in Gateway.objects.filter(
+        discovery__start__gt=time.time() - 60 * 60,  # no more than an hour
+        discovery__controller_uid=request.GET['uid']
+    ):
+        gateway.finish_discovery()
+        for res in gateway.discovery['result']:
+            comp = Component.objects.filter(
+                controller_uid=request.GET['uid'], pk=res
+            ).first()
+            if comp:
+                result = comp
+    if result:
+        return redirect(result.get_admin_url())
+    return reverse('admin:core_component_changelist')

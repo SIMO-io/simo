@@ -294,21 +294,7 @@ class Gateway(DirtyFieldsMixin, models.Model, SimoAdminMixin):
         )
         if result:
             self.refresh_from_db()
-            if not isinstance(result, dict) and isinstance(result, Iterable):
-                for res in result:
-                    if isinstance(res, models.Model):
-                        if res.pk not in self.discovery['result']:
-                            self.discovery['result'].append(res.pk)
-                    else:
-                        if res not in self.discovery['result']:
-                            self.discovery['result'].append(res)
-            else:
-                if isinstance(result, models.Model):
-                    if result.pk not in self.discovery['result']:
-                        self.discovery['result'].append(result.pk)
-                else:
-                    if result not in self.discovery['result']:
-                        self.discovery['result'].append(result)
+            self.append_discovery_result(result)
 
         self.save(update_fields=['discovery'])
 
@@ -321,7 +307,29 @@ class Gateway(DirtyFieldsMixin, models.Model, SimoAdminMixin):
             self.discovery['controller_uid']
         )
         if hasattr(ControllerClass, '_finish_discovery'):
-            ControllerClass._finish_discovery(self.discovery['init_data'])
+            result = ControllerClass._finish_discovery(
+                self.discovery['init_data']
+            )
+            self.append_discovery_result(result)
+        self.save(update_fields=['discovery'])
+
+
+    def append_discovery_result(self, result):
+        if not isinstance(result, dict) and isinstance(result, Iterable):
+            for res in result:
+                if isinstance(res, models.Model):
+                    if res.pk not in self.discovery['result']:
+                        self.discovery['result'].append(res.pk)
+                else:
+                    if res not in self.discovery['result']:
+                        self.discovery['result'].append(res)
+        else:
+            if isinstance(result, models.Model):
+                if result.pk not in self.discovery['result']:
+                    self.discovery['result'].append(result.pk)
+            else:
+                if result not in self.discovery['result']:
+                    self.discovery['result'].append(result)
 
 
 
