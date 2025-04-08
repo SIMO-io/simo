@@ -255,8 +255,8 @@ def process_frame(colonel_id, interface_no, data):
                 else:
                     # component no longer exists, need to inform device about that!
                     f = Frame(40, bytes(bytearray(5)))
-                    frame[8:11] = 16  # command to custom dali device
-                    frame[12:15] = 3  # action to perform: delete zone sensor
+                    frame[8:11] = 15  # command to custom dali device
+                    frame[12:15] = 2  # action to perform: delete zone sensor
                     frame[16:18] = slot
                     device.transmit()
 

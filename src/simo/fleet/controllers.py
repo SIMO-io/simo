@@ -996,8 +996,8 @@ class RoomZonePresenceSensor(FleeDeviceMixin, BaseBinarySensor):
             ).first()
             from .custom_dali_operations import Frame
             frame = Frame(40, bytes(bytearray(5)))
-            frame[8:11] = 16 # command to custom dali device
-            frame[12:15] = 1 # action to perform: start room zone discovery
+            frame[8:11] = 15 # command to custom dali device
+            frame[12:15] = 0 # action to perform: start room zone discovery
             dali_device.transmit(frame)
 
 
@@ -1051,8 +1051,8 @@ class RoomZonePresenceSensor(FleeDeviceMixin, BaseBinarySensor):
             new_component = form.save()
             from .custom_dali_operations import Frame
             frame = Frame(40, bytes(bytearray(5)))
-            frame[8:11] = 16  # command to custom dali device
-            frame[12:15] = 2  # action to perform: stop room zone discovery
+            frame[8:11] = 15  # command to custom dali device
+            frame[12:15] = 1  # action to perform: stop room zone discovery
             frame[16:18] = new_component.config['slot']
             dali_device.transmit(frame)
 
