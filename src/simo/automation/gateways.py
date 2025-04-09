@@ -165,7 +165,7 @@ class GatesHandler:
                 if iu_id != iuser.id:
                     continue
                 gate = Component.objects.get(id=gate_id)
-                if is_out:
+                if is_out > 4:
                     print(
                         f"{iuser.user.name} is out, "
                         f"let's see if we must open the gates for him"
@@ -174,17 +174,17 @@ class GatesHandler:
                     # he is now coming back and open the gate for him
                     if self._is_in_geofence(gate, iuser.last_seen_location):
                         print("Yes he is back in a geofence! Open THE GATEEE!!")
-                        self.gate_iusers[gate_id][iuser.id] = False
-                        gate.open()
+                        self.gate_iusers[gate_id][iuser.id] = 0
+                        if iuser.last_seen_speed_kmh > 10:
+                            gate.open()
                     else:
                         print("No he is not back yet.")
                 else:
                     print(f"Check if {iuser.user.name} is out.")
-                    self.gate_iusers[gate_id][iuser.id] = self._is_out_of_geofence(
-                        gate, iuser.last_seen_location
-                    )
-                    if self.gate_iusers[gate_id][iuser.id]:
-                        print(f"YES {iuser.user.name} is out!")
+                    if self._is_out_of_geofence(gate, iuser.last_seen_location):
+                        self.gate_iusers[gate_id][iuser.id] += 1
+                    if self.gate_iusers[gate_id][iuser.id] > 4:
+                        print(f"YES {iuser.user.name} is truly out!")
 
     def watch_gates(self):
         drop_current_instance()
@@ -204,9 +204,11 @@ class GatesHandler:
                     self.gate_iusers[gate.id] = {}
                 if iuser.id not in self.gate_iusers[gate.id]:
                     if iuser.last_seen_location:
-                        self.gate_iusers[gate.id][iuser.id] = self._is_out_of_geofence(
+                        self.gate_iusers[gate.id][iuser.id] = 0
+                        if self._is_out_of_geofence(
                             gate, iuser.last_seen_location
-                        )
+                        ):
+                            self.gate_iusers[gate.id][iuser.id] += 1
                     iuser.on_change(self.check_gates)
 
 

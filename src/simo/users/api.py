@@ -194,10 +194,6 @@ class UserDeviceReport(InstanceMixin, viewsets.GenericViewSet):
         user_device.users.add(request.user)
 
         log_datetime = timezone.now()
-        # if request.data.get('timestamp'):
-        #     log_datetime = datetime.datetime.fromtimestamp(
-        #         int(float(request.GET['timestamp'])), pytz.utc
-        #     )
 
         relay = None
         if request.META.get('HTTP_HOST', '').endswith('.simo.io'):
@@ -208,22 +204,26 @@ class UserDeviceReport(InstanceMixin, viewsets.GenericViewSet):
         except:
             speed_kmh = 0
 
+        if speed_kmh < 0:
+            speed_kmh = 0
+
         avg_speed_kmh = 0
 
         if relay:
             location = request.data.get('location')
             if 'null' in location:
                 location = None
-            prev_log = UserDeviceReportLog.objects.filter(
+            sum = 0
+            no_of_points = 0
+            for speed in UserDeviceReportLog.objects.filter(
                 user_device=user_device, instance=self.instance,
                 datetime__lt=log_datetime - datetime.timedelta(seconds=3),
-                datetime__gt=log_datetime - datetime.timedelta(seconds=10),
+                datetime__gt=log_datetime - datetime.timedelta(seconds=30),
                 at_home=False, location__isnull=False
-            ).last()
-            if prev_log:
-                meters_traveled = haversine_distance(location, prev_log.location)
-                seconds_passed = (log_datetime - prev_log.datetime).total_seconds()
-                avg_speed_kmh = round(meters_traveled / seconds_passed * 3.6, 0)
+            ).values('speed_kmh',):
+                sum += speed[0]
+            sum += speed_kmh
+            avg_speed_kmh = round(sum / (no_of_points + 1))
         else:
             location = self.instance.location
 
@@ -248,7 +248,30 @@ class UserDeviceReport(InstanceMixin, viewsets.GenericViewSet):
                 self.instance.location, location
             ) < dynamic_settings['users__at_home_radius']
 
+        app_open = request.data.get('app_open', False)
+
+        if self.reject_location_report(
+            log_datetime, user_device, location, app_open, relay,
+            phone_on_charge, at_home, speed_kmh
+        ):
+            # We respond with success status, so that the device dos not try to
+            # report this data point again.
+            return RESTResponse({'status': 'success'})
+            # return RESTResponse(
+            #     {'status': 'error', 'msg': 'Duplicate or Bad report!'},
+            #     status=status.HTTP_400_BAD_REQUEST
+            # )
+
+        UserDeviceReportLog.objects.create(
+            user_device=user_device, instance=self.instance,
+            app_open=app_open,
+            location=location, datetime=log_datetime,
+            relay=relay, speed_kmh=speed_kmh, avg_speed_kmh=avg_speed_kmh,
+            phone_on_charge=phone_on_charge, at_home=at_home
+        )
+
         drop_current_instance()
+
         for iu in request.user.instance_roles.filter(is_active=True):
             if not relay:
                 iu.at_home = True
@@ -260,19 +283,49 @@ class UserDeviceReport(InstanceMixin, viewsets.GenericViewSet):
             iu.last_seen = user_device.last_seen
             if location:
                 iu.last_seen_location = location
-            iu.last_seen_speed_kmh = speed_kmh
+            iu.last_seen_speed_kmh = avg_speed_kmh
             iu.phone_on_charge = phone_on_charge
             iu.save()
 
-        UserDeviceReportLog.objects.create(
-            user_device=user_device, instance=self.instance,
-            app_open=request.data.get('app_open', False),
-            location=location, datetime=log_datetime,
-            relay=relay, speed_kmh=speed_kmh, avg_speed_kmh=avg_speed_kmh,
-            phone_on_charge=phone_on_charge, at_home=at_home
-        )
-
         return RESTResponse({'status': 'success'})
+
+
+    def reject_location_report(
+        self, log_datetime, user_device, location, app_open, relay,
+        phone_on_charge, at_home, speed_kmh
+    ):
+        # Phone's App location repoorting is not always as reliable as we would like to
+        # therefore we filter out duplicate reports as they happen quiet often
+        # It has been observer that sometimes an app reports locations that are
+        # way from past, therefore locations might jump out of the usual pattern,
+        # so we try to filter out these anomalies to.
+        q = UserDeviceReportLog.objects.filter(
+            user_device=user_device, instance=self.instance,
+            app_open=app_open,
+            datetime__gt=log_datetime - datetime.timedelta(seconds=20),
+            relay=relay, phone_on_charge=phone_on_charge, at_home=at_home
+        )
+        if location:
+            q = q.filter(location__isnull=False)
+        last_similar_report = q.last()
+
+        if not last_similar_report:
+            return False
+
+        if location == last_similar_report.location:
+            # This looks like 100% duplicate
+            return True
+
+        from simo.automation.helpers import haversine_distance
+        distance = haversine_distance(location, last_similar_report.location)
+        seconds_passed = (
+            log_datetime - last_similar_report.datetime
+        ).total_seconds()
+        if speed_kmh < 100 and distance / seconds_passed * 3.6 > 300:
+            return True
+
+        return False
+
 
 
 class InvitationsViewSet(InstanceMixin, viewsets.ModelViewSet):

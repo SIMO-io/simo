@@ -12,7 +12,7 @@ users = Section('users')
 class AtHomeRadius(IntegerPreference):
     section = users
     name = 'at_home_radius'
-    default = 250
+    default = 50
     required = True
     help_text = 'Distance in meters around hub location point that is ' \
                 'considered as At Home.'
