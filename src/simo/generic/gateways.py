@@ -195,7 +195,7 @@ class GenericGatewayHandler(
         self.sensors_on_watch = {}
         self.sleep_is_on = {}
         self.last_set_state = None
-
+        self.pulsing_switches = {}
 
 
     def watch_thermostats(self):
@@ -208,6 +208,7 @@ class GenericGatewayHandler(
             timezone.activate(tz)
             thermostat.evaluate()
 
+
     def watch_alarm_clocks(self):
         from .controllers import AlarmClock
         drop_current_instance()
@@ -217,6 +218,7 @@ class GenericGatewayHandler(
             tz = pytz.timezone(alarm_clock.zone.instance.timezone)
             timezone.activate(tz)
             alarm_clock.tick()
+
 
     def watch_watering(self):
         drop_current_instance()
@@ -231,13 +233,15 @@ class GenericGatewayHandler(
             else:
                 watering.controller._perform_schedule()
 
+
     def run(self, exit):
         drop_current_instance()
         self.exit = exit
         self.logger = get_gw_logger(self.gateway_instance.id)
         for task, period in self.periodic_tasks:
             threading.Thread(
-                target=self._run_periodic_task, args=(exit, task, period), daemon=True
+                target=self._run_periodic_task, args=(exit, task, period),
+                daemon=True
             ).start()
 
         from simo.generic.controllers import IPCamera
@@ -253,6 +257,11 @@ class GenericGatewayHandler(
         ):
             cam_watch = CameraWatcher(cam.id, exit)
             cam_watch.start()
+
+        threading.Thread(
+            target=self.watch_switch_pulses, args=(exit,),
+            daemon=True
+        ).start()
 
         print("GATEWAY STARTED!")
         while not exit.is_set():
@@ -278,6 +287,8 @@ class GenericGatewayHandler(
                 self.control_alarm_group(component, payload.get('set_val'))
             # elif component.controller_uid == AudioAlert.uid:
             #     self.control_audio_alert(component, payload.get('set_val'))
+            elif payload.get('pulse'):
+                self.start_pulse(component, payload['pulse'])
             else:
                 component.controller.set(payload.get('set_val'))
         except Exception:
@@ -414,6 +425,84 @@ class GenericGatewayHandler(
         self.last_sensor_actions[
             sensor.zone.instance.id
         ] = time.time()
+
+
+    def watch_switch_pulses(self, exit):
+        for comp in Component.objects.filter(
+            base_type='switch', meta__has_key='pulse'
+        ):
+            comp.send(True)
+            self.pulsing_switches[comp.id] = {
+                'comp': comp, 'last_toggle': time.time(), 'value': True,
+                'pulse': comp.meta['pulse']
+            }
+
+        step = 0
+        while not exit.is_set():
+            time.sleep(0.1)
+            step += 1
+            remove_switches = []
+            for id, data in self.pulsing_switches.items():
+                on_interval = data['pulse']['frame'] * data['pulse']['duty']
+                off_interval = data['pulse']['frame'] - on_interval
+
+                if (
+                    data['value'] and
+                    time.time() - data['last_toggle'] > on_interval
+                ) or (
+                    not data['value'] and
+                    time.time() - data['last_toggle'] > off_interval
+                ):
+                    data['comp'].refresh_from_db()
+                    if not data['comp'].meta.get('pulse'):
+                        remove_switches.append(id)
+                        continue
+                    if data['pulse'] != data['comp'].meta['pulse']:
+                        self.pulsing_switches[id]['pulse'] = data['comp'].meta['pulse']
+                        continue
+
+                if data['value']:
+                    if time.time() - data['last_toggle'] > on_interval:
+                        data['comp'].send(False)
+                        self.pulsing_switches[id]['last_toggle'] = time.time()
+                        self.pulsing_switches[id]['value'] = False
+                else:
+                    if time.time() - data['last_toggle'] > off_interval:
+                        data['comp'].send(True)
+                        self.pulsing_switches[id]['last_toggle'] = time.time()
+                        self.pulsing_switches[id]['value'] = True
+
+            for id in remove_switches:
+                del self.pulsing_switches[id]
+
+            # Update with db every 5s just in case something is missed.
+            if step < 50:
+                continue
+            step = 0
+
+            remove_switches = set(self.pulsing_switches.keys())
+            for comp in Component.objects.filter(
+                base_type='switch', meta__has_key='pulse'
+            ):
+                if comp.id in remove_switches:
+                    remove_switches.remove(comp.id)
+                    self.pulsing_switches[comp.id]['pulse'] = comp.meta['pulse']
+                    continue
+                comp.send(True)
+                self.pulsing_switches[comp.id] = {
+                    'comp': comp, 'last_toggle': time.time(), 'value': True,
+                    'pulse': comp.meta['pulse']
+                }
+            for id in remove_switches:
+                del self.pulsing_switches[id]
+
+
+    def start_pulse(self, comp, pulse):
+        comp.send(True)
+        self.pulsing_switches[comp.id] = {
+            'comp': comp, 'last_toggle': time.time(), 'value': True,
+            'pulse': pulse
+        }
 
 
 

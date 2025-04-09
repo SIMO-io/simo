@@ -16,9 +16,16 @@ from django.utils import timezone
 from actstream.models import Action
 from simo.conf import dynamic_settings
 from simo.core.utils.helpers import get_self_ip
-from simo.core.middleware import introduce_instance
+from simo.core.middleware import introduce_instance, drop_current_instance
 from simo.users.models import PermissionsRole, InstanceUser
 from .models import Instance, Component, ComponentHistory, HistoryAggregate
+
+
+@celery_app.task
+def component_action(comp_id, method, args=None, kwargs=None):
+    drop_current_instance()
+    component = Component.objects.get(id=comp_id)
+    getattr(component, method)(*args, **kwargs)
 
 
 @celery_app.task

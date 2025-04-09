@@ -90,33 +90,38 @@ class ThermostatConfigForm(BaseComponentForm):
         )
     )
     # TODO: support for multiple heaters
-    heater = Select2ModelChoiceField(
+    heaters = Select2ModelMultipleChoiceField(
         queryset=Component.objects.filter(base_type=Switch.base_type),
         required=False,
         url='autocomplete-component',
         forward=(
             forward.Const([
-                Switch.base_type,
+                Switch.base_type, Dimmer.base_type
             ], 'base_type'),
         )
     )
     # TODO: support for multiple coolers
-    cooler = Select2ModelChoiceField(
+    coolers = Select2ModelMultipleChoiceField(
         queryset=Component.objects.filter(base_type=Switch.base_type),
         required=False,
         url='autocomplete-component',
         forward=(
             forward.Const([
-                Switch.base_type,
+                Switch.base_type, Dimmer.base_type
             ], 'base_type'),
         )
 
     )
-    mode = forms.ChoiceField(
-        choices=(('heater', "Heater"), ('cooler', "Cooler"), ('auto', "Auto"),),
-        initial='heater'
+    engagement = forms.ChoiceField(
+        choices=(('dynamic', "Dynamic"), ('static', "Static")),
+        initial='dynamic',
+        help_text="Dynamic - scales engagement intensity within reaction window <br>"
+                  "Static - engages/disengages fully within reaction window <br>"
     )
-    reaction_difference = forms.FloatField(initial=0.5)
+    reaction_difference = forms.FloatField(
+        initial=2, min_value=0, max_value=50,
+        help_text="Reaction window = target temp +- reaction difference."
+    )
     min = forms.IntegerField(initial=3)
     max = forms.IntegerField(initial=36)
     use_real_feel = forms.BooleanField(
@@ -126,8 +131,6 @@ class ThermostatConfigForm(BaseComponentForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         if self.instance.pk:
-            self.fields['mode'].initial = \
-                self.instance.config['user_config']['mode']
             temperature_sensor = Component.objects.filter(
                 pk=self.instance.config.get('temperature_sensor', 0)
             ).first()

@@ -69,11 +69,16 @@ class Thermostat(ControllerBase):
 
     @property
     def default_config(self):
-        min = 3
-        max = 100
+        instance = get_current_instance()
+        min = 4
+        max = 36
+        if instance and instance.units_of_measure == 'imperial':
+            min = 40
+            max = 95
         return {
             'temperature_sensor': 0, 'heater': 0, 'cooler': 0,
-            'reaction_difference': 0, 'min': min, 'max': max,
+            'engagement': 'dynamic','reaction_difference': 2,
+            'min': min, 'max': max,
             'has_real_feel': False,
             'user_config': config_to_dict(self._get_default_user_config())
         }
@@ -161,12 +166,12 @@ class Thermostat(ControllerBase):
         temperature_sensor = Component.objects.filter(
             pk=self.component.config.get('temperature_sensor')
         ).first()
-        heater = Component.objects.filter(
-            pk=self.component.config.get('heater')
-        ).first()
-        cooler = Component.objects.filter(
-            pk=self.component.config.get('cooler')
-        ).first()
+        heaters = Component.objects.filter(
+            pk__in=self.component.config.get('heater')
+        )
+        coolers = Component.objects.filter(
+            pk__in=self.component.config.get('cooler')
+        )
 
         if not temperature_sensor or not temperature_sensor.alive:
             self.component.error_msg = "No temperature sensor"
@@ -187,49 +192,99 @@ class Thermostat(ControllerBase):
         target_temp = self.get_current_target_temperature()
         mode = self.component.config['user_config'].get('mode', 'auto')
 
+        low = target_temp - self.component.config['reaction_difference']
+        high = target_temp + self.component.config['reaction_difference']
+
+        heating = False
+        cooling = False
+
+        if self.component.config.get('engagement', 'static'):
+            if heaters:
+                for heater in heaters:
+                    if current_temp < low:
+                        if heater.base_type == 'dimmer':
+                            heater.max_out()
+                        else:
+                            heater.turn_on()
+                        heating = True
+                    elif current_temp > high:
+                        heater.turn_off()
+                        heating = False
+                    else:
+                        if heater.value:
+                            heating = True
+                            break
+
+            if coolers:
+                for cooler in coolers:
+                    if heating: # Do not cool if heating!
+                        cooler.turn_off()
+                    else:
+                        if current_temp > high:
+                            if heater.base_type == 'dimmer':
+                                cooler.max_out()
+                            else:
+                                cooler.turn_on()
+                            cooling = True
+                        elif current_temp < low:
+                            if cooler.value:
+                                cooler.turn_off()
+                            cooling = False
+                        else:
+                            if cooler.value:
+                                cooling = True
+                                break
+
+        else:
+            window = high - low
+            if heaters:
+                reach = high - current_temp
+                reaction_force = self._get_reaction_force(window, reach)
+                if reaction_force:
+                    heating = True
+                self._engage_devices(heaters, reaction_force)
+            if coolers:
+                if heating: # Do not cool if heating!
+                    reaction_force = 0
+                else:
+                    reach = current_temp - low
+                    reaction_force = self._get_reaction_force(window, reach)
+                self._engage_devices(coolers, reaction_force)
+
         self.component.set({
             'mode': mode,
             'current_temp': current_temp,
             'target_temp': target_temp,
-            'heating': False, 'cooling': False
+            'heating': heating, 'cooling': cooling
         }, actor=get_system_user())
-
-        low = target_temp - self.component.config['reaction_difference'] / 2
-        high = target_temp + self.component.config['reaction_difference'] / 2
-
-        if mode in ('auto', 'heater'):
-            if (not heater or not heater.alive) and mode == 'heater':
-                self.component.error_msg = "No heater"
-                self.component.alive = False
-                self.component.save()
-                return
-            if current_temp < low:
-                if not heater.value:
-                    heater.turn_on()
-                self.component.value['heating'] = True
-            elif current_temp > high:
-                if heater.value:
-                    heater.turn_off()
-                self.component.value['heating'] = False
-        if mode in ('auto', 'cooler') and cooler:
-            if not cooler or not cooler.alive:
-                if mode == 'cooler' or (not heater or not heater.alive):
-                    print(f"No cooler or heater on {self.component}!")
-                    self.component.alive = False
-                    self.component.save()
-                    return
-            if current_temp > high:
-                if not cooler.value:
-                    cooler.turn_on()
-                self.component.value['cooling'] = True
-            elif current_temp < low:
-                if cooler.value:
-                    cooler.turn_off()
-                self.component.value['cooling'] = False
 
         self.component.error_msg = None
         self.component.alive = True
         self.component.save()
+
+
+    def _get_reaction_force(self, window, reach):
+        if reach > window:
+            reaction_force = 100
+        elif reach <= 0:
+            reaction_force = 0
+        else:
+            reaction_force = reach / window * 100
+        return reaction_force
+
+
+    def _engage_devices(self, devices, reaction_force):
+        for device in devices:
+            if device.base_type == 'dimmer':
+                device.output_percent(reaction_force)
+            elif device.base_type == 'switch':
+                if reaction_force == 100:
+                    device.turn_on()
+                elif reaction_force == 0:
+                    device.turn_off()
+                else:
+                    device.pulse(30, reaction_force)
+
 
     def update_user_conf(self, new_conf):
         self.component.refresh_from_db()
@@ -240,6 +295,7 @@ class Thermostat(ControllerBase):
         )
         self.component.save()
         self.evaluate()
+
 
     def hold(self, temperature=None):
         if temperature != None:

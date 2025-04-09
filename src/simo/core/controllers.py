@@ -631,6 +631,15 @@ class Dimmer(ControllerBase, TimerMixin, OnOffPokerMixin):
             else:
                 self.send(self.component.config.get('max', 90))
 
+    def max_out(self):
+        self.send(self.component.config.get('max', 90))
+
+    def output_percent(self, value):
+        min = self.component.config.get('min', 0)
+        max = self.component.config.get('max', 100)
+        delta = max - min
+        self.send(min + delta * value / 100)
+
     def toggle(self):
         self.component.refresh_from_db()
         if self.component.value:
@@ -845,21 +854,51 @@ class Switch(MultiSwitchBase, TimerMixin, OnOffPokerMixin):
     default_value = False
 
     def turn_on(self):
+        if self.component.meta.get('pulse'):
+            self.component.meta.pop('pulse')
+            self.component.save()
         self.send(True)
 
     def turn_off(self):
+        if self.component.meta.get('pulse'):
+            self.component.meta.pop('pulse')
+            self.component.save()
         self.send(False)
 
     def toggle(self):
+        if self.component.meta.get('pulse'):
+            self.component.meta.pop('pulse')
+            self.component.save()
         self.send(not self.component.value)
 
     def click(self):
         '''
         Gateway specific implementation is very welcome of this!
         '''
+        if self.component.meta.get('pulse'):
+            self.component.meta.pop('pulse')
+            self.component.save()
         self.turn_on()
-        time.sleep(0.5)
-        self.turn_off()
+        from .tasks import component_action
+        component_action.s(
+            self.component.id, 'turn_off'
+        ).apply_async(countdown=1)
+
+    def pulse(self, frame_length_s, on_percentage):
+        self.component.meta['pulse'] = {
+            'frame': frame_length_s, 'duty': on_percentage / 100
+        }
+        self.component.save()
+        from simo.generic.gateways import GenericGatewayHandler
+        from .models import Gateway
+        generic_gateway = Gateway.objects.filter(
+            type=GenericGatewayHandler.uid
+        ).first()
+        if generic_gateway:
+            GatewayObjectCommand(
+                generic_gateway, self.component,
+                pulse=self.component.meta['pulse']
+            ).publish()
 
 
 class DoubleSwitch(MultiSwitchBase):
