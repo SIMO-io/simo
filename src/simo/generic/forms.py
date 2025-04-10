@@ -151,7 +151,6 @@ class ThermostatConfigForm(BaseComponentForm):
             self.instance.config['user_config'] = config_to_dict(
                 Thermostat(self.instance)._get_default_user_config()
             )
-        self.instance.config['user_config']['mode'] = self.cleaned_data['mode']
         self.instance.config['has_real_feel'] = True if self.cleaned_data[
             'temperature_sensor'
         ].base_type == MultiSensor.base_type else False
