@@ -218,12 +218,13 @@ class UserDeviceReport(InstanceMixin, viewsets.GenericViewSet):
             for speed in UserDeviceReportLog.objects.filter(
                 user_device=user_device, instance=self.instance,
                 datetime__lt=log_datetime - datetime.timedelta(seconds=3),
-                datetime__gt=log_datetime - datetime.timedelta(seconds=30),
+                datetime__gt=log_datetime - datetime.timedelta(seconds=120),
                 at_home=False, location__isnull=False
             ).values('speed_kmh',):
                 sum += speed[0]
-            sum += speed_kmh
-            avg_speed_kmh = round(sum / (no_of_points + 1))
+            if no_of_points > 2:
+                sum += speed_kmh
+                avg_speed_kmh = round(sum / (no_of_points + 1))
         else:
             location = self.instance.location
 
