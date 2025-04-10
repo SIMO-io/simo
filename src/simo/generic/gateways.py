@@ -439,7 +439,7 @@ class GenericGatewayHandler(
 
         step = 0
         while not exit.is_set():
-            time.sleep(0.1)
+            time.sleep(0.25)
             step += 1
             remove_switches = []
             for id, data in self.pulsing_switches.items():
@@ -475,8 +475,8 @@ class GenericGatewayHandler(
             for id in remove_switches:
                 del self.pulsing_switches[id]
 
-            # Update with db every 5s just in case something is missed.
-            if step < 50:
+            # Update with db every 10s just in case something is missed.
+            if step < 40:
                 continue
             step = 0
 
