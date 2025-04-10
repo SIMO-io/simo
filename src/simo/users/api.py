@@ -221,9 +221,8 @@ class UserDeviceReport(InstanceMixin, viewsets.GenericViewSet):
                 datetime__gt=log_datetime - datetime.timedelta(seconds=120),
                 at_home=False, location__isnull=False
             ).values('speed_kmh',):
-                if speed:
-                    sum += speed[0]
-                    no_of_points += 1
+                sum += speed['speed_kmh']
+                no_of_points += 1
             if no_of_points > 2:
                 sum += speed_kmh
                 avg_speed_kmh = round(sum / (no_of_points + 1))
