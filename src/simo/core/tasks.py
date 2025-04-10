@@ -227,15 +227,19 @@ def sync_with_remote():
             instance.is_active = True
             instance.save()
 
-        if weather:
-            from simo.generic.controllers import Weather
-            weather_component = Component.objects.filter(
-                zone__instance=instance,
-                controller_uid=Weather.uid
-            ).first()
-            if weather_component:
+        from simo.generic.controllers import Weather
+        weather_component = Component.objects.filter(
+            zone__instance=instance,
+            controller_uid=Weather.uid
+        ).first()
+        if weather_component:
+            if weather:
                 weather_component.track_history = False
+                weather_component.alive = True
                 weather_component.controller.set(weather)
+                weather_component.save()
+            else:
+                weather_component.alive = False
                 weather_component.save()
 
         if new_instance:

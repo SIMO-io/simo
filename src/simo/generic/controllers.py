@@ -76,7 +76,7 @@ class Thermostat(ControllerBase):
             min = 40
             max = 95
         return {
-            'temperature_sensor': 0, 'heater': 0, 'cooler': 0,
+            'temperature_sensor': 0, 'heaters': [], 'coolers': [],
             'engagement': 'dynamic','reaction_difference': 2,
             'min': min, 'max': max,
             'has_real_feel': False,
@@ -164,20 +164,34 @@ class Thermostat(ControllerBase):
         tz = pytz.timezone(self.component.zone.instance.timezone)
         timezone.activate(tz)
         temperature_sensor = Component.objects.filter(
-            pk=self.component.config.get('temperature_sensor')
+            pk=self.component.config.get('temperature_sensor'),
+            alive=True
         ).first()
         heaters = Component.objects.filter(
-            pk__in=self.component.config.get('heater')
+            pk__in=self.component.config.get('heaters', []),
+            alive=True
         )
         coolers = Component.objects.filter(
-            pk__in=self.component.config.get('cooler')
+            pk__in=self.component.config.get('coolers', []),
+            alive=True
         )
+
+        if not heaters and not coolers:
+            self.component.error_msg = "No heaters/coolers"
+            self.component.alive = False
+            self.component.save()
+            return
 
         if not temperature_sensor or not temperature_sensor.alive:
             self.component.error_msg = "No temperature sensor"
             self.component.alive = False
             self.component.save()
             return
+
+        if self.component.error_msg or not self.component.alive:
+            self.component.error_msg = None
+            self.component.alive = True
+            self.component.save()
 
         current_temp = temperature_sensor.value
         if temperature_sensor.base_type == MultiSensor.base_type:
@@ -191,6 +205,23 @@ class Thermostat(ControllerBase):
 
         target_temp = self.get_current_target_temperature()
         mode = self.component.config['user_config'].get('mode', 'auto')
+        prefer_heating = True
+
+        weather = Component.objects.filter(
+            zone__instance=self.component.zone.instance,
+            controller_uid=Weather.uid, alive=True
+        ).first()
+        if weather:
+            try:
+                feels_like = weather.value['main']['feels_like']
+                if feels_like:
+                    instance = get_current_instance()
+                    if instance.units_of_measure == 'imperial':
+                        feels_like = round((feels_like * 9 / 5) + 32, 1)
+                    if target_temp < feels_like:
+                        prefer_heating = False
+            except:
+                pass
 
         low = target_temp - self.component.config['reaction_difference']
         high = target_temp + self.component.config['reaction_difference']
@@ -198,57 +229,37 @@ class Thermostat(ControllerBase):
         heating = False
         cooling = False
 
-        if self.component.config.get('engagement', 'static'):
-            if heaters:
-                for heater in heaters:
-                    if current_temp < low:
-                        if heater.base_type == 'dimmer':
-                            heater.max_out()
-                        else:
-                            heater.turn_on()
-                        heating = True
-                    elif current_temp > high:
-                        heater.turn_off()
-                        heating = False
-                    else:
-                        if heater.value:
-                            heating = True
-                            break
-
-            if coolers:
-                for cooler in coolers:
-                    if heating: # Do not cool if heating!
-                        cooler.turn_off()
-                    else:
-                        if current_temp > high:
-                            if heater.base_type == 'dimmer':
-                                cooler.max_out()
-                            else:
-                                cooler.turn_on()
-                            cooling = True
-                        elif current_temp < low:
-                            if cooler.value:
-                                cooler.turn_off()
-                            cooling = False
-                        else:
-                            if cooler.value:
-                                cooling = True
-                                break
+        if self.component.config.get('engagement', 'static') == 'static':
+            if prefer_heating and heaters:
+                heating = self._engage_heating(
+                    heaters, current_temp, low, high
+                )
+                if not heating:
+                    cooling = self._engage_cooling(
+                        coolers, current_temp, low, high
+                    )
+            else:
+                cooling = self._engage_cooling(
+                    coolers, current_temp, low, high
+                )
+                if not cooling:
+                    heating = self._engage_heating(
+                        heaters, current_temp, low, high
+                    )
 
         else:
             window = high - low
-            if heaters:
+            if prefer_heating and heaters:
                 reach = high - current_temp
                 reaction_force = self._get_reaction_force(window, reach)
                 if reaction_force:
                     heating = True
                 self._engage_devices(heaters, reaction_force)
-            if coolers:
-                if heating: # Do not cool if heating!
-                    reaction_force = 0
-                else:
-                    reach = current_temp - low
-                    reaction_force = self._get_reaction_force(window, reach)
+            elif coolers:
+                reach = current_temp - low
+                reaction_force = self._get_reaction_force(window, reach)
+                if reaction_force:
+                    cooling = True
                 self._engage_devices(coolers, reaction_force)
 
         self.component.set({
@@ -261,6 +272,45 @@ class Thermostat(ControllerBase):
         self.component.error_msg = None
         self.component.alive = True
         self.component.save()
+
+
+    def _engage_heating(self, heaters, current_temp, low, high):
+        heating = False
+        for heater in heaters:
+            if current_temp < low:
+                if heater.base_type == 'dimmer':
+                    heater.max_out()
+                else:
+                    heater.turn_on()
+                heating = True
+            elif current_temp > high:
+                heater.turn_off()
+                heating = False
+            else:
+                if heater.value:
+                    heating = True
+                    break
+        return heating
+
+
+    def _engage_cooling(self, coolers, current_temp, low, high):
+        cooling = False
+        for cooler in coolers:
+            if current_temp > high:
+                if cooler.base_type == 'dimmer':
+                    cooler.max_out()
+                else:
+                    cooler.turn_on()
+                cooling = True
+            elif current_temp < low:
+                if cooler.value:
+                    cooler.turn_off()
+                cooling = False
+            else:
+                if cooler.value:
+                    cooling = True
+                    break
+        return cooling
 
 
     def _get_reaction_force(self, window, reach):
