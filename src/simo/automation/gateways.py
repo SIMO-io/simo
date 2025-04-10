@@ -195,7 +195,8 @@ class GatesHandler:
                 continue
             # Track new users as they appear in the system
             for iuser in InstanceUser.objects.filter(
-                is_active=True, instance=gate.zone.instance
+                is_active=True, instance=gate.zone.instance,
+                role__is_person=True
             ):
                 if gate.config.get('auto_open_for'):
                     if iuser.role.id not in gate.config['auto_open_for']:

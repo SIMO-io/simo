@@ -65,7 +65,7 @@ class Automation:
     def run(self):
         while True:
             instance_users = InstanceUser.objects.filter(
-                is_active=True, role__is_owner=True
+                is_active=True, role__is_owner=True, role__is_person=True
             ).prefetch_related('role')
             self.state.refresh_from_db()
             new_state = self.check_owner_phones(

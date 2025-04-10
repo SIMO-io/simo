@@ -45,6 +45,10 @@ class PermissionsRole(models.Model):
         default=False,
         help_text="Has 100% management control of an instance via mobile app."
     )
+    is_person = models.BooleanField(
+        default=True, db_index=True,
+        help_text="Is this a real person or a device like wall tablet?"
+    )
     is_default = models.BooleanField(
         default=False, help_text="Default new user role."
     )

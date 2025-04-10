@@ -25,7 +25,7 @@ class Automation:
 
     def check_away(self):
         if InstanceUser.objects.filter(
-            is_active=True, at_home=True
+            is_active=True, at_home=True, role__is_person=True
         ).count():
             return False
 

@@ -27,10 +27,16 @@ class ComponentPermissionInline(admin.TabularInline):
 
 @admin.register(PermissionsRole)
 class PermissionsRoleAdmin(admin.ModelAdmin):
-    list_display = 'name', 'is_superuser', 'is_owner', 'can_manage_users', 'is_default'
+    list_display = (
+        'name', 'is_superuser', 'is_owner', 'can_manage_users',
+        'is_person', 'is_default'
+    )
     search_fields = 'name',
     inlines = ComponentPermissionInline,
-    list_filter = 'is_superuser', 'is_owner', 'can_manage_users', 'is_default'
+    list_filter = (
+        'is_superuser', 'is_owner', 'can_manage_users',
+        'is_person', 'is_default'
+    )
 
 
     def get_queryset(self, request):

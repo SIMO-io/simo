@@ -1259,7 +1259,8 @@ class MainState(StateSelect):
             return False
         from simo.users.models import InstanceUser
         if InstanceUser.objects.filter(
-            is_active=True, at_home=True, instance=self.component.zone.instance
+            is_active=True, at_home=True, instance=self.component.zone.instance,
+            role__is_person=True
         ).count():
             return False
 
@@ -1294,7 +1295,8 @@ class MainState(StateSelect):
         phones_on_charge = []
         for iuser in InstanceUser.objects.filter(
             is_active=True, role__is_owner=True,
-            instance=self.component.zone.instance
+            instance=self.component.zone.instance,
+            role__is_person=True
         ):
             # skipping users that are not at home
             if not iuser.at_home:
