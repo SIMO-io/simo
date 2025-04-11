@@ -97,6 +97,27 @@ class CustomDaliDeviceSerializer(serializers.ModelSerializer):
         fields = 'id', 'uid', 'random_address', 'name', 'is_empty', 'is_alive'
         read_only_fields = 'random_address', 'is_empty', 'is_alive'
 
+    def validate(self, data):
+        instance = self.context.get('instance')
+        uid = data.get('uid')
+        if instance and uid:
+            if CustomDaliDevice.objects.filter(
+                uid=uid, instance=instance
+            ).exists():
+                raise serializers.ValidationError(
+                    f"A device with uid '{uid}' already exists for this instance."
+                )
+        return data
+
+    def validate_uid(self, value):
+        """
+        Prevent changing the uid on update.
+        """
+        # self.instance will be None for creation, but set for updates.
+        if self.instance and self.instance.uid != value:
+            raise serializers.ValidationError("Changing uid is not allowed.")
+        return value
+
     def create(self, validated_data):
         validated_data['instance'] = self.context['instance']
         return super().create(validated_data)
