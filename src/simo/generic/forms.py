@@ -115,12 +115,8 @@ class ThermostatConfigForm(BaseComponentForm):
     engagement = forms.ChoiceField(
         choices=(('dynamic', "Dynamic"), ('static', "Static")),
         initial='dynamic',
-        help_text="Dynamic - scales engagement intensity within reaction window <br>"
-                  "Static - engages/disengages fully within reaction window <br>"
-    )
-    reaction_difference = forms.FloatField(
-        initial=2, min_value=0, max_value=50,
-        help_text="Reaction window = target temp +- reaction difference."
+        help_text="Dynamic - scales engagement intensity <br>"
+                  "Static - engages/disengages fully <br>"
     )
     min = forms.IntegerField(initial=3)
     max = forms.IntegerField(initial=36)

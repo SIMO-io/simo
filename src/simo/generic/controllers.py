@@ -77,7 +77,7 @@ class Thermostat(ControllerBase):
             max = 95
         return {
             'temperature_sensor': 0, 'heaters': [], 'coolers': [],
-            'engagement': 'dynamic','reaction_difference': 2,
+            'engagement': 'dynamic',
             'min': min, 'max': max,
             'has_real_feel': False,
             'user_config': config_to_dict(self._get_default_user_config())
@@ -223,13 +223,12 @@ class Thermostat(ControllerBase):
             except:
                 pass
 
-        low = target_temp - self.component.config['reaction_difference']
-        high = target_temp + self.component.config['reaction_difference']
-
         heating = False
         cooling = False
 
         if self.component.config.get('engagement', 'static') == 'static':
+            low = target_temp - 0.25
+            high = target_temp + 0.25
             if prefer_heating and heaters:
                 heating = self._engage_heating(
                     heaters, current_temp, low, high
@@ -248,14 +247,19 @@ class Thermostat(ControllerBase):
                     )
 
         else:
-            window = high - low
             if prefer_heating and heaters:
+                low = target_temp - 2
+                high = target_temp + 1
+                window = high - low
                 reach = high - current_temp
                 reaction_force = self._get_reaction_force(window, reach)
                 if reaction_force:
                     heating = True
                 self._engage_devices(heaters, reaction_force)
-            elif coolers:
+            elif coolers and not heating:
+                low = target_temp - 1
+                high = target_temp + 2
+                window = high - low
                 reach = current_temp - low
                 reaction_force = self._get_reaction_force(window, reach)
                 if reaction_force:
