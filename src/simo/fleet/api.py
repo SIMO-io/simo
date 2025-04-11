@@ -104,12 +104,7 @@ class InterfaceViewSet(
         return Interface.objects.filter(colonel__instance=self.instance)
 
 
-class CustomDaliDeviceViewSet(
-    InstanceMixin,
-    viewsets.mixins.RetrieveModelMixin, viewsets.mixins.UpdateModelMixin,
-    viewsets.mixins.ListModelMixin, viewsets.mixins.CreateModelMixin,
-    viewsets.GenericViewSet
-):
+class CustomDaliDeviceViewSet(InstanceMixin, viewsets.ModelViewSet):
     url = 'fleet/custom-dali-devices'
     basename = 'custom-dali-devices'
     serializer_class = CustomDaliDeviceSerializer
@@ -123,3 +118,11 @@ class CustomDaliDeviceViewSet(
 
     def get_queryset(self):
         return CustomDaliDevice.objects.filter(instance=self.instance)
+
+    def perform_destroy(self, instance):
+        if instance.components.all().count():
+            raise APIValidationError(
+                _('Deleting colonel which has components is not allowed!'),
+                code=400
+            )
+        instance.delete()
