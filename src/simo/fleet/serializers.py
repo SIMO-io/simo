@@ -94,8 +94,13 @@ class CustomDaliDeviceSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CustomDaliDevice
-        fields = 'id', 'uid', 'random_address', 'name', 'is_empty', 'is_alive'
-        read_only_fields = 'random_address', 'is_empty', 'is_alive'
+        fields = (
+            'id', 'uid', 'random_address', 'name', 'is_empty',
+            'is_alive', 'last_seen'
+        )
+        read_only_fields = (
+            'random_address', 'is_empty', 'is_alive', 'last_seen'
+        )
 
     def validate(self, data):
         instance = self.context.get('instance')
