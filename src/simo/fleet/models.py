@@ -502,6 +502,7 @@ class CustomDaliDevice(models.Model):
     not compatible with anything else of DALI!
     '''
     instance = models.ForeignKey(Instance, on_delete=models.CASCADE)
+    uid = models.CharField(max_length=100, db_index=True)
     random_address = models.PositiveIntegerField(db_index=True, editable=False)
     name = models.CharField(
         max_length=200, help_text="User given name on initial pairing"

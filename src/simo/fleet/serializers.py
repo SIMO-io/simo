@@ -92,7 +92,7 @@ class CustomDaliDeviceSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CustomDaliDevice
-        fields = 'id', 'random_address', 'name'
+        fields = 'id', 'uid', 'random_address', 'name'
         read_only_fields = 'random_address',
 
     def create(self, validated_data):

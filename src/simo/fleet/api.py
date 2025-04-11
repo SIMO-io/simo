@@ -114,7 +114,7 @@ class CustomDaliDeviceViewSet(
     basename = 'custom-dali-devices'
     serializer_class = CustomDaliDeviceSerializer
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ['random_address', 'name']
+    filterset_fields = ['uid', 'random_address', 'name']
 
     def get_permissions(self):
         permissions = super().get_permissions()
