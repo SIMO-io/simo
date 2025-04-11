@@ -1,6 +1,7 @@
 import requests
 import time
 import random
+import datetime
 from actstream import action
 from django.core.exceptions import ValidationError
 from django.db import transaction
@@ -9,6 +10,7 @@ from django.db.models.signals import post_save, pre_delete, post_delete
 from django.dispatch import receiver
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes.fields import GenericForeignKey
+from django.utils import timezone
 from dirtyfields import DirtyFieldsMixin
 from simo.core.models import Instance, Gateway, Component
 from simo.core.utils.helpers import get_random_string
@@ -513,6 +515,7 @@ class CustomDaliDevice(models.Model):
         help_text="Colonel interface on which it operates."
     )
     last_seen = models.DateTimeField(null=True, editable=False)
+    components = models.ManyToManyField(Component)
 
     class Meta:
         unique_together = 'instance', 'random_address'
@@ -539,3 +542,27 @@ class CustomDaliDevice(models.Model):
             msg=frame.pack.hex()
         ).publish()
 
+    @property
+    def is_alive(self):
+        if not self.last_seen:
+            return False
+        return self.last_seen + datetime.timedelta(seconds=60) > timezone.now()
+
+
+@receiver(post_save, sender=Component)
+def attatch_components_to_dali_device(sender, instance, created, *args, **kwargs):
+    if not instance.controller_uid.startswith('simo.fleet'):
+        return
+    if 'config' not in instance.get_dirty_fields():
+        return
+    dali_device = CustomDaliDevice.objects.filter(
+        id=instance.config.get('dali_device', 0)
+    ).first()
+    if not dali_device:
+        return
+    dali_device.components.add(instance)
+
+
+@receiver(pre_delete, sender=CustomDaliDevice)
+def delete_dali_device_components(sender, instance, *args, **kwargs):
+    instance.components.all().delete()

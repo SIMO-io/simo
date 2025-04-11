@@ -1829,14 +1829,14 @@ class CustomDaliDeviceForm(BaseComponentForm):
         choices = []
         instance = get_current_instance()
         for colonel in Colonel.objects.filter(
-                type='room-sensor', instance=instance
+            type='room-sensor', instance=instance
         ):
             if not colonel.is_connected:
                 continue
             choices.append((f"wifi-{colonel.id}", colonel.name))
         for device in CustomDaliDevice.objects.filter(
-                instance=instance,
-                last_seen__gt=timezone.now() - datetime.timedelta(minutes=10)
+            instance=instance,
+            last_seen__gt=timezone.now() - datetime.timedelta(minutes=10)
         ):
             choices.append((f"dali-{device.id}", device.name))
         self.fields['device'].choices = choices

@@ -89,12 +89,21 @@ class ColonelSerializer(serializers.ModelSerializer):
 
 
 class CustomDaliDeviceSerializer(serializers.ModelSerializer):
+    is_empty = serializers.SerializerMethodField()
+    is_alive = serializers.SerializerMethodField()
 
     class Meta:
         model = CustomDaliDevice
-        fields = 'id', 'uid', 'random_address', 'name'
-        read_only_fields = 'random_address',
+        fields = 'id', 'uid', 'random_address', 'name', 'is_empty', 'is_alive'
+        read_only_fields = 'random_address', 'is_empty', 'is_alive'
 
     def create(self, validated_data):
         validated_data['instance'] = self.context['instance']
         return super().create(validated_data)
+
+    def get_is_empty(self, obj):
+        return not bool(obj.components.all().count())
+
+    def get_is_alive(self, obj):
+        return obj.is_alive
+
