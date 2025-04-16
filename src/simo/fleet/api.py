@@ -69,7 +69,7 @@ class ColonelsViewSet(InstanceMixin, viewsets.ModelViewSet):
         target = Colonel.objects.annotate(
             components_count=Count('components')
         ).filter(
-            pk=request.POST.get('target'),
+            pk=request.POST.get('target'), instance=self.instance,
             components_count=0, type=colonel.type
         )
         if not target:

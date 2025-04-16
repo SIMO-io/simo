@@ -91,6 +91,7 @@ class ColonelSerializer(serializers.ModelSerializer):
 class CustomDaliDeviceSerializer(serializers.ModelSerializer):
     is_empty = serializers.SerializerMethodField()
     is_alive = serializers.SerializerMethodField()
+    last_seen = TimestampField()
 
     class Meta:
         model = CustomDaliDevice
