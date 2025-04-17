@@ -67,8 +67,6 @@ class ColonelsViewSet(InstanceMixin, viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     def move_to(self, request, pk, *args, **kwargs):
         colonel = self.get_object()
-        print(f"MOVE {colonel} to {request.body}")
-        print(f"INSTANCE: {self.instance}")
         data = json.loads(request.body)
 
         target = Colonel.objects.annotate(
