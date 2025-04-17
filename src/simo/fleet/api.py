@@ -76,7 +76,7 @@ class ColonelsViewSet(InstanceMixin, viewsets.ModelViewSet):
         ).filter(
             pk=data.get('target'), instance=self.instance,
             components_count=0, type=colonel.type
-        )
+        ).first()
         if not target:
             raise APIValidationError(_('Invalid target.'), code=400)
         colonel.move_to(target)
