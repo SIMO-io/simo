@@ -248,8 +248,8 @@ class Thermostat(ControllerBase):
 
         else:
             if prefer_heating and heaters:
-                low = target_temp - 2
-                high = target_temp + 1
+                low = target_temp - 2.5
+                high = target_temp + 0.5
                 window = high - low
                 reach = high - current_temp
                 reaction_force = self._get_reaction_force(window, reach)
