@@ -66,6 +66,9 @@ class ColonelsViewSet(InstanceMixin, viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     def move_to(self, request, pk, *args, **kwargs):
         colonel = self.get_object()
+        print(f"MOVE {colonel} to {request.POST}")
+        print(f"INSTANCE: {self.instance}")
+
         target = Colonel.objects.annotate(
             components_count=Count('components')
         ).filter(
