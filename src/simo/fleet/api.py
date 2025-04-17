@@ -1,3 +1,4 @@
+import json
 from django.db.models import Count
 from django.utils.translation import gettext_lazy as _
 from rest_framework import viewsets
@@ -66,13 +67,14 @@ class ColonelsViewSet(InstanceMixin, viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     def move_to(self, request, pk, *args, **kwargs):
         colonel = self.get_object()
-        print(f"MOVE {colonel} to {request.POST}")
+        print(f"MOVE {colonel} to {request.body}")
         print(f"INSTANCE: {self.instance}")
+        data = json.loads(request.body)
 
         target = Colonel.objects.annotate(
             components_count=Count('components')
         ).filter(
-            pk=request.POST.get('target'), instance=self.instance,
+            pk=data.get('target'), instance=self.instance,
             components_count=0, type=colonel.type
         )
         if not target:
