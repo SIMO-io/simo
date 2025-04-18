@@ -234,7 +234,6 @@ def sync_with_remote():
         ).first()
         if weather_component:
             if weather:
-                weather_component.track_history = False
                 weather_component.alive = True
                 weather_component.controller.set(weather)
                 weather_component.save()

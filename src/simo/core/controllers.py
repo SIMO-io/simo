@@ -290,7 +290,7 @@ class ControllerBase(ABC):
             actor = get_current_user()
 
         self.component.refresh_from_db()
-        if value != self.component.value:
+        if value != self.component.value and self.component.track_history:
             self.component.value_previous = self.component.value
             from .models import ComponentHistory
             ComponentHistory.objects.create(
