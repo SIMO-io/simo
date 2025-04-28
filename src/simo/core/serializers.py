@@ -614,7 +614,7 @@ class ZoneSerializer(serializers.ModelSerializer):
 
 
 class ComponentHistorySerializer(serializers.ModelSerializer):
-    date = TimestampField()
+    date = TimestampField(read_only=True)
     user = serializers.StringRelatedField()
 
     class Meta:
@@ -623,7 +623,7 @@ class ComponentHistorySerializer(serializers.ModelSerializer):
 
 
 class ActionSerializer(serializers.ModelSerializer):
-    timestamp = TimestampField()
+    timestamp = TimestampField(read_only=True)
     actor = serializers.SerializerMethodField()
     target = serializers.SerializerMethodField()
     action_type = serializers.SerializerMethodField()

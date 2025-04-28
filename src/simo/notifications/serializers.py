@@ -4,7 +4,7 @@ from .models import Notification
 
 
 class NotificationSerializer(serializers.ModelSerializer):
-    datetime = TimestampField()
+    datetime = TimestampField(read_only=True)
 
     class Meta:
         model = Notification

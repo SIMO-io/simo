@@ -46,7 +46,7 @@ class ColonelSerializer(serializers.ModelSerializer):
     pins = serializers.SerializerMethodField()
     interfaces = serializers.SerializerMethodField()
     newer_firmware_available = serializers.SerializerMethodField()
-    last_seen = TimestampField()
+    last_seen = TimestampField(read_only=True)
     is_empty = serializers.SerializerMethodField()
 
     class Meta:
@@ -91,7 +91,7 @@ class ColonelSerializer(serializers.ModelSerializer):
 class CustomDaliDeviceSerializer(serializers.ModelSerializer):
     is_empty = serializers.SerializerMethodField()
     is_alive = serializers.SerializerMethodField()
-    last_seen = TimestampField()
+    last_seen = TimestampField(read_only=True)
 
     class Meta:
         model = CustomDaliDevice
