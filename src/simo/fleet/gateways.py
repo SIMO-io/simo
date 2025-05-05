@@ -109,7 +109,8 @@ class FleetGatewayHandler(BaseObjectCommandsGatewayHandler):
                     gw, colonel, command='discover',
                     type=gw.discovery['controller_uid']
                 ).publish()
-            elif gw.discovery['controller_uid'] == 'simo.fleet.controllers.DALIDevice':
+            elif gw.discovery['controller_uid'] == \
+            'simo.fleet.controllers.DALIDevice':
                 colonel = Colonel.objects.get(
                     id=gw.discovery['init_data']['colonel']['val'][0]['pk']
                 )
@@ -120,7 +121,8 @@ class FleetGatewayHandler(BaseObjectCommandsGatewayHandler):
                     type=gw.discovery['controller_uid'],
                     i=form_cleaned_data['interface'].no
                 ).publish()
-            elif gw.discovery['controller_uid'] == 'simo.fleet.RoomZonePresenceSensor':
+            elif gw.discovery['controller_uid'] == \
+            'simo.fleet.controllers.RoomZonePresenceSensor':
                 # TODO: support for dali communications!
                 print("DISCOVER RoomZonePresenceSensor!")
                 form_cleaned_data = deserialize_form_data(
