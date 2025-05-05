@@ -101,15 +101,18 @@ class FleetGatewayHandler(BaseObjectCommandsGatewayHandler):
                 gw.finish_discovery()
                 continue
 
-            colonel = Colonel.objects.get(
-                id=gw.discovery['init_data']['colonel']['val'][0]['pk']
-            )
             if gw.discovery['controller_uid'] == 'simo.fleet.controllers.TTLock':
+                colonel = Colonel.objects.get(
+                    id=gw.discovery['init_data']['colonel']['val'][0]['pk']
+                )
                 GatewayObjectCommand(
                     gw, colonel, command='discover',
                     type=gw.discovery['controller_uid']
                 ).publish()
             elif gw.discovery['controller_uid'] == 'simo.fleet.controllers.DALIDevice':
+                colonel = Colonel.objects.get(
+                    id=gw.discovery['init_data']['colonel']['val'][0]['pk']
+                )
                 form_cleaned_data = deserialize_form_data(gw.discovery['init_data'])
                 GatewayObjectCommand(
                     gw, colonel,
@@ -118,6 +121,13 @@ class FleetGatewayHandler(BaseObjectCommandsGatewayHandler):
                     i=form_cleaned_data['interface'].no
                 ).publish()
             elif gw.discovery['controller_uid'] == 'simo.fleet.RoomZonePresenceSensor':
+                # TODO: support for dali communications!
+                form_cleaned_data = deserialize_form_data(
+                    gw.discovery['init_data']
+                )
+                colonel = Colonel.objects.filter(
+                    id=form_cleaned_data['device'][5:]
+                ).first()
                 GatewayObjectCommand(
                     gw, colonel,
                     command='discover', type='RoomZonePresenceSensor',
