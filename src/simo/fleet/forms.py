@@ -1831,8 +1831,6 @@ class CustomDaliDeviceForm(BaseComponentForm):
         for colonel in Colonel.objects.filter(
             type='room-sensor', instance=instance
         ):
-            if not colonel.is_connected:
-                continue
             choices.append((f"wifi-{colonel.id}", colonel.name))
         for device in CustomDaliDevice.objects.filter(
             instance=instance,

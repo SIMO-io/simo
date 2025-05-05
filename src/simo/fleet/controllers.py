@@ -1008,6 +1008,8 @@ class RoomZonePresenceSensor(FleeDeviceMixin, BaseBinarySensor):
         form = cls.add_form(
             controller_uid=cls.uid, data=started_with
         )
+        from simo.core.middleware import introduce_instance
+        introduce_instance(form.data['zone'].instance)
         form.is_valid()
         if form.cleaned_data['device'].startswith('wifi'):
             form.instance.alive = False

@@ -122,6 +122,7 @@ class FleetGatewayHandler(BaseObjectCommandsGatewayHandler):
                 ).publish()
             elif gw.discovery['controller_uid'] == 'simo.fleet.RoomZonePresenceSensor':
                 # TODO: support for dali communications!
+                print("DISCOVER RoomZonePresenceSensor!")
                 form_cleaned_data = deserialize_form_data(
                     gw.discovery['init_data']
                 )
