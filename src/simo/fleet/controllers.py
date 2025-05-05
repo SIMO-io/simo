@@ -1027,7 +1027,7 @@ class RoomZonePresenceSensor(FleeDeviceMixin, BaseBinarySensor):
                 data={
                     'permanent_id': new_component.id,
                     'comp_config': {
-                        'type': str(cls).split('.')[-1],
+                        'type': cls.uid.split('.')[-1],
                         'family': new_component.controller.family,
                         'config': json.loads(json.dumps(new_component.config)),
                     }
