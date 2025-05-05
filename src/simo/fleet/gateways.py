@@ -117,6 +117,11 @@ class FleetGatewayHandler(BaseObjectCommandsGatewayHandler):
                     type=gw.discovery['controller_uid'],
                     i=form_cleaned_data['interface'].no
                 ).publish()
+            elif gw.discovery['controller_uid'] == 'simo.fleet.RoomZonePresenceSensor':
+                GatewayObjectCommand(
+                    gw, colonel,
+                    command='discover', type='RoomZonePresenceSensor',
+                ).publish()
 
     def watch_buttons(self, component):
         for i, ctrl in enumerate(component.config.get('controls', [])):
