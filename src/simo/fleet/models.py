@@ -311,12 +311,14 @@ def post_component_save(sender, instance, created, *args, **kwargs):
     from .controllers import (
         TTLock, DALILamp, DALIGearGroup, DALIRelay, DALIOccupancySensor,
         DALILightSensor, DALIButton,
-        AirQualitySensor, TempHumSensor, AmbientLightSensor, RoomPresenceSensor
+        AirQualitySensor, TempHumSensor, AmbientLightSensor,
+        RoomPresenceSensor, RoomZonePresenceSensor
     )
     if instance.controller and instance.controller_cls in (
         TTLock, DALILamp, DALIGearGroup, DALIRelay, DALIOccupancySensor,
         DALILightSensor, DALIButton,
-        AirQualitySensor, TempHumSensor, AmbientLightSensor, RoomPresenceSensor
+        AirQualitySensor, TempHumSensor, AmbientLightSensor,
+        RoomPresenceSensor, RoomZonePresenceSensor
     ):
         return
     colonel.rebuild_occupied_pins()
