@@ -35,7 +35,6 @@ from .forms import (
     DALIButtonConfigForm, RoomSensorDeviceConfigForm,
     RoomZonePresenceConfigForm
 )
-from .custom_dali_operations import Frame
 
 
 class FleeDeviceMixin:
@@ -996,6 +995,7 @@ class RoomZonePresenceSensor(FleeDeviceMixin, BaseBinarySensor):
                 command='discover', type=self.uid.split('.')[-1],
             ).publish()
         else:
+            from .custom_dali_operations import Frame
             dali_device = CustomDaliDevice.objects.filter(
                 id=form_cleaned_data['device'][5:]
             ).first()
@@ -1039,6 +1039,7 @@ class RoomZonePresenceSensor(FleeDeviceMixin, BaseBinarySensor):
             ).publish()
         else:
             from simo.core.models import Component
+            from .custom_dali_operations import Frame
             dali_device = CustomDaliDevice.objects.filter(
                 id=form.cleaned_data['device'][5:]
             ).first()
@@ -1079,6 +1080,7 @@ class RoomZonePresenceSensor(FleeDeviceMixin, BaseBinarySensor):
             dali_device = CustomDaliDevice.objects.filter(
                 id=self.component.config['device'][5:]
             ).first()
+            from .custom_dali_operations import Frame
             frame = Frame(40, bytes(bytearray(5)))
             frame[8:11] = 15  # command to custom dali device
             frame[12:15] = 3  # action to perform: repaint
@@ -1098,6 +1100,7 @@ class RoomZonePresenceSensor(FleeDeviceMixin, BaseBinarySensor):
             dali_device = CustomDaliDevice.objects.filter(
                 id=self.component.config['device'][5:]
             ).first()
+            from .custom_dali_operations import Frame
             frame = Frame(40, bytes(bytearray(5)))
             frame[8:11] = 15  # command to custom dali device
             frame[12:15] = 4  # action to perform: finish repaint
@@ -1117,6 +1120,7 @@ class RoomZonePresenceSensor(FleeDeviceMixin, BaseBinarySensor):
             dali_device = CustomDaliDevice.objects.filter(
                 id=self.component.config['device'][5:]
             ).first()
+            from .custom_dali_operations import Frame
             frame = Frame(40, bytes(bytearray(5)))
             frame[8:11] = 15  # command to custom dali device
             frame[12:15] = 5  # action to perform: cancel repaint

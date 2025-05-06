@@ -8,7 +8,7 @@ from simo.core.forms import BaseGatewayForm
 from simo.core.models import Gateway
 from simo.core.events import GatewayObjectCommand, get_event_obj
 from simo.core.utils.serialization import deserialize_form_data
-from .custom_dali_operations import Frame
+
 
 
 
@@ -137,6 +137,7 @@ class FleetGatewayHandler(BaseObjectCommandsGatewayHandler):
                     ).publish()
                 else:
                     from .models import CustomDaliDevice
+                    from .custom_dali_operations import Frame
                     dali_device = CustomDaliDevice.objects.filter(
                         id=form_cleaned_data['device'][5:]
                     ).first()
