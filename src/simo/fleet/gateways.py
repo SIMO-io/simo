@@ -8,6 +8,7 @@ from simo.core.forms import BaseGatewayForm
 from simo.core.models import Gateway
 from simo.core.events import GatewayObjectCommand, get_event_obj
 from simo.core.utils.serialization import deserialize_form_data
+from .custom_dali_operations import Frame
 
 
 
@@ -123,18 +124,28 @@ class FleetGatewayHandler(BaseObjectCommandsGatewayHandler):
                 ).publish()
             elif gw.discovery['controller_uid'] == \
             'simo.fleet.controllers.RoomZonePresenceSensor':
-                # TODO: support for dali communications!
-                print("DISCOVER RoomZonePresenceSensor!")
                 form_cleaned_data = deserialize_form_data(
                     gw.discovery['init_data']
                 )
-                colonel = Colonel.objects.filter(
-                    id=form_cleaned_data['device'][5:]
-                ).first()
-                GatewayObjectCommand(
-                    gw, colonel,
-                    command='discover', type='RoomZonePresenceSensor',
-                ).publish()
+                if form_cleaned_data['device'].startswith('wifi'):
+                    colonel = Colonel.objects.filter(
+                        id=form_cleaned_data['device'][5:]
+                    ).first()
+                    GatewayObjectCommand(
+                        gw, colonel,
+                        command='discover', type=self.uid.split('.')[-1],
+                    ).publish()
+                else:
+                    from .models import CustomDaliDevice
+                    dali_device = CustomDaliDevice.objects.filter(
+                        id=form_cleaned_data['device'][5:]
+                    ).first()
+                    frame = Frame(40, bytes(bytearray(5)))
+                    frame[8:11] = 15  # command to custom dali device
+                    frame[12:15] = 0  # action to perform: start room zone discovery
+                    dali_device.transmit(frame)
+
+
 
     def watch_buttons(self, component):
         for i, ctrl in enumerate(component.config.get('controls', [])):

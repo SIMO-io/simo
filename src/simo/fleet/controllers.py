@@ -35,6 +35,7 @@ from .forms import (
     DALIButtonConfigForm, RoomSensorDeviceConfigForm,
     RoomZonePresenceConfigForm
 )
+from .custom_dali_operations import Frame
 
 
 class FleeDeviceMixin:
@@ -998,7 +999,6 @@ class RoomZonePresenceSensor(FleeDeviceMixin, BaseBinarySensor):
             dali_device = CustomDaliDevice.objects.filter(
                 id=form_cleaned_data['device'][5:]
             ).first()
-            from .custom_dali_operations import Frame
             frame = Frame(40, bytes(bytearray(5)))
             frame[8:11] = 15 # command to custom dali device
             frame[12:15] = 0 # action to perform: start room zone discovery
@@ -1059,7 +1059,6 @@ class RoomZonePresenceSensor(FleeDeviceMixin, BaseBinarySensor):
             )
             form.instance.config['slot'] = free_slots.pop()
             new_component = form.save()
-            from .custom_dali_operations import Frame
             frame = Frame(40, bytes(bytearray(5)))
             frame[8:11] = 15  # command to custom dali device
             frame[12:15] = 1  # action to perform: stop room zone discovery
@@ -1070,26 +1069,57 @@ class RoomZonePresenceSensor(FleeDeviceMixin, BaseBinarySensor):
 
     def repaint(self):
         """Repaint included 3D space"""
-        GatewayObjectCommand(
-            self.component.gateway, Colonel(
-                id=self.component.config['colonel']
-            ), command='call', method='repaint', id=self.component.id
-        ).publish()
-
-    def cancel_repaint(self):
-        """Finish repainting of 3D space"""
-        GatewayObjectCommand(
-            self.component.gateway, Colonel(
-                id=self.component.config['colonel']
-            ), command='call', method='cancel_repaint',
-            id=self.component.id
-        ).publish()
+        if self.component.config['device'].startswith('wifi'):
+            GatewayObjectCommand(
+                self.component.gateway, Colonel(
+                    id=self.component.config['colonel']
+                ), command='call', method='repaint', id=self.component.id
+            ).publish()
+        else:
+            dali_device = CustomDaliDevice.objects.filter(
+                id=self.component.config['device'][5:]
+            ).first()
+            frame = Frame(40, bytes(bytearray(5)))
+            frame[8:11] = 15  # command to custom dali device
+            frame[12:15] = 3  # action to perform: repaint
+            frame[16:18] = self.component.config['slot']
+            dali_device.transmit(frame)
 
     def finish_repaint(self):
         """Finish repainting of 3D space"""
-        GatewayObjectCommand(
-            self.component.gateway, Colonel(
-                id=self.component.config['colonel']
-            ), command='call', method='finish_repaint',
-            id=self.component.id
-        ).publish()
+        if self.component.config['device'].startswith('wifi'):
+            GatewayObjectCommand(
+                self.component.gateway, Colonel(
+                    id=self.component.config['colonel']
+                ), command='call', method='finish_repaint',
+                id=self.component.id
+            ).publish()
+        else:
+            dali_device = CustomDaliDevice.objects.filter(
+                id=self.component.config['device'][5:]
+            ).first()
+            frame = Frame(40, bytes(bytearray(5)))
+            frame[8:11] = 15  # command to custom dali device
+            frame[12:15] = 4  # action to perform: finish repaint
+            frame[16:18] = self.component.config['slot']
+            dali_device.transmit(frame)
+
+    def cancel_repaint(self):
+        """Finish repainting of 3D space"""
+        if self.component.config['device'].startswith('wifi'):
+            GatewayObjectCommand(
+                self.component.gateway, Colonel(
+                    id=self.component.config['colonel']
+                ), command='call', method='cancel_repaint',
+                id=self.component.id
+            ).publish()
+        else:
+            dali_device = CustomDaliDevice.objects.filter(
+                id=self.component.config['device'][5:]
+            ).first()
+            frame = Frame(40, bytes(bytearray(5)))
+            frame[8:11] = 15  # command to custom dali device
+            frame[12:15] = 5  # action to perform: cancel repaint
+            frame[16:18] = self.component.config['slot']
+            dali_device.transmit(frame)
+
