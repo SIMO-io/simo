@@ -855,13 +855,13 @@ class AirQualitySensor(FleeDeviceMixin, BaseMultiSensor):
 
     def _receive_from_device(self, value, *args, **kwargs):
         aqi = 5
-        if value < 812:
+        if value < 2000:
             aqi = 4
-        if value < 325:
+        if value < 800:
             aqi = 3
-        if value < 162:
+        if value < 400:
             aqi = 2
-        if value < 65:
+        if value < 200:
             aqi = 1
         value = [
             ["TVOC", value, "ppb"],
@@ -968,10 +968,14 @@ class RoomZonePresenceSensor(FleeDeviceMixin, BaseBinarySensor):
     config_form = BaseComponentForm
     name = "Room zone presence"
     discovery_msg = _(
-        "Move vigorously in particular zone of the room, "
-        "where presence needs to be detected. "
-        "Your movements are being recorded. "
-        "Hit Done, once you are done."
+        "Your body is a a live space marker now! Your movements are being recorded.<br>"
+        "Whenever you hear a beep, new space blob is being included.<br>"
+        "Move vigorously in the zone where you want presence to be detected until "
+        "you hear no more beeps.<br> "
+        "Green color of a sensor indicates, "
+        "that the space you are currently in is "
+        "already included.<br>"
+        "Tip: Dance! :)"
     )
 
     @classmethod
@@ -1062,5 +1066,30 @@ class RoomZonePresenceSensor(FleeDeviceMixin, BaseBinarySensor):
             frame[16:18] = new_component.config['slot']
             dali_device.transmit(frame)
 
-        print("NEW COMPONENT: ", new_component)
         return new_component
+
+    def repaint(self):
+        """Repaint included 3D space"""
+        GatewayObjectCommand(
+            self.component.gateway, Colonel(
+                id=self.component.config['colonel']
+            ), command='call', method='repaint', id=self.component.id
+        ).publish()
+
+    def cancel_repaint(self):
+        """Finish repainting of 3D space"""
+        GatewayObjectCommand(
+            self.component.gateway, Colonel(
+                id=self.component.config['colonel']
+            ), command='call', method='cancel_repaint',
+            id=self.component.id
+        ).publish()
+
+    def finish_repaint(self):
+        """Finish repainting of 3D space"""
+        GatewayObjectCommand(
+            self.component.gateway, Colonel(
+                id=self.component.config['colonel']
+            ), command='call', method='finish_repaint',
+            id=self.component.id
+        ).publish()
