@@ -255,7 +255,7 @@ class ColonelPin(models.Model):
             interface = Interface.objects.filter(
                 colonel=self.colonel, no=self.interface
             ).first()
-            if interface:
+            if interface and interface.type:
                 return f"{self.label} - {interface.get_type_display()}"
         return self.label
 
