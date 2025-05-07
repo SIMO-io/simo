@@ -394,27 +394,48 @@ class Interface(models.Model):
     def save(self, *args, **kwargs):
         if not self.pin_a:
             self.pin_a = ColonelPin.objects.get(
-                colonel=self.colonel, no=INTERFACES_PINS_MAP[self.no][0]
+                colonel=self.colonel,
+                no=INTERFACES_PINS_MAP[self.no][0],
             )
         if not self.pin_b:
             self.pin_b = ColonelPin.objects.get(
-                colonel=self.colonel, no=INTERFACES_PINS_MAP[self.no][1]
+                colonel=self.colonel,
+                no=INTERFACES_PINS_MAP[self.no][1],
             )
-        if self.type:
-            for pin_no in INTERFACES_PINS_MAP[self.no]:
-                cpin = ColonelPin.objects.get(colonel=self.colonel, no=pin_no)
-                if cpin.occupied_by and cpin.occupied_by != self:
-                    raise ValidationError(
-                        f"Interface can not be created, because "
-                        f"{cpin} is already occupied by {cpin.occupied_by}."
-                    )
-            self.pin_a.occupied_by = self
-            self.pin_b.occupied_by = self
-        else:
-            self.pin_a.occupied_by = None
-            self.pin_b.occupied_by = None
 
-        return super().save(*args, **kwargs)
+        with transaction.atomic():
+            created = self.pk is None
+            super_save = super().save  # keep lint happy
+            retval = super_save(*args, **kwargs)
+
+            pins = list(
+                ColonelPin.objects.select_for_update().filter(
+                    colonel=self.colonel,
+                    no__in=INTERFACES_PINS_MAP[self.no],
+                )
+            )
+
+            if self.type:  # claim the pins
+                for pin in pins:
+                    # If already occupied by another object – abort.
+                    if pin.occupied_by and pin.occupied_by != self:
+                        raise ValidationError(
+                            f"Interface cannot claim {pin}. Currently "
+                            f"occupied by {pin.occupied_by}.",
+                        )
+                    pin.occupied_by = self
+                ColonelPin.objects.bulk_update(
+                    pins, ["occupied_by_content_type", "occupied_by_id"]
+                )
+            else:  # release them if *we* were occupying
+                for pin in pins:
+                    if pin.occupied_by == self:
+                        pin.occupied_by = None
+                ColonelPin.objects.bulk_update(
+                    pins, ["occupied_by_content_type", "occupied_by_id"]
+                )
+
+        return retval
 
     def broadcast_reset(self):
         from .gateways import FleetGatewayHandler
@@ -491,17 +512,33 @@ def post_interface_save(sender, instance, created, *args, **kwargs):
     else:
         InterfaceAddress.objects.filter(interface=instance).delete()
 
+    try:
+        instance.colonel.update_config()
+    except Exception:
+        # Fail silently – configuration push should not prevent saving.
+        pass
+
 
 
 @receiver(post_delete, sender=Interface)
 def post_interface_delete(sender, instance, *args, **kwargs):
+    """Release GPIO pins that were occupied by the removed Interface."""
     with transaction.atomic():
         ct = ContentType.objects.get_for_model(instance)
-        for pin in ColonelPin.objects.filter(
-            occupied_by_content_type=ct,
-            occupied_by_id=instance.id
-        ):
-            pin.occupied_by_content_type = None
+        pins = list(
+            ColonelPin.objects.select_for_update().filter(
+                occupied_by_content_type=ct,
+                occupied_by_id=instance.id,
+            )
+        )
+
+        for pin in pins:
+            pin.occupied_by = None
+
+        if pins:
+            ColonelPin.objects.bulk_update(
+                pins, ["occupied_by_content_type", "occupied_by_id"]
+            )
 
 
 class CustomDaliDevice(models.Model):
