@@ -460,75 +460,86 @@ class ColonelDHTSensorConfigForm(ColonelComponentForm):
         return super().save(commit=commit)
 
 
-class BME680SensorConfigForm(ColonelComponentForm):
-    i2c_interface = Select2ModelChoiceField(
+class I2CDevice(ColonelComponentForm):
+    interface_port = Select2ModelChoiceField(
         label="Interface",
-        queryset=ColonelPin.objects.filter(
-            interface__isnull=False
-        ),
+        queryset=ColonelPin.objects.filter(interface__isnull=False),
         url='autocomplete-colonel-pins',
         forward=[
             forward.Self(),
             forward.Field('colonel'),
-            forward.Const({'interface__isnull': False}, 'filters')
-        ]
-    )
-    i2c_address = forms.TypedChoiceField(
-        coerce=int, initial=118,
-        choices=((119, "0x77 - default"), (118, "0x76 - soldered")),
-    )
-    read_frequency_s = forms.IntegerField(
-        initial=60, min_value=1, max_value=60*60*24,
-        help_text='read and report climate value every s. '
-                              'Can not be less than 1s.'
-
+            forward.Const({'interface__isnull': False}, 'filters'),
+        ],
     )
 
     def clean(self):
-        if not self.cleaned_data.get('colonel') \
-        or not self.cleaned_data.get('i2c_interface'):
-            return self.cleaned_data
+        cleaned_data = super().clean()
+        colonel = cleaned_data.get('colonel')
+        port_choice = cleaned_data.get('interface_port')
+        if not colonel or not port_choice:
+            return cleaned_data
 
-        interface, new = Interface.objects.get_or_create(
-            colonel=self.cleaned_data['colonel'],
-            no=self.cleaned_data['i2c_interface'].interface,
-            defaults={'type': 'i2c'}
+        # Create or fetch the I²C interface
+        interface, created = Interface.objects.get_or_create(
+            colonel=colonel,
+            no=port_choice.interface,
+            defaults={'type': 'i2c'},
         )
+
+        # If it already existed as something else, ensure it's free
         if interface.type != 'i2c':
-            for occupied_address in interface.addresses.filter(
-                occupied_by_id__isnull=False
-            ):
-                if occupied_address.occupied_by:
-                    self.add_error(
-                        'interface_port',
-                        f'Already occupied by {occupied_address.occupied_by}!'
-                    )
-                    return self.cleaned_data
+            occupied = interface.addresses.filter(occupied_by__isnull=False).first()
+            if occupied:
+                self.add_error(
+                    'interface_port',
+                    f"Port already occupied by {occupied.occupied_by}"
+                )
+                return cleaned_data
             interface.type = 'i2c'
             interface.save()
 
-        other_comp = Component.objects.filter(
-            config__colonel=self.cleaned_data['colonel'].id,
+        # Check for address collisions on that interface
+        other = Component.objects.filter(
+            config__colonel=colonel.id,
             config__interface=interface.id,
-            config__i2c_address=self.cleaned_data['i2c_address']
+            config__i2c_address=cleaned_data['i2c_address'],
         ).exclude(id=self.instance.id).first()
-        if other_comp:
-            self.add_error('i2c_address', f'Already occupied by {other_comp}!')
-        return self.cleaned_data
-
-
-class MCP9808SensorConfigForm(ColonelComponentForm):
-    interface = Select2ModelChoiceField(
-        queryset=Interface.objects.filter(type='i2c'),
-        url='autocomplete-interfaces',
-        forward=[
-            forward.Self(),
-            forward.Field('colonel'),
-            forward.Const(
-                {'type': 'i2c'}, 'filters'
+        if other:
+            self.add_error(
+                'i2c_address',
+                f"Address already occupied by {other}"
             )
-        ]
+
+        # stash for save()
+        cleaned_data['i2c_interface'] = interface.id
+        return cleaned_data
+
+    def save(self, commit=True):
+        self.instance.config['i2c_interface'] = self.cleaned_data['i2c_interface']
+        return super().save(commit=commit)
+
+
+class BME680SensorConfigForm(I2CDevice):
+    i2c_address = forms.TypedChoiceField(
+        coerce=int,
+        initial=119,  # match “0x77 – default”
+        choices=(
+            (119, "0x77 – default"),
+            (118, "0x76 – soldered"),
+        ),
     )
+    read_frequency_s = forms.IntegerField(
+        initial=60,
+        min_value=1,
+        max_value=60 * 60 * 24,
+        help_text=(
+            "Read and report climate value every second. "
+            "Cannot be less than 1 second."
+        ),
+    )
+
+
+class MCP9808SensorConfigForm(I2CDevice):
     i2c_address = forms.TypedChoiceField(
         coerce=int, initial=24,
         choices=(
@@ -545,43 +556,8 @@ class MCP9808SensorConfigForm(ColonelComponentForm):
 
     )
 
-    def clean(self):
-        if not self.cleaned_data.get('colonel'):
-            return self.cleaned_data
-        if self.cleaned_data['interface'].colonel != self.cleaned_data['colonel']:
-            self.add_error(
-                'interface',
-                f"This interface is on {self.cleaned_data['interface'].colonel}, "
-                f"however we need an interface from {self.cleaned_data['colonel']}."
-            )
 
-        other_comp = Component.objects.filter(
-            config__colonel=self.cleaned_data['colonel'].id,
-            config__interface=self.cleaned_data['interface'].id,
-            config__i2c_address=self.cleaned_data['i2c_address']
-        ).exclude(id=self.instance.id).first()
-        if other_comp:
-            self.add_error('i2c_address', f'Already occupied by {other_comp}!')
-        return self.cleaned_data
-
-    def save(self, commit=True):
-        if 'interface' in self.cleaned_data:
-            self.instance.config['i2c_interface'] = self.cleaned_data['interface'].no
-        return super().save(commit=commit)
-
-
-class ENS160SensorConfigForm(ColonelComponentForm):
-    interface = Select2ModelChoiceField(
-        queryset=Interface.objects.filter(type='i2c'),
-        url='autocomplete-interfaces',
-        forward=[
-            forward.Self(),
-            forward.Field('colonel'),
-            forward.Const(
-                {'type': 'i2c'}, 'filters'
-            )
-        ]
-    )
+class ENS160SensorConfigForm(I2CDevice):
     i2c_address = forms.TypedChoiceField(
         coerce=int, initial=83,
         choices=((82, "0x52"), (83, "0x53")),
@@ -592,30 +568,6 @@ class ENS160SensorConfigForm(ColonelComponentForm):
                   'Can not be less than 1s.'
 
     )
-
-    def clean(self):
-        if not self.cleaned_data.get('colonel'):
-            return self.cleaned_data
-        if self.cleaned_data['interface'].colonel != self.cleaned_data['colonel']:
-            self.add_error(
-                'interface',
-                f"This interface is on {self.cleaned_data['interface'].colonel}, "
-                f"however we need an interface from {self.cleaned_data['colonel']}."
-            )
-        other_comp = Component.objects.filter(
-            config__colonel=self.cleaned_data['colonel'].id,
-            config__interface=self.cleaned_data['interface'].id,
-            config__i2c_address=self.cleaned_data['i2c_address']
-        ).exclude(id=self.instance.id).first()
-        if other_comp:
-            self.add_error('i2c_address', f'Already occupied by {other_comp}!')
-        return self.cleaned_data
-
-    def save(self, commit=True):
-        if 'interface' in self.cleaned_data:
-            self.instance.config['i2c_interface'] = \
-                self.cleaned_data['interface'].no
-        return super().save(commit=commit)
 
 
 class ColonelTouchSensorConfigForm(ColonelComponentForm):
