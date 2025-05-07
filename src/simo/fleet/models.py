@@ -16,7 +16,11 @@ from simo.core.models import Instance, Gateway, Component
 from simo.core.utils.helpers import get_random_string
 from simo.core.events import GatewayObjectCommand
 from .managers import ColonelsManager, ColonelPinsManager, InterfacesManager
-from .utils import GPIO_PINS, INTERFACES_PINS_MAP
+# Now imported from utils
+from .utils import GPIO_PINS, INTERFACES_PINS_MAP, \
+    _sync_interface_address_occupancy, _release_interface_addresses
+
+# -------------------------------------------------------------------------
 
 
 
@@ -307,6 +311,15 @@ def post_component_save(sender, instance, created, *args, **kwargs):
     if not colonel:
         return
     colonel.components.add(instance)
+
+    # ------------------------------------------------------------------
+    # InterfaceAddress occupancy sync (always run for fleet components)
+    # ------------------------------------------------------------------
+    try:
+        _sync_interface_address_occupancy(instance)
+    except ValidationError:
+        raise
+
     from .controllers import (
         TTLock, DALILamp, DALIGearGroup, DALIRelay, DALIOccupancySensor,
         DALILightSensor, DALIButton,
@@ -329,6 +342,9 @@ def post_component_save(sender, instance, created, *args, **kwargs):
 @receiver(pre_delete, sender=Component)
 def post_component_delete(sender, instance, *args, **kwargs):
     if not instance.controller_uid.startswith('simo.fleet'):
+        # Still ensure we release any InterfaceAddress occupied by this
+        # component to avoid dangling references.
+        _release_interface_addresses(instance)
         return
 
     from .controllers import DALIGearGroup
@@ -359,6 +375,9 @@ def post_component_delete(sender, instance, *args, **kwargs):
                 colonel.update_config()
 
         transaction.on_commit(update_colonel)
+
+    # Finally release any InterfaceAddress rows occupied by this component
+    _release_interface_addresses(instance)
 
 
 class Interface(models.Model):

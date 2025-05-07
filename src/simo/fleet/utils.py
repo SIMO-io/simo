@@ -1,5 +1,9 @@
+from django.db import transaction, models
+from django.core.exceptions import ValidationError
+from django.contrib.contenttypes.models import ContentType
 from simo.core.utils.cache import get_cached_data
 from simo.core.middleware import get_current_instance
+
 
 GPIO_PIN_DEFAULTS = {
     'output': True, 'input': True, 'default_pull': 'FLOATING',
@@ -143,6 +147,117 @@ for no, data in BASE_ESP32_GPIO_PINS.items():
 INTERFACES_PINS_MAP = {
     1: [13, 23], 2: [32, 33]
 }
+
+
+def _get_component_interface_addresses(component):
+    """Return list[(interface_id, address_type, address)] component needs.
+
+    Supports I²C and DALI controllers. Extend when new bus types land.
+    """
+    from .models import Interface  # local import to avoid circular deps
+
+    cfg = component.config or {}
+    desired = []
+
+    # I²C ----------------------------------------------------------------
+    if 'i2c_interface' in cfg and 'i2c_address' in cfg:
+        desired.append((cfg['i2c_interface'], 'i2c', cfg['i2c_address']))
+
+    # DALI ---------------------------------------------------------------
+    interface_no = None
+    if 'dali_interface' in cfg:
+        interface_no = cfg['dali_interface']
+    elif 'interface' in cfg:
+        interface_no = cfg['interface']
+
+    if interface_no is not None and 'colonel' in cfg and 'da' in cfg:
+        interface_obj = Interface.objects.filter(
+            colonel_id=cfg['colonel'], no=interface_no
+        ).first()
+        if interface_obj:
+            uid = component.controller_uid or ''
+            if uid.endswith('DALIGearGroup'):
+                addr_type = 'dali-group'
+            elif uid.endswith(('DALILamp', 'DALIRelay')):
+                addr_type = 'dali-gear'
+            else:
+                addr_type = 'dali-device'
+            desired.append((interface_obj.id, addr_type, cfg['da']))
+
+    return desired
+
+
+def _sync_interface_address_occupancy(component):
+    """Synchronise InterfaceAddress rows for *component* (claim/release)."""
+    from .models import InterfaceAddress  # local import, avoids circulars
+
+    desired = set(_get_component_interface_addresses(component))
+
+    # Short-circuit if nothing desired and nothing currently occupied.
+    if not desired and not InterfaceAddress.objects.filter(
+        occupied_by_id=component.id,
+        occupied_by_content_type=ContentType.objects.get_for_model(component),
+    ).exists():
+        return
+
+    with transaction.atomic():
+        ct = ContentType.objects.get_for_model(component)
+
+        iface_ids = [d[0] for d in desired]
+        lock_qs = InterfaceAddress.objects.select_for_update().filter(
+            models.Q(occupied_by_content_type=ct, occupied_by_id=component.id)
+            | models.Q(interface_id__in=iface_ids)
+        )
+
+        addr_map = {(
+            ia.interface_id, ia.address_type, ia.address): ia for ia in lock_qs}
+
+        # Release obsolete ------------------------------------------------
+        for ia in lock_qs:
+            key = (ia.interface_id, ia.address_type, ia.address)
+            if ia.occupied_by_id == component.id and key not in desired:
+                ia.occupied_by = None
+
+        # Claim desired ---------------------------------------------------
+        for iface_id, addr_type, addr_val in desired:
+            key = (iface_id, addr_type, addr_val)
+            ia = addr_map.get(key)
+            if not ia:
+                ia = InterfaceAddress.objects.select_for_update().create(
+                    interface_id=iface_id, address_type=addr_type,
+                    address=addr_val,
+                )
+                addr_map[key] = ia
+            if ia.occupied_by and ia.occupied_by != component:
+                raise ValidationError(
+                    f"Interface address {ia} already occupied by "
+                    f"{ia.occupied_by}."
+                )
+            ia.occupied_by = component
+
+        # Bulk save all modified objects
+        InterfaceAddress.objects.bulk_update(
+            addr_map.values(),
+            ["occupied_by_content_type", "occupied_by_id"],
+        )
+
+
+def _release_interface_addresses(component):
+    """Clear all InterfaceAddress rows owned by component."""
+    from .models import InterfaceAddress  # delayed import
+
+    ct = ContentType.objects.get_for_model(component)
+    with transaction.atomic():
+        addresses = InterfaceAddress.objects.select_for_update().filter(
+            occupied_by_content_type=ct, occupied_by_id=component.id,
+        )
+        if not addresses:
+            return
+        for ia in addresses:
+            ia.occupied_by = None
+        InterfaceAddress.objects.bulk_update(
+            addresses, ["occupied_by_content_type", "occupied_by_id"]
+        )
 
 
 def get_all_control_input_choices():
