@@ -164,6 +164,11 @@ class BME680Sensor(DHTSensor):
     config_form = BME680SensorConfigForm
     name = "BME68X Climate Sensor (I2C)"
 
+    def _get_occupied_pins(self):
+        return [
+            self.component.config['i2c_interface'] + 100,
+        ]
+
 
 
 class MCP9808TempSensor(FleeDeviceMixin, BaseNumericSensor):
@@ -179,6 +184,11 @@ class MCP9808TempSensor(FleeDeviceMixin, BaseNumericSensor):
         if instance.units_of_measure == 'imperial':
             return 'F'
         return 'C'
+
+    def _get_occupied_pins(self):
+        return [
+            self.component.config['i2c_interface'] + 100,
+        ]
 
     def _prepare_for_set(self, value):
         if self.component.zone.instance.units_of_measure == 'imperial':
@@ -197,6 +207,11 @@ class ENS160AirQualitySensor(FleeDeviceMixin, BaseMultiSensor):
         ["TVOC", 0, "ppb"],
         ["AQI (UBA)", 0, ""]
     ]
+
+    def _get_occupied_pins(self):
+        return [
+            self.component.config['i2c_interface'] + 100,
+        ]
 
     def get_co2(self):
         try:

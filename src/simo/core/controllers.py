@@ -295,7 +295,7 @@ class ControllerBase(ABC):
             from .models import ComponentHistory
             ComponentHistory.objects.create(
                 component=self.component, type='value', value=value,
-                user=actor
+                user=actor, alive=self.component.alive
             )
             from actstream import action
             action.send(

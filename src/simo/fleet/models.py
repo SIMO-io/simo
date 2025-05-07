@@ -219,6 +219,7 @@ class ColonelPin(models.Model):
     capacitive = models.BooleanField(default=False, db_index=True)
     adc = models.BooleanField(default=False)
     native = models.BooleanField(default=True, db_index=True)
+    interface = models.PositiveIntegerField(null=True, blank=True)
     default_pull = models.CharField(
         max_length=50, db_index=True, null=True, blank=True,
         choices=(('LOW', "LOW"), ("HIGH", "HIGH"))
@@ -246,6 +247,12 @@ class ColonelPin(models.Model):
         if not self.label:
             # Might be created via migration...
             self.save()
+        if self.interface:
+            interface = Interface.objects.filter(
+                colonel=self.colonel, no=self.interface
+            ).first()
+            if interface:
+                return f"{self.label} - {interface.get_type_display()}"
         return self.label
 
     def save(self, *args, **kwargs):
@@ -268,7 +275,8 @@ def after_colonel_save(sender, instance, created, *args, **kwargs):
                 defaults={
                     'input': data.get('input'), 'output': data.get('output'),
                     'capacitive': data.get('capacitive'), 'adc': data.get('adc'),
-                    'native': data.get('native'), 'note': data.get('note')
+                    'native': data.get('native'), 'note': data.get('note'),
+                    'interface': data.get('interface')
                 }
             )
         fleet_gateway, new = Gateway.objects.get_or_create(
@@ -276,15 +284,6 @@ def after_colonel_save(sender, instance, created, *args, **kwargs):
         )
         if fleet_gateway.status != 'running':
             fleet_gateway.start()
-        # create i2c and dali interfaces automatically for game-changer boards
-        if instance.type == 'game-changer':
-            # occupy ports immediately
-            Interface.objects.create(colonel=instance, no=1, type='i2c')
-            Interface.objects.create(colonel=instance, no=2, type='dali')
-        elif instance.type == 'game-changer-mini':
-            # only create interfaces, but do not occupy ports
-            Interface.objects.create(colonel=instance, no=1)
-            Interface.objects.create(colonel=instance, no=2)
 
     if 'socket_connected' in instance.get_dirty_fields():
         if instance.socket_connected:
@@ -474,6 +473,11 @@ def post_interface_save(sender, instance, created, *args, **kwargs):
                 address=addr,
             )
     elif instance.type == 'dali':
+        InterfaceAddress.objects.filter(
+            interface=instance
+        ).exclude(
+            address_type__in=('dali-gear', 'dali-group', 'dali-device')
+        ).delete()
         for addr in range(64):
             InterfaceAddress.objects.get_or_create(
                 interface=instance, address_type='dali-gear',

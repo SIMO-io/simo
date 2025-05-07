@@ -530,7 +530,8 @@ def is_in_alarm(self):
             if 'arm_status' in dirty_fields:
                 ComponentHistory.objects.create(
                     component=self, type='security',
-                    value=self.arm_status, user=actor
+                    value=self.arm_status, user=actor,
+                    alive=self.alive
                 )
                 action.send(
                     actor, target=self, verb="security event",
@@ -650,6 +651,7 @@ class ComponentHistory(models.Model):
         )
     )
     value = models.JSONField(null=True, blank=True)
+    alive = models.BooleanField(default=True)
     user = models.ForeignKey(User, null=True, on_delete=models.SET_NULL)
 
     class Meta:

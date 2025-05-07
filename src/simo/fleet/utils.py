@@ -71,6 +71,10 @@ for no, data in BASE_ESP32_GPIO_PINS.items():
         GPIO_PINS['game-changer'][no] = GPIO_PIN_DEFAULTS.copy()
         GPIO_PINS['game-changer'][no].update(data)
 
+        if no in (13, 23, 32, 33):
+            GPIO_PINS['game-changer-mini'][no] = GPIO_PIN_DEFAULTS.copy()
+            GPIO_PINS['game-changer-mini'][no].update(data)
+
 
 for no in range(101, 126):
     GPIO_PINS['ample-wall'][no] = {
@@ -78,6 +82,9 @@ for no in range(101, 126):
         'native': False, 'adc': False,
         'capacitive': False, 'note': ''
     }
+    if no in (101, 102):
+        GPIO_PINS['ample-wall'][no]['interface'] = no - 100
+
 for no in range(126, 133):
     GPIO_PINS['ample-wall'][no] = {
         'output': True, 'input': True, 'default_pull': 'HIGH',
@@ -92,6 +99,8 @@ for no in range(101, 139):
         'native': False, 'adc': False,
         'capacitive': False, 'note': ''
     }
+    if no in (101, 102):
+        GPIO_PINS['game-changer'][no]['interface'] = no - 100
 
 for no in range(101, 105):
     GPIO_PINS['game-changer-mini'][no] = {
@@ -99,6 +108,8 @@ for no in range(101, 105):
         'native': False, 'adc': False,
         'capacitive': False, 'note': ''
     }
+    if no in (101, 102):
+        GPIO_PINS['game-changer-mini'][no]['interface'] = no - 100
 
 
 #4-relays
