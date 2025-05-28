@@ -860,6 +860,7 @@ class DC10VConfigForm(ColonelComponentForm):
                   "if you change this.",
         initial=10, min_value=0, max_value=10,
     )
+    inverse = forms.BooleanField(required=False, initial=False)
 
     def clean(self):
         super().clean()
