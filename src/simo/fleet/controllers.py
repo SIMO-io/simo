@@ -23,7 +23,7 @@ from .gateways import FleetGatewayHandler
 from .forms import (
     ColonelPinChoiceField,
     ColonelBinarySensorConfigForm, ColonelButtonConfigForm,
-    ColonelSwitchConfigForm, ColonelPWMOutputConfigForm, DCDriverConfigForm,
+    ColonelSwitchConfigForm, ColonelPWMOutputConfigForm, DC10VConfigForm,
     ColonelNumericSensorConfigForm, ColonelRGBLightConfigForm,
     ColonelDHTSensorConfigForm, DS18B20SensorConfigForm,
     BME680SensorConfigForm, MCP9808SensorConfigForm, ENS160SensorConfigForm,
@@ -362,27 +362,27 @@ class PWMOutput(FadeMixin, FleeDeviceMixin, BasicOutputMixin, BaseDimmer):
         return round(value, 3)
 
 
-class DCDriver(FadeMixin, FleeDeviceMixin, BasicOutputMixin, BaseDimmer):
-    name = "0 - 24V DC Driver"
-    config_form = DCDriverConfigForm
-    default_value_units = 'V'
+class DC10VDriver(FadeMixin, FleeDeviceMixin, BasicOutputMixin, BaseDimmer):
+    name = "0 - 10V Driver"
+    config_form = DC10VConfigForm
+    default_value_units = '%'
 
     def _prepare_for_send(self, value):
         conf = self.component.config
-        if value >= conf.get('max', 24):
-            value = conf.get('max', 24)
+        if value >= conf.get('max', 100):
+            value = conf.get('max', 100)
         elif value < conf.get('min', 0):
             value = conf.get('min', 0)
 
-        if value >= conf.get('max', 24):
+        if value >= conf.get('max', 100):
             pwm_value = 1023
-        elif value <= conf.get('min', 100):
+        elif value <= conf.get('min', 0):
             pwm_value = 0
         else:
-            val_amplitude = conf.get('max', 24) - conf.get('min', 0)
+            val_amplitude = conf.get('max', 100) - conf.get('min', 0)
             val_relative = value / val_amplitude
 
-            duty_max = conf.get('device_max', 24) / 24 * 1023
+            duty_max = conf.get('device_max', 10) / 24 * 1023
             duty_min = conf.get('device_min', 0) / 24 * 1023
 
             pwm_amplitude = duty_max - duty_min
@@ -392,17 +392,17 @@ class DCDriver(FadeMixin, FleeDeviceMixin, BasicOutputMixin, BaseDimmer):
 
     def _prepare_for_set(self, pwm_value):
         conf = self.component.config
-        duty_max = conf.get('device_max', 24) / 24 * 1023
-        duty_min = conf.get('device_min', 0) / 24 * 1023
+        duty_max = conf.get('device_max', 10) / 10 * 1023
+        duty_min = conf.get('device_min', 0) / 10 * 1023
 
         if pwm_value > duty_max:
-            value = conf.get('max', 24)
+            value = conf.get('max', 100)
         elif pwm_value < duty_min:
             value = conf.get('min', 0)
         else:
             pwm_amplitude = duty_max - duty_min
             relative_value = (pwm_value - duty_min) / pwm_amplitude
-            val_amplitude = conf.get('max', 24) - conf.get('min', 0)
+            val_amplitude = conf.get('max', 100) - conf.get('min', 0)
             value = conf.get('min', 0) + val_amplitude * relative_value
 
         return round(value, 3)

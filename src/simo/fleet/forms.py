@@ -825,7 +825,7 @@ class ColonelPWMOutputConfigForm(ColonelComponentForm):
         return obj
 
 
-class DCDriverConfigForm(ColonelComponentForm):
+class DC10VConfigForm(ColonelComponentForm):
     output_pin = Select2ModelChoiceField(
         label="Port",
         queryset=ColonelPin.objects.filter(output=True),
@@ -841,24 +841,24 @@ class DCDriverConfigForm(ColonelComponentForm):
         help_text="Minimum component value displayed to the user."
     )
     max = forms.FloatField(
-        required=True, initial=24,
+        required=True, initial=100,
         help_text="Maximum component value displayed to the user."
     )
-    value_units = forms.CharField(required=False)
+    value_units = forms.CharField(required=False, initial='%')
 
     device_min = forms.FloatField(
         label="Device minimum Voltage.",
         help_text="This will be the lowest possible voltage value of a device.\n"
                    "Don't forget to adjust your component min value accordingly "
                    "if you change this.",
-        initial=0, min_value=0, max_value=24,
+        initial=0, min_value=0, max_value=10,
     )
-    device_max = forms.IntegerField(
+    device_max = forms.FloatField(
         label="Device maximum Voltage.",
-        help_text="Can be set lower than it's natural maximum of 24V. \n"
+        help_text="Can be set lower than it's natural maximum of 10V. \n"
                   "Don't forget to adjust your component max value accordingly "
                   "if you change this.",
-        initial=24, min_value=0, max_value=24,
+        initial=10, min_value=0, max_value=10,
     )
 
     def clean(self):
@@ -1813,6 +1813,7 @@ class CustomDaliDeviceForm(BaseComponentForm):
 
 
 class RoomSensorDeviceConfigForm(CustomDaliDeviceForm):
+
 
     def save(self, commit=True):
         from simo.core.models import Icon
