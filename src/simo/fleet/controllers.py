@@ -385,12 +385,14 @@ class DC10VDriver(FadeMixin, FleeDeviceMixin, BasicOutputMixin, BaseDimmer):
             if conf.get('inverse') == True:
                 duty_max = 1023 - conf.get('device_min', 0) / 10 * 1023
                 duty_min = 1023 - conf.get('device_max', 10) / 10 * 1023
+                pwm_amplitude = duty_max - duty_min
+                pwm_value = duty_min + pwm_amplitude * val_relative
+                pwm_value = duty_max - pwm_value + duty_min
             else:
                 duty_max = conf.get('device_max', 10) / 10 * 1023
                 duty_min = conf.get('device_min', 0) / 10 * 1023
-
-            pwm_amplitude = duty_max - duty_min
-            pwm_value = duty_min + pwm_amplitude * val_relative
+                pwm_amplitude = duty_max - duty_min
+                pwm_value = duty_min + pwm_amplitude * val_relative
 
         return pwm_value
 
