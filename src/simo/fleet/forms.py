@@ -689,7 +689,75 @@ class ColonelSwitchConfigForm(ColonelComponentForm):
         return obj
 
 
-class ColonelPWMOutputConfigForm(ColonelComponentForm):
+class PWMOutputBaseConfig(ColonelComponentForm):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if 'value_units' in self.fields:
+            self.fields['value_units'].initial = self.controller.default_value_units
+        self.basic_fields.extend(
+            ['value_units', 'turn_on_time', 'turn_off_time', 'skew']
+        )
+        if self.instance.pk and 'slaves' in self.fields:
+            self.fields['slaves'].initial = self.instance.slaves.all()
+
+    def clean_slaves(self):
+        if not self.cleaned_data['slaves'] or not self.instance:
+            return self.cleaned_data['slaves']
+        return validate_slaves(self.cleaned_data['slaves'], self.instance)
+
+    def clean(self):
+        super().clean()
+        if 'output_pin' in self.cleaned_data:
+            self._clean_pin('output_pin')
+        if 'controls' in self.cleaned_data:
+            self._clean_controls()
+
+        if self.cleaned_data.get('output_pin') and self.cleaned_data.get('controls'):
+            for ctrl in self.cleaned_data['controls']:
+                if not ctrl['input'].startswith('pin'):
+                    continue
+                if int(ctrl['input'][4:]) == self.cleaned_data['output_pin'].id:
+                    self.add_error(
+                        "output_pin",
+                        "Can't be used as control pin at the same time!"
+                    )
+        return self.cleaned_data
+
+
+    def save(self, commit=True):
+        if 'output_pin' in self.cleaned_data:
+            self.instance.config['output_pin_no'] = self.cleaned_data['output_pin'].no
+
+        update_colonel = False
+        if not self.instance.pk:
+            update_colonel = True
+        elif 'output_pin' in self.changed_data:
+            update_colonel = True
+        elif 'slaves' in self.changed_data:
+            update_colonel = True
+        if not update_colonel:
+            old = Component.objects.get(id=self.instance.id)
+            if old.config.get('controls') != self.cleaned_data.get('controls'):
+                update_colonel = True
+
+        obj = super().save(commit=commit)
+        if commit and 'slaves' in self.cleaned_data:
+            obj.slaves.set(self.cleaned_data['slaves'])
+        if not update_colonel:
+            GatewayObjectCommand(
+                obj.gateway, self.cleaned_data['colonel'], id=obj.id,
+                command='call', method='update_config', args=[
+                    obj.controller._get_colonel_config()
+                ]
+            ).publish()
+        if commit and self.cleaned_data.get('controls'):
+            GatewayObjectCommand(
+                self.instance.gateway, obj, command='watch_buttons'
+            ).publish()
+        return obj
+
+class ColonelPWMOutputConfigForm(PWMOutputBaseConfig):
     output_pin = Select2ModelChoiceField(
         label="Port",
         queryset=ColonelPin.objects.filter(output=True),
@@ -758,74 +826,8 @@ class ColonelPWMOutputConfigForm(ColonelComponentForm):
         )
     )
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        if 'value_units' in self.fields:
-            self.fields['value_units'].initial = self.controller.default_value_units
-        self.basic_fields.extend(
-            ['value_units', 'turn_on_time', 'turn_off_time', 'skew']
-        )
-        if self.instance.pk and 'slaves' in self.fields:
-            self.fields['slaves'].initial = self.instance.slaves.all()
 
-    def clean_slaves(self):
-        if not self.cleaned_data['slaves'] or not self.instance:
-            return self.cleaned_data['slaves']
-        return validate_slaves(self.cleaned_data['slaves'], self.instance)
-
-    def clean(self):
-        super().clean()
-        if 'output_pin' in self.cleaned_data:
-            self._clean_pin('output_pin')
-        if 'controls' in self.cleaned_data:
-            self._clean_controls()
-
-        if self.cleaned_data.get('output_pin') and self.cleaned_data.get('controls'):
-            for ctrl in self.cleaned_data['controls']:
-                if not ctrl['input'].startswith('pin'):
-                    continue
-                if int(ctrl['input'][4:]) == self.cleaned_data['output_pin'].id:
-                    self.add_error(
-                        "output_pin",
-                        "Can't be used as control pin at the same time!"
-                    )
-        return self.cleaned_data
-
-
-    def save(self, commit=True):
-        if 'output_pin' in self.cleaned_data:
-            self.instance.config['output_pin_no'] = self.cleaned_data['output_pin'].no
-
-        update_colonel = False
-        if not self.instance.pk:
-            update_colonel = True
-        elif 'output_pin' in self.changed_data:
-            update_colonel = True
-        elif 'slaves' in self.changed_data:
-            update_colonel = True
-        if not update_colonel:
-            old = Component.objects.get(id=self.instance.id)
-            if old.config.get('controls') != self.cleaned_data.get('controls'):
-                update_colonel = True
-
-        obj = super().save(commit=commit)
-        if commit and 'slaves' in self.cleaned_data:
-            obj.slaves.set(self.cleaned_data['slaves'])
-        if not update_colonel:
-            GatewayObjectCommand(
-                obj.gateway, self.cleaned_data['colonel'], id=obj.id,
-                command='call', method='update_config', args=[
-                    obj.controller._get_colonel_config()
-                ]
-            ).publish()
-        if commit and self.cleaned_data.get('controls'):
-            GatewayObjectCommand(
-                self.instance.gateway, obj, command='watch_buttons'
-            ).publish()
-        return obj
-
-
-class DC10VConfigForm(ColonelComponentForm):
+class DC10VConfigForm(PWMOutputBaseConfig):
     output_pin = Select2ModelChoiceField(
         label="Port",
         queryset=ColonelPin.objects.filter(output=True),
@@ -862,33 +864,39 @@ class DC10VConfigForm(ColonelComponentForm):
     )
     inverse = forms.BooleanField(required=False, initial=False)
 
-    def clean(self):
-        super().clean()
-        if 'output_pin' in self.cleaned_data:
-            self._clean_pin('output_pin')
-        return self.cleaned_data
+    turn_on_time = forms.IntegerField(
+        min_value=0, max_value=60000, initial=0,
+        help_text="Turn on speed in ms. 1500 is a great quick default for controlling lights. "
+                  "10000 - great slow default."
+    )
+    turn_off_time = forms.IntegerField(
+        min_value=0, max_value=60000, initial=0,
+        help_text="Turn off speed in ms. 3000 is a great quick default when controlling lights. "
+                  "20000 - great slow default"
+    )
+    skew = forms.ChoiceField(
+        initial='linear', choices=EASING_CHOICES,
+        help_text="easeOutSine - offers most naturally looking effect for lights."
+    )
+    on_value = forms.FloatField(
+        required=False,
+        help_text="Static ON value used to turn on the device with physical controls. <br>"
+                  "Leaving this field empty turns the device on to the last used value."
+    )
 
-
-    def save(self, commit=True):
-        if 'output_pin' in self.cleaned_data:
-            self.instance.config['output_pin_no'] = self.cleaned_data['output_pin'].no
-
-        update_colonel = False
-        if not self.instance.pk:
-            update_colonel = True
-        elif 'output_pin' in self.changed_data:
-            update_colonel = True
-
-        obj = super().save(commit=commit)
-
-        if not update_colonel:
-            GatewayObjectCommand(
-                obj.gateway, self.cleaned_data['colonel'], id=obj.id,
-                command='call', method='update_config', args=[
-                    obj.controller._get_colonel_config()
-                ]
-            ).publish()
-        return obj
+    slaves = Select2ModelMultipleChoiceField(
+        queryset=Component.objects.filter(
+            base_type__in=('dimmer',),
+        ),
+        url='autocomplete-component',
+        forward=(forward.Const(['dimmer', ], 'base_type'),),
+        required=False
+    )
+    controls = FormsetField(
+        formset_factory(
+            ControlForm, can_delete=True, can_order=True, extra=0, max_num=10
+        )
+    )
 
 
 class ColonelRGBLightConfigForm(ColonelComponentForm):

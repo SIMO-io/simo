@@ -314,7 +314,7 @@ class FadeMixin:
 
 
 class PWMOutput(FadeMixin, FleeDeviceMixin, BasicOutputMixin, BaseDimmer):
-    name = "Dimmer"
+    name = "AC/DC Dimmer | PWM Driver"
     config_form = ColonelPWMOutputConfigForm
 
     def _prepare_for_send(self, value):
