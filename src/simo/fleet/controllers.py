@@ -893,13 +893,13 @@ class RoomSiren(FleetDeviceMixin, StateSelect):
 
     def _send_to_device(self, value):
         """Repaint included 3D space"""
-        if self.component.config['device'].startswith('wifi'):
+        if self.component.config.get('colonel'):
             GatewayObjectCommand(
                 self.component.gateway, self.component, set_val=value
             ).publish()
         else:
             dali_device = CustomDaliDevice.objects.filter(
-                id=self.component.config['device'][5:]
+                id=self.component.config['dali_device']
             ).first()
             from .custom_dali_operations import Frame
             frame = Frame(40, bytes(bytearray(5)))
