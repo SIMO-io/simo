@@ -2,7 +2,7 @@ from django.utils import timezone
 from simo.core.models import Component
 from .models import Interface, CustomDaliDevice
 from .controllers import (
-    TempHumSensor, AirQualitySensor, AmbientLightSensor,
+    RoomSiren, TempHumSensor, AirQualitySensor, AmbientLightSensor,
     RoomPresenceSensor, RoomZonePresenceSensor
 )
 
@@ -234,6 +234,7 @@ def process_frame(colonel_id, interface_no, data):
             comp.controller._receive_from_device(voc)
 
     elif frame[8:11] == 1:
+        # presence sensors
         comp = Component.objects.filter(
             controller_uid=AmbientLightSensor.uid, config__dali_device=device.id
         ).first()
@@ -273,3 +274,14 @@ def process_frame(colonel_id, interface_no, data):
                 if zone_sensors[slot].alive:
                     zone_sensors[slot].alive = False
                     zone_sensors[slot].save()
+
+    elif frame[8:11] == 2:
+        # siren and others
+        comp = Component.objects.filter(
+            controller_uid=RoomSiren.uid, config__dali_device=device.id
+        ).first()
+        if comp:
+            VALUES_MAP = {
+                int_v: str_v for str_v, int_v in RoomSiren.VALUES_MAP.items()
+            }
+            comp.controller._receive_from_device(VALUES_MAP[frame[12:16]])

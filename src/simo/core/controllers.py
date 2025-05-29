@@ -265,9 +265,7 @@ class ControllerBase(ABC):
             except:
                 pass
 
-        GatewayObjectCommand(
-            self.component.gateway, self.component, set_val=value
-        ).publish()
+        self._send_to_device(value)
         if value != self.component.value:
             self.component.value_previous = self.component.value
             self.component.value = value
@@ -315,6 +313,11 @@ class ControllerBase(ABC):
             user=actor
         ).first()
         self.component.save()
+
+    def _send_to_device(self, value):
+        GatewayObjectCommand(
+            self.component.gateway, self.component, set_val=value
+        ).publish()
 
     def _receive_from_device(
         self, value, is_alive=True, battery_level=None, error_msg=None

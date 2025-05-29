@@ -1837,13 +1837,14 @@ class RoomSensorDeviceConfigForm(CustomDaliDeviceForm):
             colonel = device
 
         from .controllers import (
-            AirQualitySensor, TempHumSensor, AmbientLightSensor,
+            RoomSiren, AirQualitySensor, TempHumSensor, AmbientLightSensor,
             RoomPresenceSensor
         )
 
         org_name = self.cleaned_data['name']
         org_icon = self.cleaned_data['icon']
         for CtrlClass, icon, suffix in (
+            (RoomSiren, 'siren', 'siren'),
             (AirQualitySensor, 'leaf', 'air quality'),
             (TempHumSensor, 'temperature-half', 'temperature'),
             (AmbientLightSensor, 'brightness-low', 'brightness'),

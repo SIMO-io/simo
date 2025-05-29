@@ -10,14 +10,15 @@ from simo.core.controllers import (
     Switch as BaseSwitch, Dimmer as BaseDimmer,
     MultiSensor as BaseMultiSensor, RGBWLight as BaseRGBWLight,
     Blinds as BaseBlinds, Gate as BaseGate,
+    Lock, ControllerBase, SingleSwitchWidget
 )
 from simo.core.app_widgets import NumericSensorWidget, AirQualityWidget
-from simo.core.controllers import Lock, ControllerBase, SingleSwitchWidget
 from simo.core.utils.helpers import heat_index
 from simo.core.utils.serialization import (
     serialize_form_data, deserialize_form_data
 )
 from simo.core.forms import BaseComponentForm
+from simo.generic.controllers import StateSelect
 from .models import Colonel, CustomDaliDevice
 from .gateways import FleetGatewayHandler
 from .forms import (
@@ -37,7 +38,7 @@ from .forms import (
 )
 
 
-class FleeDeviceMixin:
+class FleetDeviceMixin:
 
     def update_options(self, options):
         GatewayObjectCommand(
@@ -91,11 +92,11 @@ class BasicSensorMixin:
             self.component.config['pin_no'],
         ]
 
-class BinarySensor(FleeDeviceMixin, BasicSensorMixin, BaseBinarySensor):
+class BinarySensor(FleetDeviceMixin, BasicSensorMixin, BaseBinarySensor):
     config_form = ColonelBinarySensorConfigForm
 
 
-class Button(FleeDeviceMixin, BasicSensorMixin, BaseButton):
+class Button(FleetDeviceMixin, BasicSensorMixin, BaseButton):
     config_form = ColonelButtonConfigForm
 
 
@@ -110,12 +111,12 @@ class BurglarSmokeDetector(BinarySensor):
         ]
 
 
-class DS18B20Sensor(FleeDeviceMixin, BasicSensorMixin, BaseNumericSensor):
+class DS18B20Sensor(FleetDeviceMixin, BasicSensorMixin, BaseNumericSensor):
     config_form = DS18B20SensorConfigForm
     name = "DS18B20 Temperature sensor"
 
 
-class DHTSensor(FleeDeviceMixin, BasicSensorMixin, BaseMultiSensor):
+class DHTSensor(FleetDeviceMixin, BasicSensorMixin, BaseMultiSensor):
     config_form = ColonelDHTSensorConfigForm
     name = "DHT climate sensor"
     app_widget = NumericSensorWidget
@@ -171,7 +172,7 @@ class BME680Sensor(DHTSensor):
 
 
 
-class MCP9808TempSensor(FleeDeviceMixin, BaseNumericSensor):
+class MCP9808TempSensor(FleetDeviceMixin, BaseNumericSensor):
     gateway_class = FleetGatewayHandler
     config_form = MCP9808SensorConfigForm
     name = "MCP9808 Temperature Sensor (I2C)"
@@ -196,7 +197,7 @@ class MCP9808TempSensor(FleeDeviceMixin, BaseNumericSensor):
         return value
 
 
-class ENS160AirQualitySensor(FleeDeviceMixin, BaseMultiSensor):
+class ENS160AirQualitySensor(FleetDeviceMixin, BaseMultiSensor):
     gateway_class = FleetGatewayHandler
     config_form = ENS160SensorConfigForm
     name = "ENS160 Air Quality Sensor (I2C)"
@@ -257,7 +258,7 @@ class BasicOutputMixin:
         ).publish()
 
 
-class Switch(FleeDeviceMixin, BasicOutputMixin, BaseSwitch):
+class Switch(FleetDeviceMixin, BasicOutputMixin, BaseSwitch):
     config_form = ColonelSwitchConfigForm
 
     def signal(self, pulses):
@@ -313,7 +314,7 @@ class FadeMixin:
         ).publish()
 
 
-class PWMOutput(FadeMixin, FleeDeviceMixin, BasicOutputMixin, BaseDimmer):
+class PWMOutput(FadeMixin, FleetDeviceMixin, BasicOutputMixin, BaseDimmer):
     name = "AC/DC Dimmer | PWM Driver"
     config_form = ColonelPWMOutputConfigForm
 
@@ -362,7 +363,7 @@ class PWMOutput(FadeMixin, FleeDeviceMixin, BasicOutputMixin, BaseDimmer):
         return round(value, 3)
 
 
-class DC10VDriver(FadeMixin, FleeDeviceMixin, BasicOutputMixin, BaseDimmer):
+class DC10VDriver(FadeMixin, FleetDeviceMixin, BasicOutputMixin, BaseDimmer):
     name = "0 - 10V Driver"
     config_form = DC10VConfigForm
     default_value_units = '%'
@@ -422,11 +423,11 @@ class DC10VDriver(FadeMixin, FleeDeviceMixin, BasicOutputMixin, BaseDimmer):
         return round(value, 3)
 
 
-class RGBLight(FleeDeviceMixin, BasicOutputMixin, BaseRGBWLight):
+class RGBLight(FleetDeviceMixin, BasicOutputMixin, BaseRGBWLight):
     config_form = ColonelRGBLightConfigForm
 
 
-class DualMotorValve(FleeDeviceMixin, BasicOutputMixin, BaseDimmer):
+class DualMotorValve(FleetDeviceMixin, BasicOutputMixin, BaseDimmer):
     gateway_class = FleetGatewayHandler
     config_form = DualMotorValveForm
     name = "Dual Motor Valve"
@@ -458,7 +459,7 @@ class DualMotorValve(FleeDeviceMixin, BasicOutputMixin, BaseDimmer):
         return conf.get('min', 0) + (value / 100) * val_amplitude
 
 
-class Blinds(FleeDeviceMixin, BasicOutputMixin, BaseBlinds):
+class Blinds(FleetDeviceMixin, BasicOutputMixin, BaseBlinds):
     gateway_class = FleetGatewayHandler
     config_form = BlindsConfigForm
 
@@ -473,7 +474,7 @@ class Blinds(FleeDeviceMixin, BasicOutputMixin, BaseBlinds):
         return pins
 
 
-class Gate(FleeDeviceMixin, BasicOutputMixin, BaseGate):
+class Gate(FleetDeviceMixin, BasicOutputMixin, BaseGate):
     gateway_class = FleetGatewayHandler
     config_form = GateConfigForm
 
@@ -489,7 +490,7 @@ class Gate(FleeDeviceMixin, BasicOutputMixin, BaseGate):
 
 
 
-class TTLock(FleeDeviceMixin, Lock):
+class TTLock(FleetDeviceMixin, Lock):
     gateway_class = FleetGatewayHandler
     config_form = TTLockConfigForm
     name = 'TTLock'
@@ -680,7 +681,7 @@ class TTLock(FleeDeviceMixin, Lock):
 
 
 
-class DALIDevice(FleeDeviceMixin, ControllerBase):
+class DALIDevice(FleetDeviceMixin, ControllerBase):
     gateway_class = FleetGatewayHandler
     config_form = DALIDeviceConfigForm
     name = "DALI Device"
@@ -799,7 +800,7 @@ class DALILamp(FadeMixin, BaseDimmer, DALIDevice):
     config_form = DaliLampForm
 
 
-class DALIGearGroup(FadeMixin, FleeDeviceMixin, BaseDimmer):
+class DALIGearGroup(FadeMixin, FleetDeviceMixin, BaseDimmer):
     gateway_class = FleetGatewayHandler
     family = 'dali'
     manual_add = True
@@ -858,7 +859,7 @@ class DALIButton(BaseButton, DALIDevice):
     config_form = DALIButtonConfigForm
 
 
-class RoomSensor(FleeDeviceMixin, ControllerBase):
+class RoomSensor(FleetDeviceMixin, ControllerBase):
     gateway_class = FleetGatewayHandler
     config_form = RoomSensorDeviceConfigForm
     name = "Room Sensor"
@@ -868,9 +869,48 @@ class RoomSensor(FleeDeviceMixin, ControllerBase):
 
     def _validate_val(self, value, occasion=None):
         return value
+    
+    
+class RoomSiren(FleetDeviceMixin, StateSelect):
+    config_form = BaseComponentForm
+    default_config = {'states': [
+        {'icon': 'bell', 'slug': 'silent', 'name': "Silent"},
+        {'icon': 'bell-exclamation', 'slug': 'warning', 'name': "Warning"},
+        {'icon': 'bell-on', 'slug': 'alarm', 'name': "Alarm"},
+        {'icon': 'circle-check', 'slug': 'success', 'name': "Success"},
+        {'icon': 'circle-xmark', 'slug': 'error', 'name': "Error"},
+    ]}
+    VALUES_MAP = {
+        'silent': 0, 'warning': 1, 'alarm': 2,
+        'success': 3, 'error': 4
+    }
+
+    def turn_on(self):
+        self.send('alarm')
+
+    def turn_off(self):
+        self.send('silent')
+
+    def _send_to_device(self, value):
+        """Repaint included 3D space"""
+        if self.component.config['device'].startswith('wifi'):
+            GatewayObjectCommand(
+                self.component.gateway, self.component, set_val=value
+            ).publish()
+        else:
+            dali_device = CustomDaliDevice.objects.filter(
+                id=self.component.config['device'][5:]
+            ).first()
+            from .custom_dali_operations import Frame
+            frame = Frame(40, bytes(bytearray(5)))
+            frame[8:11] = 15  # command to custom dali device
+            frame[12:15] = 6  # action to perform: set value
+            frame[16:20] = 0 # device on which to perform value set
+            frame[21:24] = self.VALUES_MAP[value]
+            dali_device.transmit(frame)
 
 
-class AirQualitySensor(FleeDeviceMixin, BaseMultiSensor):
+class AirQualitySensor(FleetDeviceMixin, BaseMultiSensor):
     gateway_class = FleetGatewayHandler
     config_form = BaseComponentForm
     name = "Air Quality Sensor"
@@ -915,7 +955,7 @@ class AirQualitySensor(FleeDeviceMixin, BaseMultiSensor):
             return
 
 
-class TempHumSensor(FleeDeviceMixin, BasicSensorMixin, BaseMultiSensor):
+class TempHumSensor(FleetDeviceMixin, BasicSensorMixin, BaseMultiSensor):
     gateway_class = FleetGatewayHandler
     config_form = BaseComponentForm
     name = "Temperature & Humidity sensor"
@@ -970,7 +1010,7 @@ class TempHumSensor(FleeDeviceMixin, BasicSensorMixin, BaseMultiSensor):
         return super()._receive_from_device(new_val, *args, **kwargs)
 
 
-class AmbientLightSensor(FleeDeviceMixin, BaseNumericSensor):
+class AmbientLightSensor(FleetDeviceMixin, BaseNumericSensor):
     gateway_class = FleetGatewayHandler
     name = "Ambient lighting sensor"
     manual_add = False
@@ -985,13 +1025,13 @@ class AmbientLightSensor(FleeDeviceMixin, BaseNumericSensor):
     }
 
 
-class RoomPresenceSensor(FleeDeviceMixin, BaseBinarySensor):
+class RoomPresenceSensor(FleetDeviceMixin, BaseBinarySensor):
     gateway_class = FleetGatewayHandler
     name = "Human presence sensor"
     manual_add = False
 
 
-class RoomZonePresenceSensor(FleeDeviceMixin, BaseBinarySensor):
+class RoomZonePresenceSensor(FleetDeviceMixin, BaseBinarySensor):
     gateway_class = FleetGatewayHandler
     add_form = RoomZonePresenceConfigForm
     config_form = BaseComponentForm
