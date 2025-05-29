@@ -880,14 +880,15 @@ class RoomSiren(FleetDeviceMixin, StateSelect):
         {'icon': 'bell-on', 'slug': 'alarm', 'name': "Alarm"},
         {'icon': 'circle-check', 'slug': 'success', 'name': "Success"},
         {'icon': 'circle-xmark', 'slug': 'error', 'name': "Error"},
+        {'icon': 'siren-on', 'slug': 'panic', 'name': "Panic"},
     ]}
     VALUES_MAP = {
         'silent': 0, 'warning': 1, 'alarm': 2,
-        'success': 3, 'error': 4
+        'success': 3, 'error': 4, 'panic': 5
     }
 
     def turn_on(self):
-        self.send('alarm')
+        self.send('panic')
 
     def turn_off(self):
         self.send('silent')
