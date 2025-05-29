@@ -872,6 +872,7 @@ class RoomSensor(FleetDeviceMixin, ControllerBase):
     
     
 class RoomSiren(FleetDeviceMixin, StateSelect):
+    gateway_class = FleetGatewayHandler
     config_form = BaseComponentForm
     default_config = {'states': [
         {'icon': 'bell', 'slug': 'silent', 'name': "Silent"},
@@ -892,7 +893,6 @@ class RoomSiren(FleetDeviceMixin, StateSelect):
         self.send('silent')
 
     def _send_to_device(self, value):
-        """Repaint included 3D space"""
         if self.component.config.get('colonel'):
             GatewayObjectCommand(
                 self.component.gateway, self.component, set_val=value
