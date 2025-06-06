@@ -3,7 +3,7 @@
 =================================
 
 
-A fully featured `Python/Django<https://www.djangoproject.com/>`_-based
+A fully featured `Python/Django <https://www.djangoproject.com/>`_ - based
 smart home automation platform — built by professionals,
 for professionals, designed specifically for high-quality
 professional installations.
