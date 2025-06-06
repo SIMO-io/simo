@@ -2,13 +2,16 @@
 `SIMO.io <https://simo.io>`_ - Smart Home Supremacy
 =================================
 
-Fully fledged `Python/Django <https://www.djangoproject.com/>`_ based smart home automation platform built by professionals
-for professionals to be used in professional installations!
 
-| Simplicity is the main building block of everything great that was or will be ever created!
-| If something claimed to be smart, it must be simple yet comprehensive, otherwise it becomes tedious.
+A fully featured `Python/Django<https://www.djangoproject.com/>`_-based
+smart home automation platform — built by professionals,
+for professionals, designed specifically for high-quality
+professional installations.
 
-| Simanas Venčkauskas
+| Simplicity is the cornerstone of everything truly great — past, present, and future.
+| If something is called smart, it must be both simple and comprehensive. Otherwise, it becomes a burden, not a solution.
+|
+| Simon
 | Founder of SIMO.io
 
 
