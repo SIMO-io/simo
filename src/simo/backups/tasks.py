@@ -147,19 +147,295 @@ def get_lvm_partition(lsblk_data):
             return get_lvm_partition(device['children'])
 
 
+def _has_backup_label(dev: dict) -> bool:
+    """Return ``True`` when the given *lsblk* device description represents
+    the desired "backup" partition.  The logic is kept in one place to make
+    future adjustments simpler.
+
+    The criteria as of now are:
+
+    The filesystem label (``label`` field) is exactly ``BACKUP`` – this is
+    how the pre-built *rescue-uefi.img* image names the 3rd partition that
+    will be used for storing backups.
+    """
+
+    label = (dev.get("label") or dev.get("partlabel") or "").upper()
+    if label == "BACKUP":
+        return True
+    return False
+
+
 def get_backup_device(lsblk_data):
+    """Locate a removable partition that should be used to store backups.
+
+    Priority is given to a partition explicitly labelled ``BACKUP``.  If such
+    a partition isn't found, the legacy rule – ‘any removable exFAT
+    partition’ – is used.
+    """
+
     for device in lsblk_data:
-        if not device['hotplug']:
+        if not device.get("hotplug"):
             continue
-        target_device = None
-        if device.get('fstype') == 'exfat':
-            target_device = device
-        elif device.get('children'):
-            for child in device.get('children'):
-                if child.get('fstype') == 'exfat':
-                    target_device = child
-        if target_device:
-            return target_device
+
+        # Prefer partitions explicitly labelled "BACKUP".
+        for child in device.get("children", []):
+            if _has_backup_label(child):
+                return child
+
+        # Legacy fallback – whole-disk filesystems or partitions formatted as
+        # exFAT are still recognised in order to stay compatible with drives
+        # prepared by older software versions.
+        # NOTE:  We intentionally keep this logic after the new BACKUP label
+        # check so that freshly provisioned media (ext4+label) wins.
+
+        # 1. Whole-disk (no partition table) exFAT volume.
+        if (device.get("fstype") or "").lower() == "exfat":
+            return device
+
+        # 2. Partitioned removable drive – look for any exFAT child.
+        for child in device.get("children", []):
+            if (child.get("fstype") or "").lower() == "exfat":
+                return child
+
+    # Nothing has been found.
+    return None
+
+
+def _find_blank_removable_device(lsblk_data):
+    """Return the first removable block *device* that looks empty.
+
+    A device is considered *blank* when one of the following conditions is
+    met:
+
+    1. It has no children (partitions) **and** no recognised filesystem – the
+       original behaviour that covers brand-new, uninitialised drives.
+    2. It has no children (partitions) **and** an existing filesystem that is
+       effectively empty (e.g. a freshly formatted card).
+
+    Determining if a filesystem is *empty* is tricky without mounting it, but
+    for the purpose of automatically provisioning backup media we can use a
+    pragmatic heuristic: if the device is not mounted we temporarily mount it
+    read-only to a throw-away directory, inspect its contents and then unmount
+    it again.  If it **is** already mounted we reuse the existing
+    mount-point.  In both cases we treat the device as blank when the root of
+    the filesystem contains no entries other than implementation-specific
+    placeholders like the *lost+found* directory created by *mkfs.ext4*.
+
+    This relaxed definition allows the backup subsystem to reuse drives that
+    have been pre-formatted by the user but never actually used to store any
+    files.
+    """
+
+# --- Helper inner functions ------------------------------------------------
+
+    def _device_size_bytes(dev_name: str):
+        """Return size of *dev_name* in bytes (or ``None`` on failure)."""
+
+        for cmd in (
+            f"blockdev --getsize64 /dev/{dev_name}",
+            f"lsblk -b -dn -o SIZE /dev/{dev_name}",
+        ):
+            try:
+                out = subprocess.check_output(
+                    cmd, shell=True, stderr=subprocess.DEVNULL
+                ).strip()
+                return int(out)
+            except Exception:
+                continue
+        return None
+
+    def _fs_is_empty(entry: dict) -> bool:
+        """Heuristic to decide if a filesystem represented by *entry* is empty."""
+
+        fstype = entry.get("fstype")
+        if not fstype:
+            # Unformatted – treat as empty.
+            return True
+
+        mountpoint = entry.get("mountpoint")
+        cleanup = False
+
+        if not mountpoint:
+            tmp_dir = f"/tmp/simo-bk-{uuid.uuid4().hex[:8]}"
+            try:
+                os.makedirs(tmp_dir, exist_ok=True)
+                res = subprocess.run(
+                    f"mount -o ro /dev/{entry['name']} {tmp_dir}",
+                    shell=True,
+                    stderr=subprocess.PIPE,
+                )
+                if res.returncode:
+                    shutil.rmtree(tmp_dir, ignore_errors=True)
+                    print(f"Unable to mount {entry['name']} to inspect contents – skip")
+                    return False
+                mountpoint = tmp_dir
+                cleanup = True
+            except Exception as exc:
+                shutil.rmtree(tmp_dir, ignore_errors=True)
+                print(f"Exception while mounting {entry['name']}: {exc}")
+                return False
+
+        try:
+            with os.scandir(mountpoint) as it:
+                entries = [e.name for e in it if not e.name.startswith('.')]
+        except Exception as exc:
+            print(f"Unable to read directory listing for {entry['name']}: {exc}")
+            if cleanup:
+                subprocess.run(f"umount {mountpoint}", shell=True)
+                shutil.rmtree(mountpoint, ignore_errors=True)
+            return False
+
+        if cleanup:
+            subprocess.run(f"umount {mountpoint}", shell=True)
+            shutil.rmtree(mountpoint, ignore_errors=True)
+
+        meaningful = [e for e in entries if e not in {"lost+found"}]
+        return not meaningful
+
+# ---------------------------------------------------------------------------
+
+    _MIN_SIZE_BYTES = 32 * 1024 * 1024 * 1024  # 32 GiB
+
+    for device in lsblk_data:
+        if not device.get("hotplug"):
+            continue
+
+        size_bytes = _device_size_bytes(device["name"])
+        if size_bytes is None:
+            print(f"Could not obtain capacity of: {device['name']}")
+            continue
+
+        if size_bytes < _MIN_SIZE_BYTES:
+            print(f"Too small (<32 GiB): {device['name']}")
+            continue
+
+        children = device.get("children") or []
+
+        if not children:
+            # Whole-disk filesystem.
+            if _fs_is_empty(device):
+                return device
+            print(f"Whole-disk filesystem on {device['name']} is not empty – skip")
+            continue
+
+        if len(children) == 1:
+            child = children[0]
+            if _fs_is_empty(child):
+                return device
+            print(f"Single partition {child['name']} on {device['name']} is not empty – skip")
+            continue
+
+        print(f"More than one partition on {device['name']} – skip")
+
+    return None
+
+
+def _ensure_rescue_image_written(blank_device_name: str):
+    """Write *rescue-uefi.img* to the given **whole-disk** device.
+
+    The function is intentionally idempotent – if writing fails the caller can
+    attempt to call it again (e.g. the next time the periodic task runs).
+
+    It raises an exception on irrecoverable errors so that the caller can log
+    the failure.
+    """
+
+    import tarfile, time
+
+    # Absolute path to the compressed image shipped with *simo* sources.
+    tar_path = os.path.join(os.path.dirname(__file__), "rescue-uefi.img.tar.gz")
+
+    img_path = "/tmp/rescue-uefi.img"
+
+    if not os.path.exists(img_path):
+        # Extract the image only once to avoid writing to /tmp on every run.
+        with tarfile.open(tar_path, mode="r:gz") as tar:
+            member = next(m for m in tar.getmembers() if m.name.endswith("rescue-uefi.img"))
+            tar.extract(member, path="/tmp")
+            # *tar.extract* preserves the path inside the archive; normalise
+            # to the expected location.
+            extracted_path = os.path.join("/tmp", member.name)
+            if extracted_path != img_path:
+                shutil.move(extracted_path, img_path)
+
+    # Write the image.  We deliberately avoid using *python-dd* wrappers and
+    # rely on the time-tested `dd(1)` command.
+    dd_cmd = (
+        f"dd if={img_path} of=/dev/{blank_device_name} bs=4M conv=fsync"
+    )
+    res = subprocess.run(dd_cmd, shell=True, stderr=subprocess.PIPE)
+    if res.returncode:
+        raise RuntimeError(
+            f"Writing rescue image failed: {res.stderr.decode(errors='ignore')}"
+        )
+
+    # Make sure the kernel notices the new partition table.
+    subprocess.run(f"partprobe /dev/{blank_device_name}", shell=True)
+
+    # Give the device a moment to settle.
+    time.sleep(2)
+
+    # Enlarge the 3rd partition (BACKUP) to the rest of the disk and create /
+    # extend the exFAT filesystem.  This is wrapped in a helper to keep the
+    # main flow readable.
+    _expand_backup_partition(blank_device_name)
+
+
+def _expand_backup_partition(device_name: str):
+    """Make partition 3 span leftover space and be ext4 labelled BACKUP.
+
+    Implementation is intentionally minimal and resilient:
+    – Use *sgdisk* only (no interactive prompts).
+    – Delete partition 3 (if present) and create a new one that fills all
+      remaining free space.
+    – Always create a fresh ext4 filesystem labelled BACKUP.
+    Because the rescue-image just flashed is empty, data loss is not a
+    concern and this deterministic route avoids edge-case errors.
+    """
+
+    import time, shutil
+
+    def _dev_path(base: str) -> str:
+        """Return /dev/<base>3 path handling devices that need 'p3'."""
+        direct = f"/dev/{base}3"
+        with_p = f"/dev/{base}p3"
+        return direct if os.path.exists(direct) else with_p
+
+    # 1. Ensure GPT headers cover the whole disk (harmless if already OK).
+    subprocess.run(f"sgdisk -e /dev/{device_name}", shell=True)
+
+    # 2. Drop existing partition 3 (ignore errors when it does not exist).
+    subprocess.run(f"sgdisk -d 3 /dev/{device_name}", shell=True)
+
+    # 3. Create new Linux filesystem partition occupying the rest of the disk.
+    create_cmd = f"sgdisk -n 3:0:0 -t 3:8300 -c 3:BACKUP /dev/{device_name}"
+    res = subprocess.run(create_cmd, shell=True, stderr=subprocess.PIPE)
+    if res.returncode:
+        raise RuntimeError(
+            "sgdisk failed to create BACKUP partition: " +
+            res.stderr.decode(errors="ignore")
+        )
+
+    # 4. Inform kernel and wait for udev.
+    subprocess.run(f"partprobe /dev/{device_name}", shell=True)
+    subprocess.run("udevadm settle", shell=True)
+
+    part_path = _dev_path(device_name)
+    for _ in range(5):
+        if os.path.exists(part_path):
+            break
+        time.sleep(1)
+    else:
+        raise RuntimeError("/dev node for new BACKUP partition did not appear")
+
+    # 5. Always create a fresh ext4 filesystem; wipe old signatures first.
+    subprocess.run(f"wipefs -a {part_path}", shell=True)
+    mkfs_cmd = f"mkfs.ext4 -F -L BACKUP {part_path}"
+    res = subprocess.run(mkfs_cmd, shell=True, stderr=subprocess.PIPE)
+    if res.returncode:
+        raise RuntimeError(
+            "mkfs.ext4 failed for BACKUP partition: " + res.stderr.decode(errors="ignore")
+        )
 
 
 def get_partitions():
@@ -205,16 +481,39 @@ def get_partitions():
 
     backup_device = get_backup_device(lsblk_data)
 
+    # If no suitable partition is available try to prepare one automatically.
+    if not backup_device:
+        blank_dev = _find_blank_removable_device(lsblk_data)
+        if blank_dev:
+            try:
+                _ensure_rescue_image_written(blank_dev["name"])
+            except Exception as exc:
+                BackupLog.objects.create(
+                    level="error",
+                    msg=(
+                        "Can't prepare backup drive automatically.\n\n" +
+                        str(exc)
+                    ),
+                )
+            else:
+                # Re-read block devices so that the freshly written partition
+                # table appears in *lsblk* output.
+                lsblk_data = json.loads(subprocess.check_output(
+                    'lsblk --output NAME,HOTPLUG,MOUNTPOINT,FSTYPE,TYPE,LABEL,PARTLABEL  --json',
+                    shell=True
+                ).decode())['blockdevices']
+                backup_device = get_backup_device(lsblk_data)
+
     if not backup_device:
         BackupLog.objects.create(
             level='warning',
-            msg="Can't backup. No external exFAT backup device on this machine."
+            msg="Can't backup. No external BACKUP partition found and no blank removable device was available."
         )
         return
 
-    if lvm_partition.get('partlabel'):
+    if backup_device.get('partlabel'):
         sd_mountpoint = f"/media/{backup_device['partlabel']}"
-    elif lvm_partition.get('label'):
+    elif backup_device.get('label'):
         sd_mountpoint = f"/media/{backup_device['label']}"
     else:
         sd_mountpoint = f"/media/{backup_device['name']}"
