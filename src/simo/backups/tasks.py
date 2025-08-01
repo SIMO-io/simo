@@ -279,18 +279,6 @@ def get_backup_device(lsblk_data):
             if _has_backup_label(child):
                 return child
 
-        # Legacy fallback (modern capacity) – whole-disk or partitioned
-        # exFAT volumes are still acceptable for backward compatibility when
-        # they are large enough.
-
-        if (device.get("fstype") or "").lower() == "exfat":
-            return device
-
-        for child in device.get("children", []):
-            if (child.get("fstype") or "").lower() == "exfat":
-                return child
-
-
     # ------------------------------------------------------------------
     # Phase 2 – look for **existing** legacy backup drives.
     # ------------------------------------------------------------------
