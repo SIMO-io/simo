@@ -140,11 +140,34 @@ def create_snap(lv_group, lv_name, snap_name=None, size=None, try_no=1):
 
 
 def get_lvm_partition(lsblk_data):
+    """Return the *lsblk* entry describing the logical volume mounted as "/".
+
+    The original implementation returned prematurely when the first top-level
+    device contained any children – even if none of them matched the search
+    criteria.  As a result the search stopped after inspecting just a single
+    branch of the device tree which broke setups where the root logical
+    volume was not located under the very first block device listed by
+    *lsblk* (e.g. when the machine had multiple drives).
+
+    The fixed version walks the whole tree depth-first and stops only after a
+    matching entry is found or the entire structure has been inspected.
+    """
+
     for device in lsblk_data:
-        if device['type'] == 'lvm' and device['mountpoint'] == '/':
+        # Check the current node first.
+        if device.get('type') == 'lvm' and device.get('mountpoint') == '/':
             return device
-        if 'children' in device:
-            return get_lvm_partition(device['children'])
+
+        # Recursively search children (if any).  The recursive call returns
+        # either the desired dictionary or *None* – propagate the first truthy
+        # value up the call stack so that the outermost caller gets the
+        # matching entry.
+        child_match = get_lvm_partition(device.get('children', [])) if device.get('children') else None
+        if child_match:
+            return child_match
+
+    # Nothing found on this branch.
+    return None
 
 
 def _has_backup_label(dev: dict) -> bool:
@@ -155,7 +178,7 @@ def _has_backup_label(dev: dict) -> bool:
     The criteria as of now are:
 
     The filesystem label (``label`` field) is exactly ``BACKUP`` – this is
-    how the pre-built *rescue-uefi.img* image names the 3rd partition that
+    how the pre-built *rescue.img* image names the 3rd partition that
     will be used for storing backups.
     """
 
@@ -331,7 +354,7 @@ def _find_blank_removable_device(lsblk_data):
 
 
 def _ensure_rescue_image_written(blank_device_name: str):
-    """Write *rescue-uefi.img* to the given **whole-disk** device.
+    """Write *rescue.img* to the given **whole-disk** device.
 
     The function is intentionally idempotent – if writing fails the caller can
     attempt to call it again (e.g. the next time the periodic task runs).
@@ -342,26 +365,12 @@ def _ensure_rescue_image_written(blank_device_name: str):
 
     import tarfile, time
 
-    # Absolute path to the compressed image shipped with *simo* sources.
-    tar_path = os.path.join(os.path.dirname(__file__), "rescue-uefi.img.tar.gz")
-
-    img_path = "/tmp/rescue-uefi.img"
-
-    if not os.path.exists(img_path):
-        # Extract the image only once to avoid writing to /tmp on every run.
-        with tarfile.open(tar_path, mode="r:gz") as tar:
-            member = next(m for m in tar.getmembers() if m.name.endswith("rescue-uefi.img"))
-            tar.extract(member, path="/tmp")
-            # *tar.extract* preserves the path inside the archive; normalise
-            # to the expected location.
-            extracted_path = os.path.join("/tmp", member.name)
-            if extracted_path != img_path:
-                shutil.move(extracted_path, img_path)
+    img_path = os.path.join(os.path.dirname(__file__), "rescue.img.xz")
 
     # Write the image.  We deliberately avoid using *python-dd* wrappers and
     # rely on the time-tested `dd(1)` command.
     dd_cmd = (
-        f"dd if={img_path} of=/dev/{blank_device_name} bs=4M conv=fsync"
+        f"xzcat {img_path} | dd of=/dev/{blank_device_name} bs=4M conv=fsync"
     )
     res = subprocess.run(dd_cmd, shell=True, stderr=subprocess.PIPE)
     if res.returncode:
@@ -536,6 +545,8 @@ def get_partitions():
 
 @celery_app.task
 def perform_backup():
+    from simo.core.models import Instance
+    from simo.core.middleware import drop_current_instance
     from simo.backups.models import BackupLog
     try:
         lv_group, lv_name, sd_mountpoint = get_partitions()
@@ -566,6 +577,12 @@ def perform_backup():
     mac = str(hex(uuid.getnode()))
     device_backups_path = f'{sd_mountpoint}/simo_backups/hub-{mac}'
 
+    drop_current_instance()
+    hub_meta = {
+        'instances': [inst.name for inst in Instance.objects.all()]
+    }
+    with open(os.path.join(device_backups_path, 'hub_meta.json'), 'w') as f:
+        f.write(json.dumps(hub_meta))
 
     now = datetime.now()
     month_folder = os.path.join(
@@ -587,6 +604,29 @@ def perform_backup():
                 f'borg init --encryption=none {month_folder}', shell=True
             )
 
+    # ------------------------------------------------------------------
+    # Ensure that files stored on *separate* partitions – most importantly
+    # the /boot (kernel & initrd images) and /boot/efi (EFI System
+    # Partition) – are included in the snapshot.  Otherwise the rescue
+    # procedure restores an empty /boot which leaves the system un-bootable
+    # once GRUB hands over control to the (missing) kernel.
+    #
+    # We temporarily bind-mount those paths into the read-only snapshot so
+    # that Borg treats them as regular directories residing on the same
+    # filesystem tree.
+    # ------------------------------------------------------------------
+
+    bind_mounts = []
+    for path in ("/boot", "/boot/efi"):
+        target = os.path.join(snap_mount_point, path.lstrip("/"))
+        # Create the mount-point inside the snapshot and bind-mount the live
+        # directory if it exists.
+        if os.path.ismount(path):
+            os.makedirs(target, exist_ok=True)
+            subprocess.run(["mount", "--bind", path, target], check=True)
+            bind_mounts.append(target)
+
+    # Directories that are safe to exclude – keep /boot out of this list!
     exclude_dirs = (
         'tmp', 'lost+found', 'proc', 'cdrom', 'dev', 'mnt', 'sys', 'run',
         'var/tmp', 'var/cache', 'var/log', 'media',
@@ -624,6 +664,11 @@ def perform_backup():
         backup_command, shell=True, cwd=snap_mount_point,
         stdout=subprocess.PIPE, stderr=subprocess.PIPE
     )
+
+    # Unmount previously created bind-mounts (boot / boot/efi) *before*
+    # removing the snapshot so that no busy references remain.
+    for mnt in reversed(bind_mounts):
+        subprocess.run(["umount", mnt])
 
     subprocess.run(["umount", snap_mount_point])
     subprocess.run(
