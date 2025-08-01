@@ -196,8 +196,82 @@ def get_backup_device(lsblk_data):
     partition’ – is used.
     """
 
+    _MIN_SIZE_BYTES = 32 * 1024 * 1024 * 1024  # 32 GiB – keep in sync with
+                                               # _find_blank_removable_device.
+
+    def _device_size_bytes(dev_name: str):
+        """Return size of *dev_name* in bytes (or ``None`` on failure)."""
+
+        for cmd in (
+            f"blockdev --getsize64 /dev/{dev_name}",
+            f"lsblk -b -dn -o SIZE /dev/{dev_name}",
+        ):
+            try:
+                out = subprocess.check_output(
+                    cmd, shell=True, stderr=subprocess.DEVNULL
+                ).strip()
+                return int(out)
+            except Exception:
+                continue
+        return None
+
+    # ------------------------------------------------------------------
+    # Helper: does the filesystem already contain legacy backups?
+    # ------------------------------------------------------------------
+
+    def _entry_has_simo_backups(entry: dict) -> bool:
+        """Return *True* when *entry* hosts legacy ``simo_backups`` folder.
+
+        The implementation borrows heavily from the _fs_is_empty() helper –
+        we temporarily mount the filesystem read-only when it is not mounted
+        yet, inspect the directory listing and clean everything up.
+        """
+
+        mountpoint = entry.get("mountpoint")
+        cleanup = False
+
+        if not mountpoint:
+            tmp_dir = f"/tmp/simo-bk-{uuid.uuid4().hex[:8]}"
+            try:
+                os.makedirs(tmp_dir, exist_ok=True)
+                res = subprocess.run(
+                    f"mount -o ro /dev/{entry['name']} {tmp_dir}",
+                    shell=True,
+                    stderr=subprocess.PIPE,
+                )
+                if res.returncode:
+                    shutil.rmtree(tmp_dir, ignore_errors=True)
+                    return False
+                mountpoint = tmp_dir
+                cleanup = True
+            except Exception:
+                shutil.rmtree(tmp_dir, ignore_errors=True)
+                return False
+
+        has_backups = os.path.isdir(os.path.join(mountpoint, "simo_backups"))
+
+        if cleanup:
+            subprocess.run(f"umount {mountpoint}", shell=True)
+            shutil.rmtree(mountpoint, ignore_errors=True)
+
+        return has_backups
+
+    # ------------------------------------------------------------------
+    # Phase 1 – look for properly prepared BACKUP partition **>=32 GiB**.
+    #          This is the preferred modern approach.
+    # ------------------------------------------------------------------
+
     for device in lsblk_data:
         if not device.get("hotplug"):
+            continue
+
+        # Capacity check – skip devices smaller than the required threshold.
+        size_bytes = _device_size_bytes(device["name"])
+        if size_bytes is None:
+            print(f"Could not obtain capacity of: {device['name']}")
+            continue
+
+        if size_bytes < _MIN_SIZE_BYTES:
             continue
 
         # Prefer partitions explicitly labelled "BACKUP".
@@ -205,19 +279,39 @@ def get_backup_device(lsblk_data):
             if _has_backup_label(child):
                 return child
 
-        # Legacy fallback – whole-disk filesystems or partitions formatted as
-        # exFAT are still recognised in order to stay compatible with drives
-        # prepared by older software versions.
-        # NOTE:  We intentionally keep this logic after the new BACKUP label
-        # check so that freshly provisioned media (ext4+label) wins.
+        # Legacy fallback (modern capacity) – whole-disk or partitioned
+        # exFAT volumes are still acceptable for backward compatibility when
+        # they are large enough.
 
-        # 1. Whole-disk (no partition table) exFAT volume.
         if (device.get("fstype") or "").lower() == "exfat":
             return device
 
-        # 2. Partitioned removable drive – look for any exFAT child.
         for child in device.get("children", []):
             if (child.get("fstype") or "").lower() == "exfat":
+                return child
+
+
+    # ------------------------------------------------------------------
+    # Phase 2 – look for **existing** legacy backup drives.
+    # ------------------------------------------------------------------
+
+    if _find_blank_removable_device(lsblk_data):
+        # New empty disk is available, let's use it instead of trying to find
+        # legacy media
+        return None
+
+    for device in lsblk_data:
+        if not device.get("hotplug"):
+            continue
+
+        # Check the whole device first.
+        if device.get("mountpoint") or device.get("fstype"):
+            if _entry_has_simo_backups(device):
+                return device
+
+        # Check its partitions (if any).
+        for child in device.get("children", []):
+            if _entry_has_simo_backups(child):
                 return child
 
     # Nothing has been found.
@@ -576,6 +670,9 @@ def perform_backup():
 
     mac = str(hex(uuid.getnode()))
     device_backups_path = f'{sd_mountpoint}/simo_backups/hub-{mac}'
+
+    if not os.path.exists(device_backups_path):
+        os.makedirs(device_backups_path)
 
     drop_current_instance()
     hub_meta = {
