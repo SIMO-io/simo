@@ -862,7 +862,7 @@ class DALIButton(BaseButton, DALIDevice):
 class RoomSensor(FleetDeviceMixin, ControllerBase):
     gateway_class = FleetGatewayHandler
     config_form = RoomSensorDeviceConfigForm
-    name = "Room Sensor"
+    name = "Sentinel (Room Sensor)"
     base_type = 'room-sensor'
     default_value = 0
     app_widget = NumericSensorWidget
@@ -975,14 +975,16 @@ class TempHumSensor(FleetDeviceMixin, BasicSensorMixin, BaseMultiSensor):
         return [
             ['temperature', 0, self.sys_temp_units],
             ['humidity', 20, '%'],
-            ['real_feel', 0, self.sys_temp_units]
+            ['real_feel', 0, self.sys_temp_units],
+            ['core', 0, 'C'],
+            ['outside', 0, 'C']
         ]
 
     def _receive_from_device(self, value, *args, **kwargs):
 
         if isinstance(value, dict):
             temp = value['temp']
-            humidity = value['humidity']
+            humidity = value['hum']
         else:
             buf = bytes.fromhex(value)
             humidity = (
@@ -997,7 +999,9 @@ class TempHumSensor(FleetDeviceMixin, BasicSensorMixin, BaseMultiSensor):
         new_val = [
             ['temperature', temp, self.sys_temp_units],
             ['humidity', humidity, '%'],
-            ['real_feel', 0, self.sys_temp_units]
+            ['real_feel', 0, self.sys_temp_units],
+            ['core', value.get('core'), 'C'],
+            ['outside', value.get('out'), 'C']
         ]
 
         if self.sys_temp_units == 'F':

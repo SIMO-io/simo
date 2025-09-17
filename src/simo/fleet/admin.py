@@ -61,7 +61,7 @@ class ColonelAdmin(admin.ModelAdmin):
     readonly_fields = (
         'type', 'uid', 'connected', 'last_seen',
         'firmware_version', 'newer_firmware_available',
-        'history',
+        'history', 'wake_stats', 'last_wake', 'is_vo_active'
     )
 
     actions = (
@@ -83,6 +83,10 @@ class ColonelAdmin(admin.ModelAdmin):
             'fields': ('history',),
             'classes': ('collapse',),
         }),
+        ("AI Voice Assistant", {
+            'fields': ('wake_stats', 'last_wake', 'is_vo_active'),
+            'classes': ('collapse',),
+        })
     )
 
     def get_queryset(self, request):

@@ -20,6 +20,7 @@ itsdangerous==2.0.1
 redis==3.5.3
 django-redis==4.12.1
 webservices==0.7
+websockets==13.1
 numpy>=1.24.4
 geopy==2.2.0
 requests>=2.26.0
@@ -31,12 +32,14 @@ django-location-field==2.1.0
 slugify==0.0.1
 django-countries==7.5.1
 librosa==0.10.1
+lameenc==1.8.1
 daphne==4.1.2
 Pillow==9.5.0 # newer version breaks easy-thumbnails
 django-markdownify==0.9.5
 django-activity-stream==2.0.0
 gunicorn==23.0.0
 python-crontab==3.2.0
+pydub==0.25.1
 django-object-actions==4.3.0
 tqdm==4.67.0
 bs4==0.0.2

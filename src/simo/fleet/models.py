@@ -105,6 +105,13 @@ class Colonel(DirtyFieldsMixin, models.Model):
         (0, "3kHz"), (1, "22kHz")
     ), help_text="Affects Ample Wall dimmer PWM output (dimmer) frequency")
 
+    # Sentinel (room-sensor) voice assistant specific fields
+    wake_stats = models.JSONField(
+        default=dict, editable=False, db_index=True
+    )
+    last_wake = models.DateTimeField(null=True, editable=False, db_index=True)
+    is_vo_active = models.BooleanField(default=False, db_index=True)
+
     objects = ColonelsManager()
 
     def __str__(self):
