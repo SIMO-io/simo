@@ -20,7 +20,7 @@ from simo.core.utils.serialization import (
 )
 from simo.core.forms import BaseComponentForm
 from simo.generic.controllers import StateSelect
-from .models import Colonel, CustomDaliDevice
+from .models import Colonel
 from .gateways import FleetGatewayHandler
 from .forms import (
     ColonelPinChoiceField,
@@ -920,21 +920,9 @@ class RoomSiren(FleetDeviceMixin, StateSelect):
         self.send('silent')
 
     def _send_to_device(self, value):
-        if self.component.config.get('colonel'):
-            GatewayObjectCommand(
-                self.component.gateway, self.component, set_val=value
-            ).publish()
-        else:
-            dali_device = CustomDaliDevice.objects.filter(
-                id=self.component.config['dali_device']
-            ).first()
-            from .custom_dali_operations import Frame
-            frame = Frame(40, bytes(bytearray(5)))
-            frame[8:11] = 15  # command to custom dali device
-            frame[12:15] = 6  # action to perform: set value
-            frame[16:20] = 0 # device on which to perform value set
-            frame[21:24] = self.VALUES_MAP[value]
-            dali_device.transmit(frame)
+        GatewayObjectCommand(
+            self.component.gateway, self.component, set_val=value
+        ).publish()
 
 
 class AirQualitySensor(FleetDeviceMixin, BaseMultiSensor):
@@ -1087,23 +1075,16 @@ class RoomZonePresenceSensor(FleetDeviceMixin, BaseBinarySensor):
             self.uid, serialize_form_data(form_cleaned_data),
             timeout=60
         )
-        if form_cleaned_data['device'].startswith('wifi'):
-            colonel = Colonel.objects.filter(
-                id=form_cleaned_data['device'][5:]
-            ).first()
+        colonel = Colonel.objects.filter(
+            id=form_cleaned_data.get('colonel')
+            if isinstance(form_cleaned_data.get('colonel'), int)
+            else getattr(form_cleaned_data.get('colonel'), 'id', None)
+        ).first()
+        if colonel:
             GatewayObjectCommand(
                 gateway, colonel,
                 command='discover', type=self.uid.split('.')[-1],
             ).publish()
-        else:
-            from .custom_dali_operations import Frame
-            dali_device = CustomDaliDevice.objects.filter(
-                id=form_cleaned_data['device'][5:]
-            ).first()
-            frame = Frame(40, bytes(bytearray(5)))
-            frame[8:11] = 15 # command to custom dali device
-            frame[12:15] = 0 # action to perform: start room zone discovery
-            dali_device.transmit(frame)
 
 
     @classmethod
@@ -1119,114 +1100,52 @@ class RoomZonePresenceSensor(FleetDeviceMixin, BaseBinarySensor):
             controller_uid=cls.uid, data=started_with
         )
         form.is_valid()
-        if form.cleaned_data['device'].startswith('wifi'):
-            form.instance.alive = False
-            form.instance.config['colonel'] = int(
-                form.cleaned_data['device'][5:]
-            )
-            new_component = form.save()
-            GatewayObjectCommand(
-                new_component.gateway, Colonel(
-                    id=new_component.config['colonel']
-                ), command='finalize',
-                data={
-                    'permanent_id': new_component.id,
-                    'comp_config': {
-                        'type': cls.uid.split('.')[-1],
-                        'family': new_component.controller.family,
-                        'config': json.loads(json.dumps(new_component.config)),
-                    }
+        form.instance.alive = False
+        form.instance.config['colonel'] = int(
+            getattr(form.cleaned_data['colonel'], 'id', form.cleaned_data['colonel'])
+        )
+        new_component = form.save()
+        GatewayObjectCommand(
+            new_component.gateway, Colonel(
+                id=new_component.config['colonel']
+            ), command='finalize',
+            data={
+                'permanent_id': new_component.id,
+                'comp_config': {
+                    'type': cls.uid.split('.')[-1],
+                    'family': new_component.controller.family,
+                    'config': json.loads(json.dumps(new_component.config)),
                 }
-            ).publish()
-        else:
-            from simo.core.models import Component
-            from .custom_dali_operations import Frame
-            dali_device = CustomDaliDevice.objects.filter(
-                id=form.cleaned_data['device'][5:]
-            ).first()
-            free_slots = {0, 1, 2, 3, 4, 5, 6, 7}
-            for comp in Component.objects.filter(
-                controller_uid=cls.uid, config__dali_device=dali_device.id
-            ):
-                try:
-                    free_slots.remove(int(comp.config['slot']))
-                except:
-                    continue
-            if not free_slots:
-                return []
-
-            form.instance.alive = False
-            form.instance.config['dali_device'] = int(
-                form.cleaned_data['device'][5:]
-            )
-            form.instance.config['slot'] = free_slots.pop()
-            new_component = form.save()
-            frame = Frame(40, bytes(bytearray(5)))
-            frame[8:11] = 15  # command to custom dali device
-            frame[12:15] = 1  # action to perform: stop room zone discovery
-            frame[16:18] = new_component.config['slot']
-            dali_device.transmit(frame)
+            }
+        ).publish()
 
         return new_component
 
     def repaint(self):
         """Repaint included 3D space"""
-        if self.component.config['device'].startswith('wifi'):
-            GatewayObjectCommand(
-                self.component.gateway, Colonel(
-                    id=self.component.config['colonel']
-                ), command='call', method='repaint', id=self.component.id
-            ).publish()
-        else:
-            dali_device = CustomDaliDevice.objects.filter(
-                id=self.component.config['device'][5:]
-            ).first()
-            from .custom_dali_operations import Frame
-            frame = Frame(40, bytes(bytearray(5)))
-            frame[8:11] = 15  # command to custom dali device
-            frame[12:15] = 3  # action to perform: repaint
-            frame[16:18] = self.component.config['slot']
-            dali_device.transmit(frame)
+        GatewayObjectCommand(
+            self.component.gateway, Colonel(
+                id=self.component.config['colonel']
+            ), command='call', method='repaint', id=self.component.id
+        ).publish()
 
     def finish_repaint(self):
         """Finish repainting of 3D space"""
-        if self.component.config['device'].startswith('wifi'):
-            GatewayObjectCommand(
-                self.component.gateway, Colonel(
-                    id=self.component.config['colonel']
-                ), command='call', method='finish_repaint',
-                id=self.component.id
-            ).publish()
-        else:
-            dali_device = CustomDaliDevice.objects.filter(
-                id=self.component.config['device'][5:]
-            ).first()
-            from .custom_dali_operations import Frame
-            frame = Frame(40, bytes(bytearray(5)))
-            frame[8:11] = 15  # command to custom dali device
-            frame[12:15] = 4  # action to perform: finish repaint
-            frame[16:18] = self.component.config['slot']
-            dali_device.transmit(frame)
+        GatewayObjectCommand(
+            self.component.gateway, Colonel(
+                id=self.component.config['colonel']
+            ), command='call', method='finish_repaint',
+            id=self.component.id
+        ).publish()
 
     def cancel_repaint(self):
         """Finish repainting of 3D space"""
-        if self.component.config['device'].startswith('wifi'):
-            GatewayObjectCommand(
-                self.component.gateway, Colonel(
-                    id=self.component.config['colonel']
-                ), command='call', method='cancel_repaint',
-                id=self.component.id
-            ).publish()
-        else:
-            dali_device = CustomDaliDevice.objects.filter(
-                id=self.component.config['device'][5:]
-            ).first()
-            from .custom_dali_operations import Frame
-            frame = Frame(40, bytes(bytearray(5)))
-            frame[8:11] = 15  # command to custom dali device
-            frame[12:15] = 5  # action to perform: cancel repaint
-            frame[16:18] = self.component.config['slot']
-            dali_device.transmit(frame)
+        GatewayObjectCommand(
+            self.component.gateway, Colonel(
+                id=self.component.config['colonel']
+            ), command='call', method='cancel_repaint',
+            id=self.component.id
+        ).publish()
 
 
 class VoiceAssistant(FleetDeviceMixin, BaseBinarySensor):
@@ -1272,4 +1191,3 @@ class VoiceAssistant(FleetDeviceMixin, BaseBinarySensor):
     def is_in_alarm(self):
         """Returns always False"""
         return False
-

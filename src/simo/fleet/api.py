@@ -5,13 +5,11 @@ from rest_framework import viewsets
 from rest_framework.response import Response as RESTResponse
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError as APIValidationError
-from django_filters.rest_framework import DjangoFilterBackend
 from simo.core.api import InstanceMixin
 from simo.core.permissions import IsInstanceSuperuser
-from .models import InstanceOptions, Colonel, Interface, CustomDaliDevice
+from .models import InstanceOptions, Colonel, Interface
 from .serializers import (
-    InstanceOptionsSerializer, ColonelSerializer, ColonelInterfaceSerializer,
-    CustomDaliDeviceSerializer
+    InstanceOptionsSerializer, ColonelSerializer, ColonelInterfaceSerializer
 )
 
 
@@ -106,26 +104,3 @@ class InterfaceViewSet(
     def get_queryset(self):
         return Interface.objects.filter(colonel__instance=self.instance)
 
-
-class CustomDaliDeviceViewSet(InstanceMixin, viewsets.ModelViewSet):
-    url = 'fleet/custom-dali-devices'
-    basename = 'custom-dali-devices'
-    serializer_class = CustomDaliDeviceSerializer
-    filter_backends = [DjangoFilterBackend]
-    filterset_fields = ['uid', 'random_address', 'name']
-
-    def get_permissions(self):
-        permissions = super().get_permissions()
-        permissions.append(IsInstanceSuperuser())
-        return permissions
-
-    def get_queryset(self):
-        return CustomDaliDevice.objects.filter(instance=self.instance)
-
-    def perform_destroy(self, instance):
-        if instance.components.all().count():
-            raise APIValidationError(
-                _('Deleting colonel which has components is not allowed!'),
-                code=400
-            )
-        instance.delete()

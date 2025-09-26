@@ -127,24 +127,17 @@ class FleetGatewayHandler(BaseObjectCommandsGatewayHandler):
                 form_cleaned_data = deserialize_form_data(
                     gw.discovery['init_data']
                 )
-                if form_cleaned_data['device'].startswith('wifi'):
-                    colonel = Colonel.objects.filter(
-                        id=form_cleaned_data['device'][5:]
-                    ).first()
+                # Room-zone presence discovery now only supports network room-sensors
+                colonel = Colonel.objects.filter(
+                    id=form_cleaned_data['colonel'].id
+                    if hasattr(form_cleaned_data.get('colonel'), 'id')
+                    else form_cleaned_data.get('colonel')
+                ).first()
+                if colonel:
                     GatewayObjectCommand(
                         gw, colonel,
                         command='discover', type=self.uid.split('.')[-1],
                     ).publish()
-                else:
-                    from .models import CustomDaliDevice
-                    from .custom_dali_operations import Frame
-                    dali_device = CustomDaliDevice.objects.filter(
-                        id=form_cleaned_data['device'][5:]
-                    ).first()
-                    frame = Frame(40, bytes(bytearray(5)))
-                    frame[8:11] = 15  # command to custom dali device
-                    frame[12:15] = 0  # action to perform: start room zone discovery
-                    dali_device.transmit(frame)
 
 
 

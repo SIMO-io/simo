@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from simo.core.serializers import TimestampField
 from .models import (
-    InstanceOptions, Colonel, ColonelPin, Interface, CustomDaliDevice
+    InstanceOptions, Colonel, ColonelPin, Interface
 )
 
 
@@ -86,51 +86,4 @@ class ColonelSerializer(serializers.ModelSerializer):
         instance = super().update(instance, validated_data)
         instance.update_config()
         return instance
-
-
-class CustomDaliDeviceSerializer(serializers.ModelSerializer):
-    is_empty = serializers.SerializerMethodField()
-    is_alive = serializers.SerializerMethodField()
-    last_seen = TimestampField(read_only=True)
-
-    class Meta:
-        model = CustomDaliDevice
-        fields = (
-            'id', 'uid', 'random_address', 'name', 'is_empty',
-            'is_alive', 'last_seen'
-        )
-        read_only_fields = (
-            'random_address', 'is_empty', 'is_alive', 'last_seen'
-        )
-
-    def validate(self, data):
-        instance = self.context.get('instance')
-        uid = data.get('uid')
-        if instance and uid:
-            if CustomDaliDevice.objects.filter(
-                uid=uid, instance=instance
-            ).exists():
-                raise serializers.ValidationError(
-                    f"A device with uid '{uid}' already exists for this instance."
-                )
-        return data
-
-    def validate_uid(self, value):
-        """
-        Prevent changing the uid on update.
-        """
-        # self.instance will be None for creation, but set for updates.
-        if self.instance and self.instance.uid != value:
-            raise serializers.ValidationError("Changing uid is not allowed.")
-        return value
-
-    def create(self, validated_data):
-        validated_data['instance'] = self.context['instance']
-        return super().create(validated_data)
-
-    def get_is_empty(self, obj):
-        return not bool(obj.components.all().count())
-
-    def get_is_alive(self, obj):
-        return obj.is_alive
 

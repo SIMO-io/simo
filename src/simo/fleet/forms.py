@@ -25,7 +25,7 @@ from simo.core.form_fields import (
 )
 from simo.core.form_fields import PlainLocationField
 from simo.users.models import PermissionsRole
-from .models import Colonel, ColonelPin, Interface, CustomDaliDevice
+from .models import Colonel, ColonelPin, Interface
 from .utils import INTERFACES_PINS_MAP, get_all_control_input_choices
 
 
@@ -1792,49 +1792,26 @@ class DALIButtonConfigForm(DALIDeviceConfigForm, BaseComponentForm):
     pass
 
 
-class CustomDaliDeviceForm(BaseComponentForm):
-    device = forms.ChoiceField()
+class RoomSensorDeviceConfigForm(BaseComponentForm):
+    colonel = Select2ModelChoiceField(
+        label="Room-Sensor", queryset=Colonel.objects.filter(type='room-sensor'),
+        url='autocomplete-colonels',
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        choices = []
+        # Limit colonels to current instance for convenience
         instance = get_current_instance()
-        for colonel in Colonel.objects.filter(
-            type='room-sensor', instance=instance
-        ):
-            choices.append((f"wifi-{colonel.id}", colonel.name))
-        for device in CustomDaliDevice.objects.filter(
-            instance=instance,
-            last_seen__gt=timezone.now() - datetime.timedelta(minutes=10)
-        ):
-            choices.append((f"dali-{device.id}", device.name))
-        self.fields['device'].choices = choices
-
-    def get_device(self, field_val):
-        if field_val.startswith('wifi'):
-            return Colonel.objects.filter(
-                id=self.cleaned_data['device'][5:]
-            ).first()
-        else:
-            return CustomDaliDevice.objects.filter(
-                id=self.cleaned_data['device'][5:]
+        if instance:
+            self.fields['colonel'].queryset = self.fields['colonel'].queryset.filter(
+                instance=instance
             )
-
-
-class RoomSensorDeviceConfigForm(CustomDaliDeviceForm):
-
 
     def save(self, commit=True):
         from simo.core.models import Icon
-        colonel = None
-        dali_device = None
-        device = self.get_device(self.cleaned_data['device'])
-        if not device:
+        colonel = self.cleaned_data.get('colonel')
+        if not colonel:
             return
-        if isinstance(device, CustomDaliDevice):
-            dali_device = device
-        else:
-            colonel = device
 
         from .controllers import (
             RoomSiren, AirQualitySensor, TempHumSensor, AmbientLightSensor,
@@ -1843,6 +1820,7 @@ class RoomSensorDeviceConfigForm(CustomDaliDeviceForm):
 
         org_name = self.cleaned_data['name']
         org_icon = self.cleaned_data['icon']
+        last_comp = None
         for CtrlClass, icon, suffix, cat_slug in (
             (RoomSiren, 'siren', 'siren', 'security'),
             (AirQualitySensor, 'leaf', 'air quality', 'climate'),
@@ -1852,25 +1830,16 @@ class RoomSensorDeviceConfigForm(CustomDaliDeviceForm):
             (VoiceAssistant, 'microphone-lines', 'voice assistant', 'other')
         ):
             default_icon = Icon.objects.filter(slug=icon).first()
-            if default_icon:
-                self.cleaned_data['icon'] = default_icon.slug
-            else:
-                self.cleaned_data['icon'] = org_icon
+            self.cleaned_data['icon'] = default_icon.slug if default_icon else org_icon
             self.cleaned_data['name'] = f"{org_name} {suffix}"
             self.cleaned_data['category'] = Category.objects.filter(
                 name__icontains=cat_slug
             ).first()
 
-            if colonel:
-                comp = Component.objects.filter(
-                    config__colonel=colonel.id,
-                    controller_uid=CtrlClass.uid
-                ).first()
-            else:
-                comp = Component.objects.filter(
-                    config__dali_device=dali_device.id,
-                    controller_uid=CtrlClass.uid
-                ).first()
+            comp = Component.objects.filter(
+                config__colonel=colonel.id,
+                controller_uid=CtrlClass.uid
+            ).first()
 
             form = CtrlClass.config_form(
                 controller_uid=CtrlClass.uid, instance=comp,
@@ -1878,50 +1847,36 @@ class RoomSensorDeviceConfigForm(CustomDaliDeviceForm):
             )
             if form.is_valid():
                 comp = form.save()
-                if colonel:
-                    comp.config['colonel'] = colonel.id
-                else:
-                    comp.config['dali_device'] = dali_device.id
+                comp.config['colonel'] = colonel.id
                 comp.save()
+                last_comp = comp
             else:
                 raise Exception(form.errors)
 
-        if colonel:
+        if colonel and last_comp:
             GatewayObjectCommand(
-                comp.gateway, colonel, id=comp.id,
+                last_comp.gateway, colonel, id=last_comp.id,
                 command='call', method='update_config', args=[
-                    comp.controller._get_colonel_config()
+                    last_comp.controller._get_colonel_config()
                 ]
             ).publish()
 
-        return comp
+        return last_comp
 
 
-class RoomZonePresenceConfigForm(CustomDaliDeviceForm):
+class RoomZonePresenceConfigForm(BaseComponentForm):
+    colonel = Select2ModelChoiceField(
+        label="Room-Sensor", queryset=Colonel.objects.filter(type='room-sensor'),
+        url='autocomplete-colonels',
+    )
 
-    def clean_device(self):
-        value = self.cleaned_data['device']
-        if value.startswith('wifi'):
-            return value
-        from .controllers import RoomZonePresenceSensor
-        dali_device = CustomDaliDevice.objects.filter(
-            id=value[5:]
-        ).first()
-        free_slots = {0, 1, 2, 3, 4, 5, 6, 7}
-        for comp in Component.objects.filter(
-            controller_uid=RoomZonePresenceSensor.uid,
-            config__dali_device=dali_device.id
-        ):
-            try:
-                free_slots.remove(int(comp.config['slot']))
-            except:
-                continue
-        if not free_slots:
-            raise forms.ValidationError(
-                "This device already has 8 zones defined. "
-                "Please first delete some to add a new one."
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        instance = get_current_instance()
+        if instance:
+            self.fields['colonel'].queryset = self.fields['colonel'].queryset.filter(
+                instance=instance
             )
-        return value
 
 
 class VoiceAssistantConfigForm(BaseComponentForm):

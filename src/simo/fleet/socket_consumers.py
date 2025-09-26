@@ -990,11 +990,6 @@ class FleetConsumer(AsyncWebsocketConsumer):
                         process_discovery_result, thread_sensitive=True
                     )()
 
-                elif 'dali-raw' in data:
-                    from .custom_dali_operations import process_frame
-                    await sync_to_async(process_frame, thread_sensitive=True)(
-                        self.colonel.id, data['dali-raw'], data['data']
-                    )
 
                 elif 'va' in data and isinstance(data['va'], dict):
                     va = data['va']

@@ -1,6 +1,5 @@
 import requests
 import time
-import random
 import datetime
 from actstream import action
 from django.core.exceptions import ValidationError
@@ -571,72 +570,3 @@ def post_interface_delete(sender, instance, *args, **kwargs):
                 pins, ["occupied_by_content_type", "occupied_by_id"]
             )
 
-
-class CustomDaliDevice(models.Model):
-    '''
-    Our own custom dali line device, 
-    not compatible with anything else of DALI!
-    '''
-    instance = models.ForeignKey(Instance, on_delete=models.CASCADE)
-    uid = models.CharField(max_length=100, db_index=True)
-    random_address = models.PositiveIntegerField(db_index=True, editable=False)
-    name = models.CharField(
-        max_length=200, help_text="User given name on initial pairing"
-    )
-    interface = models.ForeignKey(
-        Interface, null=True, blank=True, editable=False,
-        on_delete=models.SET_NULL, related_name='custom_devices',
-        help_text="Colonel interface on which it operates."
-    )
-    last_seen = models.DateTimeField(null=True, editable=False)
-    components = models.ManyToManyField(Component)
-
-    class Meta:
-        unique_together = 'instance', 'random_address'
-
-    def save(self, *args, **kwargs):
-        if not self.random_address:
-            while True:
-                self.random_address = random.randint(0, 255)
-                if CustomDaliDevice.objects.filter(
-                    random_address=self.random_address,
-                    instance=self.instance
-                ).first():
-                    continue
-                break
-        return super().save(*args, **kwargs)
-
-    def transmit(self, frame):
-        from .gateways import FleetGatewayHandler
-        frame[0:7] = self.random_address
-        gateway = Gateway.objects.filter(type=FleetGatewayHandler.uid).first()
-        GatewayObjectCommand(
-            gateway, self.interface.colonel,
-            command='da-tx', interface=self.interface.no,
-            msg=frame.pack.hex()
-        ).publish()
-
-    @property
-    def is_alive(self):
-        if not self.last_seen:
-            return False
-        return self.last_seen + datetime.timedelta(seconds=60) > timezone.now()
-
-
-@receiver(post_save, sender=Component)
-def attatch_components_to_dali_device(sender, instance, created, *args, **kwargs):
-    if not instance.controller_uid.startswith('simo.fleet'):
-        return
-    if 'config' not in instance.get_dirty_fields():
-        return
-    dali_device = CustomDaliDevice.objects.filter(
-        id=instance.config.get('dali_device', 0)
-    ).first()
-    if not dali_device:
-        return
-    dali_device.components.add(instance)
-
-
-@receiver(pre_delete, sender=CustomDaliDevice)
-def delete_dali_device_components(sender, instance, *args, **kwargs):
-    instance.components.all().delete()
