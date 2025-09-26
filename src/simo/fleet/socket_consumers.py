@@ -61,10 +61,13 @@ class VoiceAssistantSession:
         self.last_rx_audio_ts = 0.0
         self.last_tx_audio_ts = 0.0
         self.started_ts = None
+        self.mcp_token = None
         self._finalizer_task = None
         self._cloud_task = None
         self._play_task = None
         self._followup_task = None
+        self.voice = 'male'
+        self.zone = None
         self._idle_task = asyncio.create_task(self._idle_watchdog())
         self._utterance_task = asyncio.create_task(self._utterance_watchdog())
 
@@ -178,6 +181,9 @@ class VoiceAssistantSession:
                 "hub-uid": hub_uid,
                 "hub-secret": hub_secret,
                 "instance-uid": self.c.instance.uid,
+                "mcp-token": self.mcp_token.token,
+                "voice": self.voice,
+                "zone": self.zone
             }
             if not websockets:
                 raise RuntimeError("websockets library not available")
@@ -204,12 +210,6 @@ class VoiceAssistantSession:
                     try:
                         msg = await ws.recv()
                     except Exception as e:
-                        try:
-                            await self.c.send_data(
-                                {'command': 'va', 'session': 'finish'}
-                            )
-                        except Exception:
-                            pass
                         raise e
                     if isinstance(msg, (bytes, bytearray)):
                         mp3_reply = bytes(msg)
@@ -230,7 +230,10 @@ class VoiceAssistantSession:
                                 self._end_after_playback = True
                                 # Propagate to Sentinel so it can sleep immediately if desired
                                 try:
-                                    await self.c.send_data({'command': 'va', 'session': 'finish'})
+                                    await self.c.send_data(
+                                        {'command': 'va', 'session': 'finish',
+                                         'status': data.get('status', 'success')}
+                                    )
                                 except Exception:
                                     pass
                             # 2) Reasoning indicator (e.g., web search or long reasoning)
@@ -259,6 +262,12 @@ class VoiceAssistantSession:
         except Exception as e:
             print("VA WS ERROR:", e, file=sys.stderr)
             print("VA: Cloud roundtrip failed\n", traceback.format_exc(), file=sys.stderr)
+            try:
+                await self.c.send_data(
+                    {'command': 'va', 'session': 'finish', 'status': 'error'}
+                )
+            except Exception:
+                pass
             # Fail fast: end session and notify Website
             await self._end_session(cloud_also=True)
         finally:
@@ -419,14 +428,27 @@ class VoiceAssistantSession:
                 pass
 
     async def _set_is_vo_active(self, flag: bool):
-        try:
-            def _save():
+        def _execute():
+            from simo.mcp_server.models import InstanceAccessToken
+            with transaction.atomic():
+                if flag:
+                    self.mcp_token, new = InstanceAccessToken.objects.get_or_create(
+                        instance=self.c.colonel.instance, date_expired=None,
+                        issuer='sentinel'
+                    )
+                else:
+                    # There should be a single mcp token only issued by sentinel
+                    InstanceAccessToken.objects.filter(
+                        instance=self.c.colonel.instance, date_expired=None,
+                        issuer='sentinel'
+                    ).update(date_expired=timezone.now())
+                    self.mcp_token = None
                 self.c.colonel.is_vo_active = flag
                 self.c.colonel.save(update_fields=['is_vo_active'])
-            await sync_to_async(_save, thread_sensitive=True)()
-            print(f"VA is_vo_active={flag}")
-        except Exception as e:
-            print("VA: failed to update is_vo_active", file=sys.stderr)
+
+        await sync_to_async(_execute, thread_sensitive=True)()
+
+
 
     async def _finish_cloud_session(self):
         """Call Website HTTP endpoint to mark AISession closed for this instance.
@@ -438,11 +460,10 @@ class VoiceAssistantSession:
             return
 
         # Read dynamic settings safely
-        base = await sync_to_async(lambda: dynamic_settings.get('core__remote_http'), thread_sensitive=True)()
+
         hub_uid = await sync_to_async(lambda: dynamic_settings['core__hub_uid'], thread_sensitive=True)()
         hub_secret = await sync_to_async(lambda: dynamic_settings['core__hub_secret'], thread_sensitive=True)()
-        base = base or 'https://simo.io'
-        url = base.rstrip('/') + '/ai/finish-session/'
+        url = 'https://simo.io/ai/finish-session/'
         payload = {
             'hub_uid': hub_uid,
             'hub_secret': hub_secret,
@@ -968,15 +989,22 @@ class FleetConsumer(AsyncWebsocketConsumer):
 
                 elif 'wake-stats' in data and self.colonel.type == 'room-sensor':
                     def update_wake_stats():
+                        va_component = Component.objects.filter(
+                            config__colonel=self.colonel.id,
+                            pk=data.get('id', 0)
+                        ).select_related('zone').first()
                         self.colonel.wake_stats = data['wake-stats']
                         self.colonel.last_wake = timezone.now()
                         self.colonel.save()
-                    await sync_to_async(
+                        return va_component
+                    va_component = await sync_to_async(
                         update_wake_stats, thread_sensitive=True
                     )()
                     # Wake is only a hint; do not activate session until audio arrives.
                     if not self._va:
                         self._va = VoiceAssistantSession(self)
+                    self._va.voice = data.get('voice', 'male')
+                    self._va.zone = va_component.zone.id
 
             elif bytes_data:
                 if self.colonel.type == 'room-sensor':

@@ -109,6 +109,9 @@ class Instance(DirtyFieldsMixin, models.Model, SimoAdminMixin):
         User, null=True, blank=True, on_delete=models.SET_NULL,
         editable=False
     )
+    ai_memory = models.TextField(
+        blank=True, default='',  help_text="Used by AI assistant."
+    )
 
     #objects = InstanceManager()
 

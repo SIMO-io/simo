@@ -185,7 +185,7 @@ def post_save_change_events(sender, instance, created, **kwargs):
 
     transaction.on_commit(post_update)
 
-    if created:
+    if created and isinstance(instance, Component):
         def clear_api_cache():
             cache.delete(f"main-components-{instance.zone.instance.id}")
             from simo.users.models import User

@@ -3,6 +3,68 @@ import inspect
 from django.apps import apps
 from ..gateways import BaseGatewayHandler
 from ..app_widgets import BaseAppWidget
+from ..base_types import BaseComponentType
+
+
+# ----- Base type discovery (must be defined before controller discovery) -----
+def get_base_type_class_map():
+    """Discover BaseComponentType subclasses across installed apps.
+
+    Returns a dict mapping slug -> type class.
+    """
+    base_types = {}
+    for name, app in apps.app_configs.items():
+        if name in (
+            'auth', 'admin', 'contenttypes', 'sessions', 'messages',
+            'staticfiles'
+        ):
+            continue
+        try:
+            module = importlib.import_module(f'{app.name}.base_types')
+        except ModuleNotFoundError:
+            continue
+        for cls_name, cls in module.__dict__.items():
+            if not inspect.isclass(cls):
+                continue
+            if not issubclass(cls, BaseComponentType) or cls is BaseComponentType:
+                continue
+            if not getattr(cls, 'slug', None):
+                continue
+            if cls.slug in base_types:
+                raise RuntimeError(
+                    f"Duplicate base type slug '{cls.slug}' defined by "
+                    f"{base_types[cls.slug].__module__}.{base_types[cls.slug].__name__} "
+                    f"and {cls.__module__}.{cls.__name__}"
+                )
+            base_types[cls.slug] = cls
+    return base_types
+
+
+BASE_TYPE_CLASS_MAP = get_base_type_class_map()
+
+
+def get_all_base_types():
+    """Build a combined map of slug -> name from classes and legacy dicts."""
+    all_types = {slug: cls.name for slug, cls in BASE_TYPE_CLASS_MAP.items()}
+    # Backward-compatible: merge any legacy dict entries not covered by classes
+    for name, app in apps.app_configs.items():
+        if name in (
+            'auth', 'admin', 'contenttypes', 'sessions', 'messages',
+            'staticfiles'
+        ):
+            continue
+        try:
+            configs = importlib.import_module('%s.base_types' % app.name)
+        except ModuleNotFoundError:
+            continue
+        for slug, display in configs.__dict__.get('BASE_TYPES', {}).items():
+            if slug not in all_types:
+                all_types[slug] = display
+    return all_types
+
+
+ALL_BASE_TYPES = get_all_base_types()
+BASE_TYPE_CHOICES = sorted(list(ALL_BASE_TYPES.items()), key=lambda e: e[0])
 
 
 def get_controller_types_map(gateway=None, user=None):
@@ -40,6 +102,22 @@ def get_controller_types_map(gateway=None, user=None):
                             continue
             if user and not user.is_master and cls.masters_only:
                 continue
+
+            # Validate controller against its base type contract if available.
+            # Support either `base_type_cls` or legacy `base_type` (slug or class).
+            declared = getattr(cls, 'base_type_cls', None)
+            slug = None
+            if declared and inspect.isclass(declared) and issubclass(declared, BaseComponentType):
+                slug = declared.slug
+            else:
+                bt = getattr(cls, 'base_type', None)
+                if isinstance(bt, str):
+                    slug = bt
+                elif inspect.isclass(bt) and issubclass(bt, BaseComponentType):
+                    slug = bt.slug
+            bt_cls = BASE_TYPE_CLASS_MAP.get(slug) if slug else None
+            if bt_cls:
+                bt_cls.validate_controller(cls)
 
             controllers_map[cls.uid] = cls
     return controllers_map
@@ -97,21 +175,6 @@ for gateway_slug, gateway_cls in GATEWAYS_MAP.items():
         CONTROLLERS_BY_GATEWAY[gateway_slug][ctrl_uid] = ctrl_cls
 
 
-ALL_BASE_TYPES = {}
-for name, app in apps.app_configs.items():
-    if name in (
-        'auth', 'admin', 'contenttypes', 'sessions', 'messages',
-        'staticfiles'
-    ):
-        continue
-    try:
-        configs = importlib.import_module('%s.base_types' % app.name)
-    except ModuleNotFoundError:
-        continue
-    ALL_BASE_TYPES.update(configs.__dict__.get('BASE_TYPES', {}))
-
-BASE_TYPE_CHOICES = list(ALL_BASE_TYPES.items())
-BASE_TYPE_CHOICES.sort(key=lambda e: e[0])
 
 
 APP_WIDGETS = {}
@@ -134,5 +197,3 @@ for name, app in apps.app_configs.items():
 
 APP_WIDGET_CHOICES = [(slug, cls.name) for slug, cls in APP_WIDGETS.items()]
 APP_WIDGET_CHOICES.sort(key=lambda e: e[1])
-
-

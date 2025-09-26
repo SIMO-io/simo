@@ -63,17 +63,25 @@ class Script(ControllerBase, TimerMixin):
             return 'stopped'
 
     def start(self, new_code=None):
+        """Start the script process (optionally updating source code).
+
+        Parameters:
+        - new_code (str|None): Optional Python script to persist before start.
+        """
         if new_code:
             self.component.new_code = new_code
         self.send('start')
 
     def play(self):
+        """Alias for `start()` to harmonize with media-like controls."""
         return self.start()
 
     def stop(self):
+        """Stop the running script process."""
         self.send('stop')
 
     def toggle(self):
+        """Toggle script run state between running and stopped."""
         self.component.refresh_from_db()
         if self.component.value == 'running':
             self.send('stop')
@@ -81,6 +89,12 @@ class Script(ControllerBase, TimerMixin):
             self.send('start')
 
     def ai_assistant(self, wish):
+        """Request an AI-generated script for the given natural-language wish.
+
+        Parameters:
+        - wish (str): User intent in natural language.
+        Returns: dict with status, generated script, and description.
+        """
         try:
             request_data = {
                 'hub_uid': dynamic_settings['core__hub_uid'],
@@ -121,6 +135,7 @@ class PresenceLighting(Script):
     masters_only = False
     name = _("Presence lighting")
     config_form = PresenceLightingConfigForm
+    accepts_value = False
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

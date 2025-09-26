@@ -30,6 +30,16 @@ def get_device_user():
     return device
 
 
+def get_ai_user():
+    from .models import User
+    device, new = User.objects.get_or_create(
+        email='ai@simo.io', defaults={
+            'name': "AI"
+        }
+    )
+    return device
+
+
 def rebuild_authorized_keys():
     from .models import User
     try:

@@ -14,6 +14,13 @@ from simo.users.utils import introduce_user, get_current_user, get_device_user
 from .utils.helpers import is_hex_color, classproperty
 # from django.utils.functional import classproperty
 from .gateways import BaseGatewayHandler
+from .base_types import (
+    BaseComponentType,
+    NumericSensorType, MultiSensorType, BinarySensorType, ButtonType,
+    DimmerType, DimmerPlusType, RGBWLightType, SwitchType,
+    DoubleSwitchType, TripleSwitchType, QuadrupleSwitchType, QuintupleSwitchType,
+    LockType, BlindsType, GateType
+)
 from .app_widgets import *
 from .forms import (
     BaseComponentForm, NumericSensorForm,
@@ -29,7 +36,24 @@ BEFORE_SEND = 'before-send'
 BEFORE_SET = 'before-set'
 
 
-class ControllerBase(ABC):
+class ControllerMeta(ABCMeta):
+    """Metaclass that normalizes class-level access to `base_type`.
+
+    If a controller sets `base_type` to a BaseComponentType subclass,
+    accessing `Controller.base_type` returns the slug string to preserve
+    legacy comparisons. Assignment remains the class.
+    """
+    def __getattribute__(cls, name):
+        val = super().__getattribute__(name)
+        if name == 'base_type':
+            if isinstance(val, str):
+                return val
+            if isinstance(val, type) and issubclass(val, BaseComponentType):
+                return val.slug
+        return val
+
+
+class ControllerBase(ABC, metaclass=ControllerMeta):
     config_form = BaseComponentForm
     admin_widget_template = 'admin/controller_widgets/generic.html'
     default_config = {}
@@ -40,6 +64,7 @@ class ControllerBase(ABC):
     family = None
     masters_only = False # component can be created/modified by hub masters only
     info_template_path = None
+    accepts_value = True
 
     @property
     @abstractmethod
@@ -57,9 +82,9 @@ class ControllerBase(ABC):
 
     @property
     @abstractmethod
-    def base_type(self) -> str:
-        """
-        :return" base type name
+    def base_type(self):
+        """Base type identifier. Accepts either a slug string (legacy)
+        or a BaseComponentType subclass (preferred).
         """
 
     @property
@@ -91,8 +116,18 @@ class ControllerBase(ABC):
         assert issubclass(self.gateway_class, BaseGatewayHandler)
         assert issubclass(self.config_form, BaseComponentForm)
         assert issubclass(self.app_widget, BaseAppWidget)
-        assert self.base_type in ALL_BASE_TYPES, \
-            f"{self.base_type} must be defined in BASE_TYPES!"
+        # Normalize to slug whether base_type is a string or a BaseComponentType subclass
+        bt = getattr(self.__class__, 'base_type', None)
+        # ControllerMeta makes class attribute access return slug when
+        # a BaseComponentType subclass is assigned to base_type.
+        # So `bt` should already be a slug string in most cases.
+        if isinstance(bt, str):
+            slug = bt
+        elif isinstance(bt, type) and issubclass(bt, BaseComponentType):
+            slug = bt.slug
+        else:
+            slug = getattr(bt, 'slug', None)
+        assert slug in ALL_BASE_TYPES, f"{slug} must be defined in BASE TYPES!"
 
     @classproperty
     @classmethod
@@ -230,6 +265,12 @@ class ControllerBase(ABC):
         return vals
 
     def send(self, value):
+        """Send a value/command to the device via the gateway.
+
+        Prefer controller-specific helpers (e.g., `turn_on()`, `open()`) when
+        available. This performs validation, publishes to the gateway, and
+        updates the component value when appropriate.
+        """
         from .models import Component
         try:
             self.component.refresh_from_db()
@@ -270,7 +311,17 @@ class ControllerBase(ABC):
             self.component.value_previous = self.component.value
             self.component.value = value
 
-    def set(self, value, actor=None):
+    def set(self, value, actor=None, alive=True, error_msg=None):
+        """Set the component value locally and record history.
+
+        This is called by `send()` after the device confirms or when device
+        reports a new value. Do not call from clients directly; prefer
+        controller action methods or `send()`.
+
+        Parameters:
+        - value: JSON-serializable value after translation/validation for this type.
+        - actor: Optional user that initiated the change.
+        """
         from simo.users.models import InstanceUser
         if self.component.value_translation:
             try:
@@ -308,6 +359,8 @@ class ControllerBase(ABC):
         self.component.change_init_date = None
         self.component.change_init_to = None
         self.component.change_init_fingerprint = None
+        self.component.alive = alive
+        self.component.error_msg = error_msg
         self.component.change_actor = InstanceUser.objects.filter(
             instance=self.component.zone.instance,
             user=actor
@@ -372,7 +425,11 @@ class ControllerBase(ABC):
             ]
 
     def poke(self):
-        '''Use this when component is dead to try and wake it up'''
+        """Best-effort wake-up: quickly toggle output to nudge the device.
+
+        Some gateways/devices can recover from a brief toggle. This flips
+        the state on subsequent calls to stimulate a response.
+        """
         pass
 
     def _prepare_for_send(self, value):
@@ -392,6 +449,20 @@ class TimerMixin:
             "Controller must have toggle method defined to support timer mixin."
 
     def set_timer(self, to_timestamp, event=None):
+        """Schedule a controller action at a specific UNIX timestamp.
+
+        Parameters:
+        - to_timestamp (float|int): Absolute UNIX epoch seconds in the future.
+        - event (str|None): Optional controller method name to invoke when the
+          timer elapses. Defaults to 'toggle' if not provided or invalid.
+
+        Behavior:
+        - Stores timer metadata in component.meta and persists it. The gateway or
+          background tasks are expected to call the method when due.
+
+        Raises:
+        - ValidationError: if `to_timestamp` is not in the future.
+        """
         if to_timestamp > time.time():
             self.component.refresh_from_db()
             self.component.meta['timer_to'] = to_timestamp
@@ -409,6 +480,13 @@ class TimerMixin:
             )
 
     def pause_timer(self):
+        """Pause a running timer.
+
+        Stores the remaining time and clears the scheduled timestamp.
+
+        Raises:
+        - ValidationError: if no timer is currently scheduled.
+        """
         if self.component.meta.get('timer_to', 0) > time.time():
             time_left = self.component.meta['timer_to'] - time.time()
             self.component.meta['timer_left'] = time_left
@@ -420,6 +498,13 @@ class TimerMixin:
             )
 
     def resume_timer(self):
+        """Resume a previously paused timer.
+
+        Recomputes the target timestamp from the saved remaining time.
+
+        Raises:
+        - ValidationError: if the timer is not in a paused state.
+        """
         if self.component.meta.get('timer_left', 0):
             self.component.meta['timer_to'] = \
                 time.time() + self.component.meta['timer_left']
@@ -431,12 +516,14 @@ class TimerMixin:
             )
 
     def stop_timer(self):
+        """Stop and clear any active or paused timer for this component."""
         self.component.meta['timer_to'] = 0
         self.component.meta['timer_left'] = 0
         self.component.meta['timer_start'] = 0
         self.component.save(update_fields=['meta'])
 
     def timer_engaged(self):
+        """Return True if there is an active or paused timer configured."""
         return any([
             self.component.meta.get('timer_to'),
             self.component.meta.get('timer_left'),
@@ -449,9 +536,10 @@ class TimerMixin:
 
 class NumericSensor(ControllerBase):
     name = _("Numeric sensor")
-    base_type = 'numeric-sensor'
+    base_type = NumericSensorType
     config_form = NumericSensorForm
     default_value = 0
+    accepts_value = False
 
     def _validate_val(self, value, occasion=None):
         if type(value) not in (int, float, D):
@@ -473,7 +561,7 @@ class NumericSensor(ControllerBase):
 
 class MultiSensor(ControllerBase):
     name = _("Multi sensor")
-    base_type = 'multi-sensor'
+    base_type = MultiSensorType
     app_widget = MultiSensorWidget
     config_form = MultiSensorConfigForm
     default_value = [
@@ -481,6 +569,7 @@ class MultiSensor(ControllerBase):
         ["Value 2", 50, "ᴼ C"],
         ["Value 3", False, ""]
     ]
+    accepts_value = False
 
     def _validate_val(self, value, occasion=None):
         if len(value) != len(self.default_value):
@@ -520,6 +609,12 @@ class MultiSensor(ControllerBase):
 
 
     def get_val(self, param):
+        """Return value for a given label in a multi-sensor array.
+
+        Parameters:
+        - param (str): The label/name of the vector to read.
+        Returns: The value part from [label, value, unit] or None.
+        """
         for item in self.component.value:
             if item[0] == param:
                 return item[1]
@@ -527,10 +622,11 @@ class MultiSensor(ControllerBase):
 
 class BinarySensor(ControllerBase):
     name = _("Binary sensor")
-    base_type = 'binary-sensor'
+    base_type = BinarySensorType
     app_widget = BinarySensorWidget
     admin_widget_template = 'admin/controller_widgets/binary_sensor.html'
     default_value = False
+    accepts_value = False
 
     def _validate_val(self, value, occasion=None):
         if not isinstance(value, bool):
@@ -545,7 +641,7 @@ class BinarySensor(ControllerBase):
 
 class Button(ControllerBase):
     name = _("Button")
-    base_type = 'button'
+    base_type = ButtonType
     app_widget = ButtonWidget
     admin_widget_template = 'admin/controller_widgets/button.html'
     default_value = 'up'
@@ -555,13 +651,28 @@ class Button(ControllerBase):
             raise ValidationError("Bad button value!")
         return value
 
+    def send(self, value):
+        """Simulate a button event.
+
+        Parameters:
+        - value (str): One of 'down', 'up', 'hold', 'click', 'double-click'.
+        """
+        return super().send(value)
+
     def is_down(self):
+        """Return True while the button is pressed ('down' or 'hold')."""
         return self.component.value in ('down', 'hold')
 
     def is_held(self):
+        """Return True if the button is currently in 'hold' state."""
         return self.component.value == 'hold'
 
     def get_bonded_gear(self):
+        """Return components configured to be controlled by this button.
+
+        Scans other components' config for controls referencing this button's id.
+        Returns: list[Component]
+        """
         from simo.core.models import Component
         gear = []
         for comp in Component.objects.filter(config__has_key='controls'):
@@ -576,6 +687,7 @@ class OnOffPokerMixin:
     _poke_toggle = False
 
     def poke(self):
+        """Best-effort wake-up: briefly toggle output to stimulate response."""
         if self._poke_toggle:
             self._poke_toggle = False
             self.turn_on()
@@ -586,7 +698,7 @@ class OnOffPokerMixin:
 
 class Dimmer(ControllerBase, TimerMixin, OnOffPokerMixin):
     name = _("Dimmer")
-    base_type = 'dimmer'
+    base_type = DimmerType
     app_widget = KnobWidget
     config_form = DimmerConfigForm
     admin_widget_template = 'admin/controller_widgets/knob.html'
@@ -624,9 +736,15 @@ class Dimmer(ControllerBase, TimerMixin, OnOffPokerMixin):
         return value
 
     def turn_off(self):
+        """Turn output to the configured minimum level (usually 0%)."""
         self.send(self.component.config.get('min', 0.0))
 
     def turn_on(self):
+        """Turn output on, restoring the last level when possible.
+
+        If there is a previous level, restores it; otherwise uses configured
+        maximum level.
+        """
         self.component.refresh_from_db()
         if not self.component.value:
             if self.component.value_previous:
@@ -635,15 +753,22 @@ class Dimmer(ControllerBase, TimerMixin, OnOffPokerMixin):
                 self.send(self.component.config.get('max', 90))
 
     def max_out(self):
+        """Set output to the configured maximum level."""
         self.send(self.component.config.get('max', 90))
 
     def output_percent(self, value):
+        """Set output by percentage (0–100).
+
+        Parameters:
+        - value (int|float): Percentage of configured [min, max] range.
+        """
         min = self.component.config.get('min', 0)
         max = self.component.config.get('max', 100)
         delta = max - min
         self.send(min + delta * value / 100)
 
     def toggle(self):
+        """Toggle output: turn off if non-zero, otherwise turn on."""
         self.component.refresh_from_db()
         if self.component.value:
             self.turn_off()
@@ -651,18 +776,30 @@ class Dimmer(ControllerBase, TimerMixin, OnOffPokerMixin):
             self.turn_on()
 
     def fade_up(self):
+        """Start increasing brightness smoothly (if supported by gateway)."""
         raise NotImplemented()
 
     def fade_down(self):
+        """Start decreasing brightness smoothly (if supported by gateway)."""
         raise NotImplemented()
 
     def fade_stop(self):
+        """Stop any ongoing fade operation (if supported by gateway)."""
         raise NotImplemented()
+
+    def send(self, value):
+        """Set dimmer level.
+
+        Parameters:
+        - value (int|float): absolute level within configured min/max, or
+        - value (bool): True to restore previous/non-zero level, False for 0.
+        """
+        return super().send(value)
 
 
 class DimmerPlus(ControllerBase, TimerMixin, OnOffPokerMixin):
     name = _("Dimmer Plus")
-    base_type = 'dimmer-plus'
+    base_type = DimmerPlusType
     app_widget = KnobPlusWidget
     config_form = DimmerPlusConfigForm
     default_config = {
@@ -712,6 +849,7 @@ class DimmerPlus(ControllerBase, TimerMixin, OnOffPokerMixin):
         return value
 
     def turn_off(self):
+        """Turn both channels to their configured minimums."""
         self.send(
             {
                 'main': self.component.config.get('main_min', 0.0),
@@ -721,6 +859,7 @@ class DimmerPlus(ControllerBase, TimerMixin, OnOffPokerMixin):
         )
 
     def turn_on(self):
+        """Turn on: main at maximum, secondary to mid-range."""
         self.component.refresh_from_db()
         if not self.component.value:
             if self.component.value_previous:
@@ -734,6 +873,7 @@ class DimmerPlus(ControllerBase, TimerMixin, OnOffPokerMixin):
                 })
 
     def toggle(self):
+        """Toggle on/off based on the 'main' channel state."""
         if self.component.value.get('main'):
             self.turn_off()
         else:
@@ -741,18 +881,30 @@ class DimmerPlus(ControllerBase, TimerMixin, OnOffPokerMixin):
 
 
     def fade_up(self):
+        """Start increasing brightness smoothly (if supported by gateway)."""
         raise NotImplemented()
 
     def fade_down(self):
+        """Start decreasing brightness smoothly (if supported by gateway)."""
         raise NotImplemented()
 
     def fade_stop(self):
+        """Stop any ongoing fade operation (if supported by gateway)."""
         raise NotImplemented()
+
+    def send(self, value):
+        """Set Dimmer Plus channels.
+
+        Parameters:
+        - value (dict): {'main': number, 'secondary': number}, or
+        - value (bool): True to restore previous, False to minimums.
+        """
+        return super().send(value)
 
 
 class RGBWLight(ControllerBase, TimerMixin, OnOffPokerMixin):
     name = _("RGB(W) Light")
-    base_type = 'rgbw-light'
+    base_type = RGBWLightType
     app_widget = RGBWidget
     config_form = RGBWConfigForm
     admin_widget_template = 'admin/controller_widgets/rgb.html'
@@ -793,16 +945,19 @@ class RGBWLight(ControllerBase, TimerMixin, OnOffPokerMixin):
         return value
 
     def turn_off(self):
+        """Turn the light off (sets `is_on` to False and sends current value)."""
         self.component.refresh_from_db()
         self.component.value['is_on'] = False
         self.send(self.component.value)
 
     def turn_on(self):
+        """Turn the light on (sets `is_on` to True and sends current value)."""
         self.component.refresh_from_db()
         self.component.value['is_on'] = True
         self.send(self.component.value)
 
     def toggle(self):
+        """Toggle the light between on and off."""
         self.component.refresh_from_db()
         self.component.value['is_on'] = not self.component.value['is_on']
         self.send(self.component.value)
@@ -816,6 +971,15 @@ class RGBWLight(ControllerBase, TimerMixin, OnOffPokerMixin):
 
     def fade_stop(self):
         raise NotImplemented()
+
+    def send(self, value):
+        """Set RGB(W) light scenes and on/off.
+
+        Parameters:
+        - value (dict): {'scenes': ["#rrggbb[ww]"...], 'active': int 0-4,
+                         'is_on': bool}
+        """
+        return super().send(value)
 
 
 class MultiSwitchBase(ControllerBase):
@@ -847,37 +1011,59 @@ class MultiSwitchBase(ControllerBase):
                     ))
         return value
 
+    def send(self, value):
+        """Set one or multiple switch channels.
+
+        Parameters:
+        - value (bool) to set all channels, or
+        - value (list[bool]) with a boolean per channel.
+        """
+        return super().send(value)
+
 
 class Switch(MultiSwitchBase, TimerMixin, OnOffPokerMixin):
     name = _("Switch")
-    base_type = 'switch'
+    base_type = SwitchType
     app_widget = SingleSwitchWidget
     config_form = SwitchForm
     admin_widget_template = 'admin/controller_widgets/switch.html'
     default_value = False
 
+    def send(self, value):
+        """Send value to device.
+        If non boolean value is provided it is translated to a boolean one.
+
+        Parameters:
+        - value (bool): True = ON, False = OFF.
+        """
+        return super().send(value)
+
     def turn_on(self):
+        """Turn the switch on (send True)."""
         if self.component.meta.get('pulse'):
             self.component.meta.pop('pulse')
             self.component.save()
         self.send(True)
 
     def turn_off(self):
+        """Turn the switch off (send False)."""
         if self.component.meta.get('pulse'):
             self.component.meta.pop('pulse')
             self.component.save()
         self.send(False)
 
     def toggle(self):
+        """Toggle the switch state based on current value."""
         if self.component.meta.get('pulse'):
             self.component.meta.pop('pulse')
             self.component.save()
         self.send(not self.component.value)
 
     def click(self):
-        '''
-        Gateway specific implementation is very welcome of this!
-        '''
+        """Simulate a short press: turn on momentarily then off.
+
+        This sends an on command and schedules an automatic off after ~1s.
+        """
         if self.component.meta.get('pulse'):
             self.component.meta.pop('pulse')
             self.component.save()
@@ -888,6 +1074,12 @@ class Switch(MultiSwitchBase, TimerMixin, OnOffPokerMixin):
         ).apply_async(countdown=1)
 
     def pulse(self, frame_length_s, on_percentage):
+        """Generate a PWM-like pulse train (only if gateway supports it).
+
+        Parameters:
+        - frame_length_s (float): Duration of a full on+off frame in seconds.
+        - on_percentage (float|int): Duty cycle percentage (0–100) for on time.
+        """
         self.component.meta['pulse'] = {
             'frame': frame_length_s, 'duty': on_percentage / 100
         }
@@ -906,7 +1098,7 @@ class Switch(MultiSwitchBase, TimerMixin, OnOffPokerMixin):
 
 class DoubleSwitch(MultiSwitchBase):
     name = _("Double Switch")
-    base_type = 'switch-double'
+    base_type = DoubleSwitchType
     app_widget = DoubleSwitchWidget
     config_form = DoubleSwitchConfigForm
     default_value = [False, False]
@@ -919,7 +1111,7 @@ class DoubleSwitch(MultiSwitchBase):
 
 class TripleSwitch(MultiSwitchBase):
     name = _("Triple Switch")
-    base_type = 'switch-triple'
+    base_type = TripleSwitchType
     app_widget = TripleSwitchWidget
     config_form = TrippleSwitchConfigForm
     default_value = [False, False, False]
@@ -932,7 +1124,7 @@ class TripleSwitch(MultiSwitchBase):
 
 class QuadrupleSwitch(MultiSwitchBase):
     name = _("Quadruple Switch")
-    base_type = 'switch-quadruple'
+    base_type = QuadrupleSwitchType
     app_widget = QuadrupleSwitchWidget
     config_form = QuadrupleSwitchConfigForm
     default_value = [False, False, False, False]
@@ -945,7 +1137,7 @@ class QuadrupleSwitch(MultiSwitchBase):
 
 class QuintupleSwitch(MultiSwitchBase):
     name = _("Quintuple Switch")
-    base_type = 'switch-quintuple'
+    base_type = QuintupleSwitchType
     app_widget = QuintupleSwitchWidget
     config_form = QuintupleSwitchConfigForm
     default_value = [False, False, False, False, False]
@@ -958,7 +1150,7 @@ class QuintupleSwitch(MultiSwitchBase):
 
 class Lock(Switch):
     name = _("Lock")
-    base_type = 'lock'
+    base_type = LockType
     app_widget = LockWidget
     admin_widget_template = 'admin/controller_widgets/lock.html'
     default_value = 'unlocked'
@@ -970,10 +1162,20 @@ class Lock(Switch):
     FAULT = 4
 
     def lock(self):
+        """Lock the device (equivalent to `turn_on()`)."""
         self.turn_on()
 
     def unlock(self):
+        """Unlock the device (equivalent to `turn_off()`)."""
         self.turn_off()
+
+    def send(self, value):
+        """Lock/unlock.
+
+        Parameters:
+        - value (bool): True to lock; False to unlock.
+        """
+        return super().send(value)
 
     def _receive_from_device(
         self, value, *args, **kwargs
@@ -1024,7 +1226,7 @@ class Lock(Switch):
 
 class Blinds(ControllerBase, TimerMixin):
     name = _("Blind")
-    base_type = 'blinds'
+    base_type = BlindsType
     admin_widget_template = 'admin/controller_widgets/blinds.html'
     default_config = {}
 
@@ -1107,6 +1309,10 @@ class Blinds(ControllerBase, TimerMixin):
         return value
 
     def open(self):
+        """Open blinds fully.
+
+        Sends {'target': 0} and preserves current angle if present.
+        """
         send_val = {'target': 0}
         angle = self.component.value.get('angle')
         if angle is not None and 0 <= angle <= 180:
@@ -1114,6 +1320,10 @@ class Blinds(ControllerBase, TimerMixin):
         self.send(send_val)
 
     def close(self):
+        """Close blinds fully.
+
+        Sends {'target': open_duration_ms} and preserves current angle.
+        """
         send_val = {'target': self.component.config['open_duration'] * 1000}
         angle = self.component.value.get('angle')
         if angle is not None and 0 <= angle <= 180:
@@ -1121,16 +1331,29 @@ class Blinds(ControllerBase, TimerMixin):
         self.send(send_val)
 
     def stop(self):
+        """Stop blinds movement immediately.
+
+        Sends {'target': -1} and preserves current angle.
+        """
         send_val = {'target': -1}
         angle = self.component.value.get('angle')
         if angle is not None and 0 <= angle <= 180:
             send_val['angle'] = angle
         self.send(send_val)
 
+    def send(self, value):
+        """Control blinds position/angle.
+
+        Parameters:
+        - value (dict): {'target': milliseconds or -1 for stop,
+                         'angle': optional 0-180}
+        """
+        return super().send(value)
+
 
 class Gate(ControllerBase, TimerMixin):
     name = _("Gate")
-    base_type = 'gate'
+    base_type = GateType
     app_widget = GateWidget
     admin_widget_template = 'admin/controller_widgets/gate.html'
     default_config = {
@@ -1168,11 +1391,21 @@ class Gate(ControllerBase, TimerMixin):
         return value
 
     def open(self):
+        """Command the gate to open."""
         self.send('open')
 
     def close(self):
+        """Command the gate to close."""
         self.send('close')
 
     def call(self):
+        """Trigger the 'call' action (impulse) for gates in call-mode."""
         self.send('call')
 
+    def send(self, value):
+        """Control gate.
+
+        Parameters:
+        - value (str): 'open', 'close', or 'call' (depending on config).
+        """
+        return super().send(value)

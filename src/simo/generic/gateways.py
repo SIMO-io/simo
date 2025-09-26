@@ -206,7 +206,7 @@ class GenericGatewayHandler(
         ):
             tz = pytz.timezone(thermostat.zone.instance.timezone)
             timezone.activate(tz)
-            thermostat.evaluate()
+            thermostat._evaluate()
 
 
     def watch_alarm_clocks(self):
@@ -217,7 +217,7 @@ class GenericGatewayHandler(
         ):
             tz = pytz.timezone(alarm_clock.zone.instance.timezone)
             timezone.activate(tz)
-            alarm_clock.tick()
+            alarm_clock._tick()
 
 
     def watch_watering(self):
@@ -227,7 +227,7 @@ class GenericGatewayHandler(
             tz = pytz.timezone(watering.zone.instance.timezone)
             timezone.activate(tz)
             if watering.value['status'] == 'running_program':
-                watering.set_program_progress(
+                watering._set_program_progress(
                     watering.value['program_progress'] + 1
                 )
             else:
@@ -340,7 +340,7 @@ class GenericGatewayHandler(
     def set_get_day_evening_night_morning(self, state):
         if state.value  not in ('day', 'night', 'evening', 'morning'):
             return
-        new_state = state.get_day_evening_night_morning()
+        new_state = state._get_day_evening_night_morning()
         if new_state == state.value:
             self.last_set_state = state.value
             return
@@ -377,7 +377,7 @@ class GenericGatewayHandler(
                     self.sensors_on_watch[state.id][sensor.id] = i_id
                     sensor.on_change(self.security_sensor_change)
 
-            if state.check_is_away(self.last_sensor_actions.get(i_id, 0)):
+            if state._check_is_away(self.last_sensor_actions.get(i_id, 0)):
                 if state.value != 'away':
                     print(f"New main state of "
                           f"{state.zone.instance} - away")
@@ -385,7 +385,7 @@ class GenericGatewayHandler(
             else:
                 if state.value == 'away':
                     try:
-                        new_state = state.get_day_evening_night_morning()
+                        new_state = state._get_day_evening_night_morning()
                     except:
                         new_state = 'day'
                     print(f"New main state of "
@@ -394,14 +394,14 @@ class GenericGatewayHandler(
 
         if state.config.get('sleeping_phones_hour') is not None:
             if state.value != 'sleep':
-                if state.is_sleep_time() and state.owner_phones_on_charge(True):
+                if state._is_sleep_time() and state._owner_phones_on_charge(True):
                     print(f"New main state of {state.zone.instance} - sleep")
                     state.send('sleep')
             else:
-                if not state.owner_phones_on_charge(True) \
-                and not state.is_sleep_time():
+                if not state._owner_phones_on_charge(True) \
+                and not state._is_sleep_time():
                     try:
-                        new_state = state.get_day_evening_night_morning()
+                        new_state = state._get_day_evening_night_morning()
                     except:
                         new_state = 'day'
                     print(f"New main state of "

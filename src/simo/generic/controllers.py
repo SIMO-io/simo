@@ -18,6 +18,10 @@ from simo.core.controllers import (
     RGBWLight,
     DoubleSwitch, TripleSwitch, QuadrupleSwitch, QuintupleSwitch
 )
+from .base_types import (
+    ThermostatType, AlarmGroupType, WeatherType, IPCameraType,
+    WateringType, StateSelectType, AlarmClockType
+)
 from simo.core.utils.config_values import (
     BooleanConfigValue, FloatConfigValue,
     TimeTempConfigValue, ThermostatModeConfigValue,
@@ -57,7 +61,7 @@ class SwitchGroup(Switch):
 
 class Thermostat(ControllerBase):
     name = _("Thermostat")
-    base_type = 'thermostat'
+    base_type = ThermostatType
     gateway_class = GenericGatewayHandler
     app_widget = ThermostatWidget
     config_form = ThermostatConfigForm
@@ -66,6 +70,7 @@ class Thermostat(ControllerBase):
         'current_temp': 21, 'target_temp': 22,
         'heating': False, 'cooling': False
     }
+    accepts_value = False
 
     @property
     def default_config(self):
@@ -148,6 +153,12 @@ class Thermostat(ControllerBase):
             return target_temp
 
     def get_current_target_temperature(self):
+        """Return active target temperature from user config.
+
+        Computes the target based on hard/daily/weekly schedules and the
+        current local time.
+        Returns: float temperature.
+        """
         data = self.component.config['user_config']
         if data['hard']['active']:
             return data['hard']['target']
@@ -157,8 +168,7 @@ class Thermostat(ControllerBase):
         return self._get_target_from_options(
             data['weekly'][str(localtime.weekday() + 1)])
 
-    def evaluate(self):
-
+    def _evaluate(self):
         from simo.core.models import Component
         self.component.refresh_from_db()
         tz = pytz.timezone(self.component.zone.instance.timezone)
@@ -341,6 +351,12 @@ class Thermostat(ControllerBase):
 
 
     def update_user_conf(self, new_conf):
+        """Update thermostat user configuration.
+
+        Parameters:
+        - new_conf (dict): Partial or full user_config; validated and merged
+          with defaults. Triggers re-evaluation after save.
+        """
         self.component.refresh_from_db()
         self.component.config['user_config'] = validate_new_conf(
             new_conf,
@@ -352,6 +368,12 @@ class Thermostat(ControllerBase):
 
 
     def hold(self, temperature=None):
+        """Hold a temporary target temperature.
+
+        Parameters:
+        - temperature (float|None): If provided, enables hard hold at this
+          target; if None, disables hard hold to resume schedules.
+        """
         if temperature != None:
             self.component.config['user_config']['hard'] = {
                 'active': True, 'target': temperature
@@ -363,7 +385,7 @@ class Thermostat(ControllerBase):
 
 class AlarmGroup(ControllerBase):
     name = _("Alarm Group")
-    base_type = 'alarm-group'
+    base_type = AlarmGroupType
     gateway_class = GenericGatewayHandler
     app_widget = AlarmGroupWidget
     config_form = AlarmGroupConfigForm
@@ -386,18 +408,31 @@ class AlarmGroup(ControllerBase):
                 )
         return value
 
+    def send(self, value):
+        """Set group state.
+
+        Parameters:
+        - value (str): 'armed', 'disarmed' (or 'breached' by system).
+        Prefer using `arm()` and `disarm()` helpers.
+        """
+        return super().send(value)
+
     def arm(self):
+        """Arm the entire group (children remain in their states)."""
         self.send('armed')
 
     def disarm(self):
+        """Disarm the entire group."""
         self.send('disarmed')
 
     def get_children(self):
+        """Return the queryset of child components that form this group."""
         return Component.objects.filter(
             pk__in=self.component.config['components']
         )
 
     def refresh_status(self):
+        """Recompute and persist the group's aggregated security status."""
         stats = {
             'disarmed': 0, 'pending-arm': 0, 'armed': 0, 'breached': 0
         }
@@ -435,7 +470,7 @@ class AlarmGroup(ControllerBase):
 
 class Weather(ControllerBase):
     name = _("Weather")
-    base_type = 'weather'
+    base_type = WeatherType
     gateway_class = GenericGatewayHandler
     config_form = WeatherForm
     app_widget = WeatherWidget
@@ -443,6 +478,7 @@ class Weather(ControllerBase):
     default_config = {}
     default_value = {}
     manual_add = False
+    accepts_value = False
 
     def _validate_val(self, value, occasion=None):
         return value
@@ -450,18 +486,20 @@ class Weather(ControllerBase):
 
 class IPCamera(ControllerBase):
     name = _("IP Camera")
-    base_type = 'ip-camera'
+    base_type = IPCameraType
     gateway_class = GenericGatewayHandler
     app_widget = IPCameraWidget
     config_form = IPCameraConfigForm
     admin_widget_template = 'admin/controller_widgets/ip_camera.html'
     default_config = {'rtsp_address': ''}
     default_value = ''
+    accepts_value = False
 
     def _validate_val(self, value, occasion=None):
         raise ValidationError("This component type does not accept set value!")
 
     def get_stream_socket_url(self):
+        """Return the Channels WebSocket URL for live RTSP streaming."""
         return reverse_lazy(
             'ws-cam-stream', kwargs={'component_id': self.component.id},
             urlconf=settings.CHANNELS_URLCONF
@@ -474,7 +512,7 @@ class Watering(ControllerBase):
         'paused_program', 'paused_custom'
     )
     name = _("Watering")
-    base_type = 'watering'
+    base_type = WateringType
     gateway_class = GenericGatewayHandler
     config_form = WateringConfigForm
     app_widget = WateringWidget
@@ -525,8 +563,19 @@ class Watering(ControllerBase):
                             )
         return value
 
+    def send(self, value):
+        """Control watering.
+
+        Parameters:
+        - value (str): 'start', 'pause', 'reset', or
+        - value (dict): {'status': <status>, 'program_progress': <minute>}
+        Prefer `start()`, `pause()`, `reset()`, `set_program_progress()`.
+        """
+        return super().send(value)
+
 
     def start(self):
+        """Start the watering program at current or last progress point."""
         self.component.refresh_from_db()
         if not self.component.value.get('program_progress', 0):
             self.component.meta['last_run'] = timezone.now().timestamp()
@@ -538,9 +587,11 @@ class Watering(ControllerBase):
         self.set_program_progress(self.component.value['program_progress'])
 
     def play(self):
+        """Alias for `start()` (for consistency with media-like controls)."""
         return self.start()
 
     def pause(self):
+        """Pause the watering program and disengage all contours."""
         self.component.refresh_from_db()
         self.set({
             'status': 'paused_program',
@@ -549,13 +600,15 @@ class Watering(ControllerBase):
         self.disengage_all()
 
     def reset(self):
+        """Stop the watering program and reset progress to 0."""
         self.set({'status': 'stopped', 'program_progress': 0})
         self.disengage_all()
 
     def stop(self):
+        """Alias for `reset()` to stop the program."""
         return self.reset()
 
-    def set_program_progress(self, program_minute, run=True):
+    def _set_program_progress(self, program_minute, run=True):
         engaged_contours = []
         for flow_data in self.component.config['program']['flow']:
             if flow_data['minute'] <= program_minute:
@@ -588,6 +641,11 @@ class Watering(ControllerBase):
             )
 
     def ai_assist_update(self, data):
+        """Update AI-assistant computed watering parameters.
+
+        Parameters:
+        - data (dict): Partial program/schedule/contour updates from AI.
+        """
         for key, val in data.items():
             assert key in ('ai_assist', 'soil_type', 'ai_assist_level')
             if key == 'ai_assist':
@@ -602,6 +660,11 @@ class Watering(ControllerBase):
         self.component.save()
 
     def contours_update(self, contours):
+        """Replace contours config and rebuild program accordingly.
+
+        Parameters:
+        - contours (list[dict]): Contour entries with uid and runtime updates.
+        """
         current_contours = {
             c['uid']: c
             for c in self.component.config.get('contours')
@@ -618,6 +681,7 @@ class Watering(ControllerBase):
         self.component.save()
 
     def schedule_update(self, new_schedule):
+        """Replace schedule config and rebuild program accordingly."""
         self.component.refresh_from_db()
         self.component.config['schedule'] = validate_new_conf(
             new_schedule,
@@ -686,6 +750,7 @@ class Watering(ControllerBase):
         return {'duration': 0, 'flow': []}
 
     def disengage_all(self):
+        """Turn off all configured watering contours immediately."""
         for contour_data in self.component.config['contours']:
             try:
                 switch = Component.objects.get(pk=contour_data['switch'])
@@ -784,7 +849,7 @@ class Watering(ControllerBase):
 
 class AlarmClock(ControllerBase):
     name = _("Alarm Clock")
-    base_type = 'alarm-clock'
+    base_type = AlarmClockType
     gateway_class = GenericGatewayHandler
     config_form = AlarmClockConfigForm
     app_widget = AlarmClockWidget
@@ -795,6 +860,7 @@ class AlarmClock(ControllerBase):
         'events_triggered': [],
         'alarm_timestamp': None
     }
+    accepts_value = False
 
     def _validate_val(self, value, occasion=None):
         # this component does not accept value set.
@@ -1058,13 +1124,14 @@ class AlarmClock(ControllerBase):
 
         return current_value
 
-    def tick(self):
+    def _tick(self):
         self.component.value = self._check_alarm(
             self.component.meta, self.component.value
         )
         self.component.save()
 
     def play_all(self):
+        """Execute all enabled alarm events immediately for the current alarm."""
         alarms = self.component.meta
         current_value = self.component.value
 
@@ -1100,6 +1167,7 @@ class AlarmClock(ControllerBase):
 
 
     def cancel_all(self):
+        """Cancel all enabled events of the current alarm and move to next alarm."""
         alarms = self.component.meta
         current_value = self.component.value
 
@@ -1133,6 +1201,12 @@ class AlarmClock(ControllerBase):
         return self.component.value
 
     def snooze(self, mins):
+        """Delay the current alarm by a number of minutes.
+
+        Parameters:
+        - mins (int): Minutes to postpone both the alarm and all its events.
+        Returns updated clock state.
+        """
         current_value = self.component.value
         localtime = timezone.localtime()
         if not current_value.get('in_alarm'):
@@ -1165,6 +1239,11 @@ class AudioAlert(Switch):
     config_form = AudioAlertConfigForm
 
     def send(self, value):
+        """Trigger or cancel an alert on all configured player components.
+
+        Parameters:
+        - value (bool): True to play alert; False to cancel.
+        """
         for player in Component.objects.filter(
             id__in=self.component.config['players']
         ):
@@ -1178,7 +1257,7 @@ class AudioAlert(Switch):
 class StateSelect(ControllerBase):
     gateway_class = GenericGatewayHandler
     name = _("State select")
-    base_type = 'state-select'
+    base_type = StateSelectType
     app_widget = StateSelectWidget
     config_form = StateSelectForm
 
@@ -1196,6 +1275,14 @@ class StateSelect(ControllerBase):
         if value not in available_options:
             raise ValidationError("Unsupported value!")
         return value
+
+    def send(self, value):
+        """Select state by slug.
+
+        Parameters:
+        - value (str): Must match one of configured state slugs.
+        """
+        return super().send(value)
 
 
 class MainState(StateSelect):
@@ -1232,7 +1319,7 @@ class MainState(StateSelect):
         ]
     }
 
-    def get_day_evening_night_morning(self):
+    def _get_day_evening_night_morning(self):
         from simo.automation.helpers import LocalSun
         sun = LocalSun(self.component.zone.instance.location)
         timezone.activate(self.component.zone.instance.timezone)
@@ -1257,7 +1344,7 @@ class MainState(StateSelect):
         return 'night'
 
 
-    def check_is_away(self, last_sensor_action):
+    def _check_is_away(self, last_sensor_action):
         away_on_no_action = self.component.config.get('away_on_no_action')
         if not away_on_no_action:
             return False
@@ -1271,7 +1358,7 @@ class MainState(StateSelect):
         return (time.time() - last_sensor_action) // 60 >= away_on_no_action
 
 
-    def is_sleep_time(self):
+    def _is_sleep_time(self):
         timezone.activate(self.component.zone.instance.timezone)
         localtime = timezone.localtime()
         if localtime.weekday() < 5:
@@ -1289,7 +1376,7 @@ class MainState(StateSelect):
         return False
 
 
-    def owner_phones_on_charge(self, all_phones=False):
+    def _owner_phones_on_charge(self, all_phones=False):
         sleeping_phones_hour = self.component.config.get('sleeping_phones_hour')
         if sleeping_phones_hour is None:
             return False

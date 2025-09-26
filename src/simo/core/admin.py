@@ -352,9 +352,10 @@ class ComponentAdmin(EasyObjectsDeleteMixin, admin.ModelAdmin):
 
                 ctx['is_last'] = True
                 ctx['current_step'] = 3
-                ctx['selected_type'] = ALL_BASE_TYPES.get(
-                    controller_cls.base_type, controller_cls.base_type
-                )
+                # Normalize controller base type to slug for display
+                bt = getattr(controller_cls, 'base_type', None)
+                slug = bt if isinstance(bt, str) else getattr(bt, 'slug', None)
+                ctx['selected_type'] = ALL_BASE_TYPES.get(slug or bt, slug or bt)
                 ctx['info'] = controller_cls.info(controller_cls)
                 if request.method == 'POST':
                     ctx['form'] = add_form(

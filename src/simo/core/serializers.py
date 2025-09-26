@@ -3,6 +3,7 @@ import datetime
 import re
 import json
 from django import forms
+from django.utils import timezone
 from collections import OrderedDict
 from django.conf import settings
 from django.forms.utils import pretty_name
@@ -650,4 +651,123 @@ class ActionSerializer(serializers.ModelSerializer):
 
     def get_value(self, obj):
         return obj.data.get('value')
+
+
+class MCPBasicCategorySerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Category
+        fields = 'id', 'name', 'icon'
+
+
+class MCPBasicComponentSerializer(serializers.ModelSerializer):
+    category = MCPBasicCategorySerializer(read_only=True)
+    gateway = serializers.SerializerMethodField()
+    slave_components = serializers.SerializerMethodField()
+    last_change = TimestampField(read_only=True)
+
+    class Meta:
+        model = Component
+        fields = (
+            'id', 'name', 'icon', 'category', 'gateway', 'base_type', 'value',
+            'value_units',
+            'slave_components', 'last_change', 'alive', 'error_msg',
+            'battery_level', 'show_in_app', 'alarm_category', 'arm_status'
+        )
+
+    def get_gateway(self, obj):
+        return obj.gateway.type
+
+    def get_slave_components(self, obj):
+        return [c['id'] for c in obj.slaves.all().values('id')]
+
+
+class MCPBasicZoneSerializer(serializers.ModelSerializer):
+    components = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Zone
+        fields = 'id', 'name', 'components'
+
+    def get_components(self, obj):
+        return MCPBasicComponentSerializer(
+            obj.components.all(), many=True, context=self.context
+        ).data
+
+
+class MCPFullComponentSerializer(serializers.ModelSerializer):
+    category = MCPBasicCategorySerializer(read_only=True)
+    gateway = serializers.SerializerMethodField()
+    slave_components = serializers.SerializerMethodField()
+    last_change = TimestampField(read_only=True)
+    info = serializers.SerializerMethodField()
+    controller_methods = serializers.SerializerMethodField()
+    unix_timestamp = serializers.SerializerMethodField()
+
+
+    class Meta:
+        model = Component
+        fields = (
+            'id', 'name', 'icon', 'zone', 'category', 'gateway',
+            'base_type', 'controller_uid', 'config', 'meta', 'value',
+            'value_units', 'value_translation', 'alive', 'error_msg',
+            'battery_level', 'show_in_app', 'alarm_category', 'arm_status',
+            'info', 'controller_methods', 'slave_components', 'last_change',
+            'unix_timestamp'
+        )
+
+
+    def get_gateway(self, obj):
+        return obj.gateway.type
+
+    def get_info(self, obj):
+        return obj.info()
+
+    def get_controller_methods(self, obj):
+        methods = {}
+        # Collect controller public methods with signatures and docstrings
+        for name, method in inspect.getmembers(obj.controller, predicate=inspect.ismethod):
+            if name.startswith('_'):
+                continue
+            if name in ('info', 'set'):
+                continue
+            if name == 'send' and not obj.controller.accepts_value:
+                continue
+            try:
+                sig = str(inspect.signature(method))
+            except Exception:
+                sig = '()'
+            doc = inspect.getdoc(method) or ''
+            methods[name] = {
+                'name': name,
+                'signature': sig,
+                'doc': doc
+            }
+
+        # If component has alarm capabilities, ensure arm/disarm are exposed
+        if obj.alarm_category:
+            for extra in ('arm', 'disarm'):
+                if extra in methods:
+                    continue
+                cm = getattr(obj, extra, None)
+                if cm and callable(cm):
+                    try:
+                        sig = str(inspect.signature(cm))
+                    except Exception:
+                        sig = '()'
+                    doc = inspect.getdoc(cm) or ''
+                    methods[extra] = {
+                        'name': extra,
+                        'signature': sig,
+                        'doc': doc,
+                    }
+
+        # Return as a list sorted by method name for stability
+        return [methods[k] for k in sorted(methods.keys())]
+
+    def get_slave_components(self, obj):
+        return [c['id'] for c in obj.slaves.all().values('id')]
+
+    def get_unix_timestamp(self, obj):
+        return timezone.now().timestamp()
 

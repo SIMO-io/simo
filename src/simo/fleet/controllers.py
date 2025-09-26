@@ -13,6 +13,7 @@ from simo.core.controllers import (
     Lock, ControllerBase, SingleSwitchWidget
 )
 from simo.core.app_widgets import NumericSensorWidget, AirQualityWidget
+from .base_types import DaliDeviceType, RoomSensorType, VoiceAssistantType
 from simo.core.utils.helpers import heat_index
 from simo.core.utils.serialization import (
     serialize_form_data, deserialize_form_data
@@ -34,13 +35,18 @@ from .forms import (
     DaliSwitchConfigForm,
     DaliOccupancySensorConfigForm, DALILightSensorConfigForm,
     DALIButtonConfigForm, RoomSensorDeviceConfigForm,
-    RoomZonePresenceConfigForm
+    RoomZonePresenceConfigForm, VoiceAssistantConfigForm
 )
 
 
 class FleetDeviceMixin:
 
     def update_options(self, options):
+        """Update runtime options on the device via the Colonel gateway.
+
+        Parameters:
+        - options (dict): Device-specific options; merged on the device side.
+        """
         GatewayObjectCommand(
             self.component.gateway,
             Colonel(id=self.component.config['colonel']),
@@ -50,12 +56,14 @@ class FleetDeviceMixin:
         ).publish()
 
     def disable_controls(self):
+        """Disable device controls temporarily (e.g., lock UI inputs)."""
         options = self.component.meta.get('options', {})
         if options.get('controls_enabled', True) != False:
             options['controls_enabled'] = False
             self.update_options(options)
 
     def enable_controls(self):
+        """Enable device controls if previously disabled."""
         options = self.component.meta.get('options', {})
         if options.get('controls_enabled', True) != True:
             options['controls_enabled'] = True
@@ -86,6 +94,7 @@ class FleetDeviceMixin:
 
 class BasicSensorMixin:
     gateway_class = FleetGatewayHandler
+    accepts_value = False
 
     def _get_occupied_pins(self):
         return [
@@ -565,6 +574,11 @@ class TTLock(FleetDeviceMixin, Lock):
 
 
     def add_code(self, code):
+        """Add a numeric access code to the smart lock.
+
+        Parameters:
+        - code (str|int): 4–8 digit numeric code.
+        """
         code = str(code)
         assert 4 <= len(code) <= 8
         for no in code:
@@ -580,6 +594,11 @@ class TTLock(FleetDeviceMixin, Lock):
         ).publish()
 
     def delete_code(self, code):
+        """Delete a numeric access code from the lock.
+
+        Parameters:
+        - code (str|int): The exact code to remove.
+        """
         GatewayObjectCommand(
             self.component.gateway,
             Colonel(id=self.component.config['colonel']),
@@ -588,6 +607,7 @@ class TTLock(FleetDeviceMixin, Lock):
         ).publish()
 
     def clear_codes(self):
+        """Remove all numeric access codes from the lock."""
         GatewayObjectCommand(
             self.component.gateway,
             Colonel(id=self.component.config['colonel']),
@@ -596,6 +616,7 @@ class TTLock(FleetDeviceMixin, Lock):
         ).publish()
 
     def get_codes(self):
+        """Request the list of numeric access codes from the lock."""
         GatewayObjectCommand(
             self.component.gateway,
             Colonel(id=self.component.config['colonel']),
@@ -604,6 +625,7 @@ class TTLock(FleetDeviceMixin, Lock):
         ).publish()
 
     def add_fingerprint(self):
+        """Start lock-side enrollment of a new fingerprint."""
         GatewayObjectCommand(
             self.component.gateway,
             Colonel(id=self.component.config['colonel']),
@@ -612,6 +634,7 @@ class TTLock(FleetDeviceMixin, Lock):
         ).publish()
 
     def delete_fingerprint(self, code):
+        """Delete a fingerprint by its identifier on the lock."""
         GatewayObjectCommand(
             self.component.gateway,
             Colonel(id=self.component.config['colonel']),
@@ -620,6 +643,7 @@ class TTLock(FleetDeviceMixin, Lock):
         ).publish()
 
     def clear_fingerprints(self):
+        """Remove all fingerprints from the lock."""
         self.component.meta['clear_fingerprints'] = True
         self.component.save(update_fields=['meta'])
         GatewayObjectCommand(
@@ -630,6 +654,7 @@ class TTLock(FleetDeviceMixin, Lock):
         ).publish()
 
     def get_fingerprints(self):
+        """Request the list of fingerprint identifiers from the lock."""
         GatewayObjectCommand(
             self.component.gateway,
             Colonel(id=self.component.config['colonel']),
@@ -638,22 +663,12 @@ class TTLock(FleetDeviceMixin, Lock):
         ).publish()
 
     def check_locked_status(self):
-        '''
-        Lock state is monitored by capturing adv data
-        periodically transmitted by the lock.
-        This data includes information about it's lock/unlock position
-        also if there are any new events in it that we are not yet aware of.
+        """Force an immediate connection to the lock to refresh status.
 
-        If anything new is observer, connection is made to the lock
-        and reported back to the system.
-        This helps to save batteries of a lock,
-        however it is not always as timed as we would want to.
-        Sometimes it can take even up to 20s for these updates to occur.
-
-        This method is here to force immediate connection to the lock
-        to check it's current status. After this method is called,
-        we might expect to receive an update within 2 seconds or less.
-        '''
+        The lock usually reports status periodically to save batteries; this
+        method asks the gateway to connect proactively so that an update is
+        expected within a couple of seconds.
+        """
         GatewayObjectCommand(
             self.component.gateway,
             Colonel(id=self.component.config['colonel']),
@@ -687,12 +702,20 @@ class DALIDevice(FleetDeviceMixin, ControllerBase):
     name = "DALI Device"
     discovery_msg = _("Please hook up your new DALI device to your DALI bus.")
 
-    base_type = 'dali'
+    base_type = DaliDeviceType
     default_value = False
     app_widget = SingleSwitchWidget
 
     def _validate_val(self, value, occasion=None):
         return value
+
+    def send(self, value):
+        """Control DALI device on/off.
+
+        Parameters:
+        - value (bool): True to turn on; False to turn off.
+        """
+        return super().send(value)
 
     @classmethod
     def _init_discovery(self, form_cleaned_data):
@@ -748,7 +771,9 @@ class DALIDevice(FleetDeviceMixin, ControllerBase):
         if data['result'].get('di') is not None:
             started_with['name'] += f" - {data['result']['di']}"
         started_with['controller_uid'] = controller_uid
-        started_with['base_type'] = controller_cls.base_type
+        # Normalize base type to slug for form
+        bt = getattr(controller_cls, 'base_type', None)
+        started_with['base_type'] = bt if isinstance(bt, str) else getattr(bt, 'slug', None)
         form = controller_cls.config_form(
             controller_uid=controller_cls.uid, data=started_with
         )
@@ -781,10 +806,10 @@ class DALIDevice(FleetDeviceMixin, ControllerBase):
         return {'error': 'INVALID INITIAL DISCOVERY FORM!'}
 
     def replace(self):
-        """
-        Hook up brand new replacement device to the dali line
-        and execute this command on existing (dead) component instance,
-        so that it can be replaced by the new physical device.
+        """Replace a failed DALI device with a brand new one on the line.
+
+        Connect a new device to the DALI bus and invoke this method on the
+        existing (dead) component to transfer configuration to the newcomer.
         """
         GatewayObjectCommand(
             self.component.gateway,
@@ -857,13 +882,14 @@ class DALIButton(BaseButton, DALIDevice):
     manual_add = False
     name = 'DALI Button'
     config_form = DALIButtonConfigForm
+    accepts_value = False
 
 
 class RoomSensor(FleetDeviceMixin, ControllerBase):
     gateway_class = FleetGatewayHandler
     config_form = RoomSensorDeviceConfigForm
     name = "Sentinel (Room Sensor)"
-    base_type = 'room-sensor'
+    base_type = RoomSensorType
     default_value = 0
     app_widget = NumericSensorWidget
 
@@ -917,6 +943,7 @@ class AirQualitySensor(FleetDeviceMixin, BaseMultiSensor):
     name = "Air Quality Sensor"
     app_widget = AirQualityWidget
     manual_add = False
+    accepts_value = False
 
     default_value = [
         ["TVOC", 0, "ppb"],
@@ -1200,4 +1227,49 @@ class RoomZonePresenceSensor(FleetDeviceMixin, BaseBinarySensor):
             frame[12:15] = 5  # action to perform: cancel repaint
             frame[16:18] = self.component.config['slot']
             dali_device.transmit(frame)
+
+
+class VoiceAssistant(FleetDeviceMixin, BaseBinarySensor):
+    base_type = VoiceAssistantType
+    name = _("AI Voice Assistant")
+    gateway_class = FleetGatewayHandler
+    config_form = VoiceAssistantConfigForm
+    manual_add = False
+    default_config = {'voice': 'male', 'enabled': True}
+
+    def arm(self):
+        """
+            Arming voice assistant is means disabling it,
+            so that it can not be used by invaders.
+        """
+        self.component.refresh_from_db()
+        self.component.config['enabled'] = False
+        self.component.arm_status = 'armed'
+        self.component.save()
+        GatewayObjectCommand(
+            self.component.gateway, Colonel(
+                id=self.component.config['colonel']
+            ), command='call', method='disable',
+            id=self.component.id
+        ).publish()
+
+    def disarm(self):
+        """
+            Disarming voice assistant is means enabling it,
+            so that anyone can use it to control the smart home system.
+        """
+        self.component.refresh_from_db()
+        self.component.config['enabled'] = True
+        self.component.arm_status = 'disarmed'
+        self.component.save()
+        GatewayObjectCommand(
+            self.component.gateway, Colonel(
+                id=self.component.config['colonel']
+            ), command='call', method='enable',
+            id=self.component.id
+        ).publish()
+
+    def is_in_alarm(self):
+        """Returns always False"""
+        return False
 

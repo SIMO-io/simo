@@ -17,6 +17,7 @@ from .form_fields import Select2ModelMultipleChoiceField
 from .widgets import SVGFileWidget, LogOutputWidget, PythonCode
 from .utils.formsets import FormsetField
 from .utils.validators import validate_slaves
+from .base_types import BaseComponentType
 
 
 class HiddenField(forms.CharField):
@@ -265,7 +266,14 @@ class ComponentAdminForm(forms.ModelForm):
                 ).first()
                 self.instance.gateway = self.gateway
                 self.instance.controller_uid = ControllerClass.uid
-                self.instance.base_type = self.controller.base_type
+                # Normalize controller base_type to slug for storage
+                bt = getattr(ControllerClass, 'base_type', None)
+                if isinstance(bt, str):
+                    self.instance.base_type = bt
+                elif isinstance(bt, type) and issubclass(bt, BaseComponentType):
+                    self.instance.base_type = bt.slug
+                else:
+                    self.instance.base_type = getattr(bt, 'slug', None) or str(bt)
                 self.instance.value = self.controller.default_value
                 self.instance.value_units = self.controller.default_value_units
                 self.instance.value_previous = self.controller.default_value

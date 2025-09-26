@@ -7,7 +7,7 @@ from django.urls.base import get_script_prefix
 from django.contrib.contenttypes.models import ContentType
 from django.utils import timezone
 from dal import forward
-from simo.core.models import Component
+from simo.core.models import Component, Category
 from simo.core.forms import (
     BaseComponentForm, ValueLimitForm, NumericSensorForm
 )
@@ -1838,17 +1838,18 @@ class RoomSensorDeviceConfigForm(CustomDaliDeviceForm):
 
         from .controllers import (
             RoomSiren, AirQualitySensor, TempHumSensor, AmbientLightSensor,
-            RoomPresenceSensor
+            RoomPresenceSensor, VoiceAssistant
         )
 
         org_name = self.cleaned_data['name']
         org_icon = self.cleaned_data['icon']
-        for CtrlClass, icon, suffix in (
-            (RoomSiren, 'siren', 'siren'),
-            (AirQualitySensor, 'leaf', 'air quality'),
-            (TempHumSensor, 'temperature-half', 'temperature'),
-            (AmbientLightSensor, 'brightness-low', 'brightness'),
-            (RoomPresenceSensor, 'person', 'presence')
+        for CtrlClass, icon, suffix, cat_slug in (
+            (RoomSiren, 'siren', 'siren', 'security'),
+            (AirQualitySensor, 'leaf', 'air quality', 'climate'),
+            (TempHumSensor, 'temperature-half', 'temperature', 'climate'),
+            (AmbientLightSensor, 'brightness-low', 'brightness', 'light'),
+            (RoomPresenceSensor, 'person', 'presence', 'security'),
+            (VoiceAssistant, 'microphone-lines', 'voice assistant', 'other')
         ):
             default_icon = Icon.objects.filter(slug=icon).first()
             if default_icon:
@@ -1856,6 +1857,9 @@ class RoomSensorDeviceConfigForm(CustomDaliDeviceForm):
             else:
                 self.cleaned_data['icon'] = org_icon
             self.cleaned_data['name'] = f"{org_name} {suffix}"
+            self.cleaned_data['category'] = Category.objects.filter(
+                name__icontains=cat_slug
+            ).first()
 
             if colonel:
                 comp = Component.objects.filter(
@@ -1918,3 +1922,12 @@ class RoomZonePresenceConfigForm(CustomDaliDeviceForm):
                 "Please first delete some to add a new one."
             )
         return value
+
+
+class VoiceAssistantConfigForm(BaseComponentForm):
+    voice = forms.ChoiceField(
+        label="Voice",
+        required=True, choices=(
+            ('male', "Male"), ('female', "Female"),
+        ),
+    )

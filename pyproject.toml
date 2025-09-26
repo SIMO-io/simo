@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "simo"
 version = "2.11.4"
 authors = [
-  { name="Simanas Venčkauskas", email="simanas@simo.io" },
+  { name="Simon V.", email="simon@simo.io" },
 ]
 description = "Smart Home Supremacy"
 readme = "README.md"
@@ -23,8 +23,8 @@ dependencies = {file = ["requirements.txt"]}
 [project.scripts]
 simo-update = "simo.core.management.update:perform_update"
 simo-auto-update = "simo.core.management.update:maybe_update"
+simo-mcp = "simo.mcp_server.server:main"
 
 [project.urls]
 Homepage = "https://simo.io"
-Issues = "https://github.com/pypa/sampleproject/issues"
-
+Issues = "https://github.com/SIMO-io/simo/issues"

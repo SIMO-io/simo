@@ -128,6 +128,11 @@ class Colonel(DirtyFieldsMixin, models.Model):
         if self.major_upgrade_available and self.firmware_version == self.major_upgrade_available:
             self.major_upgrade_available = None
 
+        if self.is_vo_active:
+            Colonel.objects.filter(
+                instance=self.instance
+            ).exclude(id=self.id).update(is_vo_active=False)
+
         return super().save(*args, **kwargs)
 
     @property

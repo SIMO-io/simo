@@ -1,4 +1,4 @@
-import importlib, datetime, sys
+import importlib, importlib.util, datetime, sys, traceback
 from django.core.asgi import get_asgi_application
 from channels.auth import AuthMiddlewareStack
 from channels.routing import ProtocolTypeRouter, URLRouter
@@ -13,13 +13,32 @@ for name, app in apps.app_configs.items():
         'staticfiles'
     ):
         continue
-    try:
-        routing = importlib.import_module('%s.routing' % app.name)
-    except ModuleNotFoundError:
+
+    module_path = f"{app.name}.routing"
+
+    # Only attempt import if the module exists
+    spec = importlib.util.find_spec(module_path)
+    if spec is None:
         continue
-    for var_name, item in routing.__dict__.items():
-        if isinstance(item, list) and var_name == 'urlpatterns':
-            urlpatterns.extend(item)
+
+    # Import and collect urlpatterns; on failure, print full traceback and continue
+    try:
+        routing = importlib.import_module(module_path)
+    except Exception:
+        print(
+            f"Failed to import {module_path}:\n{traceback.format_exc()}"
+        )
+        continue
+
+    try:
+        app_urlpatterns = getattr(routing, 'urlpatterns', None)
+        if isinstance(app_urlpatterns, list):
+            urlpatterns.extend(app_urlpatterns)
+    except Exception:
+        print(
+            f"Error while processing urlpatterns from {module_path}:\n{traceback.format_exc()}"
+        )
+        continue
 
 
 class TimestampedStream:
