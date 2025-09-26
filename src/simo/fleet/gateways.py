@@ -127,7 +127,7 @@ class FleetGatewayHandler(BaseObjectCommandsGatewayHandler):
                 form_cleaned_data = deserialize_form_data(
                     gw.discovery['init_data']
                 )
-                # Room-zone presence discovery now only supports network room-sensors
+                # Room-zone presence discovery now only supports network sentinels
                 colonel = Colonel.objects.filter(
                     id=form_cleaned_data['colonel'].id
                     if hasattr(form_cleaned_data.get('colonel'), 'id')

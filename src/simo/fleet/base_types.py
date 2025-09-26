@@ -9,11 +9,11 @@ class DaliDeviceType(BaseComponentType):
     purpose = _("Use for DALI-compliant gear integration.")
 
 
-class RoomSensorType(BaseComponentType):
-    slug = 'room-sensor'
-    name = _("Room Sensor")
-    description = _("Room environment sensor reporting readings.")
-    purpose = _("Use to capture ambient conditions from Fleet devices.")
+class SentinelType(BaseComponentType):
+    slug = 'sentinel'
+    name = _("Sentinel")
+    description = _("Room environment sensor reporting readings, alarm siren, AI voice assistant.")
+    purpose = _("Use to capture ambient conditions of a zone, raise alarms, provice AI voice assistant.")
 
 
 class VoiceAssistantType(BaseComponentType):

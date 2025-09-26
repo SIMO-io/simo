@@ -67,7 +67,7 @@ class Colonel(DirtyFieldsMixin, models.Model):
             ('ample-wall', "Ample Wall"),
             ('game-changer', "Game Changer"),
             ('game-changer-mini', "Game Changer Mini"),
-            ('room-sensor', "Room Sensor")
+            ('sentinel', "Sentinel")
         )
     )
     firmware_version = models.CharField(
@@ -104,7 +104,7 @@ class Colonel(DirtyFieldsMixin, models.Model):
         (0, "3kHz"), (1, "22kHz")
     ), help_text="Affects Ample Wall dimmer PWM output (dimmer) frequency")
 
-    # Sentinel (room-sensor) voice assistant specific fields
+    # Sentinel voice assistant specific fields
     wake_stats = models.JSONField(
         default=dict, editable=False, db_index=True
     )
@@ -569,4 +569,3 @@ def post_interface_delete(sender, instance, *args, **kwargs):
             ColonelPin.objects.bulk_update(
                 pins, ["occupied_by_content_type", "occupied_by_id"]
             )
-

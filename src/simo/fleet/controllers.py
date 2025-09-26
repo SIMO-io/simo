@@ -13,7 +13,7 @@ from simo.core.controllers import (
     Lock, ControllerBase, SingleSwitchWidget
 )
 from simo.core.app_widgets import NumericSensorWidget, AirQualityWidget
-from .base_types import DaliDeviceType, RoomSensorType, VoiceAssistantType
+from .base_types import DaliDeviceType, SentinelType, VoiceAssistantType
 from simo.core.utils.helpers import heat_index
 from simo.core.utils.serialization import (
     serialize_form_data, deserialize_form_data
@@ -34,7 +34,7 @@ from .forms import (
     TTLockConfigForm, DALIDeviceConfigForm, DaliLampForm, DaliGearGroupForm,
     DaliSwitchConfigForm,
     DaliOccupancySensorConfigForm, DALILightSensorConfigForm,
-    DALIButtonConfigForm, RoomSensorDeviceConfigForm,
+    DALIButtonConfigForm, SentinelDeviceConfigForm,
     RoomZonePresenceConfigForm, VoiceAssistantConfigForm
 )
 
@@ -885,11 +885,11 @@ class DALIButton(BaseButton, DALIDevice):
     accepts_value = False
 
 
-class RoomSensor(FleetDeviceMixin, ControllerBase):
+class Sentinel(FleetDeviceMixin, ControllerBase):
     gateway_class = FleetGatewayHandler
-    config_form = RoomSensorDeviceConfigForm
-    name = "Sentinel (Room Sensor)"
-    base_type = RoomSensorType
+    config_form = SentinelDeviceConfigForm
+    name = "Sentinel"
+    base_type = SentinelType
     default_value = 0
     app_widget = NumericSensorWidget
 

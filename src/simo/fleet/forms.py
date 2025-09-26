@@ -1792,9 +1792,9 @@ class DALIButtonConfigForm(DALIDeviceConfigForm, BaseComponentForm):
     pass
 
 
-class RoomSensorDeviceConfigForm(BaseComponentForm):
+class SentinelDeviceConfigForm(BaseComponentForm):
     colonel = Select2ModelChoiceField(
-        label="Room-Sensor", queryset=Colonel.objects.filter(type='room-sensor'),
+        label="Sentinel", queryset=Colonel.objects.filter(type='sentinel'),
         url='autocomplete-colonels',
     )
 
@@ -1866,7 +1866,7 @@ class RoomSensorDeviceConfigForm(BaseComponentForm):
 
 class RoomZonePresenceConfigForm(BaseComponentForm):
     colonel = Select2ModelChoiceField(
-        label="Room-Sensor", queryset=Colonel.objects.filter(type='room-sensor'),
+        label="Sentinel", queryset=Colonel.objects.filter(type='sentinel'),
         url='autocomplete-colonels',
     )
 

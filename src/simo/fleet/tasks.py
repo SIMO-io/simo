@@ -20,7 +20,6 @@ def check_colonels_connected():
 @celery_app.task
 def check_colonel_components_alive():
     from simo.core.models import Component
-    from .gateways import FleetGatewayHandler
     from .models import Colonel
     drop_current_instance()
     for lost_colonel in Colonel.objects.filter(
@@ -33,7 +32,6 @@ def check_colonel_components_alive():
             print(f"{comp} is no longer alive!")
             comp.alive = False
             comp.save()
-        # DALI-backed room-sensor support removed; no custom device alive checks
 
 
 @celery_app.on_after_finalize.connect

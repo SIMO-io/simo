@@ -33,7 +33,7 @@ from .controllers import TTLock
 
 
 class VoiceAssistantSession:
-    """Per-connection voice session manager for room-sensor (Sentinel).
+    """Per-connection voice session manager for Sentinel.
 
     Responsibilities:
     - Aggregate PCM frames into an utterance using inactivity threshold.
@@ -879,7 +879,7 @@ class FleetConsumer(AsyncWebsocketConsumer):
                         config = await self.get_config_data()
                         await self.send_data({
                             'command': 'set_config', 'data': config
-                        }, compress=self.colonel.type != 'room-sensor')
+                        }, compress=self.colonel.type != 'sentinel')
                     asyncio.run(send_config())
                 elif payload.get('command') == 'discover':
                     print(f"SEND discover command for {payload['type']}")
@@ -925,7 +925,7 @@ class FleetConsumer(AsyncWebsocketConsumer):
                     print("Send config: ", config)
                     await self.send_data({
                         'command': 'set_config', 'data': config
-                    }, compress=self.colonel.type != 'room-sensor')
+                    }, compress=self.colonel.type != 'sentinel')
                 elif 'comp' in data:
                     try:
                         try:
@@ -998,7 +998,7 @@ class FleetConsumer(AsyncWebsocketConsumer):
                             self._va = VoiceAssistantSession(self)
                         await self._va._end_session(cloud_also=True)
 
-                elif 'wake-stats' in data and self.colonel.type == 'room-sensor':
+                elif 'wake-stats' in data and self.colonel.type == 'sentinel':
                     def update_wake_stats():
                         va_component = Component.objects.filter(
                             config__colonel=self.colonel.id,
@@ -1018,7 +1018,7 @@ class FleetConsumer(AsyncWebsocketConsumer):
                     self._va.zone = va_component.zone.id
 
             elif bytes_data:
-                if self.colonel.type == 'room-sensor':
+                if self.colonel.type == 'sentinel':
                     if bytes_data[0] == 32:
                         await self.capture_logs(bytes_data[1:])
                     else:
