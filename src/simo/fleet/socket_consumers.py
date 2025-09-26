@@ -49,6 +49,7 @@ class VoiceAssistantSession:
     PLAY_CHUNK_BYTES = 1024
     PLAY_CHUNK_INTERVAL = 0.032
     FOLLOWUP_SEC = 15            # follow-up window after playback
+    CLOUD_RESPONSE_TIMEOUT_SEC = 60  # failover if Website gives no audio reply
 
     def __init__(self, consumer: "FleetConsumer"):
         self.c = consumer
@@ -204,11 +205,26 @@ class VoiceAssistantSession:
                 print("VA WS OPEN")
                 await ws.send(mp3_bytes)
                 print("VA WS SENT (binary)")
-
+                # After audio is transmitted, we expect a binary reply within a deadline
+                deadline = time.time() + self.CLOUD_RESPONSE_TIMEOUT_SEC
                 mp3_reply = None
                 while True:
+                    # Enforce a hard deadline regardless of interim control messages
+                    remaining = deadline - time.time()
+                    if remaining <= 0:
+                        try:
+                            await ws.close()
+                        except Exception:
+                            pass
+                        raise asyncio.TimeoutError("Cloud response timeout waiting for audio reply")
                     try:
-                        msg = await ws.recv()
+                        msg = await asyncio.wait_for(ws.recv(), timeout=remaining)
+                    except asyncio.TimeoutError:
+                        try:
+                            await ws.close()
+                        except Exception:
+                            pass
+                        raise
                     except Exception as e:
                         raise e
                     if isinstance(msg, (bytes, bytearray)):
