@@ -179,6 +179,10 @@ class VoiceAssistantSession:
                 print("VA WS SENT (binary)")
                 deadline = time.time() + self.CLOUD_RESPONSE_TIMEOUT_SEC
                 mp3_reply = None
+                streaming = False
+                sent_total = 0
+                stream_chunks = 0
+                stream_start_ts = None
                 while True:
                     remaining = deadline - time.time()
                     if remaining <= 0:
@@ -196,8 +200,29 @@ class VoiceAssistantSession:
                             pass
                         raise
                     except Exception as e:
+                        # Connection closed or errored
+                        if streaming:
+                            # End of streaming
+                            break
                         raise e
+                    # Reset deadline on activity
+                    deadline = time.time() + self.CLOUD_RESPONSE_TIMEOUT_SEC
                     if isinstance(msg, (bytes, bytearray)):
+                        if streaming:
+                            if stream_start_ts is None:
+                                stream_start_ts = time.time()
+                                print("VA RX STREAM START (website→hub) pcm16le")
+                            try:
+                                await self.c.send(bytes_data=b"\x01" + bytes(msg))
+                                self.last_tx_audio_ts = time.time()
+                                sent_total += len(msg)
+                                stream_chunks += 1
+                                if not self.playing:
+                                    self.playing = True
+                            except Exception:
+                                break
+                            continue
+                        # Not in streaming mode: assume single MP3 blob
                         mp3_reply = bytes(msg)
                         print(f"VA RX START (website→hub) mp3={len(mp3_reply)}B")
                         break
@@ -208,6 +233,14 @@ class VoiceAssistantSession:
                             data = None
                         if isinstance(data, dict):
                             print(f"VA WS CTRL {data}")
+                            # Streaming handshake
+                            audio = data.get('audio') if isinstance(data.get('audio'), dict) else None
+                            if audio and audio.get('format') == 'pcm16le':
+                                if int(audio.get('sr', 0)) != 16000:
+                                    print("VA: unsupported stream rate, expecting 16k; ignoring stream")
+                                else:
+                                    streaming = True
+                                    continue
                             if data.get('session') == 'finish':
                                 self._end_after_playback = True
                                 try:
@@ -231,6 +264,18 @@ class VoiceAssistantSession:
                         await self._end_session(cloud_also=False)
                         self._end_after_playback = False
                 elif self._end_after_playback:
+                    await self._end_session(cloud_also=False)
+                    self._end_after_playback = False
+            elif streaming:
+                # Streaming ended; finalize playback stats
+                try:
+                    elapsed = time.time() - (stream_start_ts or time.time())
+                    audio_sec = (sent_total // 2) / 16000.0 if sent_total else 0.0
+                    print(f"VA RX STREAM END (website→hub) sent≈{sent_total}B chunks={stream_chunks} elapsed={elapsed:.2f}s audio={audio_sec:.2f}s ratio={elapsed/audio_sec if audio_sec else 0:.2f}")
+                except Exception:
+                    pass
+                self.playing = False
+                if self._end_after_playback:
                     await self._end_session(cloud_also=False)
                     self._end_after_playback = False
             elif self._end_after_playback:
