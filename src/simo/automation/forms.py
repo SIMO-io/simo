@@ -33,13 +33,12 @@ class ScriptConfigForm(BaseComponentForm):
                     "in my living room when it get's dark."
             }
         ),
-        help_text="Clearly describe in your own words what kind of automation "
-                  "you want to happen with this scenario script. <br>"
-                  "The more defined, exact and clear is your description the more "
+        help_text="The more defined, exact and clear is your description the more "
                   "accurate automation script SIMO.io AI assistanw will generate.<br>"
-                  "Use component, zone and category id's for best accuracy. <br>"
-                  "SIMO.io AI will re-generate your automation code and update it's description in Notes field "                  
-                  "every time this field is changed and it might take up to 60s to do it. <br>"
+                  "Use component, zone and category ID's for best accuracy. <br>"
+                  "SIMO.io AI will re-generate your automation code and update it's description "                  
+                  "every time you enter something in this field. <br>"
+                  "Takes up to 60s to do it. <br>"
                   "Actual script code can only be edited via SIMO.io Admin.",
     )
     code = forms.CharField(widget=PythonCode, required=False)
@@ -85,24 +84,16 @@ class ScriptConfigForm(BaseComponentForm):
 
 
     def clean(self):
-        if self.cleaned_data.get('assistant_request'):
-            if self.instance.pk:
-                org = Component.objects.get(pk=self.instance.pk)
-                call_assistant = org.config.get('assistant_request') \
-                and org.config.get('assistant_request') \
-                    != self.cleaned_data['assistant_request']
-            else:
-                call_assistant = True
-
-            if call_assistant:
-                resp = self.instance.ai_assistant(
-                    self.cleaned_data['assistant_request'],
-                )
-                if resp['status'] == 'success':
-                    self._ai_resp = resp
-                elif resp['status'] == 'error':
-                    self.add_error('assistant_request', resp['result'])
-
+        if self.cleaned_data['assistant_request']:
+            resp = self.instance.ai_assistant(
+                self.cleaned_data['assistant_request'],
+                self.instance.config.get('code')
+            )
+            if resp['status'] == 'success':
+                self._ai_resp = resp
+                self.cleaned_data['assistant_request'] = None
+            elif resp['status'] == 'error':
+                self.add_error('assistant_request', resp['result'])
         return self.cleaned_data
 
     def save(self, commit=True):

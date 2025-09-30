@@ -88,7 +88,7 @@ class Script(ControllerBase, TimerMixin):
         else:
             self.send('start')
 
-    def ai_assistant(self, wish):
+    def ai_assistant(self, wish, current_code=None):
         """Request an AI-generated script for the given natural-language wish.
 
         Parameters:
@@ -102,6 +102,7 @@ class Script(ControllerBase, TimerMixin):
                 'instance_uid': get_current_instance().uid,
                 'system_data': json.dumps(get_current_state()),
                 'wish': wish,
+                'current_code': current_code
             }
         except Exception as e:
             print(traceback.format_exc(), file=sys.stderr)
@@ -111,7 +112,7 @@ class Script(ControllerBase, TimerMixin):
             request_data['current_user'] = UserSerializer(user, many=False).data
         try:
             response = requests.post(
-                'https://simo.io/hubs/ai-assist/scripts/', json=request_data
+                'https://simo.io/ai/scripts/', json=request_data
             )
         except:
             return {'status': 'error', 'result': "Connection error"}
