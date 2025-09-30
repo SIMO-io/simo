@@ -141,6 +141,16 @@ class VoiceAssistantSession:
             return
         self.awaiting_response = True
         try:
+            # Ensure we have an MCP token before contacting Website
+            if self.mcp_token is None:
+                try:
+                    await self.ensure_mcp_token()
+                except Exception:
+                    pass
+            # Hard guard: abort if token still missing
+            if self.mcp_token is None or not getattr(self.mcp_token, 'token', None):
+                raise RuntimeError("Missing MCP token for Website WS call")
+
             if (not self._start_session_notified) and (not self._start_session_inflight):
                 try:
                     await self._start_cloud_session()
@@ -159,7 +169,7 @@ class VoiceAssistantSession:
                 "hub-uid": hub_uid,
                 "hub-secret": hub_secret,
                 "instance-uid": self.c.instance.uid,
-                "mcp-token": self.mcp_token.token,
+                "mcp-token": getattr(self.mcp_token, 'token', None),
                 "voice": self.voice,
                 "zone": self.zone
             }
@@ -180,9 +190,99 @@ class VoiceAssistantSession:
                 deadline = time.time() + self.CLOUD_RESPONSE_TIMEOUT_SEC
                 mp3_reply = None
                 streaming = False
+                streaming_opus = False
                 sent_total = 0
                 stream_chunks = 0
                 stream_start_ts = None
+                opus_proc = None
+                pcm_forward_task = None
+                pcm_start_threshold = 8192  # ~256ms @ 16kHz s16le mono
+                pcm_buffer = bytearray()
+                ws_closed_ok = False
+                ws_closed_error = False
+                ws_closed_code = None
+                pcm_stats_sent = 0
+                async def _start_opus_decoder():
+                    nonlocal opus_proc, pcm_forward_task, pcm_buffer, pcm_stats_sent
+                    if opus_proc is not None:
+                        return
+                    try:
+                        opus_proc = await asyncio.create_subprocess_exec(
+                            'ffmpeg', '-v', 'error', '-i', 'pipe:0',
+                            '-f', 's16le', '-ar', '16000', '-ac', '1', 'pipe:1',
+                            stdin=asyncio.subprocess.PIPE,
+                            stdout=asyncio.subprocess.PIPE,
+                            stderr=asyncio.subprocess.PIPE,
+                        )
+                    except Exception as e:
+                        print('VA: failed to start ffmpeg for opus decode:', e, file=sys.stderr)
+                        opus_proc = None
+                        return
+
+                    async def _pcm_forwarder():
+                        nonlocal pcm_buffer, pcm_stats_sent, stream_start_ts, stream_chunks, sent_total
+                        started = False
+                        next_deadline = 0.0
+                        try:
+                            while True:
+                                chunk = await opus_proc.stdout.read(4096)
+                                if not chunk:
+                                    break
+                                pcm_buffer.extend(chunk)
+                                if not started and len(pcm_buffer) >= pcm_start_threshold:
+                                    started = True
+                                    if stream_start_ts is None:
+                                        stream_start_ts = time.time()
+                                        print('VA RX STREAM START (website→hub) opus->pcm')
+                                    next_deadline = time.time()
+                                # forward in paced frames (~32ms for 1024B)
+                                while started and len(pcm_buffer) >= self.PLAY_CHUNK_BYTES:
+                                    frame = bytes(pcm_buffer[:self.PLAY_CHUNK_BYTES])
+                                    del pcm_buffer[:self.PLAY_CHUNK_BYTES]
+                                    try:
+                                        # pacing
+                                        samples = len(frame) // 2
+                                        dt = samples / 16000.0
+                                        sleep_for = next_deadline - time.time()
+                                        if sleep_for > 0:
+                                            await asyncio.sleep(sleep_for)
+                                        await self.c.send(bytes_data=b"\x01" + frame)
+                                        self.last_tx_audio_ts = time.time()
+                                        sent_total += len(frame)
+                                        stream_chunks += 1
+                                        pcm_stats_sent += len(frame)
+                                        if not self.playing:
+                                            self.playing = True
+                                        next_deadline += dt
+                                    except Exception:
+                                        return
+                        except asyncio.CancelledError:
+                            return
+                        except Exception as e:
+                            print('VA: opus decode forward error:', e, file=sys.stderr)
+                        finally:
+                            # flush tail with pacing
+                            if started and pcm_buffer:
+                                try:
+                                    while pcm_buffer:
+                                        take = min(self.PLAY_CHUNK_BYTES, len(pcm_buffer))
+                                        frame = bytes(pcm_buffer[:take])
+                                        del pcm_buffer[:take]
+                                        samples = len(frame) // 2
+                                        dt = samples / 16000.0
+                                        sleep_for = next_deadline - time.time()
+                                        if sleep_for > 0:
+                                            await asyncio.sleep(sleep_for)
+                                        await self.c.send(bytes_data=b"\x01" + frame)
+                                        self.last_tx_audio_ts = time.time()
+                                        sent_total += len(frame)
+                                        stream_chunks += 1
+                                        next_deadline += dt
+                                except Exception:
+                                    pass
+                            pcm_buffer = bytearray()
+
+                    pcm_forward_task = asyncio.create_task(_pcm_forwarder())
                 while True:
                     remaining = deadline - time.time()
                     if remaining <= 0:
@@ -200,14 +300,40 @@ class VoiceAssistantSession:
                             pass
                         raise
                     except Exception as e:
-                        # Connection closed or errored
-                        if streaming:
-                            # End of streaming
+                        # Connection closed or errored — inspect close code
+                        try:
+                            from websockets.exceptions import ConnectionClosed
+                        except Exception:
+                            ConnectionClosed = tuple()
+                        if isinstance(e, ConnectionClosed):
+                            try:
+                                ws_closed_code = getattr(e, 'code', None)
+                            except Exception:
+                                ws_closed_code = None
+                            if ws_closed_code == 1000 or self._end_after_playback:
+                                ws_closed_ok = True
+                            else:
+                                ws_closed_error = True
                             break
+                        # Any other exception (e.g., network reset) => treat as error end if streaming started
+                        if streaming or streaming_opus:
+                            ws_closed_error = True
+                            break
+                        # Otherwise, propagate to outer handler (will send error finish)
                         raise e
                     # Reset deadline on activity
                     deadline = time.time() + self.CLOUD_RESPONSE_TIMEOUT_SEC
                     if isinstance(msg, (bytes, bytearray)):
+                        if streaming_opus:
+                            # Feed opus bytes into decoder stdin
+                            try:
+                                if opus_proc is not None and opus_proc.stdin:
+                                    opus_proc.stdin.write(msg)
+                                    await opus_proc.stdin.drain()
+                            except Exception as e:
+                                print('VA: opus stdin write failed:', e, file=sys.stderr)
+                                break
+                            continue
                         if streaming:
                             if stream_start_ts is None:
                                 stream_start_ts = time.time()
@@ -240,6 +366,12 @@ class VoiceAssistantSession:
                                     print("VA: unsupported stream rate, expecting 16k; ignoring stream")
                                 else:
                                     streaming = True
+                                    continue
+                            if audio and audio.get('format') == 'opus':
+                                # Start opus->pcm decoder
+                                await _start_opus_decoder()
+                                if opus_proc is not None:
+                                    streaming_opus = True
                                     continue
                             if data.get('session') == 'finish':
                                 self._end_after_playback = True
@@ -278,9 +410,57 @@ class VoiceAssistantSession:
                 if self._end_after_playback:
                     await self._end_session(cloud_also=False)
                     self._end_after_playback = False
+            elif streaming_opus:
+                # Close decoder stdin and let forwarder drain fully
+                try:
+                    if opus_proc and opus_proc.stdin:
+                        try:
+                            opus_proc.stdin.close()
+                        except Exception:
+                            pass
+                except Exception:
+                    pass
+                # Allow forwarder to finish without artificially short timeouts
+                if pcm_forward_task:
+                    try:
+                        await pcm_forward_task
+                    except Exception:
+                        try:
+                            pcm_forward_task.cancel()
+                        except Exception:
+                            pass
+                # Ensure process exits cleanly
+                try:
+                    if opus_proc:
+                        try:
+                            await opus_proc.wait()
+                        except Exception:
+                            opus_proc.kill()
+                except Exception:
+                    pass
+                try:
+                    elapsed = time.time() - (stream_start_ts or time.time())
+                    audio_sec = (sent_total // 2) / 16000.0 if sent_total else 0.0
+                    print(f"VA RX OPUS END sent≈{sent_total}B chunks={stream_chunks} elapsed={elapsed:.2f}s audio={audio_sec:.2f}s ratio={elapsed/audio_sec if audio_sec else 0:.2f}")
+                except Exception:
+                    pass
+                self.playing = False
+                if self._end_after_playback:
+                    await self._end_session(cloud_also=False)
+                    self._end_after_playback = False
             elif self._end_after_playback:
                 await self._end_session(cloud_also=False)
                 self._end_after_playback = False
+            elif ws_closed_error:
+                # Website closed with a non-1000 code: finish with error immediately
+                try:
+                    await self.c.send_data({'command': 'va', 'session': 'finish', 'status': 'error'})
+                except Exception:
+                    pass
+                await self._end_session(cloud_also=True)
+            elif ws_closed_ok:
+                # Normal close without explicit finish: keep session open for follow-up.
+                pass
         except Exception as e:
             print("VA WS ERROR:", e, file=sys.stderr)
             print("VA: Cloud roundtrip failed\n", traceback.format_exc(), file=sys.stderr)
@@ -416,10 +596,9 @@ class VoiceAssistantSession:
                         instance=self.c.colonel.instance, date_expired=None, issuer='sentinel'
                     )
                 else:
-                    from django.utils import timezone as dj_tz
-                    InstanceAccessToken.objects.filter(
-                        instance=self.c.colonel.instance, date_expired=None, issuer='sentinel'
-                    ).update(date_expired=dj_tz.now())
+                    # Do NOT eagerly expire the token here; it may be in use
+                    # by Website prewarm or by the chosen winner on this instance.
+                    # Cleanup is handled by a scheduled task (1-day expiry).
                     self.mcp_token = None
                 self.c.colonel.is_vo_active = flag
                 self.c.colonel.save(update_fields=['is_vo_active'])
@@ -485,6 +664,10 @@ class VoiceAssistantSession:
         self.last_chunk_ts = 0
         self.last_rx_audio_ts = 0
         self.last_tx_audio_ts = 0
+        # Reset prewarm/session flags so next VA session can prewarm again
+        self._start_session_notified = False
+        self._start_session_inflight = False
+        self._prewarm_requested = False
         for t in (self._finalizer_task, self._cloud_task, self._play_task, self._followup_task):
             if t and not t.done():
                 t.cancel()

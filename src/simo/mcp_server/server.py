@@ -7,6 +7,8 @@ django.setup()
 
 from django.apps import apps
 from simo.mcp_server.app import mcp
+from starlette.middleware import Middleware
+from starlette.middleware.base import BaseHTTPMiddleware
 from fastmcp.server.http import create_streamable_http_app
 
 
@@ -35,6 +37,15 @@ def load_tools_from_apps() -> None:
             log.exception("Failed to import %s", mod_name)
 
 
+class LogExceptions(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        try:
+            return await call_next(request)
+        except Exception:
+            log.exception("Unhandled exception in %s %s", request.method, request.url.path)
+            raise  # Let Starlette/Uvicorn still return 500
+
+
 def create_app():
     load_tools_from_apps()
     app = create_streamable_http_app(
@@ -42,6 +53,8 @@ def create_app():
         streamable_http_path="/",
         auth=mcp.auth,
         json_response=True,
-        stateless_http=True
+        stateless_http=True,
+        debug=True,
+        middleware=[Middleware(LogExceptions)],
     )
     return app

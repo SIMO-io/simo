@@ -40,7 +40,10 @@ class FleetConsumer(AsyncWebsocketConsumer):
 
 
     async def disconnect(self, code):
-        print("Colonel %s socket disconnected!" % str(self.colonel))
+        try:
+            print(f"Colonel {self.colonel} socket disconnected! code={code}")
+        except Exception:
+            print("Colonel socket disconnected!")
         self.connected = False
         if self.mqtt_client:
             self.mqtt_client.loop_stop()
@@ -574,4 +577,3 @@ class FleetConsumer(AsyncWebsocketConsumer):
         )
         file_handler.setFormatter(formatter)
         self.colonel_logger.addHandler(file_handler)
-
