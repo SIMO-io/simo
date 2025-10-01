@@ -147,7 +147,7 @@ class Thermostat(ControllerBase):
             target_temp = sorted_options[-1][1]
             for timestr, target in sorted_options:
                 start_second = int(timestr.split(':')[0]) * 3600 \
-                             + int(timestr.split(':')[1] * 60)
+                             + int(timestr.split(':')[1]) * 60
                 if start_second < current_second:
                     target_temp = target
             return target_temp
