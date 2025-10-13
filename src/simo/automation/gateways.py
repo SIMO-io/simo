@@ -257,22 +257,42 @@ class AutomationsGatewayHandler(GatesHandler, BaseObjectCommandsGatewayHandler):
                 # however the process is actually still running
                 process.kill()
                 self.last_death = time.time()
-                self.running_scripts.pop(id, None) # no longer running for sure!
-                if not comp or comp.value != 'running':
-                    continue
-
-                if id not in self.terminating_scripts: # was not intentionaly terminated
-                    if comp:
+                # If component exists and is marked running, attempt to persist error
+                # BEFORE removing from in-memory tracking, so we can retry if DB is down.
+                if comp and comp.value == 'running' and id not in self.terminating_scripts:
+                    try:
                         tz = pytz.timezone(comp.zone.instance.timezone)
                         timezone.activate(tz)
-                    logger = get_component_logger(comp)
-                    logger.log(logging.INFO, "-------DEAD!-------")
-                    comp.value = 'error'
-                    comp.save()
+                        logger = get_component_logger(comp)
+                        logger.log(logging.INFO, "-------DEAD!-------")
+                        comp.value = 'error'
+                        comp.save()
+                    except Exception:
+                        # Leave entry in running_scripts to retry on next tick
+                        continue
+                # For any other case or after successful DB update, drop tracking entry
+                self.running_scripts.pop(id, None)
 
         if self.last_death and time.time() - self.last_death < 5:
             # give 10s air before we wake these dead scripts up!
             return
+
+        # Reconcile scripts marked as 'running' in DB but not tracked or with dead PID
+        for comp in Component.objects.filter(base_type='script', value='running'):
+            if comp.id in self.running_scripts:
+                continue
+            pid = None
+            try:
+                pid = int(comp.meta.get('pid')) if comp.meta and 'pid' in comp.meta else None
+            except Exception:
+                pid = None
+            is_pid_alive = bool(pid) and os.path.exists(f"/proc/{pid}")
+            if not is_pid_alive:
+                try:
+                    comp.value = 'error'
+                    comp.save(update_fields=['value'])
+                except Exception:
+                    pass
 
         for script in Component.objects.filter(
             base_type='script', config__keep_alive=True
@@ -357,13 +377,9 @@ class AutomationsGatewayHandler(GatesHandler, BaseObjectCommandsGatewayHandler):
         print("START SCRIPT %s" % str(component))
 
         if component.id in self.running_scripts:
-            # it appears that the script is running and is perfectly healthy
-            # so we make sure it has correct value, do nothing else and return!
+            # Script appears to be healthy; do nothing and return.
             if component.id not in self.terminating_scripts \
             and self.running_scripts[component.id]['proc'].is_alive():
-                if component.value != 'running':
-                    component.value = 'running'
-                    component.save()
                 return
 
             # script is in terminating state or is no longer alive
