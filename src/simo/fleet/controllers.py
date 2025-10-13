@@ -1015,6 +1015,8 @@ class TempHumSensor(FleetDeviceMixin, BasicSensorMixin, BaseMultiSensor):
             ['temperature', temp, self.sys_temp_units],
             ['humidity', humidity, '%'],
             ['real_feel', 0, self.sys_temp_units],
+            ['temp_raw', 0, value.get('temp_raw'), 'C'],
+            ['hum_raw', 0, value.get('hum_raw'), '%'],
             ['core', value.get('core'), 'C'],
             ['outside', value.get('out'), 'C']
         ]
