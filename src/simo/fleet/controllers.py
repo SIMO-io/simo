@@ -1148,6 +1148,12 @@ class RoomZonePresenceSensor(FleetDeviceMixin, BaseBinarySensor):
         ).publish()
 
 
+class SmokeDetector(FleetDeviceMixin, BaseBinarySensor):
+    name = _("Dust/pollution detector")
+    gateway_class = FleetGatewayHandler
+    manual_add = False
+
+
 class VoiceAssistant(FleetDeviceMixin, BaseBinarySensor):
     base_type = VoiceAssistantType
     name = _("AI Voice Assistant")

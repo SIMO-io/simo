@@ -1815,7 +1815,7 @@ class SentinelDeviceConfigForm(BaseComponentForm):
 
         from .controllers import (
             RoomSiren, AirQualitySensor, TempHumSensor, AmbientLightSensor,
-            RoomPresenceSensor, VoiceAssistant
+            RoomPresenceSensor, VoiceAssistant, SmokeDetector
         )
 
         org_name = self.cleaned_data['name']
@@ -1827,7 +1827,8 @@ class SentinelDeviceConfigForm(BaseComponentForm):
             (TempHumSensor, 'temperature-half', 'temperature', 'climate'),
             (AmbientLightSensor, 'brightness-low', 'brightness', 'light'),
             (RoomPresenceSensor, 'person', 'presence', 'security'),
-            (VoiceAssistant, 'microphone-lines', 'voice assistant', 'other')
+            (VoiceAssistant, 'microphone-lines', 'voice assistant', 'other'),
+            (SmokeDetector, 'fire-smoke', 'dust/pollution', 'security'),
         ):
             default_icon = Icon.objects.filter(slug=icon).first()
             self.cleaned_data['icon'] = default_icon.slug if default_icon else org_icon
