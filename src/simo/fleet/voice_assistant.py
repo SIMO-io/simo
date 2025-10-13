@@ -65,6 +65,11 @@ class VoiceAssistantSession:
             return
         self.active = True
         self.started_ts = time.time()
+        # Ensure a fresh session starts gated until arbitration grants winner
+        try:
+            self._cloud_gate.clear()
+        except Exception:
+            pass
         # is_vo_active will be set by arbitration via open_as_winner
 
     async def on_audio_chunk(self, payload: bytes):
@@ -668,6 +673,11 @@ class VoiceAssistantSession:
         self._start_session_notified = False
         self._start_session_inflight = False
         self._prewarm_requested = False
+        # Close cloud gate so subsequent sessions don't bypass arbitration
+        try:
+            self._cloud_gate.clear()
+        except Exception:
+            pass
         for t in (self._finalizer_task, self._cloud_task, self._play_task, self._followup_task):
             if t and not t.done():
                 t.cancel()
