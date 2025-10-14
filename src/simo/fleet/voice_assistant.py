@@ -780,11 +780,13 @@ class VoiceAssistantArbitrator:
         return False
 
     def start_window_if_needed(self):
-        if not self._arb_started:
-            self._arb_started = True
-            if self._arb_task and not self._arb_task.done():
-                self._arb_task.cancel()
-            self._arb_task = asyncio.create_task(self._decide_after_window())
+        # Start a new arbitration window if none is currently running.
+        # This allows a fresh window per VA session rather than only once
+        # per connection, ensuring the cloud gate can reopen after session end.
+        if self._arb_task and not self._arb_task.done():
+            return
+        self._arb_started = True
+        self._arb_task = asyncio.create_task(self._decide_after_window())
 
     async def _decide_after_window(self):
         try:
