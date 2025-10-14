@@ -364,7 +364,7 @@ class Thermostat(ControllerBase):
             self._get_default_user_config()
         )
         self.component.save()
-        self.evaluate()
+        self._evaluate()
 
 
     def hold(self, temperature=None):
