@@ -991,6 +991,8 @@ class TempHumSensor(FleetDeviceMixin, BasicSensorMixin, BaseMultiSensor):
             ['temperature', 0, self.sys_temp_units],
             ['humidity', 20, '%'],
             ['real_feel', 0, self.sys_temp_units],
+            ['temp_raw', 0, 'C'],
+            ['hum_raw', 0, '%'],
             ['core', 0, 'C'],
             ['outside', 0, 'C']
         ]
@@ -1015,8 +1017,8 @@ class TempHumSensor(FleetDeviceMixin, BasicSensorMixin, BaseMultiSensor):
             ['temperature', temp, self.sys_temp_units],
             ['humidity', humidity, '%'],
             ['real_feel', 0, self.sys_temp_units],
-            ['temp_raw', 0, value.get('temp_raw'), 'C'],
-            ['hum_raw', 0, value.get('hum_raw'), '%'],
+            ['temp_raw', value.get('temp_raw'), 'C'],
+            ['hum_raw', value.get('hum_raw'), '%'],
             ['core', value.get('core'), 'C'],
             ['outside', value.get('out'), 'C']
         ]
@@ -1036,6 +1038,7 @@ class AmbientLightSensor(FleetDeviceMixin, BaseNumericSensor):
     gateway_class = FleetGatewayHandler
     name = "Ambient lighting sensor"
     manual_add = False
+    default_value_units = 'lux'
     default_config = {
         'widget': 'numeric-sensor',
         'value_units': 'lux',
@@ -1045,6 +1048,7 @@ class AmbientLightSensor(FleetDeviceMixin, BaseNumericSensor):
             {"name": "Bright", "value": 800},
         ]
     }
+
 
 
 class RoomPresenceSensor(FleetDeviceMixin, BaseBinarySensor):

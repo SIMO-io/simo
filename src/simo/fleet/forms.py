@@ -1848,6 +1848,7 @@ class SentinelDeviceConfigForm(BaseComponentForm):
             )
             if form.is_valid():
                 comp = form.save()
+                comp.value_units = CtrlClass.default_value_units
                 comp.config['colonel'] = colonel.id
                 comp.save()
                 last_comp = comp
