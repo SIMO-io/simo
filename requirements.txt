@@ -20,7 +20,6 @@ itsdangerous==2.0.1
 redis==3.5.3
 django-redis==4.12.1
 webservices==0.7
-websockets==13.1
 numpy>=1.24.4
 geopy==2.2.0
 requests>=2.26.0
