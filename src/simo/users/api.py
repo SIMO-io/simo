@@ -127,7 +127,12 @@ class UsersViewSet(mixins.RetrieveModelMixin,
                 raise ValidationError(
                     'You do not have permission for this!', code=403
                 )
-        self.perform_destroy(user)
+        if InstanceUser.objects.filter(user=user, is_active=True).count() > 1:
+            InstanceUser.objects.filter(
+                user=user, instance=self.instance
+            ).delete()
+        else:
+            user.delete()
         return RESTResponse(status=status.HTTP_204_NO_CONTENT)
 
 
