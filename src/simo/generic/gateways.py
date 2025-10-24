@@ -340,7 +340,7 @@ class GenericGatewayHandler(
     def set_get_day_evening_night_morning(self, state):
         if state.value  not in ('day', 'night', 'evening', 'morning'):
             return
-        new_state = state._get_day_evening_night_morning()
+        new_state = state.controller._get_day_evening_night_morning()
         if new_state == state.value:
             self.last_set_state = state.value
             return
