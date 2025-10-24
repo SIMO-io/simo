@@ -194,25 +194,36 @@ def mqtt_acl(request):
         # All other writes denied
         return JsonResponse({'ok': False}, status=403)
 
-    parts = _topic_parts(topic)
-    if not parts or parts.get('namespace') != 'obj-state':
-        return JsonResponse({'ok': False}, status=403)
-
-    instance_id = parts['instance_id']
-    obj = parts['object']
-
-    # Allow presence/zone/category for any instance the user belongs to
-    if obj.startswith('InstanceUser-') or obj.startswith('Zone-') or obj.startswith('Category-'):
+    # Read access: only allow per-user feed topics for external clients
+    # SIMO/user/<user-id>/feed/<instance-id>/<Object>
+    tparts = (topic or '').split('/')
+    if len(tparts) >= 6 and tparts[0] == 'SIMO' and tparts[1] == 'user' and tparts[3] == 'feed':
+        try:
+            path_user_id = int(tparts[2])
+            instance_id = int(tparts[4])
+        except Exception:
+            return JsonResponse({'ok': False}, status=403)
+        if user.id != path_user_id:
+            return JsonResponse({'ok': False}, status=403)
         allowed = _is_user_on_instance(user, instance_id)
         return JsonResponse({'ok': bool(allowed)}, status=200 if allowed else 403)
 
-    # Components: require explicit permission
-    if obj.startswith('Component-'):
+    # Allow per-user notifications and control responses
+    # SIMO/user/<user-id>/perms-changed
+    if len(tparts) == 4 and tparts[0] == 'SIMO' and tparts[1] == 'user' and tparts[3] == 'perms-changed':
         try:
-            comp_id = int(obj.split('-', 1)[1])
+            path_user_id = int(tparts[2])
         except Exception:
             return JsonResponse({'ok': False}, status=403)
-        allowed = _can_read_component_topic(user, instance_id, comp_id)
-        return JsonResponse({'ok': bool(allowed)}, status=200 if allowed else 403)
+        return JsonResponse({'ok': user.id == path_user_id})
 
+    # SIMO/user/<user-id>/control-resp/<request-id>
+    if len(tparts) >= 5 and tparts[0] == 'SIMO' and tparts[1] == 'user' and tparts[3] == 'control-resp':
+        try:
+            path_user_id = int(tparts[2])
+        except Exception:
+            return JsonResponse({'ok': False}, status=403)
+        return JsonResponse({'ok': user.id == path_user_id})
+
+    # Deny access to internal obj-state and other topics for external clients
     return JsonResponse({'ok': False}, status=403)

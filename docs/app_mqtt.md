@@ -18,12 +18,11 @@ Initial state and subscriptions
 ------------------------------
 1) Fetch initial snapshot via REST (must be authenticated):
    - `GET /api/<instance-slug>/core/states`
-2) Subscribe to retained updates (replace `<instance-id>` with numeric ID from the snapshot):
-   - `SIMO/obj-state/<instance-id>/InstanceUser-+`
-   - `SIMO/obj-state/<instance-id>/Zone-+`
-   - `SIMO/obj-state/<instance-id>/Category-+`
-   - Per-component topics (exact, no wildcard): for every component the user may read
-     - `SIMO/obj-state/<instance-id>/Component-<component-id>`
+2) Subscribe to your per-user feed (replace placeholders):
+  - `SIMO/user/<user-id>/feed/<instance-id>/InstanceUser-+`
+  - `SIMO/user/<user-id>/feed/<instance-id>/Zone-+`
+  - `SIMO/user/<user-id>/feed/<instance-id>/Category-+`
+  - `SIMO/user/<user-id>/feed/<instance-id>/Component-+`
 
 Payloads
 --------
@@ -36,11 +35,9 @@ All messages are JSON and retained. Common fields:
 
 Dynamic permissions and re-sync
 -------------------------------
-- The app must subscribe to its personal channel to learn about permission changes:
+- Subscribe to your personal perms topic:
   - `SIMO/user/<user-id>/perms-changed`
-- On receiving a message, re-fetch `core/states`, compute the diff, and:
-  - Subscribe to newly allowed component topics
-  - Unsubscribe from topics no longer allowed
+- On receiving a message, re-fetch `core/states` to update local caches (feed forwarding updates immediately; re-sync ensures local directories stay consistent).
 
 Reconnect policy
 ----------------
