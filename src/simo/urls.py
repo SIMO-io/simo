@@ -13,6 +13,7 @@ from rest_framework.viewsets import GenericViewSet
 from django.contrib.admin import site as admin_site
 from simo.users.views import protected_static
 from simo.core.views import hub_info
+from simo.core import mqtt_auth
 
 
 
@@ -45,6 +46,10 @@ urlpatterns = [
     path('logout/', LogoutView.as_view(), name='logout'),
     path('admin/', admin_site.urls),
     path('api-hub-info/', hub_info),
+    # MQTT broker HTTP auth/ACL endpoints
+    path('mqtt-auth/auth/', mqtt_auth.mqtt_auth),
+    path('mqtt-auth/superuser/', mqtt_auth.mqtt_superuser),
+    path('mqtt-auth/acl/', mqtt_auth.mqtt_acl),
     path('api/<instance_slug>/', include(rest_router.urls)),
 
 ]

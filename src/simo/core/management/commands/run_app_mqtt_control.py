@@ -1,0 +1,123 @@
+import json
+import sys
+import traceback
+import paho.mqtt.client as mqtt
+from django.core.management.base import BaseCommand
+from django.conf import settings
+
+from simo.users.models import User, InstanceUser, ComponentPermission
+from simo.users.utils import introduce_user
+from simo.core.models import Component
+
+
+CONTROL_PREFIX = 'SIMO/user'
+
+
+class Command(BaseCommand):
+    help = 'Run MQTT control bridge to execute component controller methods from app MQTT requests.'
+
+    def handle(self, *args, **options):
+        client = mqtt.Client()
+        client.username_pw_set('root', settings.SECRET_KEY)
+        client.on_connect = self.on_connect
+        client.on_message = self.on_message
+        client.connect(host=settings.MQTT_HOST, port=settings.MQTT_PORT)
+        try:
+            while True:
+                client.loop()
+        finally:
+            try:
+                client.disconnect()
+            except Exception:
+                pass
+
+    def on_connect(self, client, userdata, flags, rc):
+        # SIMO/user/+/control/#
+        client.subscribe(f'{CONTROL_PREFIX}/+/control/#')
+
+    def on_message(self, client, userdata, msg):
+        try:
+            parts = msg.topic.split('/')
+            # SIMO/user/<user-id>/control/<instance-id>/Component-<component-id>
+            if len(parts) < 6 or parts[0] != 'SIMO' or parts[1] != 'user' or parts[3] != 'control':
+                return
+            user_id = int(parts[2])
+            instance_id = int(parts[4])
+            obj = parts[5]
+            if not obj.startswith('Component-'):
+                return
+            component_id = int(obj.split('-', 1)[1])
+
+            # Resolve user and permission
+            user = User.objects.filter(id=user_id).first()
+            if not user or not user.is_active:
+                return
+            if not user.is_master:
+                # Must be active on instance
+                if not InstanceUser.objects.filter(user=user, instance_id=instance_id, is_active=True).exists():
+                    return
+                # Must have write permission on the component
+                has_write = ComponentPermission.objects.filter(
+                    role__in=user.roles.all(),
+                    component_id=component_id,
+                    component__zone__instance_id=instance_id,
+                    write=True,
+                ).exists()
+                if not has_write:
+                    return
+
+            # Execute controller method
+            component = Component.objects.filter(id=component_id, zone__instance_id=instance_id).first()
+            if not component:
+                return
+
+            introduce_user(user)
+            payload = json.loads(msg.payload or '{}')
+            request_id = payload.get('request_id')
+            sub_id = payload.get('subcomponent_id')
+            method = payload.get('method')
+            args = payload.get('args', [])
+            kwargs = payload.get('kwargs', {})
+            if method in (None, 'id', 'secret') or str(method).startswith('_'):
+                return
+
+            # Choose target component (main or subcomponent)
+            target = component
+            if sub_id:
+                try:
+                    target = component.slaves.get(pk=sub_id)
+                except Exception:
+                    return
+
+            # Prepare controller and call
+            target.prepare_controller()
+            if not hasattr(target, method):
+                self.respond(client, user_id, request_id, ok=False, error=f'Method {method} not found')
+                return
+            call = getattr(target, method)
+            try:
+                if isinstance(args, list) and isinstance(kwargs, dict):
+                    result = call(*args, **kwargs)
+                elif isinstance(args, list):
+                    result = call(*args)
+                elif isinstance(kwargs, dict):
+                    result = call(**kwargs)
+                else:
+                    result = call()
+                self.respond(client, user_id, request_id, ok=True, result=result)
+            except Exception:
+                self.respond(client, user_id, request_id, ok=False, error=''.join(traceback.format_exception(*sys.exc_info())))
+        except Exception:
+            # Never crash the consumer
+            pass
+
+    def respond(self, client, user_id, request_id, ok=True, result=None, error=None):
+        if not request_id:
+            return
+        topic = f'{CONTROL_PREFIX}/{user_id}/control-resp/{request_id}'
+        payload = {'ok': ok}
+        if ok:
+            payload['result'] = result
+        else:
+            payload['error'] = error
+        client.publish(topic, json.dumps(payload), qos=0, retain=False)

@@ -1,4 +1,6 @@
 import datetime
+import time
+import json
 import requests
 import subprocess
 from django.urls import reverse
@@ -174,8 +176,14 @@ def post_instance_user_save(sender, instance, created, **kwargs):
                     instance_id=instance.instance.id,
                     action_type='user_presence', value=instance.at_home
                 )
+            # Include key fields so clients can update UI without a refetch
             ObjectChangeEvent(
-                instance.instance, instance,  dirty_fields=dirty_fields
+                instance.instance,
+                instance,
+                dirty_fields=dirty_fields,
+                at_home=instance.at_home,
+                last_seen=instance.last_seen,
+                phone_on_charge=instance.phone_on_charge,
             ).publish()
         transaction.on_commit(post_update)
     if 'role' or 'is_active' in instance.dirty_fields:
@@ -510,6 +518,27 @@ def rebuild_mqtt_acls_on_create(sender, instance, created, **kwargs):
     if not created:
         dynamic_settings['core__needs_mqtt_acls_rebuild'] = True
 
+    # Notify affected users to re-sync their subscriptions
+    def _notify():
+        from paho.mqtt import publish as mqtt_publish
+        role = instance.role
+        for iu in role.instance.instance_users.filter(role=role, is_active=True).select_related('user'):
+            topic = f"SIMO/user/{iu.user.id}/perms-changed"
+            payload = json.dumps({
+                'instance_id': role.instance.id,
+                'timestamp': int(time.time())
+            })
+            try:
+                mqtt_publish.single(
+                    topic, payload,
+                    hostname=settings.MQTT_HOST, port=settings.MQTT_PORT,
+                    auth={'username': 'root', 'password': settings.SECRET_KEY},
+                    retain=False
+                )
+            except Exception:
+                pass
+    transaction.on_commit(_notify)
+
 
 
 @receiver(post_save, sender='core.Component')
@@ -540,6 +569,26 @@ def create_component_permissions_role(sender, instance, created, **kwargs):
                     'read': instance.is_superuser, 'write': instance.is_superuser
                 }
             )
+
+    # Permissions topology changed; notify users on this role
+    def _notify():
+        from paho.mqtt import publish as mqtt_publish
+        for iu in instance.instance.instance_users.filter(role=instance, is_active=True).select_related('user'):
+            topic = f"SIMO/user/{iu.user.id}/perms-changed"
+            payload = json.dumps({
+                'instance_id': instance.instance.id,
+                'timestamp': int(time.time())
+            })
+            try:
+                mqtt_publish.single(
+                    topic, payload,
+                    hostname=settings.MQTT_HOST, port=settings.MQTT_PORT,
+                    auth={'username': 'root', 'password': settings.SECRET_KEY},
+                    retain=False
+                )
+            except Exception:
+                pass
+    transaction.on_commit(_notify)
 
 
 def get_default_inviation_expire_date():
@@ -607,5 +656,3 @@ class InstanceInvitation(models.Model):
 
     def get_absolute_url(self):
         return reverse('accept_invitation', kwargs={'token': self.token})
-
-

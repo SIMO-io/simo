@@ -136,6 +136,28 @@ def post_save_actions_dispatcher(sender, instance, created, **kwargs):
         action_type='management_event'
     )
 
+    # Announce Zone/Category changes over MQTT for mobile live updates
+    from .events import ObjectChangeEvent
+    dirty_fields = instance.get_dirty_fields()
+
+    def post_update():
+        if not dirty_fields:
+            return
+
+        data = {}
+        # Provide minimal fields clients can use without re-fetching
+        if isinstance(instance, Zone):
+            data['name'] = instance.name
+        elif isinstance(instance, Category):
+            data['name'] = instance.name
+            data['last_modified'] = instance.last_modified
+
+        ObjectChangeEvent(
+            instance.instance, instance, dirty_fields=dirty_fields, **data
+        ).publish()
+
+    transaction.on_commit(post_update)
+
 
 @receiver(post_save, sender=Component)
 @receiver(post_save, sender=Gateway)
