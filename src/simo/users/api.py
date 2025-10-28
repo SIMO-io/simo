@@ -135,6 +135,8 @@ class UsersViewSet(mixins.RetrieveModelMixin,
             user.delete()
         return RESTResponse(status=status.HTTP_204_NO_CONTENT)
 
+    # (moved to dedicated view at /users/mqtt-credentials/)
+
 
 class RolesViewsets(InstanceMixin, viewsets.ReadOnlyModelViewSet):
     url = 'users/roles'
@@ -411,4 +413,3 @@ class FingerprintViewSet(
     def destroy(self, request, *args, **kwargs):
         self.check_can_manage_user(request)
         return super().destroy(request, *args, **kwargs)
-

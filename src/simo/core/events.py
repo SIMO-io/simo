@@ -52,8 +52,8 @@ class ObjectChangeEvent(ObjMqttAnnouncement):
         self.data.update(**kwargs)
 
     def get_topic(self):
-        return f"{self.TOPIC}/{self.instance.id if self.instance else 'global'}/" \
-               f"{type(self.obj).__name__}-{self.data['obj_pk']}"
+        return f"{self.TOPIC}/{self.instance.uid if self.instance else 'global'}/" \
+               f"{type(self.obj).__name__}/{self.data['obj_pk']}"
 
     def publish(self, retain=True):
         return super().publish(retain=retain)

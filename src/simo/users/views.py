@@ -125,3 +125,15 @@ class RolesAutocomplete(autocomplete.Select2QuerySetView):
         return qs.distinct()
 
 
+@login_required
+def mqtt_credentials(request):
+    """Return MQTT credentials for the authenticated user.
+    Response payload:
+      - username: user's email
+      - password: user's MQTT secret
+    """
+    return JsonResponse({
+        'username': request.user.email,
+        'password': request.user.secret_key,
+        'user_id': request.user.id
+    })

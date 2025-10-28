@@ -38,15 +38,17 @@ class Command(BaseCommand):
     def on_message(self, client, userdata, msg):
         try:
             parts = msg.topic.split('/')
-            # SIMO/user/<user-id>/control/<instance-id>/Component-<component-id>
-            if len(parts) < 6 or parts[0] != 'SIMO' or parts[1] != 'user' or parts[3] != 'control':
+            # SIMO/user/<user-id>/control/<instance-uid>/Component/<component-id>
+            if len(parts) < 7 or parts[0] != 'SIMO' or parts[1] != 'user' or parts[3] != 'control':
                 return
             user_id = int(parts[2])
-            instance_id = int(parts[4])
-            obj = parts[5]
-            if not obj.startswith('Component-'):
+            instance_uid = parts[4]
+            if parts[5] != 'Component':
                 return
-            component_id = int(obj.split('-', 1)[1])
+            try:
+                component_id = int(parts[6])
+            except Exception:
+                return
 
             # Resolve user and permission
             user = User.objects.filter(id=user_id).first()
@@ -54,20 +56,24 @@ class Command(BaseCommand):
                 return
             if not user.is_master:
                 # Must be active on instance
-                if not InstanceUser.objects.filter(user=user, instance_id=instance_id, is_active=True).exists():
+                if not InstanceUser.objects.filter(
+                    user=user, instance__uid=instance_uid, is_active=True
+                ).exists():
                     return
                 # Must have write permission on the component
                 has_write = ComponentPermission.objects.filter(
                     role__in=user.roles.all(),
                     component_id=component_id,
-                    component__zone__instance_id=instance_id,
+                    component__zone__instance__uid=instance_uid,
                     write=True,
                 ).exists()
                 if not has_write:
                     return
 
             # Execute controller method
-            component = Component.objects.filter(id=component_id, zone__instance_id=instance_id).first()
+            component = Component.objects.filter(
+                id=component_id, zone__instance__uid=instance_uid
+            ).first()
             if not component:
                 return
 

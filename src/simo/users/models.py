@@ -186,8 +186,7 @@ def post_instance_user_save(sender, instance, created, **kwargs):
                 phone_on_charge=instance.phone_on_charge,
             ).publish()
         transaction.on_commit(post_update)
-    if 'role' or 'is_active' in instance.dirty_fields:
-        dynamic_settings['core__needs_mqtt_acls_rebuild'] = True
+    # ACLs no longer depend on per-instance roles; no ACL rebuild needed here.
 
 
 # DirtyFieldsMixin does not work with AbstractBaseUser model!!!
@@ -263,6 +262,14 @@ class User(AbstractBaseUser, SimoAdminMixin):
 
         if not org or (org.secret_key != self.secret_key):
             self.update_mqtt_secret()
+
+        # Rebuild ACLs when a user is created or properties affecting ACLs change
+        # (username/email used by Mosquitto + master flag)
+        try:
+            if (not org) or (org.email != self.email) or (org.is_master != self.is_master):
+                dynamic_settings['core__needs_mqtt_acls_rebuild'] = True
+        except Exception:
+            pass
 
         return obj
 
@@ -515,8 +522,7 @@ class ComponentPermission(models.Model):
 
 @receiver(post_save, sender=ComponentPermission)
 def rebuild_mqtt_acls_on_create(sender, instance, created, **kwargs):
-    if not created:
-        dynamic_settings['core__needs_mqtt_acls_rebuild'] = True
+    # ACLs are per-user prefix; permission changes don't require ACL rebuilds.
 
     # Notify affected users to re-sync their subscriptions
     def _notify():
@@ -553,7 +559,7 @@ def create_component_permissions_comp(sender, instance, created, **kwargs):
                     'write': role.is_superuser or role.is_owner
                 }
             )
-        dynamic_settings['core__needs_mqtt_acls_rebuild'] = True
+        # ACLs are per-user prefix; component additions don't require ACL rebuilds.
 
 
 @receiver(post_save, sender=PermissionsRole)
@@ -589,6 +595,15 @@ def create_component_permissions_role(sender, instance, created, **kwargs):
             except Exception:
                 pass
     transaction.on_commit(_notify)
+
+
+@receiver(post_delete, sender=User)
+def rebuild_mqtt_acls_on_user_delete(sender, instance, **kwargs):
+    # Remove ACL stanza for deleted user
+    try:
+        dynamic_settings['core__needs_mqtt_acls_rebuild'] = True
+    except Exception:
+        pass
 
 
 def get_default_inviation_expire_date():
