@@ -160,11 +160,9 @@ class InstanceUser(DirtyFieldsMixin, models.Model, OnChangeMixin):
 
 @receiver(post_save, sender=InstanceUser)
 def post_instance_user_save(sender, instance, created, **kwargs):
-    if created:
-        return
     from simo.core.events import ObjectChangeEvent
     dirty_fields = instance.get_dirty_fields()
-    if any([f in dirty_fields.keys() for f in InstanceUser.on_change_fields]):
+    if not created and any([f in dirty_fields.keys() for f in InstanceUser.on_change_fields]):
         def post_update():
             if 'at_home' in dirty_fields:
                 if instance.at_home:
@@ -186,7 +184,20 @@ def post_instance_user_save(sender, instance, created, **kwargs):
                 phone_on_charge=instance.phone_on_charge,
             ).publish()
         transaction.on_commit(post_update)
-    # ACLs no longer depend on per-instance roles; no ACL rebuild needed here.
+    # Rebuild ACLs if user became active/inactive due to this role change
+    try:
+        if created or ('is_active' in dirty_fields):
+            dynamic_settings['core__needs_mqtt_acls_rebuild'] = True
+    except Exception:
+        pass
+
+@receiver(post_delete, sender=InstanceUser)
+def post_instance_user_delete(sender, instance, **kwargs):
+    # Deleting role entry may change user's overall is_active; rebuild ACLs
+    try:
+        dynamic_settings['core__needs_mqtt_acls_rebuild'] = True
+    except Exception:
+        pass
 
 
 # DirtyFieldsMixin does not work with AbstractBaseUser model!!!
@@ -422,6 +433,12 @@ class User(AbstractBaseUser, SimoAdminMixin):
             pass
 
         rebuild_authorized_keys()
+
+        # Reflect access changes in Mosquitto ACLs
+        try:
+            dynamic_settings['core__needs_mqtt_acls_rebuild'] = True
+        except Exception:
+            pass
 
         self._is_active = None
 
