@@ -57,24 +57,3 @@ def fire_breach_events(ag_id):
         else:
             ag.meta['events_triggered'].append(uid)
         ag.save(update_fields=['meta'])
-
-
-@celery_app.task
-def watch_timers():
-    from simo.core.models import Component
-    drop_current_instance()
-    for component in Component.objects.filter(
-        meta__timer_to__gt=0
-    ).filter(meta__timer_to__lt=time.time()):
-        component.meta['timer_to'] = 0
-        component.meta['timer_start'] = 0
-        component.save()
-        try:
-            component.controller._on_timer_end()
-        except Exception as e:
-            print(traceback.format_exc(), file=sys.stderr)
-
-
-@celery_app.on_after_finalize.connect
-def setup_periodic_tasks(sender, **kwargs):
-    sender.add_periodic_task(1, watch_timers.s())

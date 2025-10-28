@@ -7,9 +7,8 @@ import traceback
 from django.conf import settings
 from django.utils import timezone
 import paho.mqtt.client as mqtt
-from simo.core.utils.helpers import get_self_ip
-from simo.core.models import Component, PublicFile
-from simo.core.middleware import drop_current_instance
+from simo.core.models import Instance, Component
+from simo.core.middleware import introduce_instance, drop_current_instance
 from simo.core.gateways import BaseObjectCommandsGatewayHandler
 from simo.core.forms import BaseGatewayForm
 from simo.core.events import GatewayObjectCommand, get_event_obj
@@ -182,9 +181,11 @@ class GenericGatewayHandler(
 
     running_scripts = {}
     periodic_tasks = (
+        ('watch_timers', 1),
         ('watch_thermostats', 60),
         ('watch_alarm_clocks', 30),
         ('watch_watering', 60),
+        ('low_battery_notifications', 60 * 60),
         ('watch_main_states', 60),
         ('watch_groups', 60)
     )
@@ -196,6 +197,21 @@ class GenericGatewayHandler(
         self.sleep_is_on = {}
         self.last_set_state = None
         self.pulsing_switches = {}
+
+
+    def watch_timers(self):
+        from simo.core.models import Component
+        drop_current_instance()
+        for component in Component.objects.filter(
+            meta__timer_to__gt=0
+        ).filter(meta__timer_to__lt=time.time()):
+            component.meta['timer_to'] = 0
+            component.meta['timer_start'] = 0
+            component.save()
+            try:
+                component.controller._on_timer_end()
+            except Exception as e:
+                print(traceback.format_exc(), file=sys.stderr)
 
 
     def watch_thermostats(self):
@@ -232,6 +248,40 @@ class GenericGatewayHandler(
                 )
             else:
                 watering.controller._perform_schedule()
+
+    def low_battery_notifications(self):
+        from simo.notifications.utils import notify_users
+        from simo.automation.helpers import be_or_not_to_be
+        for instance in Instance.objects.filter(is_active=True):
+            timezone.activate(instance.timezone)
+            hour = timezone.localtime().hour
+            if hour < 7:
+                continue
+            if hour > 21:
+                continue
+
+            introduce_instance(instance)
+            for comp in Component.objects.filter(
+                    zone__instance=instance,
+                    battery_level__isnull=False, battery_level__lt=20
+            ):
+                last_warning = comp.meta.get('last_battery_warning', 0)
+                notify = be_or_not_to_be(12 * 60 * 60, 72 * 60 * 60,
+                                         last_warning)
+                if not notify:
+                    continue
+
+                iusers = comp.zone.instance.instance_users.filter(
+                    is_active=True, role__is_owner=True
+                )
+                if iusers:
+                    notify_users(
+                        'warning',
+                        f"Low battery ({comp.battery_level}%) on {comp}",
+                        component=comp, instance_users=iusers
+                    )
+                comp.meta['last_battery_warning'] = time.time()
+                comp.save()
 
 
     def run(self, exit):
