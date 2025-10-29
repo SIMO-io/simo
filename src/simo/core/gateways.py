@@ -14,6 +14,10 @@ from simo.core.loggers import get_gw_logger
 
 
 class BaseGatewayHandler(ABC):
+    # Whether core should auto-create a Gateway row for this handler
+    # at hub startup (via on_http_start). Opt-in to avoid noisy defaults
+    # and side effects for handlers that require credentials/hardware.
+    auto_create = False
 
     @property
     @abstractmethod
@@ -133,5 +137,4 @@ class BaseObjectCommandsGatewayHandler(BaseGatewayHandler):
                 self.perform_value_send(component, val)
             except Exception as e:
                 self.logger.error(e, exc_info=True)
-
 

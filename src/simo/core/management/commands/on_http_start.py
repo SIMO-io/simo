@@ -10,6 +10,7 @@ from django.apps import apps
 from crontab import CronTab
 from django.conf import settings
 from django.template.loader import render_to_string
+from django.db import transaction
 
 
 def prepare_mosquitto():
@@ -84,6 +85,22 @@ class Command(BaseCommand):
         from simo.core.tasks import maybe_update_to_latest
         maybe_update_to_latest.delay()
         update_auto_update()
+        # Auto-create Gateway rows for handlers that opted in
+        try:
+            from simo.core.models import Gateway
+            from simo.core.utils.type_constants import GATEWAYS_MAP
+            created_any = False
+            for uid, handler_cls in GATEWAYS_MAP.items():
+                if getattr(handler_cls, 'auto_create', False):
+                    obj, created = Gateway.objects.get_or_create(type=uid)
+                    if created:
+                        created_any = True
+                        print(f"Auto-created gateway: {handler_cls.name} ({uid})")
+            if created_any:
+                pass
+        except Exception:
+            # Do not fail startup on gateway auto-create issues
+            print(traceback.format_exc(), file=sys.stderr)
         for name, app in apps.app_configs.items():
             if name in (
                 'auth', 'admin', 'contenttypes', 'sessions', 'messages',
@@ -96,4 +113,3 @@ class Command(BaseCommand):
                 continue
             except:
                 print(traceback.format_exc(), file=sys.stderr)
-
