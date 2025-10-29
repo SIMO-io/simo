@@ -216,6 +216,7 @@ class GatesHandler:
 class AutomationsGatewayHandler(GatesHandler, BaseObjectCommandsGatewayHandler):
     name = "Automation"
     config_form = BaseGatewayForm
+    auto_create = True
     info = "Provides various types of automation capabilities"
 
     running_scripts = {}

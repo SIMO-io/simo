@@ -137,11 +137,11 @@ def post_save_actions_dispatcher(sender, instance, created, **kwargs):
     )
 
     # Announce Zone/Category changes over MQTT for mobile live updates
-    from .events import ObjectChangeEvent
-    dirty_fields = instance.get_dirty_fields()
+    from .events import ObjectChangeEvent, dirty_fields_to_current_values
+    dirty_fields_prev = instance.get_dirty_fields()
 
     def post_update():
-        if not dirty_fields:
+        if not dirty_fields_prev:
             return
 
         data = {}
@@ -153,7 +153,9 @@ def post_save_actions_dispatcher(sender, instance, created, **kwargs):
             data['last_modified'] = instance.last_modified
 
         ObjectChangeEvent(
-            instance.instance, instance, dirty_fields=dirty_fields, **data
+            instance.instance, instance,
+            dirty_fields=dirty_fields_to_current_values(instance, dirty_fields_prev),
+            **data
         ).publish()
 
     transaction.on_commit(post_update)
@@ -163,21 +165,21 @@ def post_save_actions_dispatcher(sender, instance, created, **kwargs):
 @receiver(post_save, sender=Gateway)
 def post_save_change_events(sender, instance, created, **kwargs):
     target = instance
-    from .events import ObjectChangeEvent
-    dirty_fields = target.get_dirty_fields()
+    from .events import ObjectChangeEvent, dirty_fields_to_current_values
+    dirty_fields_prev = target.get_dirty_fields()
     for ignore_field in (
         'change_init_by', 'change_init_date', 'change_init_to', 'last_update'
     ):
-        dirty_fields.pop(ignore_field, None)
+        dirty_fields_prev.pop(ignore_field, None)
 
     def post_update():
-        if not dirty_fields:
+        if not dirty_fields_prev:
             return
 
         if type(target) == Gateway:
             ObjectChangeEvent(
                 None, target,
-                dirty_fields=dirty_fields,
+                dirty_fields=dirty_fields_to_current_values(target, dirty_fields_prev),
             ).publish()
         elif type(target) == Component:
             data = {}
@@ -188,7 +190,7 @@ def post_save_change_events(sender, instance, created, **kwargs):
                 data[field_name] = getattr(target, field_name, None)
             ObjectChangeEvent(
                 target.zone.instance, target,
-                dirty_fields=dirty_fields,
+                dirty_fields=dirty_fields_to_current_values(target, dirty_fields_prev),
                 actor=getattr(target, 'change_actor', None),
                 **data
             ).publish()

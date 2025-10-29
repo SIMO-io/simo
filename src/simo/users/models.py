@@ -18,6 +18,7 @@ from actstream import action
 from django.contrib.auth.models import (
     AbstractBaseUser, PermissionsMixin, UserManager as DefaultUserManager
 )
+from django.conf import settings
 from django.utils import timezone
 from easy_thumbnails.fields import ThumbnailerImageField
 from location_field.models.plain import PlainLocationField
@@ -117,7 +118,9 @@ class InstanceUser(DirtyFieldsMixin, models.Model, OnChangeMixin):
     objects = ActiveInstanceManager()
 
     on_change_fields = (
-        'is_active', 'last_seen', 'last_seen_location', 'phone_on_charge'
+        'is_active', 'role', 'at_home',
+        'last_seen', 'last_seen_location', 'last_seen_speed_kmh',
+        'phone_on_charge'
     )
 
     class Meta:
@@ -160,11 +163,11 @@ class InstanceUser(DirtyFieldsMixin, models.Model, OnChangeMixin):
 
 @receiver(post_save, sender=InstanceUser)
 def post_instance_user_save(sender, instance, created, **kwargs):
-    from simo.core.events import ObjectChangeEvent
-    dirty_fields = instance.get_dirty_fields()
-    if not created and any([f in dirty_fields.keys() for f in InstanceUser.on_change_fields]):
+    from simo.core.events import ObjectChangeEvent, dirty_fields_to_current_values
+    dirty_fields_prev = instance.get_dirty_fields()
+    if not created and any([f in dirty_fields_prev.keys() for f in InstanceUser.on_change_fields]):
         def post_update():
-            if 'at_home' in dirty_fields:
+            if 'at_home' in dirty_fields_prev:
                 if instance.at_home:
                     verb = 'came home'
                 else:
@@ -178,15 +181,42 @@ def post_instance_user_save(sender, instance, created, **kwargs):
             ObjectChangeEvent(
                 instance.instance,
                 instance,
-                dirty_fields=dirty_fields,
+                dirty_fields=dirty_fields_to_current_values(instance, dirty_fields_prev),
                 at_home=instance.at_home,
                 last_seen=instance.last_seen,
+                last_seen_location=instance.last_seen_location,
+                last_seen_speed_kmh=instance.last_seen_speed_kmh,
                 phone_on_charge=instance.phone_on_charge,
+                is_active=instance.is_active,
+                role=instance.role_id,
             ).publish()
+            # If role changed, notify the affected user to re-fetch states
+            if 'role' in dirty_fields_prev:
+                from paho.mqtt import publish as mqtt_publish
+                topic = f"SIMO/user/{instance.user.id}/perms-changed"
+                payload = json.dumps({
+                    'instance_id': instance.instance.id,
+                    'timestamp': int(time.time())
+                })
+                try:
+                    mqtt_publish.single(
+                        topic, payload,
+                        hostname=settings.MQTT_HOST, port=settings.MQTT_PORT,
+                        auth={'username': 'root', 'password': settings.SECRET_KEY},
+                        retain=False
+                    )
+                except Exception:
+                    pass
+            # Invalidate cached role lookups
+            try:
+                cache.delete(f'user-{instance.user.id}_instance-{instance.instance.id}-role-id')
+                cache.delete(f'user-{instance.user.id}_instance-{instance.instance.id}_role')
+            except Exception:
+                pass
         transaction.on_commit(post_update)
     # Rebuild ACLs if user became active/inactive due to this role change
     try:
-        if created or ('is_active' in dirty_fields):
+        if created or ('is_active' in dirty_fields_prev):
             dynamic_settings['core__needs_mqtt_acls_rebuild'] = True
     except Exception:
         pass

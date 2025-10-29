@@ -140,7 +140,8 @@ class ZoneViewSet(InstanceMixin, viewsets.ModelViewSet):
             )
         for i, id in enumerate(request_data.get('zones')):
             zones[str(id)].order = i
-        Zone.objects.bulk_update([z for id, z in zones.items()], fields=['order'])
+        for i, zone in zones.items():
+            zone.save()
         return RESTResponse({'status': 'success'})
 
 
