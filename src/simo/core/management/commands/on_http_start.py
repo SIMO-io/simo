@@ -92,10 +92,58 @@ class Command(BaseCommand):
             created_any = False
             for uid, handler_cls in GATEWAYS_MAP.items():
                 if getattr(handler_cls, 'auto_create', False):
-                    obj, created = Gateway.objects.get_or_create(type=uid)
+                    # Build default config from handler's config_form
+                    config_defaults = {}
+                    try:
+                        form_cls = getattr(handler_cls, 'config_form', None)
+                        if form_cls is not None:
+                            tmp_instance = Gateway(type=uid)
+                            form = form_cls(instance=tmp_instance)
+                            for fname, field in getattr(form, 'fields', {}).items():
+                                if fname in ('log',):
+                                    continue
+                                init = getattr(field, 'initial', None)
+                                if init is None:
+                                    continue
+                                # Normalize potential Model/QuerySet values to pks
+                                try:
+                                    import json as _json
+                                    def _norm(v):
+                                        try:
+                                            return _json.loads(_json.dumps(v))
+                                        except Exception:
+                                            pass
+                                        # Model instance
+                                        if hasattr(v, 'pk'):
+                                            return v.pk
+                                        # QuerySet or iterable of models
+                                        try:
+                                            from django.db.models.query import QuerySet as _QS
+                                            if isinstance(v, _QS):
+                                                return [obj.pk for obj in v]
+                                        except Exception:
+                                            pass
+                                        if isinstance(v, (list, tuple, set)):
+                                            return [_norm(x) for x in v]
+                                        return v
+                                    config_defaults[fname] = _norm(init)
+                                except Exception:
+                                    # Best-effort; skip if cannot serialize
+                                    continue
+                    except Exception:
+                        # If we cannot introspect defaults, fall back to empty config
+                        pass
+
+                    obj, created = Gateway.objects.get_or_create(
+                        type=uid, defaults={'config': config_defaults}
+                    )
                     if created:
                         created_any = True
                         print(f"Auto-created gateway: {handler_cls.name} ({uid})")
+                        try:
+                            obj.start()
+                        except Exception:
+                            print(traceback.format_exc(), file=sys.stderr)
             if created_any:
                 pass
         except Exception:
