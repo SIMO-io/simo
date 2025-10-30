@@ -56,7 +56,7 @@ def prepare_mosquitto():
             f.write(render_to_string('conf/mosquitto.conf'))
 
     subprocess.run(
-        ['service', 'mosquitto', 'reload'], stdout=subprocess.PIPE
+        ['service', 'mosquitto', 'restart'], stdout=subprocess.PIPE
     )
 
 
