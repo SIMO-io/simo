@@ -36,6 +36,7 @@ class Command(BaseCommand):
 
     def on_message(self, client, userdata, msg):
         try:
+            print("Fanout: ", msg.topic)
             topic_parts = msg.topic.split('/')
             # SIMO/obj-state/<instance-uid>/<Model>/<id>
             if len(topic_parts) < 5 or topic_parts[0] != 'SIMO' or topic_parts[1] != 'obj-state':

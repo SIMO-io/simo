@@ -37,6 +37,7 @@ class Command(BaseCommand):
 
     def on_message(self, client, userdata, msg):
         try:
+            print("Control: ", msg.topic)
             parts = msg.topic.split('/')
             # SIMO/user/<user-id>/control/<instance-uid>/Component/<component-id>
             if len(parts) < 7 or parts[0] != 'SIMO' or parts[1] != 'user' or parts[3] != 'control':
