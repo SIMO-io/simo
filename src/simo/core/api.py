@@ -7,6 +7,7 @@ from django.utils.translation import gettext_lazy as _
 from django.utils import timezone
 from django.http import HttpResponse, Http404
 from simo.core.utils.helpers import get_self_ip, search_queryset
+from simo.core.middleware import introduce_instance
 from rest_framework import status
 from actstream.models import Action
 from rest_framework.pagination import PageNumberPagination
@@ -41,6 +42,7 @@ class InstanceMixin:
         ).last()
         if not self.instance:
             raise Http404()
+        introduce_instance(self.instance)
         return super().dispatch(request, *args, **kwargs)
 
     def get_serializer_context(self):

@@ -133,6 +133,14 @@ DATABASES = {
         'ENGINE': 'simo.core.db_backend',
         'NAME': 'SIMO',
         'ATOMIC_REQUESTS': False,
+        'CONN_HEALTH_CHECKS': True,
+        'CONN_MAX_AGE': 300,
+        'OPTIONS': {
+            "keepalives": 1,
+            "keepalives_idle": 30,
+            "keepalives_interval": 10,
+            "keepalives_count": 3,
+        }
     }
 }
 

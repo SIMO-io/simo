@@ -32,7 +32,10 @@ class UserSerializer(serializers.ModelSerializer):
         iu = InstanceUser.objects.filter(
             user=obj, instance=get_current_instance()
         ).first()
-        return iu.is_active
+        try:
+            return iu.is_active
+        except:
+            return False
 
     def get_avatar(self, obj):
         if not obj.avatar:
