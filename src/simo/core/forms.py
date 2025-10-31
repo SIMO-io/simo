@@ -71,16 +71,45 @@ class CategoryAdminForm(forms.ModelForm):
 class ConfigFieldsMixin:
 
     def __init__(self, *args, **kwargs):
+        """Augment forms with dynamic controller fields and
+        persist non-model fields under component.config.
+
+        Dynamic fields are appended by controllers via
+        `controller._get_dynamic_config_fields()` and are excluded from
+        automatic component.config persistence. Controllers may handle
+        them in `_apply_dynamic_config()` during save.
+        """
         super().__init__(*args, **kwargs)
+
+        # Inject dynamic fields from controller (if any)
+        self._dynamic_fields = []
+        controller = getattr(self, 'controller', None)
+        if controller and hasattr(controller, '_get_dynamic_config_fields'):
+            try:
+                dyn_fields = controller._get_dynamic_config_fields() or {}
+                if isinstance(dyn_fields, dict):
+                    for fname, field in dyn_fields.items():
+                        if fname in self.fields:
+                            continue
+                        self.fields[fname] = field
+                        self._dynamic_fields.append(fname)
+            except Exception:
+                # Never break the form if controller fails here
+                pass
+
+        # Build config-backed field list (exclude model fields and dynamic fields)
         self.model_fields = [
             f.name for f in Component._meta.fields
         ] + ['slaves', ]
         self.config_fields = []
-        for field_name, field in self.fields.items():
+        for field_name in list(self.fields.keys()):
             if field_name in self.model_fields:
+                continue
+            if field_name in self._dynamic_fields:
                 continue
             self.config_fields.append(field_name)
 
+        # Initialize config-backed fields from instance.config
         for field_name in self.config_fields:
             if field_name not in self.instance.config:
                 continue
@@ -106,38 +135,46 @@ class ConfigFieldsMixin:
 
 
     def save(self, commit=True):
+        # Write config-backed fields under component.config
         for field_name in self.config_fields:
             # support for partial forms
             if field_name not in self.cleaned_data:
                 continue
             if isinstance(self.cleaned_data[field_name], models.Model):
-                self.instance.config[field_name] = \
-                    self.cleaned_data[field_name].pk
+                self.instance.config[field_name] = self.cleaned_data[field_name].pk
             elif isinstance(self.cleaned_data[field_name], models.QuerySet):
-                self.instance.config[field_name] = [
-                    obj.pk for obj in self.cleaned_data[field_name]
-                ]
+                self.instance.config[field_name] = [obj.pk for obj in self.cleaned_data[field_name]]
             else:
                 try:
-                    self.instance.config[field_name] = \
-                        json.loads(json.dumps(self.cleaned_data[field_name]))
-                except:
+                    self.instance.config[field_name] = json.loads(json.dumps(self.cleaned_data[field_name]))
+                except Exception:
                     continue
 
+        # Save component
         if commit:
             from simo.users.utils import get_current_user
             actor = get_current_user()
-            if self.instance.pk:
-                verb = 'modified'
-            else:
-                verb = 'created'
-            action.send(
-                actor, target=self.instance, verb=verb,
-                instance_id=self.instance.zone.instance.id,
-                action_type='management_event'
-            )
+            if actor:
+                if self.instance.pk:
+                    verb = 'modified'
+                else:
+                    verb = 'created'
+                action.send(
+                    actor, target=self.instance, verb=verb,
+                    instance_id=self.instance.zone.instance.id,
+                    action_type='management_event'
+                )
+        result = super().save(commit)
 
-        return super().save(commit)
+        # Apply dynamic settings via controller hook
+        controller = getattr(self, 'controller', None)
+        if controller and hasattr(controller, '_apply_dynamic_config'):
+            try:
+                controller._apply_dynamic_config(self.cleaned_data)
+            except Exception:
+                pass
+
+        return result
 
 
 class BaseGatewayForm(ConfigFieldsMixin, forms.ModelForm):
@@ -329,9 +366,23 @@ class ComponentAdminForm(forms.ModelForm):
         base_fields.append('category')
         base_fields.append('show_in_app')
 
+        # Include statically declared fields first
         for field_name in cls.declared_fields:
             if field_name not in main_fields:
                 base_fields.append(field_name)
+
+        # If editing an existing object, include any dynamic fields
+        # that the form instance adds at runtime.
+        if obj is not None:
+            try:
+                tmp_form = cls(request=request, instance=obj, controller_uid=obj.controller_uid)
+                for fname in tmp_form.fields.keys():
+                    if fname in base_fields or fname in main_fields:
+                        continue
+                    base_fields.append(fname)
+            except Exception:
+                # Ignore dynamic field detection issues
+                pass
 
         base_fields.append('control')
         base_fields.append('notes')
@@ -389,6 +440,29 @@ class ComponentAdminForm(forms.ModelForm):
 
 
 class BaseComponentForm(ConfigFieldsMixin, ComponentAdminForm):
+    """Base form for all components.
+
+    Dynamic controller-backed fields
+    --------------------------------
+    Controllers can expose device-scoped, dynamic options by implementing
+    the following optional hooks on the controller instance:
+
+    - _get_dynamic_config_fields(self) -> dict[str, django.forms.Field]
+        Return a mapping of additional form fields to append at runtime.
+        These fields are not persisted automatically to component.config.
+        Set each field's `initial` to reflect the current device value.
+
+    - _apply_dynamic_config(self, form_data: dict) -> None
+        Called after the form is saved. Receives the full cleaned form
+        data (including dynamic fields). Use this to apply device options
+        (e.g. send commands to a gateway or write to component.config if
+        your integration needs to persist something custom).
+
+    Notes
+    - Dynamic fields are excluded from `basic_fields`, so only higher-level
+      users (instance superusers/masters) will see and edit them.
+    - All existing static fields and behavior remain unchanged.
+    """
     pass
 
 
