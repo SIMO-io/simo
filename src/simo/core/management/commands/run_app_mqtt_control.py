@@ -21,10 +21,18 @@ class Command(BaseCommand):
         client.username_pw_set('root', settings.SECRET_KEY)
         client.on_connect = self.on_connect
         client.on_message = self.on_message
+        client.on_disconnect = self.on_disconnect
+        # Back off on reconnects to avoid busy-spin during outages
+        client.reconnect_delay_set(min_delay=1, max_delay=30)
+        # Route Paho logs to Python logging for visibility
+        try:
+            client.enable_logger()
+        except Exception:
+            pass
         client.connect(host=settings.MQTT_HOST, port=settings.MQTT_PORT)
         try:
-            while True:
-                client.loop()
+            # Blocking network loop with built-in reconnect/backoff
+            client.loop_forever(retry_first_connection=True)
         finally:
             try:
                 client.disconnect()
@@ -117,6 +125,14 @@ class Command(BaseCommand):
         except Exception:
             # Never crash the consumer
             pass
+
+    def on_disconnect(self, client, userdata, rc):
+        # Non-zero rc means unexpected disconnect. Paho will back off and retry.
+        if rc != 0:
+            try:
+                print(f"Control MQTT disconnect rc={rc}; reconnecting with backoff...", file=sys.stderr)
+            except Exception:
+                pass
 
     def respond(self, client, user_id, request_id, ok=True, result=None, error=None):
         if not request_id:

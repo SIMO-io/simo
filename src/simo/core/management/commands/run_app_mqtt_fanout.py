@@ -21,10 +21,18 @@ class Command(BaseCommand):
         self.client.username_pw_set('root', settings.SECRET_KEY)
         self.client.on_connect = self.on_connect
         self.client.on_message = self.on_message
+        self.client.on_disconnect = self.on_disconnect
+        # Back off on reconnects to avoid busy-spin during outages
+        self.client.reconnect_delay_set(min_delay=1, max_delay=30)
+        # Route Paho logs to Python logging for visibility
+        try:
+            self.client.enable_logger()
+        except Exception:
+            pass
         self.client.connect(host=settings.MQTT_HOST, port=settings.MQTT_PORT)
         try:
-            while True:
-                self.client.loop()
+            # Blocking network loop with built-in reconnect/backoff
+            self.client.loop_forever(retry_first_connection=True)
         finally:
             try:
                 self.client.disconnect()
@@ -95,3 +103,11 @@ class Command(BaseCommand):
         except Exception:
             # Never crash the consumer
             print('Fanout error:', ''.join(traceback.format_exception(*sys.exc_info())), file=sys.stderr)
+
+    def on_disconnect(self, client, userdata, rc):
+        # Non-zero rc means unexpected disconnect. Paho will back off and retry.
+        if rc != 0:
+            try:
+                print(f"Fanout MQTT disconnect rc={rc}; reconnecting with backoff...", file=sys.stderr)
+            except Exception:
+                pass
