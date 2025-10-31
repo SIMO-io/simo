@@ -297,11 +297,19 @@ class GenericGatewayHandler(
 
         from simo.generic.controllers import IPCamera
 
-        mqtt_client = mqtt.Client()
-        mqtt_client.username_pw_set('root', settings.SECRET_KEY)
-        mqtt_client.on_connect = self.on_mqtt_connect
-        mqtt_client.on_message = self.on_mqtt_message
-        mqtt_client.connect(host=settings.MQTT_HOST, port=settings.MQTT_PORT)
+        # Use non-blocking MQTT loop to avoid busy-spin when broker is down
+        self.mqtt_client = mqtt.Client()
+        self.mqtt_client.username_pw_set('root', settings.SECRET_KEY)
+        self.mqtt_client.on_connect = self.on_mqtt_connect
+        self.mqtt_client.on_message = self.on_mqtt_message
+        try:
+            self.mqtt_client.reconnect_delay_set(min_delay=1, max_delay=30)
+        except Exception:
+            pass
+        try:
+            self.mqtt_client.connect_async(host=settings.MQTT_HOST, port=settings.MQTT_PORT)
+        except Exception:
+            pass
 
         for cam in Component.objects.filter(
             controller_uid=IPCamera.uid
@@ -315,9 +323,11 @@ class GenericGatewayHandler(
         ).start()
 
         print("GATEWAY STARTED!")
+        self.mqtt_client.loop_start()
         while not exit.is_set():
-            mqtt_client.loop()
-        mqtt_client.disconnect()
+            time.sleep(1)
+        self.mqtt_client.loop_stop()
+        self.mqtt_client.disconnect()
 
 
     def on_mqtt_connect(self, mqtt_client, userdata, flags, rc):
@@ -425,8 +435,14 @@ class GenericGatewayHandler(
                 base_type='binary-sensor', alarm_category='security'
             ):
                 if sensor.id not in self.sensors_on_watch[state.id]:
-                    self.sensors_on_watch[state.id][sensor.id] = i_id
-                    sensor.on_change(self.security_sensor_change)
+                    # Register callback only when MQTT subscription succeeds
+                    try:
+                        sensor.on_change(self.security_sensor_change)
+                    except Exception:
+                        # Leave it untracked so we retry on next tick
+                        raise
+                    else:
+                        self.sensors_on_watch[state.id][sensor.id] = i_id
 
             if state.controller._check_is_away(self.last_sensor_actions.get(i_id, 0)):
                 if state.value != 'away':

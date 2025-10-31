@@ -63,6 +63,10 @@ class BaseObjectCommandsGatewayHandler(BaseGatewayHandler):
         self.mqtt_client.username_pw_set('root', settings.SECRET_KEY)
         self.mqtt_client.on_connect = self._on_mqtt_connect
         self.mqtt_client.on_message = self._on_mqtt_message
+        try:
+            self.mqtt_client.reconnect_delay_set(min_delay=1, max_delay=30)
+        except Exception:
+            pass
 
 
     def run(self, exit):
@@ -74,7 +78,12 @@ class BaseObjectCommandsGatewayHandler(BaseGatewayHandler):
                 target=self._run_periodic_task, args=(self.exit, task, period), daemon=True
             ).start()
 
-        self.mqtt_client.connect(host=settings.MQTT_HOST, port=settings.MQTT_PORT)
+        # Use async connect so we don't crash if broker is temporarily down
+        try:
+            self.mqtt_client.connect_async(host=settings.MQTT_HOST, port=settings.MQTT_PORT)
+        except Exception:
+            # connect_async shouldn't raise for normal scenarios; ignore just in case
+            pass
         self.mqtt_client.loop_start()
 
         while not self.exit.is_set():
@@ -137,4 +146,3 @@ class BaseObjectCommandsGatewayHandler(BaseGatewayHandler):
                 self.perform_value_send(component, val)
             except Exception as e:
                 self.logger.error(e, exc_info=True)
-

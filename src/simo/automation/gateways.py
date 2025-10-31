@@ -311,11 +311,19 @@ class AutomationsGatewayHandler(GatesHandler, BaseObjectCommandsGatewayHandler):
 
         from .controllers import Script
 
-        mqtt_client = mqtt.Client()
-        mqtt_client.username_pw_set('root', settings.SECRET_KEY)
-        mqtt_client.on_connect = self.on_mqtt_connect
-        mqtt_client.on_message = self.on_mqtt_message
-        mqtt_client.connect(host=settings.MQTT_HOST, port=settings.MQTT_PORT)
+        self.mqtt_client = mqtt.Client()
+        self.mqtt_client.username_pw_set('root', settings.SECRET_KEY)
+        self.mqtt_client.on_connect = self.on_mqtt_connect
+        self.mqtt_client.on_message = self.on_mqtt_message
+        try:
+            self.mqtt_client.reconnect_delay_set(min_delay=1, max_delay=30)
+        except Exception:
+            pass
+        try:
+            # Avoid raising if broker restarts or is down at boot
+            self.mqtt_client.connect_async(host=settings.MQTT_HOST, port=settings.MQTT_PORT)
+        except Exception:
+            pass
 
         # We presume that this is the only running gateway, therefore
         # if there are any running scripts, that is not true.
@@ -337,9 +345,11 @@ class AutomationsGatewayHandler(GatesHandler, BaseObjectCommandsGatewayHandler):
             self.start_script(script)
 
         print("GATEWAY STARTED!")
+        self.mqtt_client.loop_start()
         while not exit.is_set():
-            mqtt_client.loop()
-        mqtt_client.disconnect()
+            time.sleep(1)
+        self.mqtt_client.loop_stop()
+        self.mqtt_client.disconnect()
 
         script_ids = [id for id in self.running_scripts.keys()]
         for id in script_ids:

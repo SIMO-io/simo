@@ -117,18 +117,28 @@ class GatewaysManager:
         self.mqtt_client.username_pw_set('root', settings.SECRET_KEY)
         self.mqtt_client.on_connect = self.on_mqtt_connect
         self.mqtt_client.on_message = self.on_mqtt_message
-        self.mqtt_client.connect(
-            host=settings.MQTT_HOST, port=settings.MQTT_PORT
-        )
+        try:
+            self.mqtt_client.reconnect_delay_set(min_delay=1, max_delay=30)
+        except Exception:
+            pass
+        try:
+            self.mqtt_client.connect_async(
+                host=settings.MQTT_HOST, port=settings.MQTT_PORT
+            )
+        except Exception:
+            pass
 
+        self.mqtt_client.loop_start()
         while not self.exit_event.is_set():
-            self.mqtt_client.loop()
+            time.sleep(1)
 
         ids_to_stop = [id for id in self.running_gateways.keys()]
         for id in ids_to_stop:
             self.stop_gateway(Gateway(id=id))
         while self.running_gateways.keys():
             time.sleep(0.3)
+        self.mqtt_client.loop_stop()
+        self.mqtt_client.disconnect()
         close_old_connections()
         print("-------------Gateways Manager STOPPED.------------------")
         return sys.exit()

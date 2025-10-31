@@ -181,9 +181,21 @@ class OnChangeMixin:
             self._mqtt_client.username_pw_set('root', settings.SECRET_KEY)
             self._mqtt_client.on_connect = self.on_mqtt_connect
             self._mqtt_client.on_message = self.on_mqtt_message
-            self._mqtt_client.connect(
-                host=settings.MQTT_HOST, port=settings.MQTT_PORT
-            )
+            # Be gentle when broker is down or connection flaps
+            try:
+                # paho 1.x supports reconnect backoff configuration
+                self._mqtt_client.reconnect_delay_set(min_delay=1, max_delay=30)
+            except Exception:
+                pass
+            try:
+                self._mqtt_client.connect_async(
+                    host=settings.MQTT_HOST, port=settings.MQTT_PORT
+                )
+            except Exception:
+                # connect_async should not normally raise; in case of programming
+                # errors keep the API surface consistent by cleaning up
+                self._mqtt_client = None
+                raise
             self._mqtt_client.loop_start()
             self._on_change_function = function
             self._obj_ct_id = ContentType.objects.get_for_model(self).pk
