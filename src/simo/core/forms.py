@@ -258,6 +258,60 @@ class CompTypeSelectForm(forms.Form):
 class ComponentAdminForm(forms.ModelForm):
     gateway = None
     controller_type = None
+
+    # Ensure admin does not pass non-model dynamic fields to modelform_factory
+    # Controllers inject dynamic fields at form init time via ConfigFieldsMixin.
+    @classmethod
+    def sanitize_admin_fields(cls, admin_cls):
+        try:
+            allowed = {f.name for f in Component._meta.get_fields()}
+            allowed.update({'slaves'})
+            orig_get_form = admin_cls.get_form
+
+            def _safe_get_form(self, request, obj=None, change=False, **kwargs):
+                try:
+                    fs = getattr(self, 'fieldsets', None)
+                    if fs:
+                        new_fs = []
+                        changed = False
+                        for tup in fs:
+                            try:
+                                name, opts = tup
+                            except Exception:
+                                new_fs.append(tup)
+                                continue
+                            fields = opts.get('fields') if isinstance(opts, dict) else None
+                            if fields:
+                                safe = tuple([f for f in fields if f in allowed])
+                                if safe != fields:
+                                    nopts = dict(opts)
+                                    nopts['fields'] = safe
+                                    new_fs.append((name, nopts))
+                                    changed = True
+                                else:
+                                    new_fs.append((name, opts))
+                            else:
+                                new_fs.append((name, opts))
+                        if changed:
+                            self.fieldsets = tuple(new_fs)
+                    if 'fields' in kwargs and kwargs['fields']:
+                        kwargs['fields'] = [f for f in kwargs['fields'] if f in allowed]
+                except Exception:
+                    pass
+                return orig_get_form(self, request, obj=obj, change=change, **kwargs)
+
+            admin_cls.get_form = _safe_get_form
+        except Exception:
+            pass
+
+    # Auto-apply when module loads
+    try:
+        from django.apps import apps as _apps
+        _admin = __import__('simo.core.admin', fromlist=['ComponentAdmin']).ComponentAdmin
+        sanitize_admin_fields.__func__(None, _admin)  # call as plain function
+        del _apps, _admin
+    except Exception:
+        pass
     has_icon = True
     has_alarm = True
     # do not allow modification via app of these fields

@@ -129,6 +129,49 @@ class ControllerBase(ABC, metaclass=ControllerMeta):
             slug = getattr(bt, 'slug', None)
         assert slug in ALL_BASE_TYPES, f"{slug} must be defined in BASE TYPES!"
 
+    # --- Dynamic Config Hooks -------------------------------------------------
+    def _get_dynamic_config_fields(self):
+        """Return extra Django form fields to render on config forms.
+
+        Forms that inherit from ConfigFieldsMixin will call this method on the
+        controller during form initialization. Any fields returned here are
+        added to the form but are NOT automatically persisted into
+        `component.config` by the mixin. This allows controllers to expose
+        driver- or gateway-specific settings alongside regular component fields.
+
+        Expected return format:
+        - dict[str, django.forms.Field]
+          Mapping of field name to an instantiated Django form Field.
+
+        Notes:
+        - Keep this method fast and side-effect free; it may be called multiple
+          times in admin.
+        - Use unique, namespaced field names to avoid collisions.
+        - If no dynamic fields are needed, return an empty dict (default).
+        """
+        return {}
+
+    def _apply_dynamic_config(self, cleaned_data):
+        """Handle persistence of dynamic fields added by this controller.
+
+        After the form is saved, ConfigFieldsMixin will call this hook with the
+        form's `cleaned_data`. Use it to:
+        - Write dynamic field values into `component.config` under your own
+          namespace, and/or
+        - Send configuration updates to the underlying device via the gateway.
+
+        Parameters:
+        - cleaned_data (dict): The form's cleaned_data; read values for any
+          keys you returned from `_get_dynamic_config_fields()`.
+
+        Guidelines:
+        - Be tolerant to missing keys (partial forms) and swallow exceptions if
+          best-effort behavior is desired; the mixin ignores errors.
+        - Avoid long blocking operations; if needed, consider background tasks.
+        - This base implementation is a no-op.
+        """
+        return None
+
     @classproperty
     @classmethod
     def uid(cls):
