@@ -112,7 +112,8 @@ class Script(ControllerBase, TimerMixin):
             request_data['current_user'] = UserSerializer(user, many=False).data
         try:
             response = requests.post(
-                'https://simo.io/ai/scripts/', json=request_data
+                'https://simo.io/ai/scripts/',
+                json=request_data, timeout=(5, 200)
             )
         except:
             return {'status': 'error', 'result': "Connection error"}
