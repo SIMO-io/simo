@@ -367,11 +367,9 @@ class Component(DirtyFieldsMixin, models.Model, SimoAdminMixin, OnChangeMixin):
     value = models.JSONField(null=True, blank=True)
     value_previous = models.JSONField(null=True, blank=True, editable=False)
     value_units = models.CharField(max_length=100, null=True, blank=True)
-    value_translation = models.TextField(
-        default=render_to_string('core/value_translation.py'), blank=True,
-        help_text="Adjust this to make value translations before value is"
-                  "set on to a component and before it is sent to a device "
-                  "from your SIMO.io smart home instance."
+    custom_methods = models.TextField(
+        blank=True,
+        default=render_to_string('core/custom_methods.py'),
     )
 
     slaves = models.ManyToManyField(
@@ -405,19 +403,9 @@ class Component(DirtyFieldsMixin, models.Model, SimoAdminMixin, OnChangeMixin):
 
     notes = models.TextField(null=True, blank=True)
 
-    # Feature for global superusers.
-    # Good candidate for reworking in to something more API oriented
-    # instead of injecting the code directly.
-    instance_methods = models.TextField(
-        blank=True, help_text=(
-            'Add your own component methods or override existing ones'
-        ),
-        default="""
-
-def is_in_alarm(self):
-    return bool(self.value)
-
-""")
+    # Always-available default; can be overridden by custom_methods
+    def is_in_alarm(self):
+        return bool(self.value)
 
     alarm_category = models.CharField(
         max_length=50, null=True, blank=True, db_index=True, choices=(
@@ -495,15 +483,20 @@ def is_in_alarm(self):
             if not self.id:
                 self.value = self.controller.default_value
 
-        if self.instance_methods:
+        # Attach custom instance methods from unified field (if any)
+        code = getattr(self, 'custom_methods', None)
+        if code:
             custom_methods = {}
             funcType = type(self.save)
             try:
-                exec(self.instance_methods, None, custom_methods)
+                exec(code, None, custom_methods)
             except:
                 pass
             for key, val in custom_methods.items():
                 if not callable(val):
+                    continue
+                # Do not bind translate (no self in signature)
+                if key == 'translate':
                     continue
                 setattr(self, key, funcType(val, self))
 
@@ -678,4 +671,3 @@ class HistoryAggregate(models.Model):
         unique_together = 'component', 'type', 'start', 'end'
 
 from .signal_receivers import *
-

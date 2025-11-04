@@ -710,7 +710,7 @@ class MCPFullComponentSerializer(serializers.ModelSerializer):
         fields = (
             'id', 'name', 'icon', 'zone', 'category', 'gateway',
             'base_type', 'controller_uid', 'config', 'meta', 'value',
-            'value_units', 'value_translation', 'alive', 'error_msg',
+            'value_units', 'alive', 'error_msg',
             'battery_level', 'show_in_app', 'alarm_category', 'arm_status',
             'info', 'controller_methods', 'slave_components', 'last_change',
             'unix_timestamp'
@@ -770,4 +770,3 @@ class MCPFullComponentSerializer(serializers.ModelSerializer):
 
     def get_unix_timestamp(self, obj):
         return timezone.now().timestamp()
-

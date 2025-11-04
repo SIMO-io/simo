@@ -287,9 +287,7 @@ class ComponentAdmin(EasyObjectsDeleteMixin, admin.ModelAdmin):
     def get_fieldsets(self, request, obj=None):
         form = self._get_form_for_get_fields(request, obj)
         fieldsets = form.get_admin_fieldsets(request, obj)
-        if not request.user.is_master:
-            for section, fields_map in fieldsets:
-                fields_map.pop('instance_methods', None)
+        # No special filtering of dynamic/custom fields for non-masters here.
         return fieldsets
 
     def add_view(self, request, *args, **kwargs):
@@ -342,7 +340,7 @@ class ComponentAdmin(EasyObjectsDeleteMixin, admin.ModelAdmin):
 
                 def pop_fields_from_form(form):
                     for field_neme in (
-                        'value_units', 'value_translation',
+                        'value_units', 'custom_methods',
                         'alarm_category', 'arm_status'
                     ):
                         if field_neme in form.fields:

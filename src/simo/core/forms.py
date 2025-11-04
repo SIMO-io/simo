@@ -261,7 +261,7 @@ class ComponentAdminForm(forms.ModelForm):
     has_icon = True
     has_alarm = True
     # do not allow modification via app of these fields
-    app_exclude_fields = []
+    app_exclude_fields = ['custom_methods']
 
     # fields that can be edited via SIMO.io app by instance owners.
     # Users who have is_owner enabled on their user role.
@@ -270,8 +270,9 @@ class ComponentAdminForm(forms.ModelForm):
     class Meta:
         model = Component
         fields = (
-            'name', 'icon', 'zone', 'category', 'show_in_app', 'notes',
-            'alarm_category'
+            'name', 'icon', 'zone', 'category', 'show_in_app',
+            'value_units', 'custom_methods',
+            'notes', 'alarm_category'
         )
         widgets = {
             'icon': autocomplete.ModelSelect2(
@@ -283,7 +284,7 @@ class ComponentAdminForm(forms.ModelForm):
             'category': autocomplete.ModelSelect2(
                 url='autocomplete-category', attrs={'data-html': True}
             ),
-            'value_translation': PythonCode()
+            'custom_methods': PythonCode()
         }
 
     def __init__(self, *args, **kwargs):
@@ -389,7 +390,7 @@ class ComponentAdminForm(forms.ModelForm):
 
         fieldsets = [
             (_("Base settings"), {
-                'fields': base_fields + ['value_units', 'value_translation']}
+                'fields': base_fields + ['value_units']}
              ),
         ]
         if cls.has_alarm:
@@ -424,19 +425,20 @@ class ComponentAdminForm(forms.ModelForm):
             ))
         return self.cleaned_data['category']
 
-    def clean_value_translation(self):
-        if 'value_translation' not in self.cleaned_data:
+    def clean_custom_methods(self):
+        if 'custom_methods' not in self.cleaned_data:
             return
         try:
             namespace = {}
-            exec(self.cleaned_data['value_translation'], namespace)
-            translate = namespace['translate']
-            translate(self.instance.controller.default_value, 'before-set')
+            exec(self.cleaned_data['custom_methods'], namespace)
+            translate = namespace.get('translate')
+            if translate:
+                translate(self.instance.controller.default_value, 'before-set')
         except Exception:
             error = traceback.format_exc()
             error = error.replace('\n', '<br>').replace(' ', '&nbsp;')
             raise forms.ValidationError(mark_safe(error))
-        return self.cleaned_data['value_translation']
+        return self.cleaned_data['custom_methods']
 
 
 class BaseComponentForm(ConfigFieldsMixin, ComponentAdminForm):

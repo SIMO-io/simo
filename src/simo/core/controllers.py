@@ -340,14 +340,18 @@ class ControllerBase(ABC, metaclass=ControllerMeta):
             update_fields=['change_init_by', 'change_init_date']
         )
         value = self._prepare_for_send(value)
-        if self.component.value_translation:
-            try:
-                namespace = {}
-                exec(self.component.value_translation, namespace)
-                val_translate = namespace['translate']
+        # Optional translation hook defined in component custom methods
+        try:
+            from django.template.loader import render_to_string as _r2s
+            cm = getattr(self.component, 'custom_methods', '') or ''
+            code = cm.strip() or _r2s('core/custom_methods.py')
+            namespace = {}
+            exec(code, namespace)
+            val_translate = namespace.get('translate')
+            if callable(val_translate):
                 value = val_translate(value, BEFORE_SEND)
-            except:
-                pass
+        except Exception:
+            pass
 
         self._send_to_device(value)
         if value != self.component.value:
@@ -366,14 +370,17 @@ class ControllerBase(ABC, metaclass=ControllerMeta):
         - actor: Optional user that initiated the change.
         """
         from simo.users.models import InstanceUser
-        if self.component.value_translation:
-            try:
-                namespace = {}
-                exec(self.component.value_translation, namespace)
-                val_translate = namespace['translate']
+        try:
+            from django.template.loader import render_to_string as _r2s
+            cm = getattr(self.component, 'custom_methods', '') or ''
+            code = cm.strip() or _r2s('core/custom_methods.py')
+            namespace = {}
+            exec(code, namespace)
+            val_translate = namespace.get('translate')
+            if callable(val_translate):
                 value = val_translate(value, BEFORE_SET)
-            except:
-                pass
+        except Exception:
+            pass
         value = self._validate_val(value, BEFORE_SET)
 
         if not actor:
