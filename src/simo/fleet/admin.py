@@ -77,7 +77,7 @@ class ColonelAdmin(admin.ModelAdmin):
             'name', 'instance', 'enabled', 'firmware_auto_update',
             'type', 'uid', 'connected', 'last_seen',
             'firmware_version', 'newer_firmware_available',
-            'pwm_frequency', 'logs_stream', 'log'
+            'logs_stream', 'log'
         )}),
         ("History", {
             'fields': ('history',),

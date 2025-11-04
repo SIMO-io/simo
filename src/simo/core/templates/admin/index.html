@@ -1,7 +1,11 @@
 {% extends "admin/base_site.html" %}
-{% load i18n static %}
+{% load i18n static admin_shortcuts_tags %}
 
-{% block extrastyle %}{{ block.super }}<link rel="stylesheet" type="text/css" href="{% static "admin/css/dashboard.css" %}">{% endblock %}
+{% block extrastyle %}
+{{ block.super }}
+<link rel="stylesheet" type="text/css" href="{% static "admin/css/dashboard.css" %}">
+<style type="text/css">{% admin_shortcuts_css %}</style>
+{% endblock %}
 
 {% block content_title %}{% endblock %}
 
@@ -9,7 +13,14 @@
 
 {% block bodyclass %}{{ block.super }} dashboard{% endblock %}
 
-{% block breadcrumbs %}{% endblock %}
+{% block breadcrumbs %}
+<div class="admin_shortcuts">
+    {% admin_shortcuts %}
+</div>
+
+{% endblock %}
+
+
 
 {% block content %}
 <div id="content-main">

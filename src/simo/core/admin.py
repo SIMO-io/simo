@@ -441,26 +441,33 @@ class ComponentAdmin(EasyObjectsDeleteMixin, admin.ModelAdmin):
         return super().changelist_view(request, extra_context=extra_context)
 
     def get_form(self, request, obj=None, change=False, **kwargs):
+        # For existing objects, return the controller's config form class
+        # directly instead of delegating to BaseModelAdmin.get_form() which
+        # tries to derive `fields` from fieldsets and causes FieldError for
+        # dynamic fields injected at runtime.
         if obj:
             try:
-                self.form = CONTROLLERS_BY_GATEWAY.get(
+                form_cls = CONTROLLERS_BY_GATEWAY.get(
                     obj.gateway.type, {}
                 )[obj.controller_uid].config_form
             except KeyError:
-                pass
-        # Avoid feeding dynamic, runtime-only fields (e.g., controller config
-        # parameters) into Django's modelform_factory via fieldsets, because it
-        # validates against model/declared fields only and would raise
-        # FieldError. Let the form class include all model fields by default and
-        # rely on the form instance (ConfigFieldsMixin) to inject dynamic fields
-        # at __init__ time instead.
+                form_cls = self.form
+
+            class AdminFormWithRequest(form_cls):
+                def __init__(self, *args, **ikw):
+                    ikw['request'] = request
+                    super().__init__(*args, **ikw)
+
+            return AdminFormWithRequest
+
+        # Creation flow can safely use the default implementation
         kwargs.setdefault('fields', None)
         AdminForm = super().get_form(request, obj=obj, change=change, **kwargs)
 
         class AdminFormWithRequest(AdminForm):
-            def __new__(cls, *args, **kwargs):
-                kwargs['request'] = request
-                return AdminForm(*args, **kwargs)
+            def __new__(cls, *args, **ikw):
+                ikw['request'] = request
+                return AdminForm(*args, **ikw)
 
         return AdminFormWithRequest
 

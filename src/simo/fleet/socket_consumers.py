@@ -256,7 +256,7 @@ class FleetConsumer(AsyncWebsocketConsumer):
             'settings': {
                 'name': self.colonel.name, 'hub_uid': hub_uid,
                 'logs_stream': self.colonel.logs_stream,
-                'pwm_frequency': self.colonel.pwm_frequency,
+                'pwm_frequency': 0,
             }
         }
         config_data['settings'].update(instance_options)

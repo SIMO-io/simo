@@ -124,7 +124,7 @@ a.section:link, a.section:visited{
 }
 
 div.admin_shortcuts > ul.shortcuts {
-    background: linear-gradient(0.3turn, #393F3F, #1A201F);
+    background: linear-gradient(0.3turn, #164357, #032a33);
     padding: 10px 40px 20px;
     margin: 0;
     list-style: none;
@@ -134,15 +134,19 @@ div.admin_shortcuts .shortcuts li a {
     margin: 5px 10px 5px 0;
     display: block;
     float: left;
-    color: #fff;
+    color: #0d4c7b;
     border: 1px solid #0078AE;
-    background: linear-gradient(0.45turn, #06AED5, #0078AE);
+    background: linear-gradient(0.45turn, #ecf5ff, #f2fffc);
     font-size: 14px;
     line-height: 14px;
     border-radius: 3px;
     box-shadow: 3px 3px 5px rgba(0,0,0,0.5);
     position: relative;
     min-height: 14px;
+}
+.admin_shortcuts .shortcuts li a:hover, .admin_shortcuts .shortcuts li a:focus, .admin_shortcuts .shortcuts li a:active{
+    border-color: #63c0c9 !important;
+    color: #0d4c7b !important;
 }
 
 body #changelist-form .results{

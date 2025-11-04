@@ -78,6 +78,7 @@ INSTALLED_APPS = [
     'simo.backups',
     'simo.mcp_server',
 
+    'admin_shortcuts',
     'django.contrib.admin',
     'adminsortable2',
 ]
@@ -304,3 +305,39 @@ ACTSTREAM_SETTINGS = {
 DATETIME_FORMAT = 'Y-m-d H:i:s'
 
 
+ADMIN_SHORTCUTS = [
+    {
+        'shortcuts': [
+            {
+                'title': 'Components',
+                'url': '/admin/core/component/',
+                'icon': '💡'
+            },
+            {
+                'title': 'Zones',
+                'url': '/admin/core/zone/',
+                'icon': '📍',
+            },
+            {
+                'title': 'Categories',
+                'url': '/admin/core/category/',
+                'icon': '📚'
+            },
+            {
+                'title': 'Colonels',
+                'url': '/admin/fleet/colonel/',
+                'icon': '🕹️',
+            },
+            {
+                'title': 'User Roles',
+                'url': '/admin/users/permissionsrole/',
+                'icon': '🎖️'
+            },
+            {
+                'title': 'Instance Users',
+                'url': '/admin/users/instanceuser/',
+                'icon': '👥'
+            },
+        ]
+    },
+]
