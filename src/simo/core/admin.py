@@ -448,7 +448,13 @@ class ComponentAdmin(EasyObjectsDeleteMixin, admin.ModelAdmin):
                 )[obj.controller_uid].config_form
             except KeyError:
                 pass
-
+        # Avoid feeding dynamic, runtime-only fields (e.g., controller config
+        # parameters) into Django's modelform_factory via fieldsets, because it
+        # validates against model/declared fields only and would raise
+        # FieldError. Let the form class include all model fields by default and
+        # rely on the form instance (ConfigFieldsMixin) to inject dynamic fields
+        # at __init__ time instead.
+        kwargs.setdefault('fields', None)
         AdminForm = super().get_form(request, obj=obj, change=change, **kwargs)
 
         class AdminFormWithRequest(AdminForm):
