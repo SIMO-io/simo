@@ -78,6 +78,14 @@ def instance_middleware(get_response):
         from simo.core.models import Instance
 
         instance = None
+        # Allow selecting instance via admin query parameter for deep-links
+        if request.path.startswith('/admin') and request.GET.get('instance_uid'):
+            i = Instance.objects.filter(
+                uid=request.GET.get('instance_uid'), is_active=True
+            ).first()
+            if i:
+                instance = i
+                introduce_instance(instance, request)
         # API calls
         if request.resolver_match:
             instance = Instance.objects.filter(
