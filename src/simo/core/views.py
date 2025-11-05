@@ -84,7 +84,10 @@ def delete_instance(request):
 
 
 def hub_info(request):
-    data = {"hub_uid": dynamic_settings['core__hub_uid']}
+    data = {
+        "hub_uid": dynamic_settings['core__hub_uid'],
+        "paid_until": dynamic_settings.get('core__paid_until') or 0,
+    }
     if not Instance.objects.filter(is_active=True).count():
         if 'localhost' in request.get_host() or re.findall(
             r'[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}',

@@ -74,3 +74,12 @@ class NeedsMqttAclsRebuild(BooleanPreference):
     section = core
     name = 'needs_mqtt_acls_rebuild'
     default = True
+
+
+@global_preferences_registry.register
+class CloudPaidUntil(IntegerPreference):
+    section = core
+    name = 'paid_until'
+    default = 0
+    required = False
+    help_text = 'UNIX timestamp (seconds) when SIMO Cloud access expires on this hub.'

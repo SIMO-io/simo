@@ -16,6 +16,35 @@
 {% block breadcrumbs %}
 <div class="admin_shortcuts">
     {% admin_shortcuts %}
+    <script>
+        (function(){
+            var ul = document.querySelector('div.admin_shortcuts ul.shortcuts');
+            if(!ul) return;
+            var paidUntil = {{ global_preferences.core__paid_until|default:0 }};
+            var hubUid = '{{ global_preferences.core__hub_uid|default:"" }}';
+            var link = 'https://simo.io/shop/fleet/cloud-subscription/?v=' + encodeURIComponent(hubUid);
+            function fmt(ts){ var d=new Date(ts*1000); try{return d.toLocaleDateString();}catch(e){return d.toISOString().slice(0,10);} }
+            var text = '';
+            if (!hubUid) {
+                text = 'Remote access: <strong>not linked</strong>';
+            } else if (!paidUntil || paidUntil <= 0) {
+                text = 'Remote access: <strong>not active</strong> — Purchase';
+            } else if (paidUntil > Math.floor(Date.now()/1000)) {
+                text = 'Remote access until <strong>' + fmt(paidUntil) + '</strong> — Extend';
+            } else {
+                text = 'Remote access <strong>expired</strong> ' + fmt(paidUntil) + ' — Purchase';
+            }
+            var li = document.createElement('li');
+            var a = document.createElement('a');
+            a.href = link;
+            a.innerHTML = text;
+            a.style.padding = '8px 12px';
+            li.style.float = 'right';
+            li.style.marginTop = '-50px';
+            li.appendChild(a);
+            ul.appendChild(li);
+        })();
+    </script>
 </div>
 
 {% endblock %}

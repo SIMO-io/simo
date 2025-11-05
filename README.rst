@@ -17,13 +17,28 @@ professional installations.
 
 How do I start?
 ==========
-This repository represents SIMO.io main hub software that is
-responsible for every SIMO.io hub out there.
+This repository contains the SIMO.io Hub software — the same code that runs on
+every SIMO.io hub. You have two ways to get started:
 
-For full SIMO.io smart home experience purchasing of
-`SIMO.io hub <https://simo.io/shop/simo-io-fleet/hub/>`_ is required.
-It comes with this software already preinstalled and various SIMO.io network
-features enabled, which allows for Plug and Play use of a system.
+- Buy an OEM SIMO.io Hub (recommended):
+  - Comes preinstalled and ready to go.
+  - Includes 3 years of SIMO Cloud subscription.
+  - Best total cost of ownership and zero setup hassle.
+  - Shop: https://simo.io/shop/simo-io-fleet/hub/
+
+- Self‑host on your own Ubuntu Server (fully supported):
+  - Requirements: Ubuntu Server 24.04 LTS or newer, fresh install.
+  - As root, run the installer which sets up all dependencies, database,
+    services and the SIMO Hub application:
+
+    sudo su -
+    wget https://simo.io/hubs/ubuntu-install -O - | python3
+
+  - Self‑hosted hubs receive a free 3‑month trial of SIMO Cloud.
+  - After the trial, SIMO Cloud (remote access, mobile app outside LAN,
+    AI scripts/automations) requires an $89/year subscription.
+  - Local operation on your LAN continues regardless — only cloud features are
+    disabled if you do not subscribe.
 
 
 Mobile App
@@ -49,8 +64,8 @@ All of your SIMO.io instances are available in your personal `Instances <https:/
 page, where you can access full Django Admin interface to each of them,
 from anywhere in the World!
 
-Standard SIMO.io hub admin interface comes packed with various powerful features
-and an easy and convenient way to extend your hub with all kinds of extras.
+Standard SIMO.io hub admin interface comes packed with powerful features and an
+easy, convenient way to extend your hub with all kinds of extras.
 
 
 Power User Paradise
@@ -80,6 +95,16 @@ All of these processes are running as root user, because there is nothing more i
 on your SIMO.io hub than it's main software. That's by design and thoughtful intention.
 
 Logs are piped to ``/var/log`` directory.
+
+
+Notes about Cloud features and subscription
+===========
+- OEM hubs include a 3‑year SIMO Cloud subscription out of the box.
+- Self‑hosted hubs start with a 3‑month free trial. After the trial, a
+  subscription ($89/year) is required to keep remote access, the SIMO.io mobile
+  app outside your LAN, AI scripts generation feature and Sentinel AI voice assistant enabled.
+- If a subscription expires, your hub continues working locally on your network;
+  only remote/cloud features are disabled until renewed.
 
 
 License

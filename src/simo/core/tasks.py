@@ -210,6 +210,13 @@ def sync_with_remote():
     if 'new_secret' in r_json:
         dynamic_settings['core__hub_secret'] = r_json['new_secret']
 
+    # Save cloud paid_until timestamp (seconds since epoch) if provided
+    if 'paid_until' in r_json:
+        try:
+            dynamic_settings['core__paid_until'] = int(r_json['paid_until'])
+        except Exception:
+            pass
+
     if dynamic_settings['core__remote_conn_version'] < r_json['remote_conn_version']:
         save_config(r_json)
     dynamic_settings['core__remote_conn_version'] = r_json['remote_conn_version']
