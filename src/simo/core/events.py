@@ -127,8 +127,8 @@ class OnChangeMixin:
         env = os.environ.get('SIMO_MQTT_WATCHERS_VIA_HUB')
         if env is not None:
             return env.strip().lower() in ('1', 'true', 'yes', 'on')
-        # Default to False until hub-backed watchers are fully validated.
-        return bool(getattr(settings, 'MQTT_WATCHERS_VIA_HUB', False))
+        # Enable by default while debugging (dev only)
+        return bool(getattr(settings, 'MQTT_WATCHERS_VIA_HUB', True))
 
     def get_instance(self):
         # default for component
@@ -143,7 +143,7 @@ class OnChangeMixin:
 
         try:
             payload = json.loads(msg.payload)
-        except Exception:
+        except Exception as e:
             return
         if not self._on_change_function:
             return
@@ -161,12 +161,12 @@ class OnChangeMixin:
         if not has_changed:
             return
 
-        if payload.get('timestamp', 0) < timezone.now().timestamp() - 10:
+        ts_now = timezone.now().timestamp()
+        if payload.get('timestamp', 0) < ts_now - 10:
             return
 
         tz = pytz.timezone(self.get_instance().timezone)
         timezone.activate(tz)
-
         self.refresh_from_db()
 
         no_args = len(inspect.getfullargspec(self._on_change_function).args)
@@ -212,7 +212,8 @@ class OnChangeMixin:
                 # Subscribe via shared hub (single client per process)
                 hub = get_mqtt_hub()
                 topic = ObjectChangeEvent(self.get_instance(), self).get_topic()
-                self._mqtt_sub_tokens = [hub.subscribe(topic, self.on_mqtt_message)]
+                t1 = hub.subscribe(topic, self.on_mqtt_message)
+                self._mqtt_sub_tokens = [t1]
             else:
                 # Dedicated client per watcher
                 self._mqtt_client = mqtt.Client()
