@@ -46,12 +46,11 @@ class ScriptConfigForm(BaseComponentForm):
         widget=forms.HiddenInput, required=False
     )
 
-    app_exclude_fields = ('alarm_category', 'code', 'log')
-
     _ai_resp = None
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.app_exclude_fields.extend(['alarm_category', 'code', 'log'])
         self.basic_fields.extend(['autostart', 'keep_alive'])
         if self.instance.pk:
             prefix = get_script_prefix()
@@ -251,10 +250,9 @@ class PresenceLightingConfigForm(BaseComponentForm):
         widget=forms.HiddenInput, required=False
     )
 
-    app_exclude_fields = ('alarm_category', 'code', 'log')
-
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.app_exclude_fields.extend(['alarm_category', 'code', 'log'])
         self.basic_fields.extend(
             ['lights', 'on_value', 'off_value', 'presence_sensors',
              'act_on', 'hold_time', 'conditions', 'autostart', 'keep_alive']
