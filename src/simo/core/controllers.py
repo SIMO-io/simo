@@ -358,7 +358,7 @@ class ControllerBase(ABC, metaclass=ControllerMeta):
             self.component.value_previous = self.component.value
             self.component.value = value
 
-    def set(self, value, actor=None, alive=True, error_msg=None):
+    def set(self, value, actor=None, alive=None, error_msg=None):
         """Set the component value locally and record history.
 
         This is called by `send()` after the device confirms or when device
@@ -409,8 +409,10 @@ class ControllerBase(ABC, metaclass=ControllerMeta):
         self.component.change_init_date = None
         self.component.change_init_to = None
         self.component.change_init_fingerprint = None
-        self.component.alive = alive
-        self.component.error_msg = error_msg
+        if alive is not None:
+            self.component.alive = alive
+        if error_msg is not None:
+            self.component.error_msg = error_msg
         self.component.change_actor = InstanceUser.objects.filter(
             instance=self.component.zone.instance,
             user=actor
