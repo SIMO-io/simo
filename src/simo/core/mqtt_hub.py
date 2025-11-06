@@ -22,6 +22,7 @@ class _MqttHub:
         self._client = None  # type: mqtt.Client | None
         self._subs: Dict[str, List[Callable[[mqtt.Client, object, object], None]]] = {}
         self._started = False
+        self._connected = threading.Event()
 
     # ----- public API -----
     @property
@@ -37,11 +38,15 @@ class _MqttHub:
                 except Exception:
                     pass
                 try:
-                    # async connect to avoid blocking startup if broker is down
-                    self._client.connect_async(host=settings.MQTT_HOST, port=settings.MQTT_PORT)
+                    # Prefer a synchronous connect so first publish/subscribe is reliable
+                    self._client.connect(host=settings.MQTT_HOST, port=settings.MQTT_PORT)
                 except Exception:
-                    # Keep going; we'll retry via loop thread
-                    logger.exception("MQTT hub: connect_async failed")
+                    # Fallback to async connect if direct connect fails
+                    logger.exception("MQTT hub: initial connect failed; falling back to async connect")
+                    try:
+                        self._client.connect_async(host=settings.MQTT_HOST, port=settings.MQTT_PORT)
+                    except Exception:
+                        logger.exception("MQTT hub: connect_async failed")
                 self._client.loop_start()
                 self._started = True
             return self._client
@@ -50,7 +55,8 @@ class _MqttHub:
         """Publish using the shared client."""
         client = self.client
         try:
-            return client.publish(topic, payload, qos=qos, retain=retain)
+            info = client.publish(topic, payload, qos=qos, retain=retain)
+            return info
         except Exception:
             logger.exception("MQTT hub: publish failed for topic %s", topic)
 
@@ -106,6 +112,8 @@ class _MqttHub:
 
     # ----- paho handlers -----
     def _on_connect(self, client: mqtt.Client, userdata, flags, rc):
+        if rc == 0:
+            self._connected.set()
         # Re-subscribe all topics after reconnect
         with self._lock:
             topics = list(self._subs.keys())
@@ -116,12 +124,24 @@ class _MqttHub:
                 logger.exception("MQTT hub: resubscribe failed for %s", topic)
 
     def _on_message(self, client: mqtt.Client, userdata, msg):
-        # Dispatch to all callbacks for the exact topic
+        # Dispatch to callbacks bound to this topic (exact) and any wildcard subscriptions
+        matched_callbacks: List[Callable] = []
         with self._lock:
-            callbacks = list(self._subs.get(msg.topic, []))
-        for cb in callbacks:
-            if cb is None:
-                continue
+            # exact match first
+            exact = self._subs.get(msg.topic, [])
+            matched_callbacks.extend([cb for cb in exact if cb is not None])
+            # wildcard matches
+            for sub, cbs in self._subs.items():
+                if sub == msg.topic:
+                    continue
+                try:
+                    if mqtt.topic_matches_sub(sub, msg.topic):
+                        matched_callbacks.extend([cb for cb in cbs if cb is not None])
+                except Exception:
+                    # If malformed subscription key sneaks in, ignore
+                    continue
+        # De-duplicate callbacks while preserving order
+        for cb in dict.fromkeys(matched_callbacks):
             try:
                 cb(client, None, msg)
             except Exception:

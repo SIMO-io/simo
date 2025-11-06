@@ -9,6 +9,7 @@ from django.conf import settings
 import paho.mqtt.client as mqtt
 from django.utils import timezone
 from .mqtt_hub import get_mqtt_hub
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -32,9 +33,7 @@ class ObjMqttAnnouncement:
         self.data['timestamp'] = timezone.now().timestamp()
         # Use shared hub client instead of opening a new socket per publish
         hub = get_mqtt_hub()
-        hub.publish(
-            self.get_topic(), json.dumps(self.data, default=str), retain=retain
-        )
+        hub.publish(self.get_topic(), json.dumps(self.data, default=str), retain=retain)
 
     def get_topic(self):
         return self.TOPIC
@@ -120,8 +119,16 @@ class OnChangeMixin:
 
     _on_change_function = None
     on_change_fields = ('value', )
-    _mqtt_client = None  # kept for backward compatibility; not used with hub
-    _mqtt_sub_token = None
+    _mqtt_client = None
+    _mqtt_sub_tokens = None
+
+    @staticmethod
+    def _use_hub_watchers() -> bool:
+        env = os.environ.get('SIMO_MQTT_WATCHERS_VIA_HUB')
+        if env is not None:
+            return env.strip().lower() in ('1', 'true', 'yes', 'on')
+        # Default to False until hub-backed watchers are fully validated.
+        return bool(getattr(settings, 'MQTT_WATCHERS_VIA_HUB', False))
 
     def get_instance(self):
         # default for component
@@ -134,7 +141,10 @@ class OnChangeMixin:
     def on_mqtt_message(self, client, userdata, msg):
         from simo.users.models import InstanceUser
 
-        payload = json.loads(msg.payload)
+        try:
+            payload = json.loads(msg.payload)
+        except Exception:
+            return
         if not self._on_change_function:
             return
         if payload['obj_pk'] != self.id:
@@ -175,29 +185,66 @@ class OnChangeMixin:
             print(traceback.format_exc(), file=sys.stderr)
 
     def on_change(self, function):
-        hub = get_mqtt_hub()
+        use_hub = self._use_hub_watchers()
         if function:
-            # If already subscribed, refresh the subscription
-            if getattr(self, '_mqtt_sub_token', None):
+            # Clear previous bindings (both modes) to avoid duplicates
+            if getattr(self, '_mqtt_sub_tokens', None):
                 try:
-                    hub.unsubscribe(self._mqtt_sub_token)
+                    hub = get_mqtt_hub()
+                    for tok in self._mqtt_sub_tokens:
+                        hub.unsubscribe(tok)
                 except Exception:
                     pass
-                self._mqtt_sub_token = None
-            # Subscribe via hub and store subscription token for cleanup
-            event = ObjectChangeEvent(self.get_instance(), self)
-            topic = event.get_topic()
-            # Ensure our callback is bound with expected signature
-            token = hub.subscribe(topic, self.on_mqtt_message)
-            self._mqtt_sub_token = token
+                self._mqtt_sub_tokens = None
+            if getattr(self, '_mqtt_client', None):
+                try:
+                    self._mqtt_client.loop_stop()
+                    self._mqtt_client.disconnect()
+                except Exception:
+                    pass
+                self._mqtt_client = None
+
+            # Set handler context before any message may arrive
             self._on_change_function = function
             self._obj_ct_id = ContentType.objects.get_for_model(self).pk
-        else:
-            # Unsubscribe if previously subscribed
-            if getattr(self, '_mqtt_sub_token', None):
+
+            if use_hub:
+                # Subscribe via shared hub (single client per process)
+                hub = get_mqtt_hub()
+                topic = ObjectChangeEvent(self.get_instance(), self).get_topic()
+                self._mqtt_sub_tokens = [hub.subscribe(topic, self.on_mqtt_message)]
+            else:
+                # Dedicated client per watcher
+                self._mqtt_client = mqtt.Client()
+                self._mqtt_client.username_pw_set('root', settings.SECRET_KEY)
+                self._mqtt_client.on_message = self.on_mqtt_message
+                def _on_connect(cli, userdata, flags, rc):
+                    cli.subscribe(ObjectChangeEvent(self.get_instance(), self).get_topic())
+                self._mqtt_client.on_connect = _on_connect
                 try:
-                    hub.unsubscribe(self._mqtt_sub_token)
+                    try:
+                        self._mqtt_client.reconnect_delay_set(min_delay=1, max_delay=30)
+                    except Exception:
+                        pass
+                    self._mqtt_client.connect(host=settings.MQTT_HOST, port=settings.MQTT_PORT)
+                except Exception:
+                    raise
+                self._mqtt_client.loop_start()
+        else:
+            # Unbind watcher
+            if getattr(self, '_mqtt_sub_tokens', None):
+                try:
+                    hub = get_mqtt_hub()
+                    for tok in self._mqtt_sub_tokens:
+                        hub.unsubscribe(tok)
                 except Exception:
                     pass
-                self._mqtt_sub_token = None
+                self._mqtt_sub_tokens = None
+            if getattr(self, '_mqtt_client', None):
+                try:
+                    self._mqtt_client.loop_stop()
+                    self._mqtt_client.disconnect()
+                except Exception:
+                    pass
+                self._mqtt_client = None
             self._on_change_function = None
