@@ -8,7 +8,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.conf import settings
 import paho.mqtt.client as mqtt
 from django.utils import timezone
-import paho.mqtt.publish as mqtt_publish
+from .mqtt_hub import get_mqtt_hub
 
 logger = logging.getLogger(__name__)
 
@@ -30,12 +30,10 @@ class ObjMqttAnnouncement:
         assert isinstance(self.TOPIC, str)
         assert self.data is not None
         self.data['timestamp'] = timezone.now().timestamp()
-        mqtt_publish.single(
-            self.get_topic(), json.dumps(self.data, default=str),
-            retain=retain,
-            hostname=settings.MQTT_HOST,
-            port=settings.MQTT_PORT,
-            auth={'username': 'root', 'password': settings.SECRET_KEY},
+        # Use shared hub client instead of opening a new socket per publish
+        hub = get_mqtt_hub()
+        hub.publish(
+            self.get_topic(), json.dumps(self.data, default=str), retain=retain
         )
 
     def get_topic(self):
@@ -122,7 +120,8 @@ class OnChangeMixin:
 
     _on_change_function = None
     on_change_fields = ('value', )
-    _mqtt_client = None
+    _mqtt_client = None  # kept for backward compatibility; not used with hub
+    _mqtt_sub_token = None
 
     def get_instance(self):
         # default for component
@@ -176,31 +175,29 @@ class OnChangeMixin:
             print(traceback.format_exc(), file=sys.stderr)
 
     def on_change(self, function):
+        hub = get_mqtt_hub()
         if function:
-            self._mqtt_client = mqtt.Client()
-            self._mqtt_client.username_pw_set('root', settings.SECRET_KEY)
-            self._mqtt_client.on_connect = self.on_mqtt_connect
-            self._mqtt_client.on_message = self.on_mqtt_message
-            # Be gentle when broker is down or connection flaps
-            try:
-                # paho 1.x supports reconnect backoff configuration
-                self._mqtt_client.reconnect_delay_set(min_delay=1, max_delay=30)
-            except Exception:
-                pass
-            try:
-                self._mqtt_client.connect_async(
-                    host=settings.MQTT_HOST, port=settings.MQTT_PORT
-                )
-            except Exception:
-                # connect_async should not normally raise; in case of programming
-                # errors keep the API surface consistent by cleaning up
-                self._mqtt_client = None
-                raise
-            self._mqtt_client.loop_start()
+            # If already subscribed, refresh the subscription
+            if getattr(self, '_mqtt_sub_token', None):
+                try:
+                    hub.unsubscribe(self._mqtt_sub_token)
+                except Exception:
+                    pass
+                self._mqtt_sub_token = None
+            # Subscribe via hub and store subscription token for cleanup
+            event = ObjectChangeEvent(self.get_instance(), self)
+            topic = event.get_topic()
+            # Ensure our callback is bound with expected signature
+            token = hub.subscribe(topic, self.on_mqtt_message)
+            self._mqtt_sub_token = token
             self._on_change_function = function
             self._obj_ct_id = ContentType.objects.get_for_model(self).pk
-        elif self._mqtt_client:
-            self._mqtt_client.disconnect()
-            self._mqtt_client.loop_stop()
-            self._mqtt_client = None
+        else:
+            # Unsubscribe if previously subscribed
+            if getattr(self, '_mqtt_sub_token', None):
+                try:
+                    hub.unsubscribe(self._mqtt_sub_token)
+                except Exception:
+                    pass
+                self._mqtt_sub_token = None
             self._on_change_function = None

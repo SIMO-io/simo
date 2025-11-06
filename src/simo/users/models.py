@@ -192,19 +192,15 @@ def post_instance_user_save(sender, instance, created, **kwargs):
             ).publish()
             # If role changed, notify the affected user to re-fetch states
             if 'role' in dirty_fields_prev:
-                from paho.mqtt import publish as mqtt_publish
+                from simo.core.mqtt_hub import get_mqtt_hub
+                hub = get_mqtt_hub()
                 topic = f"SIMO/user/{instance.user.id}/perms-changed"
                 payload = json.dumps({
                     'instance_id': instance.instance.id,
                     'timestamp': int(time.time())
                 })
                 try:
-                    mqtt_publish.single(
-                        topic, payload,
-                        hostname=settings.MQTT_HOST, port=settings.MQTT_PORT,
-                        auth={'username': 'root', 'password': settings.SECRET_KEY},
-                        retain=False
-                    )
+                    hub.publish(topic, payload, retain=False)
                 except Exception:
                     pass
             # Invalidate cached role lookups
@@ -573,7 +569,8 @@ def rebuild_mqtt_acls_on_create(sender, instance, created, **kwargs):
 
     # Notify affected users to re-sync their subscriptions
     def _notify():
-        from paho.mqtt import publish as mqtt_publish
+        from simo.core.mqtt_hub import get_mqtt_hub
+        hub = get_mqtt_hub()
         role = instance.role
         for iu in role.instance.instance_users.filter(role=role, is_active=True).select_related('user'):
             topic = f"SIMO/user/{iu.user.id}/perms-changed"
@@ -582,12 +579,7 @@ def rebuild_mqtt_acls_on_create(sender, instance, created, **kwargs):
                 'timestamp': int(time.time())
             })
             try:
-                mqtt_publish.single(
-                    topic, payload,
-                    hostname=settings.MQTT_HOST, port=settings.MQTT_PORT,
-                    auth={'username': 'root', 'password': settings.SECRET_KEY},
-                    retain=False
-                )
+                hub.publish(topic, payload, retain=False)
             except Exception:
                 pass
     transaction.on_commit(_notify)
@@ -625,7 +617,8 @@ def create_component_permissions_role(sender, instance, created, **kwargs):
 
     # Permissions topology changed; notify users on this role
     def _notify():
-        from paho.mqtt import publish as mqtt_publish
+        from simo.core.mqtt_hub import get_mqtt_hub
+        hub = get_mqtt_hub()
         for iu in instance.instance.instance_users.filter(role=instance, is_active=True).select_related('user'):
             topic = f"SIMO/user/{iu.user.id}/perms-changed"
             payload = json.dumps({
@@ -633,12 +626,7 @@ def create_component_permissions_role(sender, instance, created, **kwargs):
                 'timestamp': int(time.time())
             })
             try:
-                mqtt_publish.single(
-                    topic, payload,
-                    hostname=settings.MQTT_HOST, port=settings.MQTT_PORT,
-                    auth={'username': 'root', 'password': settings.SECRET_KEY},
-                    retain=False
-                )
+                hub.publish(topic, payload, retain=False)
             except Exception:
                 pass
     transaction.on_commit(_notify)
