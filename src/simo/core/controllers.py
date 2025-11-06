@@ -436,7 +436,7 @@ class ControllerBase(ABC, metaclass=ControllerMeta):
             actor = get_device_user()
 
         self.component.alive = is_alive
-        if error_msg != None:
+        if error_msg != None and not is_alive:
             self.component.error_msg = error_msg if error_msg.strip() else None
         else:
             self.component.error_msg = None
