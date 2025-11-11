@@ -2,6 +2,10 @@
 `SIMO.io <https://simo.io>`_ - Smart Home Supremacy
 =================================
 
+.. image:: https://img.shields.io/badge/Published%20on-Django%20Packages-0c3c26
+   :target: https://djangopackages.org/packages/p/simo/
+   :alt: Published on Django Packages
+
 
 A fully featured `Python/Django <https://www.djangoproject.com/>`_ - based
 smart home automation platform — built by professionals,
@@ -14,8 +18,6 @@ professional installations.
 | Simon
 | Founder of SIMO.io
 
-
-[Published on Django Packages](https://img.shields.io/badge/Published%20on-Django%20Packages-0c3c26)](https://djangopackages.org/packages/p/simo/)
 
 How do I start?
 ==========
