@@ -15,7 +15,7 @@ professional installations.
 | Founder of SIMO.io
 
 
-[![Published on Django Packages](https://img.shields.io/badge/Published%20on-Django%20Packages-0c3c26)](https://djangopackages.org/packages/p/simo/)
+[Published on Django Packages](https://img.shields.io/badge/Published%20on-Django%20Packages-0c3c26)](https://djangopackages.org/packages/p/simo/)
 
 How do I start?
 ==========
