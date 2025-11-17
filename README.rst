@@ -35,8 +35,8 @@ every SIMO.io hub. You have two ways to get started:
   - As root, run the installer which sets up all dependencies, database,
     services and the SIMO Hub application:
 
-    sudo su -
-    wget https://simo.io/hubs/ubuntu-install -O - | python3
+    ``sudo su root``
+    ``wget https://simo.io/hubs/ubuntu-install -O - | python3``
 
   - Self‑hosted hubs receive a free 3‑month trial of SIMO Cloud.
   - After the trial, SIMO Cloud (remote access, mobile app outside LAN,
