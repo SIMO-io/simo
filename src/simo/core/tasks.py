@@ -359,32 +359,6 @@ def clear_history():
         Action.objects.filter(id__in=delete_ids)
 
 
-@celery_app.task
-def watch_active_connections():
-    # https://github.com/django/daphne/issues/319
-    # Django channels and Daphne is still in active development
-    # and there is something mysteriously wrong with it.
-    # Sometimes daphne leaves infinite number of open sockets
-    # and doesn't close them automatically
-    # leading to a situation with infinite amount of daphne processes.
-    # This stops only when we hit database connections limit, so new connections
-    # are not being created, but hub becomes unusable to as every requrest throws
-    # to many connections error.
-    #
-    # We use this hack to prevent uncontrollable database connections growth
-    # and simply restart all processes if there are more than 50 connections.
-    #
-    # Usually there are no more than 20 active connections, so this ceiling
-    # should be god enough.
-
-    num_connections = 0
-    with connection.cursor() as cursor:
-        cursor.execute('select count(*) from pg_stat_activity;')
-        num_connections = cursor.fetchone()[0]
-
-    if num_connections > 50:
-        supervisor_restart()
-
 VACUUM_SQL = """
 SELECT schemaname,relname
 FROM pg_stat_all_tables
@@ -437,19 +411,6 @@ def time_out_discoveries():
             gw.finish_discovery()
 
 
-@celery_app.task
-def restart_postgresql():
-    # restart postgresql daily, so that we do not get in to any kind of
-    # hanging connections left by Django, which might happen if things are
-    # running for months without a reboot.
-    proc = subprocess.Popen(
-        ['service', 'postgresql', 'restart']
-    )
-    proc.communicate()
-
-
-
-
 
 @celery_app.task
 def maybe_update_to_latest():
@@ -490,4 +451,3 @@ def setup_periodic_tasks(sender, **kwargs):
     sender.add_periodic_task(60 * 60, clear_history.s())
     sender.add_periodic_task(60 * 60, maybe_update_to_latest.s())
     sender.add_periodic_task(60, drop_fingerprints_learn.s())
-    sender.add_periodic_task(60 * 60 * 24, restart_postgresql.s())
