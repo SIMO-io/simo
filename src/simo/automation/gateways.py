@@ -46,8 +46,12 @@ class ScriptRunHandler(multiprocessing.Process):
         timezone.activate(tz)
         introduce_instance(self.component.zone.instance)
         self.logger = get_component_logger(self.component)
-        sys.stdout = StreamToLogger(self.logger, logging.INFO)
-        sys.stderr = StreamToLogger(self.logger, logging.ERROR)
+
+        original_stdout, original_stderr = sys.stdout, sys.stderr
+        stdout_logger = StreamToLogger(self.logger, logging.INFO)
+        stderr_logger = StreamToLogger(self.logger, logging.ERROR)
+        sys.stdout = stdout_logger
+        sys.stderr = stderr_logger
         self.component.meta['pid'] = os.getpid()
         self.component.set('running')
         print("------START-------")
@@ -62,6 +66,9 @@ class ScriptRunHandler(multiprocessing.Process):
                 print("------FINISH-----")
                 self.component.set('finished')
             return
+        finally:
+            sys.stdout = original_stdout
+            sys.stderr = original_stderr
 
     def run_code(self):
         if hasattr(self.component.controller, '_run'):
@@ -97,6 +104,22 @@ class GatesHandler:
         super().__init__(*args, **kwargs)
         self.gate_iusers = {}
 
+    def _log(self, level, message):
+        logger = getattr(self, 'logger', None)
+        if logger:
+            logger.log(level, message)
+        else:
+            print(message)
+
+    def _log_info(self, message):
+        self._log(logging.INFO, message)
+
+    def _log_warning(self, message):
+        self._log(logging.WARNING, message)
+
+    def _log_debug(self, message):
+        self._log(logging.DEBUG, message)
+
     def _is_out_of_geofence(self, gate, location):
         '''
         Returns True if given location is out of geofencing zone
@@ -121,9 +144,9 @@ class GatesHandler:
                     location, units_of_measure='metric'
                 )
             except:
-                print(f"Bad location of {gate}!")
+                self._log_warning(f"Bad location of {gate}!")
                 return False
-        print(f"Distance from {gate} : {distance_meters}m")
+        self._log_info(f"Distance from {gate} : {distance_meters}m")
         return distance_meters > (
             auto_open_distance + self.GEOFENCE_CROSS_ZONE
         )
@@ -150,15 +173,15 @@ class GatesHandler:
                     location, units_of_measure='metric'
                 )
             except:
-                print(f"Bad location of {gate}!")
+                self._log_warning(f"Bad location of {gate}!")
                 return False
 
-        print(f"Distance from {gate} : {distance_meters}m")
+        self._log_info(f"Distance from {gate} : {distance_meters}m")
         return distance_meters <= auto_open_distance
 
     def check_gates(self, iuser):
         if not iuser.last_seen_location:
-            print("User's last seen location is unknown")
+            self._log_warning("User's last seen location is unknown")
             return
         for gate_id, geofence_data in self.gate_iusers.items():
             for iu_id, is_out in geofence_data.items():
@@ -166,25 +189,24 @@ class GatesHandler:
                     continue
                 gate = Component.objects.get(id=gate_id)
                 if is_out > 4:
-                    print(
-                        f"{iuser.user.name} is out, "
-                        f"let's see if we must open the gates for him"
+                    self._log_info(
+                        f"{iuser.user.name} is out, let's see if we must open the gates for him"
                     )
                     # user was fully out, we must check if
                     # he is now coming back and open the gate for him
                     if self._is_in_geofence(gate, iuser.last_seen_location):
-                        print("Yes he is back in a geofence! Open THE GATEEE!!")
+                        self._log_info("Yes he is back in a geofence! Open THE GATEEE!!")
                         self.gate_iusers[gate_id][iuser.id] = 0
                         if iuser.last_seen_speed_kmh > 10:
                             gate.open()
                     else:
-                        print("No he is not back yet.")
+                        self._log_info("No he is not back yet.")
                 else:
-                    print(f"Check if {iuser.user.name} is out.")
+                    self._log_info(f"Check if {iuser.user.name} is out.")
                     if self._is_out_of_geofence(gate, iuser.last_seen_location):
                         self.gate_iusers[gate_id][iuser.id] += 1
                     if self.gate_iusers[gate_id][iuser.id] > 4:
-                        print(f"YES {iuser.user.name} is truly out!")
+                        self._log_info(f"YES {iuser.user.name} is truly out!")
 
     def watch_gates(self):
         drop_current_instance()
@@ -359,7 +381,9 @@ class AutomationsGatewayHandler(GatesHandler, BaseObjectCommandsGatewayHandler):
 
         time.sleep(0.5)
         while len(self.running_scripts.keys()):
-            print("Still running scripts: ", self.running_scripts.keys())
+            self._log_info(
+                f"Still running scripts: {list(self.running_scripts.keys())}"
+            )
             time.sleep(0.5)
 
     def on_mqtt_connect(self, mqtt_client, userdata, flags, rc):
@@ -367,7 +391,7 @@ class AutomationsGatewayHandler(GatesHandler, BaseObjectCommandsGatewayHandler):
         mqtt_client.subscribe(command.get_topic())
 
     def on_mqtt_message(self, client, userdata, msg):
-        print("Mqtt message: ", msg.payload)
+        self._log_debug(f"Mqtt message: {msg.payload}")
         from .controllers import Script
         payload = json.loads(msg.payload)
         drop_current_instance()
@@ -385,7 +409,7 @@ class AutomationsGatewayHandler(GatesHandler, BaseObjectCommandsGatewayHandler):
 
 
     def start_script(self, component):
-        print("START SCRIPT %s" % str(component))
+        self._log_info(f"START SCRIPT {component}")
 
         if component.id in self.running_scripts:
             # Script appears to be healthy; do nothing and return.
