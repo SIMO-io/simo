@@ -22,6 +22,7 @@ from simo.core.forms import BaseComponentForm
 from simo.generic.controllers import StateSelect
 from .models import Colonel
 from .gateways import FleetGatewayHandler
+from .utils import get_i2c_interface_no
 from .forms import (
     ColonelPinChoiceField,
     ColonelBinarySensorConfigForm, ColonelButtonConfigForm,
@@ -175,9 +176,10 @@ class BME680Sensor(DHTSensor):
     name = "BME68X Climate Sensor (I2C)"
 
     def _get_occupied_pins(self):
-        return [
-            self.component.config['i2c_interface'] + 100,
-        ]
+        interface_no = get_i2c_interface_no(self.component.config)
+        if interface_no is None:
+            return []
+        return [interface_no + 100]
 
 
 
@@ -196,9 +198,10 @@ class MCP9808TempSensor(FleetDeviceMixin, BaseNumericSensor):
         return 'C'
 
     def _get_occupied_pins(self):
-        return [
-            self.component.config['i2c_interface'] + 100,
-        ]
+        interface_no = get_i2c_interface_no(self.component.config)
+        if interface_no is None:
+            return []
+        return [interface_no + 100]
 
     def _prepare_for_set(self, value):
         if self.component.zone.instance.units_of_measure == 'imperial':
@@ -219,9 +222,10 @@ class ENS160AirQualitySensor(FleetDeviceMixin, BaseMultiSensor):
     ]
 
     def _get_occupied_pins(self):
-        return [
-            self.component.config['i2c_interface'] + 100,
-        ]
+        interface_no = get_i2c_interface_no(self.component.config)
+        if interface_no is None:
+            return []
+        return [interface_no + 100]
 
     def get_co2(self):
         try:

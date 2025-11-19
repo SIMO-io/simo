@@ -501,7 +501,7 @@ class I2CDevice(ColonelComponentForm):
         # Check for address collisions on that interface
         other = Component.objects.filter(
             config__colonel=colonel.id,
-            config__interface=interface.id,
+            config__i2c_interface=interface.id,
             config__i2c_address=cleaned_data['i2c_address'],
         ).exclude(id=self.instance.id).first()
         if other:
@@ -512,10 +512,12 @@ class I2CDevice(ColonelComponentForm):
 
         # stash for save()
         cleaned_data['i2c_interface'] = interface.id
+        cleaned_data['interface_no'] = interface.no
         return cleaned_data
 
     def save(self, commit=True):
         self.instance.config['i2c_interface'] = self.cleaned_data['i2c_interface']
+        self.instance.config['interface_no'] = self.cleaned_data['interface_no']
         return super().save(commit=commit)
 
 

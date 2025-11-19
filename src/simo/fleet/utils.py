@@ -149,6 +149,27 @@ INTERFACES_PINS_MAP = {
 }
 
 
+def get_i2c_interface_no(config):
+    interface_no = config.get('interface_no')
+    if interface_no is not None:
+        return interface_no
+
+    interface_id = config.get('i2c_interface')
+    if not interface_id:
+        return None
+    try:
+        interface_id = int(interface_id)
+    except (TypeError, ValueError):
+        return None
+
+    from .models import Interface  # local import to avoid circular deps
+
+    interface = Interface.objects.filter(id=interface_id).first()
+    if interface:
+        return interface.no
+    return None
+
+
 def _get_component_interface_addresses(component):
     """Return list[(interface_id, address_type, address)] component needs.
 
