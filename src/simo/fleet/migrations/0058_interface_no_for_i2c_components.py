@@ -24,11 +24,11 @@ def forwards_func(apps, schema_editor):
         if not interface_id:
             continue
         try:
-            interface_id_int = int(interface_id)
+            interface_id = int(interface_id)
         except (TypeError, ValueError):
             continue
-        pending.append((comp, interface_id_int))
-        interface_ids.add(interface_id_int)
+        pending.append((comp, interface_id))
+        interface_ids.add(interface_id)
 
     if not pending:
         return
@@ -49,7 +49,7 @@ def forwards_func(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('fleet', '0054_auto_20250507_1256'),
+        ('fleet', '0057_remove_colonel_pwm_frequency_alter_colonel_type'),
     ]
 
     operations = [
