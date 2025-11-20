@@ -152,51 +152,103 @@ class PresenceLighting(Script):
         self.hold_time = 60
         self.conditions = []
         self.expected_light_values = {}
+        self._watched_lights = []
+
+    # ------------------------------------------------------------------
+    # Helpers for cooperative shutdown
+    # ------------------------------------------------------------------
+    @property
+    def _stop_event(self):
+        return getattr(self, 'exit_event', None)
+
+    def _should_stop(self):
+        event = self._stop_event
+        return event.is_set() if event else False
+
+    def _wait(self, seconds):
+        event = self._stop_event
+        if not event:
+            time.sleep(seconds)
+            return False
+        return event.wait(seconds)
+
+    def _cleanup_watchers(self):
+        for sensor in self.sensors.values():
+            try:
+                sensor.on_change(None)
+            except Exception:
+                pass
+        self.sensors.clear()
+
+        for light in self._watched_lights:
+            try:
+                light.on_change(None)
+            except Exception:
+                pass
+        self._watched_lights.clear()
+
+        for comp in self.condition_comps.values():
+            try:
+                comp.on_change(None)
+            except Exception:
+                pass
+        self.condition_comps.clear()
 
     def _run(self):
         self.hold_time = self.component.config.get('hold_time', 0) * 10
-        for id in self.component.config['presence_sensors']:
-            sensor = Component.objects.filter(id=id).first()
-            if sensor:
-                sensor.on_change(self._on_sensor)
-                self.sensors[id] = sensor
+        try:
+            for id in self.component.config['presence_sensors']:
+                if self._should_stop():
+                    break
+                sensor = Component.objects.filter(id=id).first()
+                if sensor:
+                    sensor.on_change(self._on_sensor)
+                    self.sensors[id] = sensor
 
-        for light_params in self.component.config['lights']:
-            light = Component.objects.filter(
-                id=light_params.get('light')
-            ).first()
-            if not light or not light.controller:
-                continue
-            light.on_change(self._on_light_change)
+            for light_params in self.component.config['lights']:
+                if self._should_stop():
+                    break
+                light = Component.objects.filter(
+                    id=light_params.get('light')
+                ).first()
+                if not light or not light.controller:
+                    continue
+                light.on_change(self._on_light_change)
+                self._watched_lights.append(light)
 
-        for condition in self.component.config.get('conditions', []):
-            comp = Component.objects.filter(
-                id=condition.get('component', 0)
-            ).first()
-            if comp:
-                condition['component'] = comp
-                condition['condition_value'] = \
-                    comp.controller._string_to_vals(condition['value'])
-                if condition['op'] != 'in':
+            for condition in self.component.config.get('conditions', []):
+                if self._should_stop():
+                    break
+                comp = Component.objects.filter(
+                    id=condition.get('component', 0)
+                ).first()
+                if comp:
+                    condition['component'] = comp
                     condition['condition_value'] = \
-                        condition['condition_value'][0]
-                self.conditions.append(condition)
-                comp.on_change(self._on_condition)
-                self.condition_comps[comp.id] = comp
+                        comp.controller._string_to_vals(condition['value'])
+                    if condition['op'] != 'in':
+                        condition['condition_value'] = \
+                            condition['condition_value'][0]
+                    self.conditions.append(condition)
+                    comp.on_change(self._on_condition)
+                    self.condition_comps[comp.id] = comp
 
-        while True:
-            # Resend expected values if they have failed to reach
-            # corresponding light
-            for c_id, [timestamp, expected_val] in self.expected_light_values.items():
-                if time.time() - timestamp < 5:
-                    continue
-                comp = Component.objects.filter(id=c_id).first()
-                if not comp:
-                    continue
-                print(f"Resending [{expected_val}] to {comp}")
-                comp.send(expected_val)
-            self._regulate()
-            time.sleep(random.randint(5, 15))
+            while not self._should_stop():
+                # Resend expected values if they have failed to reach
+                # corresponding light
+                for c_id, [timestamp, expected_val] in self.expected_light_values.items():
+                    if time.time() - timestamp < 5:
+                        continue
+                    comp = Component.objects.filter(id=c_id).first()
+                    if not comp:
+                        continue
+                    print(f"Resending [{expected_val}] to {comp}")
+                    comp.send(expected_val)
+                self._regulate()
+                if self._wait(random.randint(5, 15)):
+                    break
+        finally:
+            self._cleanup_watchers()
 
     def _on_sensor(self, sensor=None):
         if sensor:

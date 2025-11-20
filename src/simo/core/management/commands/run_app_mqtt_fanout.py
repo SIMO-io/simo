@@ -1,5 +1,7 @@
 import json
 import sys
+import time
+import threading
 import traceback
 import paho.mqtt.client as mqtt
 from django.core.management.base import BaseCommand
@@ -7,6 +9,7 @@ from django.conf import settings
 from simo.core.events import get_event_obj
 from simo.core.models import Component, Zone, Category
 from simo.users.models import User, InstanceUser, ComponentPermission
+from simo.core.utils.mqtt import connect_with_retry, install_reconnect_handler
 
 
 OBJ_STATE_PREFIX = 'SIMO/obj-state'
@@ -17,6 +20,7 @@ class Command(BaseCommand):
     help = 'Authorizing fanout for app feeds: replicate internal obj-state to per-user feed topics.'
 
     def handle(self, *args, **options):
+        stop_event = threading.Event()
         self.client = mqtt.Client()
         self.client.username_pw_set('root', settings.SECRET_KEY)
         self.client.on_connect = self.on_connect
@@ -29,11 +33,31 @@ class Command(BaseCommand):
             self.client.enable_logger()
         except Exception:
             pass
-        self.client.connect(host=settings.MQTT_HOST, port=settings.MQTT_PORT)
+
+        install_reconnect_handler(
+            self.client,
+            stop_event=stop_event,
+            description='App MQTT fanout'
+        )
+        if not connect_with_retry(
+            self.client,
+            stop_event=stop_event,
+            description='App MQTT fanout'
+        ):
+            return
+
+        self.client.loop_start()
         try:
-            # Blocking network loop with built-in reconnect/backoff
-            self.client.loop_forever(retry_first_connection=True)
+            while True:
+                time.sleep(1)
+        except KeyboardInterrupt:
+            pass
         finally:
+            stop_event.set()
+            try:
+                self.client.loop_stop()
+            except Exception:
+                pass
             try:
                 self.client.disconnect()
             except Exception:

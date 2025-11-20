@@ -72,8 +72,13 @@ class ScriptRunHandler(multiprocessing.Process):
             sys.stderr = original_stderr
 
     def run_code(self):
-        if hasattr(self.component.controller, '_run'):
-            self.component.controller._run()
+        controller = self.component.controller
+        if hasattr(controller, '_run'):
+            # Allow scripts implemented via `_run` to receive cooperative
+            # shutdown signals instead of being force-killed.
+            self.exit_in_use.set()
+            controller.exit_event = self.exit_event
+            controller._run()
         else:
             code = self.component.config.get('code')
             if not code:

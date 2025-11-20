@@ -1,5 +1,7 @@
 import json
 import sys
+import time
+import threading
 import traceback
 import paho.mqtt.client as mqtt
 from django.core.management.base import BaseCommand
@@ -8,6 +10,7 @@ from django.conf import settings
 from simo.users.models import User, InstanceUser, ComponentPermission
 from simo.users.utils import introduce_user
 from simo.core.models import Component
+from simo.core.utils.mqtt import connect_with_retry, install_reconnect_handler
 
 
 CONTROL_PREFIX = 'SIMO/user'
@@ -17,6 +20,7 @@ class Command(BaseCommand):
     help = 'Run MQTT control bridge to execute component controller methods from app MQTT requests.'
 
     def handle(self, *args, **options):
+        stop_event = threading.Event()
         client = mqtt.Client()
         client.username_pw_set('root', settings.SECRET_KEY)
         client.on_connect = self.on_connect
@@ -29,11 +33,31 @@ class Command(BaseCommand):
             client.enable_logger()
         except Exception:
             pass
-        client.connect(host=settings.MQTT_HOST, port=settings.MQTT_PORT)
+
+        install_reconnect_handler(
+            client,
+            stop_event=stop_event,
+            description='App MQTT control'
+        )
+        if not connect_with_retry(
+            client,
+            stop_event=stop_event,
+            description='App MQTT control'
+        ):
+            return
+
+        client.loop_start()
         try:
-            # Blocking network loop with built-in reconnect/backoff
-            client.loop_forever(retry_first_connection=True)
+            while True:
+                time.sleep(1)
+        except KeyboardInterrupt:
+            pass
         finally:
+            stop_event.set()
+            try:
+                client.loop_stop()
+            except Exception:
+                pass
             try:
                 client.disconnect()
             except Exception:
