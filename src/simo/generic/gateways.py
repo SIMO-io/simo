@@ -13,6 +13,7 @@ from simo.core.gateways import BaseObjectCommandsGatewayHandler
 from simo.core.forms import BaseGatewayForm
 from simo.core.events import GatewayObjectCommand, get_event_obj
 from simo.core.loggers import get_gw_logger, get_component_logger
+from simo.core.utils.mqtt import connect_with_retry, install_reconnect_handler
 
 
 class CameraWatcher(threading.Thread):
@@ -306,10 +307,20 @@ class GenericGatewayHandler(
             self.mqtt_client.reconnect_delay_set(min_delay=1, max_delay=30)
         except Exception:
             pass
-        try:
-            self.mqtt_client.connect_async(host=settings.MQTT_HOST, port=settings.MQTT_PORT)
-        except Exception:
-            pass
+
+        install_reconnect_handler(
+            self.mqtt_client,
+            logger=self.logger,
+            stop_event=exit,
+            description='Generic gateway MQTT',
+        )
+        if not connect_with_retry(
+            self.mqtt_client,
+            logger=self.logger,
+            stop_event=exit,
+            description='Generic gateway MQTT',
+        ):
+            return
 
         for cam in Component.objects.filter(
             controller_uid=IPCamera.uid

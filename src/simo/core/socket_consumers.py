@@ -1,5 +1,6 @@
 import json
 import asyncio
+import threading
 from ansi2html import Ansi2HTMLConverter
 from asgiref.sync import sync_to_async
 from django.template.loader import render_to_string
@@ -8,6 +9,7 @@ from django.contrib.contenttypes.models import ContentType
 from channels.generic.websocket import AsyncWebsocketConsumer, WebsocketConsumer
 from simo.core.events import ObjectChangeEvent, get_event_obj
 from simo.core.utils.logs import capture_socket_errors
+from simo.core.utils.mqtt import connect_with_retry, install_reconnect_handler
 import paho.mqtt.client as mqtt
 from simo.users.utils import introduce_user
 from simo.core.models import Component, Gateway
@@ -133,6 +135,7 @@ class LogConsumer(AsyncWebsocketConsumer):
 class GatewayController(SIMOWebsocketConsumer):
     gateway = None
     _mqtt_client = None
+    _mqtt_stop_event = None
 
     def connect(self):
 
@@ -154,7 +157,23 @@ class GatewayController(SIMOWebsocketConsumer):
         self._mqtt_client.username_pw_set('root', settings.SECRET_KEY)
         self._mqtt_client.on_connect = self._on_mqtt_connect
         self._mqtt_client.on_message = self._on_mqtt_message
-        self._mqtt_client.connect(host=settings.MQTT_HOST, port=settings.MQTT_PORT)
+        try:
+            self._mqtt_client.reconnect_delay_set(min_delay=1, max_delay=30)
+        except Exception:
+            pass
+        self._mqtt_stop_event = threading.Event()
+        install_reconnect_handler(
+            self._mqtt_client,
+            stop_event=self._mqtt_stop_event,
+            description='GatewayController MQTT',
+        )
+        if not connect_with_retry(
+            self._mqtt_client,
+            stop_event=self._mqtt_stop_event,
+            description='GatewayController MQTT',
+        ):
+            self.close()
+            return
         self._mqtt_client.loop_start()
 
     def _on_mqtt_connect(self, mqtt_client, userdata, flags, rc):
@@ -179,6 +198,8 @@ class GatewayController(SIMOWebsocketConsumer):
     def disconnect(self, console_log):
         if self._mqtt_client:
             try:
+                if self._mqtt_stop_event:
+                    self._mqtt_stop_event.set()
                 self._mqtt_client.loop_stop()
                 self._mqtt_client.disconnect()
             except:
@@ -190,6 +211,7 @@ class ComponentController(SIMOWebsocketConsumer):
     component = None
     send_value = False
     _mqtt_client = None
+    _mqtt_stop_event = None
 
     def connect(self):
 
@@ -220,8 +242,23 @@ class ComponentController(SIMOWebsocketConsumer):
         self._mqtt_client.username_pw_set('root', settings.SECRET_KEY)
         self._mqtt_client.on_connect = self._on_mqtt_connect
         self._mqtt_client.on_message = self._on_mqtt_message
-        self._mqtt_client.connect(host=settings.MQTT_HOST,
-                                 port=settings.MQTT_PORT)
+        try:
+            self._mqtt_client.reconnect_delay_set(min_delay=1, max_delay=30)
+        except Exception:
+            pass
+        self._mqtt_stop_event = threading.Event()
+        install_reconnect_handler(
+            self._mqtt_client,
+            stop_event=self._mqtt_stop_event,
+            description='ComponentController MQTT',
+        )
+        if not connect_with_retry(
+            self._mqtt_client,
+            stop_event=self._mqtt_stop_event,
+            description='ComponentController MQTT',
+        ):
+            self.close()
+            return
         self._mqtt_client.loop_start()
 
     def _on_mqtt_connect(self, mqtt_client, userdata, flags, rc):
@@ -271,6 +308,8 @@ class ComponentController(SIMOWebsocketConsumer):
     def disconnect(self, console_log):
         if self._mqtt_client:
             try:
+                if self._mqtt_stop_event:
+                    self._mqtt_stop_event.set()
                 self._mqtt_client.loop_stop()
                 self._mqtt_client.disconnect()
             except:

@@ -9,6 +9,7 @@ from abc import ABC, abstractmethod
 from simo.core.utils.helpers import classproperty
 from simo.core.events import GatewayObjectCommand, get_event_obj
 from simo.core.loggers import get_gw_logger
+from simo.core.utils.mqtt import connect_with_retry, install_reconnect_handler
 
 
 
@@ -78,18 +79,30 @@ class BaseObjectCommandsGatewayHandler(BaseGatewayHandler):
                 target=self._run_periodic_task, args=(self.exit, task, period), daemon=True
             ).start()
 
-        # Use async connect so we don't crash if broker is temporarily down
-        try:
-            self.mqtt_client.connect_async(host=settings.MQTT_HOST, port=settings.MQTT_PORT)
-        except Exception:
-            # connect_async shouldn't raise for normal scenarios; ignore just in case
-            pass
+        install_reconnect_handler(
+            self.mqtt_client,
+            logger=self.logger,
+            stop_event=self.exit,
+            description=f"{self.gateway_instance} MQTT",
+        )
+        if not connect_with_retry(
+            self.mqtt_client,
+            logger=self.logger,
+            stop_event=self.exit,
+            description=f"{self.gateway_instance} MQTT",
+        ):
+            return
+
         self.mqtt_client.loop_start()
 
         while not self.exit.is_set():
             time.sleep(1)
 
         self.mqtt_client.loop_stop()
+        try:
+            self.mqtt_client.disconnect()
+        except Exception:
+            pass
 
     def _run_periodic_task(self, exit, task, period):
         first_run = True

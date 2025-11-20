@@ -15,6 +15,7 @@ import paho.mqtt.client as mqtt
 from simo.core.events import GatewayObjectCommand, get_event_obj
 from simo.core.models import Gateway
 from simo.core.loggers import get_gw_logger
+from simo.core.utils.mqtt import connect_with_retry, install_reconnect_handler
 
 
 class GatewayRunHandler(multiprocessing.Process):
@@ -121,12 +122,20 @@ class GatewaysManager:
             self.mqtt_client.reconnect_delay_set(min_delay=1, max_delay=30)
         except Exception:
             pass
-        try:
-            self.mqtt_client.connect_async(
-                host=settings.MQTT_HOST, port=settings.MQTT_PORT
-            )
-        except Exception:
-            pass
+
+        install_reconnect_handler(
+            self.mqtt_client,
+            logger=logging.getLogger('simo.gw-manager'),
+            stop_event=self.exit_event,
+            description='Gateways Manager MQTT',
+        )
+        if not connect_with_retry(
+            self.mqtt_client,
+            logger=logging.getLogger('simo.gw-manager'),
+            stop_event=self.exit_event,
+            description='Gateways Manager MQTT',
+        ):
+            return
 
         self.mqtt_client.loop_start()
         while not self.exit_event.is_set():

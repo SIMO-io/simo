@@ -4,11 +4,13 @@ import json
 import traceback
 import pytz
 import inspect
+import threading
 from django.contrib.contenttypes.models import ContentType
 from django.conf import settings
 import paho.mqtt.client as mqtt
 from django.utils import timezone
 from .mqtt_hub import get_mqtt_hub
+from simo.core.utils.mqtt import connect_with_retry, install_reconnect_handler
 import os
 
 logger = logging.getLogger(__name__)
@@ -121,6 +123,7 @@ class OnChangeMixin:
     on_change_fields = ('value', )
     _mqtt_client = None
     _mqtt_sub_tokens = None
+    _mqtt_stop_event = None
 
     @staticmethod
     def _use_hub_watchers() -> bool:
@@ -223,11 +226,22 @@ class OnChangeMixin:
                     cli.subscribe(ObjectChangeEvent(self.get_instance(), self).get_topic())
                 self._mqtt_client.on_connect = _on_connect
                 try:
-                    try:
-                        self._mqtt_client.reconnect_delay_set(min_delay=1, max_delay=30)
-                    except Exception:
-                        pass
-                    self._mqtt_client.connect(host=settings.MQTT_HOST, port=settings.MQTT_PORT)
+                    self._mqtt_client.reconnect_delay_set(min_delay=1, max_delay=30)
+                except Exception:
+                    pass
+                self._mqtt_stop_event = threading.Event()
+                install_reconnect_handler(
+                    self._mqtt_client,
+                    stop_event=self._mqtt_stop_event,
+                    description=f"OnChange watcher {self}",
+                )
+                try:
+                    if not connect_with_retry(
+                        self._mqtt_client,
+                        stop_event=self._mqtt_stop_event,
+                        description=f"OnChange watcher {self}",
+                    ):
+                        return
                 except Exception:
                     raise
                 self._mqtt_client.loop_start()
@@ -243,9 +257,12 @@ class OnChangeMixin:
                 self._mqtt_sub_tokens = None
             if getattr(self, '_mqtt_client', None):
                 try:
+                    if self._mqtt_stop_event:
+                        self._mqtt_stop_event.set()
                     self._mqtt_client.loop_stop()
                     self._mqtt_client.disconnect()
                 except Exception:
                     pass
                 self._mqtt_client = None
+                self._mqtt_stop_event = None
             self._on_change_function = None

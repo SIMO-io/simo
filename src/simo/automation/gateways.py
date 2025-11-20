@@ -21,6 +21,7 @@ from simo.core.events import GatewayObjectCommand, get_event_obj
 from simo.core.loggers import get_gw_logger, get_component_logger
 from simo.users.models import InstanceUser
 from .helpers import haversine_distance
+from simo.core.utils.mqtt import connect_with_retry, install_reconnect_handler
 
 
 class ScriptRunHandler(multiprocessing.Process):
@@ -341,11 +342,20 @@ class AutomationsGatewayHandler(GatesHandler, BaseObjectCommandsGatewayHandler):
             self.mqtt_client.reconnect_delay_set(min_delay=1, max_delay=30)
         except Exception:
             pass
-        try:
-            # Avoid raising if broker restarts or is down at boot
-            self.mqtt_client.connect_async(host=settings.MQTT_HOST, port=settings.MQTT_PORT)
-        except Exception:
-            pass
+
+        install_reconnect_handler(
+            self.mqtt_client,
+            logger=self.logger,
+            stop_event=self.exit,
+            description='Automations gateway MQTT',
+        )
+        if not connect_with_retry(
+            self.mqtt_client,
+            logger=self.logger,
+            stop_event=self.exit,
+            description='Automations gateway MQTT',
+        ):
+            return
 
         # We presume that this is the only running gateway, therefore
         # if there are any running scripts, that is not true.

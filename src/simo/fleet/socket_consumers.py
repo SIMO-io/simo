@@ -6,6 +6,7 @@ import traceback
 import sys
 import zlib
 import time
+import threading
 from logging.handlers import RotatingFileHandler
 from django.utils import timezone
 from django.conf import settings
@@ -15,6 +16,7 @@ from asgiref.sync import sync_to_async
 from simo.core.utils.model_helpers import get_log_file_path
 from simo.core.middleware import drop_current_instance
 from simo.core.utils.logs import capture_socket_errors
+from simo.core.utils.mqtt import connect_with_retry, install_reconnect_handler
 from simo.core.events import GatewayObjectCommand, get_event_obj
 from simo.core.models import Gateway, Instance, Component
 from simo.conf import dynamic_settings
@@ -37,6 +39,7 @@ class FleetConsumer(AsyncWebsocketConsumer):
         self.last_seen = 0
         self._va = None
         self._arb = None
+        self._mqtt_stop_event = None
 
 
     async def disconnect(self, code):
@@ -46,7 +49,13 @@ class FleetConsumer(AsyncWebsocketConsumer):
             print("Colonel socket disconnected!")
         self.connected = False
         if self.mqtt_client:
-            self.mqtt_client.loop_stop()
+            try:
+                if self._mqtt_stop_event:
+                    self._mqtt_stop_event.set()
+                self.mqtt_client.loop_stop()
+                self.mqtt_client.disconnect()
+            except Exception:
+                pass
         try:
             if self._va and (self._va.active or self.colonel.is_vo_active):
                 await self._va._end_session(cloud_also=True)
@@ -194,12 +203,37 @@ class FleetConsumer(AsyncWebsocketConsumer):
                 print("SUBSCRIBE TO TOPIC: ", TOPIC)
                 mqtt_client.subscribe(TOPIC)
 
+            self._mqtt_stop_event = threading.Event()
             self.mqtt_client = mqtt.Client()
             self.mqtt_client.username_pw_set('root', settings.SECRET_KEY)
             self.mqtt_client.on_connect = on_mqtt_connect
             self.mqtt_client.on_message = self.on_mqtt_message
-            self.mqtt_client.connect(host=settings.MQTT_HOST,
-                                     port=settings.MQTT_PORT)
+            try:
+                self.mqtt_client.reconnect_delay_set(min_delay=1, max_delay=30)
+            except Exception:
+                pass
+
+            install_reconnect_handler(
+                self.mqtt_client,
+                logger=logging.getLogger('simo.fleet.consumer'),
+                stop_event=self._mqtt_stop_event,
+                description=f"FleetColonel {self.colonel.id} MQTT",
+            )
+
+            loop = asyncio.get_running_loop()
+            connected = await loop.run_in_executor(
+                None,
+                lambda: connect_with_retry(
+                    self.mqtt_client,
+                    logger=logging.getLogger('simo.fleet.consumer'),
+                    stop_event=self._mqtt_stop_event,
+                    description=f"FleetColonel {self.colonel.id} MQTT",
+                )
+            )
+            if not connected:
+                await self.close()
+                return
+
             self.mqtt_client.loop_start()
 
             await self.send_data({'command': 'hello'})
