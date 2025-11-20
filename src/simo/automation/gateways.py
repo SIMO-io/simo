@@ -19,7 +19,8 @@ from simo.core.utils.logs import StreamToLogger
 from simo.core.utils.converters import input_to_meters
 from simo.core.events import (
     GatewayObjectCommand, get_event_obj,
-    set_current_watcher_stop_event, clear_current_watcher_stop_event
+    set_current_watcher_stop_event, clear_current_watcher_stop_event,
+    cleanup_watchers_for_event
 )
 from simo.core.loggers import get_gw_logger, get_component_logger
 from simo.users.models import InstanceUser
@@ -72,6 +73,7 @@ class ScriptRunHandler(multiprocessing.Process):
                 self.component.set('finished')
             return
         finally:
+            cleanup_watchers_for_event(self.exit_event)
             clear_current_watcher_stop_event()
             sys.stdout = original_stdout
             sys.stderr = original_stderr

@@ -7,13 +7,13 @@ import inspect
 import threading
 import atexit
 import weakref
+import os
 from django.contrib.contenttypes.models import ContentType
 from django.conf import settings
 import paho.mqtt.client as mqtt
 from django.utils import timezone
 from .mqtt_hub import get_mqtt_hub
 from simo.core.utils.mqtt import connect_with_retry, install_reconnect_handler
-import os
 
 
 _watcher_context = threading.local()
@@ -143,6 +143,7 @@ class OnChangeMixin:
     _mqtt_sub_tokens = None
     _mqtt_stop_event = None
     _mqtt_cleanup_registered = False
+    _watcher_owner_event = None
 
     def _register_mqtt_cleanup(self):
         if self._mqtt_cleanup_registered:
@@ -300,6 +301,10 @@ class OnChangeMixin:
                     raise
                 self._mqtt_client.loop_start()
                 self._register_mqtt_cleanup()
+
+            owner_event = get_current_watcher_stop_event()
+            self._watcher_owner_event = owner_event
+            _register_component_watcher(self, owner_event)
         else:
             # Unbind watcher
             if getattr(self, '_mqtt_sub_tokens', None):
@@ -321,6 +326,7 @@ class OnChangeMixin:
                 self._mqtt_client = None
                 self._mqtt_stop_event = None
                 self._mqtt_cleanup_registered = False
+            _unregister_component_watcher(self)
             self._on_change_function = None
 
     @staticmethod
@@ -330,3 +336,55 @@ class OnChangeMixin:
         except Exception:
             return
         child_event.set()
+_watcher_context = threading.local()
+_watcher_registry_lock = threading.Lock()
+_watcher_registry = {}
+
+
+def set_current_watcher_stop_event(event):
+    _watcher_context.stop_event = event
+
+
+def clear_current_watcher_stop_event():
+    if hasattr(_watcher_context, 'stop_event'):
+        del _watcher_context.stop_event
+
+
+def get_current_watcher_stop_event():
+    return getattr(_watcher_context, 'stop_event', None)
+
+
+def _register_component_watcher(component, owner_event):
+    if owner_event is None:
+        return
+    with _watcher_registry_lock:
+        watchers = _watcher_registry.setdefault(owner_event, weakref.WeakSet())
+        watchers.add(component)
+    component._watcher_owner_event = owner_event
+
+
+def _unregister_component_watcher(component):
+    owner_event = getattr(component, '_watcher_owner_event', None)
+    if not owner_event:
+        return
+    with _watcher_registry_lock:
+        watchers = _watcher_registry.get(owner_event)
+        if watchers and component in watchers:
+            watchers.discard(component)
+            if not watchers:
+                _watcher_registry.pop(owner_event, None)
+    component._watcher_owner_event = None
+
+
+def cleanup_watchers_for_event(owner_event):
+    if owner_event is None:
+        return
+    with _watcher_registry_lock:
+        watchers = _watcher_registry.pop(owner_event, None)
+    if not watchers:
+        return
+    for component in list(watchers):
+        try:
+            component.on_change(None)
+        except Exception:
+            logger.exception("Failed to cleanup watcher for %s", component)
