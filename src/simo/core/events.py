@@ -5,6 +5,8 @@ import traceback
 import pytz
 import inspect
 import threading
+import atexit
+import weakref
 from django.contrib.contenttypes.models import ContentType
 from django.conf import settings
 import paho.mqtt.client as mqtt
@@ -124,6 +126,33 @@ class OnChangeMixin:
     _mqtt_client = None
     _mqtt_sub_tokens = None
     _mqtt_stop_event = None
+    _mqtt_cleanup_registered = False
+
+    def _register_mqtt_cleanup(self):
+        if self._mqtt_cleanup_registered:
+            return
+        self._mqtt_cleanup_registered = True
+        self_ref = weakref.ref(self)
+
+        def _cleanup():
+            obj = self_ref()
+            if not obj:
+                return
+            client = getattr(obj, '_mqtt_client', None)
+            stop_event = getattr(obj, '_mqtt_stop_event', None)
+            if stop_event:
+                stop_event.set()
+            if client:
+                try:
+                    client.loop_stop()
+                except Exception:
+                    pass
+                try:
+                    client.disconnect()
+                except Exception:
+                    pass
+
+        atexit.register(_cleanup)
 
     @staticmethod
     def _use_hub_watchers() -> bool:
@@ -245,6 +274,7 @@ class OnChangeMixin:
                 except Exception:
                     raise
                 self._mqtt_client.loop_start()
+                self._register_mqtt_cleanup()
         else:
             # Unbind watcher
             if getattr(self, '_mqtt_sub_tokens', None):
@@ -265,4 +295,5 @@ class OnChangeMixin:
                     pass
                 self._mqtt_client = None
                 self._mqtt_stop_event = None
+                self._mqtt_cleanup_registered = False
             self._on_change_function = None
