@@ -17,7 +17,10 @@ from simo.core.gateways import BaseObjectCommandsGatewayHandler
 from simo.core.forms import BaseGatewayForm
 from simo.core.utils.logs import StreamToLogger
 from simo.core.utils.converters import input_to_meters
-from simo.core.events import GatewayObjectCommand, get_event_obj
+from simo.core.events import (
+    GatewayObjectCommand, get_event_obj,
+    set_current_watcher_stop_event, clear_current_watcher_stop_event
+)
 from simo.core.loggers import get_gw_logger, get_component_logger
 from simo.users.models import InstanceUser
 from .helpers import haversine_distance
@@ -57,6 +60,7 @@ class ScriptRunHandler(multiprocessing.Process):
         self.component.set('running')
         print("------START-------")
         try:
+            set_current_watcher_stop_event(self.exit_event)
             self.run_code()
         except:
             print("------ERROR------")
@@ -68,6 +72,7 @@ class ScriptRunHandler(multiprocessing.Process):
                 self.component.set('finished')
             return
         finally:
+            clear_current_watcher_stop_event()
             sys.stdout = original_stdout
             sys.stderr = original_stderr
 

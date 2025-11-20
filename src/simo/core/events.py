@@ -15,6 +15,22 @@ from .mqtt_hub import get_mqtt_hub
 from simo.core.utils.mqtt import connect_with_retry, install_reconnect_handler
 import os
 
+
+_watcher_context = threading.local()
+
+
+def set_current_watcher_stop_event(event):
+    _watcher_context.stop_event = event
+
+
+def clear_current_watcher_stop_event():
+    if hasattr(_watcher_context, 'stop_event'):
+        del _watcher_context.stop_event
+
+
+def get_current_watcher_stop_event():
+    return getattr(_watcher_context, 'stop_event', None)
+
 logger = logging.getLogger(__name__)
 
 
@@ -251,14 +267,23 @@ class OnChangeMixin:
                 self._mqtt_client = mqtt.Client()
                 self._mqtt_client.username_pw_set('root', settings.SECRET_KEY)
                 self._mqtt_client.on_message = self.on_mqtt_message
+
                 def _on_connect(cli, userdata, flags, rc):
                     cli.subscribe(ObjectChangeEvent(self.get_instance(), self).get_topic())
+
                 self._mqtt_client.on_connect = _on_connect
                 try:
                     self._mqtt_client.reconnect_delay_set(min_delay=1, max_delay=30)
                 except Exception:
                     pass
                 self._mqtt_stop_event = threading.Event()
+                parent_stop = get_current_watcher_stop_event()
+                if parent_stop:
+                    threading.Thread(
+                        target=self._bridge_stop_events,
+                        args=(parent_stop, self._mqtt_stop_event),
+                        daemon=True
+                    ).start()
                 install_reconnect_handler(
                     self._mqtt_client,
                     stop_event=self._mqtt_stop_event,
@@ -297,3 +322,11 @@ class OnChangeMixin:
                 self._mqtt_stop_event = None
                 self._mqtt_cleanup_registered = False
             self._on_change_function = None
+
+    @staticmethod
+    def _bridge_stop_events(parent_event, child_event):
+        try:
+            parent_event.wait()
+        except Exception:
+            return
+        child_event.set()

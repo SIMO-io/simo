@@ -16,7 +16,34 @@ from simo.core.form_fields import (
 )
 
 
-class ScriptConfigForm(BaseComponentForm):
+class AutomationComponentForm(BaseComponentForm):
+    """Base form for automation components.
+
+    Automation scripts never expose `value_units` or `custom_methods` to users,
+    so strip those fields (and their app/basics metadata) consistently.
+    """
+
+    _automation_hidden_fields = ('custom_methods', 'value_units')
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for field in self._automation_hidden_fields:
+            if field in self.fields:
+                self.fields[field].widget = forms.HiddenInput()
+                self.fields[field].required = False
+        # Remove from app/basics metadata so admin widgets don't expect them
+        if hasattr(self, 'basic_fields'):
+            self.basic_fields = [
+                field for field in self.basic_fields
+                if field not in self._automation_hidden_fields
+            ]
+        if hasattr(self, 'app_exclude_fields'):
+            merged = set(self.app_exclude_fields or [])
+            merged.update(self._automation_hidden_fields)
+            self.app_exclude_fields = list(merged)
+
+
+class ScriptConfigForm(AutomationComponentForm):
     autostart = forms.BooleanField(
         initial=True, required=False,
         help_text="Start automatically on system boot."
@@ -200,7 +227,7 @@ class LightTurnOnForm(forms.Form):
     )
 
 
-class PresenceLightingConfigForm(BaseComponentForm):
+class PresenceLightingConfigForm(AutomationComponentForm):
     presence_sensors = Select2ModelMultipleChoiceField(
         queryset=Component.objects.filter(
             base_type__in=('binary-sensor', 'switch')
