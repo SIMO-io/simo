@@ -55,9 +55,9 @@ def prepare_mosquitto():
         with open('/etc/mosquitto/conf.d/simo.conf', 'w') as f:
             f.write(render_to_string('conf/mosquitto.conf'))
 
-    subprocess.run(
-        ['service', 'mosquitto', 'restart'], stdout=subprocess.PIPE
-    )
+        subprocess.run(
+            ['service', 'mosquitto', 'restart'], stdout=subprocess.PIPE
+        )
 
 
 def update_auto_update():
