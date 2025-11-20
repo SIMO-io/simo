@@ -173,6 +173,8 @@ class OnChangeMixin:
 
     @staticmethod
     def _use_hub_watchers() -> bool:
+        if get_current_watcher_stop_event():
+            return False
         env = os.environ.get('SIMO_MQTT_WATCHERS_VIA_HUB')
         if env is not None:
             return env.strip().lower() in ('1', 'true', 'yes', 'on')
