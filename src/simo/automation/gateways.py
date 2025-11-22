@@ -43,6 +43,7 @@ class ScriptRunHandler(multiprocessing.Process):
         self.exit_event = exit_event
         self.exit_in_use = multiprocessing.Event()
         self.exin_in_use_fail = multiprocessing.Event()
+        self.watchers_cleaned = multiprocessing.Event()
 
     def run(self):
         db_connection.connect()
@@ -62,6 +63,20 @@ class ScriptRunHandler(multiprocessing.Process):
         print("------START-------")
         try:
             set_current_watcher_stop_event(self.exit_event)
+            def _await_exit_cleanup():
+                try:
+                    self.exit_event.wait()
+                except Exception:
+                    pass
+                finally:
+                    try:
+                        cleanup_watchers_for_event(self.exit_event)
+                    finally:
+                        self.watchers_cleaned.set()
+
+            threading.Thread(
+                target=_await_exit_cleanup, daemon=True
+            ).start()
             self.run_code()
         except:
             print("------ERROR------")
@@ -77,6 +92,7 @@ class ScriptRunHandler(multiprocessing.Process):
             clear_current_watcher_stop_event()
             sys.stdout = original_stdout
             sys.stderr = original_stderr
+            self.watchers_cleaned.set()
 
     def run_code(self):
         controller = self.component.controller
@@ -474,17 +490,24 @@ class AutomationsGatewayHandler(GatesHandler, BaseObjectCommandsGatewayHandler):
         elif stop_status == 'stopped':
             logger.log(logging.INFO, "-------STOP-------")
 
-        if self.running_scripts[component.id]['proc'].exit_in_use.is_set()\
-        and not self.running_scripts[component.id]['proc'].exin_in_use_fail.is_set():
-            self.running_scripts[component.id]['proc'].exit_event.set()
-        else:
-            self.running_scripts[component.id]['proc'].terminate()
+        script_proc = self.running_scripts[component.id]['proc']
+        cooperative_exit = script_proc.exit_in_use.is_set() and not script_proc.exin_in_use_fail.is_set()
+        script_proc.exit_event.set()
 
         def kill():
+            if not cooperative_exit:
+                watchers_cleaned = getattr(script_proc, 'watchers_cleaned', None)
+                if watchers_cleaned is not None:
+                    try:
+                        watchers_cleaned.wait(timeout=2)
+                    except Exception:
+                        pass
+                if script_proc.is_alive():
+                    script_proc.terminate()
             start = time.time()
             terminated = False
             while start > time.time() - 2:
-                if not self.running_scripts[component.id]['proc'].is_alive():
+                if not script_proc.is_alive():
                     terminated = True
                     break
                 time.sleep(0.1)
@@ -493,12 +516,12 @@ class AutomationsGatewayHandler(GatesHandler, BaseObjectCommandsGatewayHandler):
                     logger.log(logging.INFO, "-------GATEWAY KILL-------")
                 else:
                     logger.log(logging.INFO, "-------KILL!-------")
-                self.running_scripts[component.id]['proc'].kill()
+                script_proc.kill()
 
             component.set(stop_status)
             self.terminating_scripts.remove(component.id)
             # making sure it's fully killed along with it's child processes
-            self.running_scripts[component.id]['proc'].kill()
+            script_proc.kill()
             self.running_scripts.pop(component.id, None)
             logger.handlers = []
 
