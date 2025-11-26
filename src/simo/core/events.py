@@ -144,6 +144,7 @@ class OnChangeMixin:
     _mqtt_stop_event = None
     _mqtt_cleanup_registered = False
     _watcher_owner_event = None
+    _on_change_since = None
 
     def _register_mqtt_cleanup(self):
         if self._mqtt_cleanup_registered:
@@ -212,8 +213,13 @@ class OnChangeMixin:
         if not has_changed:
             return
 
+        payload_ts = payload.get('timestamp', 0)
+        since = getattr(self, '_on_change_since', None)
+        if since and payload_ts <= since:
+            return
+
         ts_now = timezone.now().timestamp()
-        if payload.get('timestamp', 0) < ts_now - 10:
+        if payload_ts < ts_now - 10:
             return
 
         tz = pytz.timezone(self.get_instance().timezone)
@@ -238,6 +244,7 @@ class OnChangeMixin:
     def on_change(self, function):
         use_hub = self._use_hub_watchers()
         if function:
+            self._on_change_since = timezone.now().timestamp()
             # Clear previous bindings (both modes) to avoid duplicates
             if getattr(self, '_mqtt_sub_tokens', None):
                 try:
@@ -309,6 +316,7 @@ class OnChangeMixin:
             _register_component_watcher(self, owner_event)
         else:
             # Unbind watcher
+            self._on_change_since = None
             if getattr(self, '_mqtt_sub_tokens', None):
                 try:
                     hub = get_mqtt_hub()
