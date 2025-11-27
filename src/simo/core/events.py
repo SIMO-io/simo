@@ -14,6 +14,7 @@ import paho.mqtt.client as mqtt
 from django.utils import timezone
 from .mqtt_hub import get_mqtt_hub
 from simo.core.utils.mqtt import connect_with_retry, install_reconnect_handler
+from .utils.model_helpers import dirty_fields_to_current_values
 
 
 _watcher_context = threading.local()
@@ -106,33 +107,6 @@ def get_event_obj(payload, model_class=None, gateway=None):
         return
 
     return obj
-
-
-def dirty_fields_to_current_values(instance, dirty_fields):
-    """Return a mapping of changed field names to the instance's current values.
-
-    - Avoids extra DB hits by reading values from the in-memory instance.
-    - For ForeignKey fields, emits the underlying ``<field>_id`` when available
-      to keep the payload JSON-serializable and consistent.
-    """
-    if not dirty_fields:
-        return {}
-
-    current = {}
-    for field_name in dirty_fields.keys():
-        try:
-            model_field = instance._meta.get_field(field_name)
-            # Many-to-many changes are not handled here (not part of default dirty_fields)
-            if getattr(model_field, 'many_to_many', False):
-                continue
-            if getattr(model_field, 'is_relation', False) and hasattr(instance, f"{field_name}_id"):
-                current[field_name] = getattr(instance, f"{field_name}_id")
-            else:
-                current[field_name] = getattr(instance, field_name, None)
-        except Exception:
-            # Field might not be a real model field (unlikely); fallback to attribute
-            current[field_name] = getattr(instance, field_name, None)
-    return current
 
 
 class OnChangeMixin:

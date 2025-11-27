@@ -21,6 +21,7 @@ from simo.core.utils.mixins import SimoAdminMixin
 from simo.core.storage import OverwriteStorage
 from simo.core.utils.validators import validate_svg
 from simo.core.utils.helpers import get_random_string
+from simo.core.utils.model_helpers import dirty_fields_to_current_values
 from simo.users.models import User
 from .managers import (
     InstanceManager, ZonesManager, CategoriesManager, ComponentsManager
@@ -432,6 +433,7 @@ class Component(DirtyFieldsMixin, models.Model, SimoAdminMixin, OnChangeMixin):
     controller_cls = None
 
     _controller_initiated = False
+    _pending_change_event = None
 
 
 
@@ -518,12 +520,13 @@ class Component(DirtyFieldsMixin, models.Model, SimoAdminMixin, OnChangeMixin):
         else:
             self.arm_status = 'disarmed'
 
-        dirty_fields = self.get_dirty_fields(check_relationship=True)
+        self._pending_change_event = None
+        dirty_fields_initial = self.get_dirty_fields(check_relationship=True)
 
         if self.pk:
             actor = get_current_user()
 
-            if 'arm_status' in dirty_fields:
+            if 'arm_status' in dirty_fields_initial:
                 ComponentHistory.objects.create(
                     component=self, type='security',
                     value=self.arm_status, user=actor,
@@ -539,28 +542,76 @@ class Component(DirtyFieldsMixin, models.Model, SimoAdminMixin, OnChangeMixin):
                 actor.save()
 
             changing_fields = ['value', 'arm_status', 'battery_level', 'alive', 'meta']
-            if any(f in dirty_fields for f in changing_fields):
+            if any(f in dirty_fields_initial for f in changing_fields):
                 self.last_change = timezone.now()
-                if 'update_fields' in kwargs \
-                and 'last_change' not in kwargs['update_fields']:
-                    kwargs['update_fields'].append('last_change')
+                update_fields = kwargs.get('update_fields')
+                if update_fields is not None and 'last_change' not in update_fields:
+                    if isinstance(update_fields, tuple):
+                        kwargs['update_fields'] = update_fields + ('last_change',)
+                    else:
+                        update_fields.append('last_change')
 
             modifying_fields = (
                 'name', 'icon', 'zone', 'category', 'config',
                 'value_units', 'slaves', 'show_in_app', 'alarm_category'
             )
-            if any(f in dirty_fields for f in modifying_fields):
+            if any(f in dirty_fields_initial for f in modifying_fields):
                 self.last_modified = timezone.now()
-                if 'update_fields' in kwargs \
-                and 'last_modified' not in kwargs['update_fields']:
-                    if isinstance(kwargs['update_fields'], tuple):
-                        kwargs['update_fields'] += ('last_modified', )
+                update_fields = kwargs.get('update_fields')
+                if update_fields is not None and 'last_modified' not in update_fields:
+                    if isinstance(update_fields, tuple):
+                        kwargs['update_fields'] = update_fields + ('last_modified',)
                     else:
-                        kwargs['update_fields'].append('last_modified')
+                        update_fields.append('last_modified')
+
+            dirty_fields_for_event = self.get_dirty_fields(check_relationship=True)
+            for ignore_field in (
+                'change_init_by', 'change_init_date', 'change_init_to', 'last_update'
+            ):
+                dirty_fields_for_event.pop(ignore_field, None)
+            if dirty_fields_for_event:
+                self._pending_change_event = self._build_change_event_context(
+                    dirty_fields_for_event
+                )
 
         obj = super().save(*args, **kwargs)
 
         return obj
+
+    def _build_change_event_context(self, dirty_fields_prev):
+        dirty_current = dirty_fields_to_current_values(self, dirty_fields_prev)
+        component_payload = {
+            'value': self.value,
+            'last_change': dirty_current.get('last_change', self.last_change),
+            'last_modified': dirty_current.get('last_modified', self.last_modified),
+            'arm_status': self.arm_status,
+            'battery_level': self.battery_level,
+            'alive': self.alive,
+            'meta': self.meta,
+        }
+
+        masters_payload = []
+        for master in self.masters.all():
+            masters_payload.append({
+                'component': master,
+                'data': {
+                    'value': master.value,
+                    'last_change': master.last_change,
+                    'last_modified': master.last_modified,
+                    'arm_status': master.arm_status,
+                    'battery_level': master.battery_level,
+                    'alive': master.alive,
+                    'meta': master.meta,
+                    'slave_id': self.id,
+                }
+            })
+
+        return {
+            'dirty_fields': dirty_current,
+            'component': component_payload,
+            'actor': getattr(self, 'change_actor', None),
+            'masters': masters_payload,
+        }
 
     def arm(self):
         # supports this method override in controller class

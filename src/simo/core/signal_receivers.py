@@ -166,6 +166,32 @@ def post_save_actions_dispatcher(sender, instance, created, **kwargs):
 def post_save_change_events(sender, instance, created, **kwargs):
     target = instance
     from .events import ObjectChangeEvent, dirty_fields_to_current_values
+
+    if isinstance(target, Component):
+        context = getattr(target, '_pending_change_event', None)
+        target._pending_change_event = None
+        if not context:
+            return
+
+        def post_update_component():
+            ObjectChangeEvent(
+                target.zone.instance,
+                target,
+                dirty_fields=context['dirty_fields'],
+                actor=context.get('actor'),
+                **context['component']
+            ).publish()
+            for master_ctx in context['masters']:
+                master = master_ctx['component']
+                ObjectChangeEvent(
+                    master.zone.instance,
+                    master,
+                    **master_ctx['data']
+                ).publish()
+
+        transaction.on_commit(post_update_component)
+        return
+
     dirty_fields_prev = target.get_dirty_fields()
     for ignore_field in (
         'change_init_by', 'change_init_date', 'change_init_to', 'last_update'
@@ -176,36 +202,11 @@ def post_save_change_events(sender, instance, created, **kwargs):
         if not dirty_fields_prev:
             return
 
-        if type(target) == Gateway:
+        if isinstance(target, Gateway):
             ObjectChangeEvent(
                 None, target,
                 dirty_fields=dirty_fields_to_current_values(target, dirty_fields_prev),
             ).publish()
-        elif type(target) == Component:
-            data = {}
-            for field_name in (
-                'value', 'last_change', 'arm_status',
-                'battery_level', 'alive', 'meta'
-            ):
-                data[field_name] = getattr(target, field_name, None)
-            ObjectChangeEvent(
-                target.zone.instance, target,
-                dirty_fields=dirty_fields_to_current_values(target, dirty_fields_prev),
-                actor=getattr(target, 'change_actor', None),
-                **data
-            ).publish()
-            for master in target.masters.all():
-                data = {}
-                for field_name in (
-                    'value', 'last_change', 'arm_status',
-                    'battery_level', 'alive', 'meta'
-                ):
-                    data[field_name] = getattr(master, field_name, None)
-                ObjectChangeEvent(
-                    master.zone.instance,
-                    master, slave_id=target.id,
-                    **data
-                ).publish()
 
     transaction.on_commit(post_update)
 
