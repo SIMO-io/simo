@@ -92,23 +92,18 @@ class _MqttHub:
                 self._client.on_log = self._on_log
                 try:
                     self._client.reconnect_delay_set(min_delay=1, max_delay=30)
-                    print("[MQTTHUB] reconnect_delay_set ok")
                 except Exception as e:
                     print(f"[MQTTHUB] reconnect_delay_set failed: {e}")
                 try:
                     # Prefer a synchronous connect so first publish/subscribe is reliable
-                    print(f"[MQTTHUB] connecting sync to {settings.MQTT_HOST}:{settings.MQTT_PORT}")
                     self._client.connect(host=settings.MQTT_HOST, port=settings.MQTT_PORT)
-                    print("[MQTTHUB] connect() returned")
                 except Exception as e:
                     # Fallback to async connect if direct connect fails
                     print(f"[MQTTHUB] sync connect failed: {e}; fallback to async")
                     try:
                         self._client.connect_async(host=settings.MQTT_HOST, port=settings.MQTT_PORT)
-                        print("[MQTTHUB] connect_async() returned")
                     except Exception as e2:
                         print(f"[MQTTHUB] connect_async failed: {e2}")
-                print("[MQTTHUB] loop_start()")
                 self._client.loop_start()
                 self._started = True
             else:
