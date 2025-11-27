@@ -2,6 +2,7 @@ import pytz
 import datetime
 import logging
 import json
+from concurrent.futures import ThreadPoolExecutor
 from asgiref.sync import sync_to_async
 from django.utils import timezone
 from simo.mcp_server.app import mcp
@@ -103,32 +104,79 @@ async def get_component_value_change_history(
     return await sync_to_async(_load, thread_sensitive=True)(start, end, component_ids)
 
 
-@mcp.tool(name="core.call_component_method")
-async def call_component_method(
-    component_id: int,
-    method_name: str,
-    args: list | None = None,
-    kwargs: dict | None = None,
+@mcp.tool(name="core.execute_component_methods")
+async def execute_component_methods(
+    operations: list
 ):
     """
-    Calls a method on a component with given args/kwargs and returns the result if any.
+    Execute many component method calls in parallel and return their outputs
+    in the original order.
+
+    ``operations`` must be a list where every element is either
+    ``[component_id, method_name]`` or
+    ``[component_id, method_name, args, kwargs]``. ``args`` must be a list (or
+    ``None``) and ``kwargs`` a dict (or ``None``). The tool fans out the calls
+    concurrently so long-running components do not block others. Example:
+
+    ``operations`` may use positional lists/tuples or keyword dictionaries.
+    Valid formats:
+
+    - ``[component_id, method_name]``
+    - ``[component_id, method_name, args, kwargs]``
+    - ``{"component_id": 101, "method_name": "turn_on", "args": [], "kwargs": {}}``
+
+    ``args`` must be a list (or ``None``) and ``kwargs`` a dict (or ``None``).
+    The tool fans out the calls concurrently so long-running components do not
+    block others. Example: ``[[101, "turn_on"], [202, "set_level", [75], None]]``
+
+    Always expect the response list to align positionally with the operations
+    you supplied. This makes it easy for AI orchestrators to fan out work and
+    then correlate each reply without additional bookkeeping.
     """
     def _execute():
-        log.debug("Call component [%s] %s(*%s, **%s)", component_id, method_name, args, kwargs)
+        log.debug(f"Execute component methods: {operations}")
         current_user = get_current_user()
         if not current_user:
             introduce_user(get_ai_user())
-        component = Component.objects.get(
-            pk=component_id, zone__instance=get_current_instance()
-        )
-        fn = getattr(component, method_name)
-        if args and kwargs:
+
+        instance = get_current_instance()
+
+        if not operations:
+            return []
+
+        def _normalize(op):
+            if isinstance(op, dict):
+                component_id = op.get('component_id') or op.get('id')
+                method_name = op.get('method_name') or op.get('method')
+                args = op.get('args')
+                kwargs = op.get('kwargs')
+            else:
+                component_id = op[0]
+                method_name = op[1]
+                args = op[2] if len(op) > 2 else None
+                kwargs = op[3] if len(op) > 3 else None
+            return component_id, method_name, args, kwargs
+
+        def _run(op):
+            component_id, method_name, args, kwargs = _normalize(op)
+            component = Component.objects.get(
+                pk=component_id, zone__instance=instance
+            )
+            fn = getattr(component, method_name)
+            has_args = args is not None
+            has_kwargs = kwargs is not None
+            if not has_args and not has_kwargs:
+                return fn()
+            if not has_args:
+                args = []
+            if not has_kwargs:
+                kwargs = {}
             return fn(*args, **kwargs)
-        if args:
-            return fn(*args)
-        if kwargs:
-            return fn(**kwargs)
-        return fn()
+
+        max_workers = max(1, min(len(operations), 8))
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            results = list(executor.map(_run, operations))
+        return results
 
     return await sync_to_async(_execute, thread_sensitive=True)()
 
