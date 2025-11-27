@@ -23,6 +23,10 @@ class ColonelsAutocomplete(autocomplete.Select2QuerySetView):
 
         qs = Colonel.objects.filter(instance=instance)
 
+        forwarded_filters = getattr(self, 'forwarded', {}).get('filters')
+        if isinstance(forwarded_filters, dict) and forwarded_filters:
+            qs = qs.filter(**forwarded_filters)
+
         if self.request.GET.get('value'):
             qs = qs.filter(pk__in=self.request.GET['value'].split(','))
         elif self.q:
@@ -159,4 +163,3 @@ class ControlInputSelectAutocomplete(autocomplete.Select2ListView):
                  f"{button.zone.name} | {button.name}"
                  if button.zone else button.name)
                 for button in buttons_qs]
-
