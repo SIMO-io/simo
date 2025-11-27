@@ -14,7 +14,10 @@ from .models import (
     Icon, Category, Gateway, Component
 )
 from .form_fields import Select2ModelMultipleChoiceField
-from .widgets import SVGFileWidget, LogOutputWidget, PythonCode
+from .widgets import (
+    SVGFileWidget, LogOutputWidget, PythonCode,
+    CheckboxWithHiddenFalse
+)
 from .utils.formsets import FormsetField
 from .utils.validators import validate_slaves
 from .base_types import BaseComponentType
@@ -284,7 +287,8 @@ class ComponentAdminForm(forms.ModelForm):
             'category': autocomplete.ModelSelect2(
                 url='autocomplete-category', attrs={'data-html': True}
             ),
-            'custom_methods': PythonCode()
+            'custom_methods': PythonCode(),
+            'show_in_app': CheckboxWithHiddenFalse(),
         }
 
     def __init__(self, *args, **kwargs):

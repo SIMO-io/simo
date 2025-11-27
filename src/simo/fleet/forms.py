@@ -1798,6 +1798,7 @@ class SentinelDeviceConfigForm(BaseComponentForm):
     colonel = Select2ModelChoiceField(
         label="Sentinel", queryset=Colonel.objects.filter(type='sentinel'),
         url='autocomplete-colonels',
+        forward=(forward.Const({'type': 'sentinel'}, 'filters'),)
     )
 
     def __init__(self, *args, **kwargs):
@@ -1808,6 +1809,12 @@ class SentinelDeviceConfigForm(BaseComponentForm):
             self.fields['colonel'].queryset = self.fields['colonel'].queryset.filter(
                 instance=instance
             )
+        visible_fields = ('name', 'zone', 'colonel')
+        for field_name in list(self.fields.keys()):
+            if field_name in visible_fields:
+                continue
+            self.fields.pop(field_name, None)
+        self.order_fields(visible_fields)
 
     def save(self, commit=True):
         from simo.core.models import Icon
@@ -1815,13 +1822,25 @@ class SentinelDeviceConfigForm(BaseComponentForm):
         if not colonel:
             return
 
+        defaults = {
+            'icon': None,
+            'category': None,
+            'show_in_app': True,
+            'value_units': None,
+            'custom_methods': '',
+            'notes': '',
+            'alarm_category': None,
+        }
+        for field_name, default in defaults.items():
+            self.cleaned_data.setdefault(field_name, default)
+
         from .controllers import (
             RoomSiren, AirQualitySensor, TempHumSensor, AmbientLightSensor,
             RoomPresenceSensor, VoiceAssistant, SmokeDetector
         )
 
         org_name = self.cleaned_data['name']
-        org_icon = self.cleaned_data['icon']
+        org_icon = self.cleaned_data.get('icon')
         last_comp = None
         for CtrlClass, icon, suffix, cat_slug in (
             (RoomSiren, 'siren', 'siren', 'security'),
