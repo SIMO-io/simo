@@ -86,10 +86,22 @@ class LogOutputWidget(forms.TextInput):
         )
 
 
+class CheckboxWithHiddenFalse(forms.CheckboxInput):
+
+    def render(self, name, value, attrs=None, renderer=None):
+        checkbox_html = super().render(name, value, attrs=attrs, renderer=renderer)
+        hidden_attrs = {}
+        if attrs and attrs.get('id'):
+            hidden_attrs['id'] = f"{attrs['id']}_hidden"
+        hidden_html = forms.HiddenInput().render(
+            name, '0', attrs=hidden_attrs or None, renderer=renderer
+        )
+        return mark_safe(hidden_html + checkbox_html)
+
+
 class AdminImageWidget(forms.widgets.ClearableFileInput):
     template_name = "admin/clearable_easy_thumbnails_widget.html"
 
 
 class ImageWidget(forms.widgets.ClearableFileInput):
     template_name = "setup_wizard/clearable_easy_thumbnails_widget.html"
-
