@@ -17,6 +17,7 @@ from simo.core.utils.model_helpers import get_log_file_path
 from simo.core.middleware import drop_current_instance
 from simo.core.utils.logs import capture_socket_errors
 from simo.core.utils.mqtt import connect_with_retry, install_reconnect_handler
+from simo.core.utils import adpcm4
 from simo.core.events import GatewayObjectCommand, get_event_obj
 from simo.core.models import Gateway, Instance, Component
 from simo.conf import dynamic_settings
@@ -26,6 +27,11 @@ from .gateways import FleetGatewayHandler
 from .models import Colonel
 from .controllers import TTLock
 from .voice_assistant import VoiceAssistantSession, VoiceAssistantArbitrator
+
+MIC_CHANNEL_ID = 0
+SPK_CHANNEL_ID = 1
+ADPCM_FRAME_FLAG = 0x80
+ADPCM_HEADER_SIZE = 6
 
 
 @capture_socket_errors
@@ -40,6 +46,7 @@ class FleetConsumer(AsyncWebsocketConsumer):
         self._va = None
         self._arb = None
         self._mqtt_stop_event = None
+        self._mic_adpcm_state = adpcm4.ImaAdpcmState()
 
 
     async def disconnect(self, code):
@@ -540,6 +547,9 @@ class FleetConsumer(AsyncWebsocketConsumer):
                     if bytes_data[0] == 32:
                         await self.capture_logs(bytes_data[1:])
                     else:
+                        audio = self._decode_device_audio(bytes_data)
+                        if not audio:
+                            return
                         if not self._va:
                             self._va = VoiceAssistantSession(self)
                         if not self._arb:
@@ -548,7 +558,7 @@ class FleetConsumer(AsyncWebsocketConsumer):
                         if await self._arb.maybe_reject_busy():
                             return
                         self._arb.start_window_if_needed()
-                        await self._va.on_audio_chunk(bytes_data[1:])
+                        await self._va.on_audio_chunk(audio)
                 else:
                     if bytes_data[0] == 32:
                         await self.capture_logs(bytes_data[1:])
@@ -558,6 +568,48 @@ class FleetConsumer(AsyncWebsocketConsumer):
             await self.log_colonel_connected()
         except Exception as e:
             print(traceback.format_exc(), file=sys.stderr)
+
+
+    def _decode_device_audio(self, frame: bytes):
+        if not frame:
+            return None
+        header = frame[0]
+        is_adpcm = bool(header & ADPCM_FRAME_FLAG)
+        channel = header & 0x7F
+        if channel != MIC_CHANNEL_ID:
+            return None
+        if is_adpcm:
+            if len(frame) <= ADPCM_HEADER_SIZE:
+                return None
+            samples = frame[1] | (frame[2] << 8)
+            if samples <= 0:
+                return None
+            payload = frame[ADPCM_HEADER_SIZE:]
+            needed = (samples + 1) >> 1
+            if len(payload) < needed:
+                return None
+            predictor = frame[3] | (frame[4] << 8)
+            if predictor & 0x8000:
+                predictor -= 0x10000
+            index = frame[5]
+            if index < 0:
+                index = 0
+            elif index > 88:
+                index = 88
+            state = self._mic_adpcm_state
+            state.predictor = predictor
+            state.index = index
+            try:
+                decoded = adpcm4.decode(payload, state, samples=samples)
+            except Exception:
+                return None
+            return bytes(decoded)
+        if not (len(frame) & 1):
+            return None
+        payload = frame[1:]
+        if not payload or (len(payload) & 1):
+            return None
+        return payload
 
 
     async def capture_logs(self, bytes_data):

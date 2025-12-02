@@ -5,6 +5,7 @@ import sys
 import time
 import traceback
 import inspect
+from collections import deque
 from datetime import timedelta
 
 import websockets
@@ -14,8 +15,15 @@ from django.db import transaction
 from django.utils import timezone
 from django.conf import settings
 from asgiref.sync import sync_to_async
+import asyncio.subprocess
 
 from simo.conf import dynamic_settings
+from simo.core.utils import adpcm4
+
+MIC_CHANNEL_ID = 0
+SPK_CHANNEL_ID = 1
+ADPCM_FRAME_FLAG = 0x80
+ADPCM_HEADER_SIZE = 6
 
 
 class VoiceAssistantSession:
@@ -32,6 +40,14 @@ class VoiceAssistantSession:
     MAX_UTTERANCE_SEC = 20
     PLAY_CHUNK_BYTES = 1024
     PLAY_CHUNK_INTERVAL = 0.032
+    # Bias outbound audio pacing faster than
+    # theoretical real-time so that encode + network
+    # overhead does not underfeed the Sentinel.
+    # 0.50 → target interval ≈ 16 ms for a 32 ms
+    # chunk; roughly 2x real-time, leaving the
+    # device buffer comfortably filled without
+    # blasting everything in 1–2 seconds.
+    TX_PACE_BIAS = 0.50
     FOLLOWUP_SEC = 15
     CLOUD_RESPONSE_TIMEOUT_SEC = 60
 
@@ -51,6 +67,24 @@ class VoiceAssistantSession:
         self._cloud_task = None
         self._play_task = None
         self._followup_task = None
+        self._tx_samples_per_chunk = self.PLAY_CHUNK_BYTES // 2
+        # ADPCM encoder state for outbound speaker stream (hub→Sentinel)
+        self._tx_adpcm_state = adpcm4.ImaAdpcmState()
+        self._tx_adpcm_buf = bytearray((self._tx_samples_per_chunk + 1) // 2)
+        self._tx_packet_buf = bytearray(ADPCM_HEADER_SIZE + len(self._tx_adpcm_buf))
+        # Outbound stream timing state (PCM16 -> Sentinel)
+        self._tx_stream_deadline = None
+        self._tx_stream_prefill_sent = 0
+        self._tx_stream_play_chunks = 0
+        self._tx_debug_seq = 0
+        self._tx_last_send_ts = None
+        self._tx_clock_base = None
+        self._tx_clock_frames = 0
+        self._tx_clock_target = None
+        self._tx_max_lag_frames = 6
+        # Number of frames to prefill before starting
+        # paced playback to the Sentinel.
+        self._tx_prefill_chunks = 20
         self.voice = 'male'
         self.zone = None
         self._cloud_gate = asyncio.Event()
@@ -196,98 +230,124 @@ class VoiceAssistantSession:
                 mp3_reply = None
                 streaming = False
                 streaming_opus = False
-                sent_total = 0
-                stream_chunks = 0
-                stream_start_ts = None
-                opus_proc = None
-                pcm_forward_task = None
-                pcm_start_threshold = 8192  # ~256ms @ 16kHz s16le mono
-                pcm_buffer = bytearray()
+                opus_sr = 24000
+                pcm_stream_buffer = bytearray()
+                opus_stream_buffer = bytearray()
+                stream_queue = None
+                stream_consumer = None
+                stream_done = asyncio.Event()
+                opus_pipeline = None
                 ws_closed_ok = False
                 ws_closed_error = False
                 ws_closed_code = None
-                pcm_stats_sent = 0
-                async def _start_opus_decoder():
-                    nonlocal opus_proc, pcm_forward_task, pcm_buffer, pcm_stats_sent
-                    if opus_proc is not None:
-                        return
-                    try:
-                        opus_proc = await asyncio.create_subprocess_exec(
-                            'ffmpeg', '-v', 'error', '-i', 'pipe:0',
-                            '-f', 's16le', '-ar', '16000', '-ac', '1', 'pipe:1',
-                            stdin=asyncio.subprocess.PIPE,
-                            stdout=asyncio.subprocess.PIPE,
-                            stderr=asyncio.subprocess.PIPE,
-                        )
-                    except Exception as e:
-                        print('VA: failed to start ffmpeg for opus decode:', e, file=sys.stderr)
-                        opus_proc = None
-                        return
+                async def _stream_consumer():
+                    """Pace streaming audio to device using a global clock.
 
-                    async def _pcm_forwarder():
-                        nonlocal pcm_buffer, pcm_stats_sent, stream_start_ts, stream_chunks, sent_total
-                        started = False
-                        next_deadline = 0.0
+                    - Sends an initial prefill of ``_tx_prefill_chunks`` frames
+                      as soon as they are available.
+                    - Then, on a 10ms tick, compares wall-clock time against
+                      the ideal schedule (32 ms per frame) and sends as many
+                      frames as needed to catch up.
+                    - Frames are prepared upstream into ``stream_queue`` by
+                      the decode pipeline so they are ready when the clock
+                      ticks.
+                    """
+                    nonlocal stream_queue
+                    self._reset_stream_throttle(reason='stream_consumer')
+                    frame_bytes = self.PLAY_CHUNK_BYTES
+                    samples_per_frame = frame_bytes // 2  # 16-bit mono
+                    frame_interval = samples_per_frame / 16000.0  # 32 ms
+                    prefill = self._tx_prefill_chunks
+
+                    frames = deque()
+                    producer_done = False
+
+                    async def _producer():
+                        nonlocal producer_done
                         try:
                             while True:
-                                chunk = await opus_proc.stdout.read(4096)
-                                if not chunk:
+                                chunk = await stream_queue.get()
+                                if chunk is None:
+                                    producer_done = True
                                     break
-                                pcm_buffer.extend(chunk)
-                                if not started and len(pcm_buffer) >= pcm_start_threshold:
-                                    started = True
-                                    if stream_start_ts is None:
-                                        stream_start_ts = time.time()
-                                        print('VA RX STREAM START (website→hub) opus->pcm')
-                                    next_deadline = time.time()
-                                # forward in paced frames (~32ms for 1024B)
-                                while started and len(pcm_buffer) >= self.PLAY_CHUNK_BYTES:
-                                    frame = bytes(pcm_buffer[:self.PLAY_CHUNK_BYTES])
-                                    del pcm_buffer[:self.PLAY_CHUNK_BYTES]
-                                    try:
-                                        # pacing
-                                        samples = len(frame) // 2
-                                        dt = samples / 16000.0
-                                        sleep_for = next_deadline - time.time()
-                                        if sleep_for > 0:
-                                            await asyncio.sleep(sleep_for)
-                                        await self.c.send(bytes_data=b"\x01" + frame)
-                                        self.last_tx_audio_ts = time.time()
-                                        sent_total += len(frame)
-                                        stream_chunks += 1
-                                        pcm_stats_sent += len(frame)
-                                        if not self.playing:
-                                            self.playing = True
-                                        next_deadline += dt
-                                    except Exception:
-                                        return
-                        except asyncio.CancelledError:
-                            return
-                        except Exception as e:
-                            print('VA: opus decode forward error:', e, file=sys.stderr)
+                                if chunk:
+                                    frames.append(chunk)
                         finally:
-                            # flush tail with pacing
-                            if started and pcm_buffer:
-                                try:
-                                    while pcm_buffer:
-                                        take = min(self.PLAY_CHUNK_BYTES, len(pcm_buffer))
-                                        frame = bytes(pcm_buffer[:take])
-                                        del pcm_buffer[:take]
-                                        samples = len(frame) // 2
-                                        dt = samples / 16000.0
-                                        sleep_for = next_deadline - time.time()
-                                        if sleep_for > 0:
-                                            await asyncio.sleep(sleep_for)
-                                        await self.c.send(bytes_data=b"\x01" + frame)
-                                        self.last_tx_audio_ts = time.time()
-                                        sent_total += len(frame)
-                                        stream_chunks += 1
-                                        next_deadline += dt
-                                except Exception:
-                                    pass
-                            pcm_buffer = bytearray()
+                            producer_done = True
 
-                    pcm_forward_task = asyncio.create_task(_pcm_forwarder())
+                    prod_task = asyncio.create_task(_producer())
+
+                    try:
+                        # Initial prefill: send up to ``prefill`` frames as
+                        # soon as they are available.
+                        frames_sent = 0
+                        while frames_sent < prefill:
+                            while not frames:
+                                if producer_done:
+                                    break
+                                await asyncio.sleep(0.005)
+                            if not frames:
+                                break
+                            chunk = frames.popleft()
+                            samples = len(chunk) // 2
+                            now = time.monotonic()
+                            self._tx_stream_prefill_sent += 1
+                            wait_info = {
+                                'stage': 'prefill',
+                                'interval': frame_interval,
+                                'target': now,
+                                'prefill_seq': self._tx_stream_prefill_sent,
+                                'play_seq': 0,
+                            }
+                            ok = await self._send_pcm_frame(chunk, wait_info=wait_info)
+                            if not ok:
+                                return
+                            frames_sent += 1
+
+                        if frames_sent == 0:
+                            return
+
+                        # Anchor clock after prefill
+                        start = time.monotonic()
+                        # Number of logical frames that should have been sent
+                        # by ``start`` (including the prefill).
+                        base_frames = frames_sent
+
+                        while True:
+                            if producer_done and not frames:
+                                break
+                            await asyncio.sleep(0.01)
+                            now = time.monotonic()
+                            elapsed = now - start
+                            ideal_frames = int(elapsed / frame_interval) + base_frames
+                            # Send as many frames as needed to catch up to
+                            # the ideal schedule, limited by what we have.
+                            while frames_sent < ideal_frames and frames:
+                                chunk = frames.popleft()
+                                samples = len(chunk) // 2
+                                play_seq = frames_sent - base_frames + 1
+                                target_time = start + ((frames_sent - base_frames) * frame_interval)
+                                lag = now - target_time
+                                wait_info = {
+                                    'stage': 'play',
+                                    'sleep': 0.0,
+                                    'interval': frame_interval,
+                                    'target': target_time,
+                                    'prefill_seq': self._tx_stream_prefill_sent,
+                                    'play_seq': play_seq,
+                                    'lag': lag,
+                                }
+                                ok = await self._send_pcm_frame(chunk, wait_info=wait_info)
+                                if not ok:
+                                    return
+                                frames_sent += 1
+                    finally:
+                        try:
+                            prod_task.cancel()
+                        except Exception:
+                            pass
+                        stream_done.set()
+
                 while True:
                     remaining = deadline - time.time()
                     if remaining <= 0:
@@ -330,30 +390,20 @@ class VoiceAssistantSession:
                     deadline = time.time() + self.CLOUD_RESPONSE_TIMEOUT_SEC
                     if isinstance(msg, (bytes, bytearray)):
                         if streaming_opus:
-                            # Feed opus bytes into decoder stdin
-                            try:
-                                if opus_proc is not None and opus_proc.stdin:
-                                    opus_proc.stdin.write(msg)
-                                    await opus_proc.stdin.drain()
-                            except Exception as e:
-                                print('VA: opus stdin write failed:', e, file=sys.stderr)
-                                break
+                            if opus_pipeline:
+                                await self._write_opus_stream(opus_pipeline, msg)
+                            else:
+                                opus_stream_buffer.extend(msg)
                             continue
                         if streaming:
-                            if stream_start_ts is None:
-                                stream_start_ts = time.time()
-                                print("VA RX STREAM START (website→hub) pcm16le")
-                            try:
-                                await self.c.send(bytes_data=b"\x01" + bytes(msg))
-                                self.last_tx_audio_ts = time.time()
-                                sent_total += len(msg)
-                                stream_chunks += 1
-                                if not self.playing:
-                                    self.playing = True
-                            except Exception:
-                                break
+                            if stream_queue is None:
+                                continue
+                            pcm_stream_buffer.extend(msg)
+                            while len(pcm_stream_buffer) >= self.PLAY_CHUNK_BYTES:
+                                chunk = bytes(pcm_stream_buffer[:self.PLAY_CHUNK_BYTES])
+                                del pcm_stream_buffer[:self.PLAY_CHUNK_BYTES]
+                                await stream_queue.put(chunk)
                             continue
-                        # Not in streaming mode: assume single MP3 blob
                         mp3_reply = bytes(msg)
                         print(f"VA RX START (website→hub) mp3={len(mp3_reply)}B")
                         break
@@ -371,13 +421,31 @@ class VoiceAssistantSession:
                                     print("VA: unsupported stream rate, expecting 16k; ignoring stream")
                                 else:
                                     streaming = True
+                                    pcm_stream_buffer.clear()
+                                    stream_queue = asyncio.Queue(32)
+                                    stream_done.clear()
+                                    stream_consumer = asyncio.create_task(_stream_consumer())
+                                    print(
+                                        f"VA STREAM START format=pcm16le chunksz={self.PLAY_CHUNK_BYTES}B prefill={self._tx_prefill_chunks}"
+                                    )
                                     continue
                             if audio and audio.get('format') == 'opus':
-                                # Start opus->pcm decoder
-                                await _start_opus_decoder()
-                                if opus_proc is not None:
-                                    streaming_opus = True
-                                    continue
+                                # Buffer the entire Opus stream in memory and
+                                # decode it to PCM in one shot once the
+                                # website finishes sending. This ensures all
+                                # PCM frames are ready before we start
+                                # pacing them to the device.
+                                streaming_opus = True
+                                opus_sr = int(audio.get('sr', 24000) or 24000)
+                                opus_stream_buffer.clear()
+                                stream_queue = None
+                                stream_done.clear()
+                                stream_consumer = None
+                                opus_pipeline = None
+                                print(
+                                    f"VA STREAM START format=opus sr={opus_sr} chunksz={self.PLAY_CHUNK_BYTES}B prefill={self._tx_prefill_chunks}"
+                                )
+                                continue
                             if data.get('session') == 'finish':
                                 self._end_after_playback = True
                                 try:
@@ -404,52 +472,39 @@ class VoiceAssistantSession:
                     await self._end_session(cloud_also=False)
                     self._end_after_playback = False
             elif streaming:
-                # Streaming ended; finalize playback stats
-                try:
-                    elapsed = time.time() - (stream_start_ts or time.time())
-                    audio_sec = (sent_total // 2) / 16000.0 if sent_total else 0.0
-                    print(f"VA RX STREAM END (website→hub) sent≈{sent_total}B chunks={stream_chunks} elapsed={elapsed:.2f}s audio={audio_sec:.2f}s ratio={elapsed/audio_sec if audio_sec else 0:.2f}")
-                except Exception:
-                    pass
-                self.playing = False
+                if stream_queue is None:
+                    await self._play_to_device(bytes(pcm_stream_buffer))
+                else:
+                    if pcm_stream_buffer:
+                        await stream_queue.put(bytes(pcm_stream_buffer))
+                    await stream_queue.put(None)
+                    if stream_consumer:
+                        await stream_done.wait()
                 if self._end_after_playback:
                     await self._end_session(cloud_also=False)
                     self._end_after_playback = False
             elif streaming_opus:
-                # Close decoder stdin and let forwarder drain fully
-                try:
-                    if opus_proc and opus_proc.stdin:
-                        try:
-                            opus_proc.stdin.close()
-                        except Exception:
-                            pass
-                except Exception:
-                    pass
-                # Allow forwarder to finish without artificially short timeouts
-                if pcm_forward_task:
-                    try:
-                        await pcm_forward_task
-                    except Exception:
-                        try:
-                            pcm_forward_task.cancel()
-                        except Exception:
-                            pass
-                # Ensure process exits cleanly
-                try:
-                    if opus_proc:
-                        try:
-                            await opus_proc.wait()
-                        except Exception:
-                            opus_proc.kill()
-                except Exception:
-                    pass
-                try:
-                    elapsed = time.time() - (stream_start_ts or time.time())
-                    audio_sec = (sent_total // 2) / 16000.0 if sent_total else 0.0
-                    print(f"VA RX OPUS END sent≈{sent_total}B chunks={stream_chunks} elapsed={elapsed:.2f}s audio={audio_sec:.2f}s ratio={elapsed/audio_sec if audio_sec else 0:.2f}")
-                except Exception:
-                    pass
-                self.playing = False
+                if opus_pipeline:
+                    await self._stop_opus_stream_decoder(opus_pipeline)
+                    opus_pipeline = None
+                    if stream_queue is not None:
+                        await stream_queue.put(None)
+                        if stream_consumer:
+                            await stream_done.wait()
+                else:
+                    pcm_out = await self._decode_opus_stream(bytes(opus_stream_buffer), opus_sr)
+                    if stream_queue is None or not pcm_out:
+                        if pcm_out:
+                            await self._play_to_device(pcm_out)
+                    else:
+                        for offset in range(0, len(pcm_out), self.PLAY_CHUNK_BYTES):
+                            chunk = pcm_out[offset:offset + self.PLAY_CHUNK_BYTES]
+                            if not chunk:
+                                continue
+                            await stream_queue.put(chunk)
+                        await stream_queue.put(None)
+                        if stream_consumer:
+                            await stream_done.wait()
                 if self._end_after_playback:
                     await self._end_session(cloud_also=False)
                     self._end_after_playback = False
@@ -476,8 +531,376 @@ class VoiceAssistantSession:
             await self._end_session(cloud_also=True)
         finally:
             self.awaiting_response = False
+            try:
+                if 'opus_pipeline' in locals() and locals().get('opus_pipeline'):
+                    await self._stop_opus_stream_decoder(locals().get('opus_pipeline'))
+            except Exception:
+                pass
             if self.active and not self.playing and not self._end_after_playback:
                 await self._start_followup_timer()
+
+    async def _send_pcm_frame(self, pcm_chunk: bytes, wait_info=None) -> bool:
+        if not pcm_chunk or (len(pcm_chunk) & 1):
+            return False
+        samples = len(pcm_chunk) // 2
+        if samples <= 0:
+            return False
+        # ADPCM4 framing for Sentinel speaker channel:
+        #   byte 0: channel id | ADPCM flag (0x80)
+        #   bytes 1–2: sample count (little-endian)
+        #   bytes 3–4: predictor (little-endian, signed 16-bit)
+        #   byte 5: step index (0..88)
+        #   bytes 6+: ADPCM nibbles
+        state = self._tx_adpcm_state
+        start_pred = state.predictor
+        start_idx = state.index
+        encoded = adpcm4.encode(pcm_chunk, state, self._tx_adpcm_buf)
+        enc_len = len(encoded)
+        if not enc_len:
+            return False
+        packet = self._tx_packet_buf
+        packet[0] = SPK_CHANNEL_ID | ADPCM_FRAME_FLAG
+        packet[1] = samples & 0xFF
+        packet[2] = (samples >> 8) & 0xFF
+        pred = start_pred & 0xFFFF
+        packet[3] = pred & 0xFF
+        packet[4] = (pred >> 8) & 0xFF
+        packet[5] = start_idx & 0xFF
+        packet[ADPCM_HEADER_SIZE:ADPCM_HEADER_SIZE + enc_len] = encoded
+        frame = bytes(packet[:ADPCM_HEADER_SIZE + enc_len])
+        seq = self._tx_debug_seq
+        self._tx_debug_seq += 1
+        try:
+            send_start_wall = time.time()
+            send_start_mon = time.monotonic()
+            actual_dt = 0.0
+            if self._tx_last_send_ts is not None:
+                actual_dt = send_start_wall - self._tx_last_send_ts
+            self._tx_last_send_ts = send_start_wall
+            drift = 0.0
+            stage = 'raw'
+            sleep = 0.0
+            if wait_info:
+                stage = wait_info.get('stage', 'raw')
+                sleep = wait_info.get('sleep', 0.0)
+                target = wait_info.get('target')
+                if stage == 'play' and target is not None:
+                    drift = send_start_mon - target
+            self._log_tx_frame(stage, seq, samples, enc_len, sleep, drift, actual_dt, wait_info)
+            await self.c.send(bytes_data=frame)
+            self.last_tx_audio_ts = time.time()
+            return True
+        except Exception:
+            return False
+
+    async def _send_pcm_frames(self, pcm_bytes: bytes):
+        """Send PCM to the device using a single strict-clock path.
+
+        Behavior:
+        - Slice ``pcm_bytes`` into PLAY_CHUNK_BYTES frames.
+        - Immediately prefill up to ``_tx_prefill_chunks`` frames.
+        - Then schedule each remaining frame against a monotonically
+          increasing target timestamp spaced by ``PLAY_CHUNK_INTERVAL``
+          seconds, sleeping precisely until the next target. This
+          keeps long responses aligned to a single global clock
+          instead of accumulating per-frame drift.
+        """
+        if not pcm_bytes:
+            return 0, 0
+
+        frame_bytes = self.PLAY_CHUNK_BYTES
+        # Target interval per PCM frame, with a
+        # slight bias to compensate for Python
+        # encode + websocket overhead.
+        frame_interval = self.PLAY_CHUNK_INTERVAL * self.TX_PACE_BIAS
+
+        view = memoryview(pcm_bytes)
+        total = len(view)
+        if total <= 0:
+            return 0, 0
+
+        # Build a simple list of frames so we can prefill and then walk
+        # them with a global clock.
+        frames = []
+        for offset in range(0, total, frame_bytes):
+            chunk = bytes(view[offset:offset + frame_bytes])
+            if chunk:
+                frames.append(chunk)
+
+        if not frames:
+            return 0, 0
+
+        self._reset_stream_throttle(reason='pcm_strict')
+
+        sent = 0
+        chunks = 0
+
+        # Initial prefill: burst-send up to ``_tx_prefill_chunks``
+        # frames so the Sentinel can build its jitter buffer before we
+        # start pacing playback.
+        prefill_target = min(self._tx_prefill_chunks, len(frames))
+        for idx in range(prefill_target):
+            chunk = frames[idx]
+            now_mon = time.monotonic()
+            self._tx_stream_prefill_sent = idx + 1
+            wait_info = {
+                'stage': 'prefill',
+                'interval': frame_interval,
+                'target': now_mon,
+                'prefill_seq': self._tx_stream_prefill_sent,
+                'play_seq': 0,
+            }
+            ok = await self._send_pcm_frame(chunk, wait_info=wait_info)
+            if not ok:
+                return sent, chunks
+            sent += len(chunk)
+            chunks += 1
+
+        # If the whole clip fit into the prefill window, we are done.
+        if prefill_target >= len(frames):
+            return sent, chunks
+
+        # Strict-clock playback for remaining frames. We maintain a
+        # target timestamp that advances by exactly ``frame_interval``
+        # for each logical frame and sleep until this target before
+        # sending the next frame. Any processing overhead is absorbed
+        # by shortening the subsequent sleep so that the overall period
+        # stays ~frame_interval on average.
+        next_target = time.monotonic() + frame_interval
+        frames_sent = prefill_target
+
+        while frames_sent < len(frames):
+            now = time.monotonic()
+            sleep_for = next_target - now
+            if sleep_for > 0:
+                try:
+                    await asyncio.sleep(sleep_for)
+                except asyncio.CancelledError:
+                    return sent, chunks
+
+            # Update actual send time and drift relative to the target
+            send_target = next_target
+            now_mon = time.monotonic()
+            lag = now_mon - send_target
+
+            chunk = frames[frames_sent]
+            play_seq = frames_sent - prefill_target + 1
+            self._tx_stream_play_chunks = play_seq
+            wait_info = {
+                'stage': 'play',
+                'sleep': 0.0,
+                'interval': frame_interval,
+                'target': send_target,
+                'prefill_seq': prefill_target,
+                'play_seq': play_seq,
+                'lag': lag,
+            }
+            ok = await self._send_pcm_frame(chunk, wait_info=wait_info)
+            if not ok:
+                return sent, chunks
+            sent += len(chunk)
+            chunks += 1
+            frames_sent += 1
+
+            # Advance target for the next frame relative to the
+            # previous target so overall drift does not accumulate.
+            next_target += frame_interval
+
+        return sent, chunks
+
+    def _reset_stream_throttle(self, reason=None):
+        self._tx_stream_deadline = None
+        self._tx_stream_prefill_sent = 0
+        self._tx_stream_play_chunks = 0
+        self._tx_debug_seq = 0
+        self._tx_last_send_ts = None
+        self._tx_clock_base = None
+        self._tx_clock_frames = 0
+        self._tx_clock_target = None
+        if reason:
+            try:
+                print(f"VA STREAM THROTTLE reset reason={reason}")
+            except Exception:
+                pass
+
+    async def _complete_frame_slot(self, info):
+        if not info:
+            return
+        stage = info.get('stage')
+        if stage == 'prefill' and self._tx_stream_prefill_sent >= self._tx_prefill_chunks:
+            base = time.monotonic()
+            self._tx_clock_base = base
+            self._tx_clock_target = base
+            self._tx_clock_frames = 0
+            return
+        if stage != 'play':
+            return
+        interval = info.get('interval', self.PLAY_CHUNK_INTERVAL)
+        target = info.get('target')
+        if target is None:
+            target = time.monotonic()
+        next_target = target + interval
+        self._tx_clock_target = next_target
+        now = time.monotonic()
+        sleep_for = next_target - now
+        if sleep_for > 0:
+            await asyncio.sleep(sleep_for)
+
+    async def _wait_for_stream_slot(self, samples: int):
+        if samples <= 0:
+            return {'stage': 'noop', 'interval': 0.0, 'target': None}
+        # Nominal interval for these samples (at 16 kHz), with a
+        # slight bias so we send just a bit faster than strict
+        # real-time. This helps keep the Sentinel's playback buffer
+        # from drifting empty due to small scheduler delays.
+        interval = (samples / 16000.0) * self.TX_PACE_BIAS
+        now = time.monotonic()
+        if self._tx_stream_prefill_sent < self._tx_prefill_chunks:
+            self._tx_stream_prefill_sent += 1
+            self._tx_clock_base = None
+            self._tx_clock_frames = 0
+            self._tx_clock_target = None
+            self._tx_stream_play_chunks = 0
+            return {
+                'stage': 'prefill',
+                'interval': interval,
+                'target': now,
+                'prefill_seq': self._tx_stream_prefill_sent,
+                'play_seq': self._tx_clock_frames,
+            }
+        if self._tx_clock_base is None:
+            self._tx_clock_base = now
+            self._tx_clock_frames = 0
+            self._tx_clock_target = now
+        target = self._tx_clock_target or now
+        lag = now - target
+        max_lag = self._tx_max_lag_frames * interval
+        if lag > max_lag:
+            skips = int(lag // interval) - self._tx_max_lag_frames
+            if skips < 1:
+                skips = 1
+            self._tx_clock_frames += skips
+            self._tx_clock_target = target + skips * interval
+            self._tx_stream_play_chunks = self._tx_clock_frames
+            return {
+                'stage': 'drop',
+                'interval': interval,
+                'target': self._tx_clock_target,
+                'prefill_seq': self._tx_stream_prefill_sent,
+                'play_seq': self._tx_clock_frames,
+                'lag': lag,
+            }
+        self._tx_clock_frames += 1
+        self._tx_stream_play_chunks = self._tx_clock_frames
+        return {
+            'stage': 'play',
+            'sleep': 0.0,
+            'interval': interval,
+            'target': target,
+            'prefill_seq': self._tx_stream_prefill_sent,
+            'play_seq': self._tx_clock_frames,
+            'lag': lag,
+        }
+
+    def _log_tx_frame(self, stage, seq, samples, enc_len, sleep, drift, actual_dt, wait_info):
+        # Throttle logs to avoid overwhelming the console. Always log
+        # prefill frames; for steady-state playback, log every 16th
+        # frame and any frame with unusually high drift.
+        try:
+            if stage == 'play':
+                if seq % 16 != 0 and (drift is None or abs(drift) < 0.050):
+                    return
+            parts = [
+                f"VA TX FRAME stage={stage}",
+                f"seq={seq}",
+                f"samples={samples}",
+                f"enc={enc_len}B",
+                f"sleep_ms={sleep * 1000:.1f}",
+                f"drift_ms={drift * 1000:.1f}",
+                f"actual_dt_ms={actual_dt * 1000:.1f}",
+                f"prefill_sent={self._tx_stream_prefill_sent}",
+                f"play_chunks={self._tx_stream_play_chunks}",
+            ]
+            if wait_info:
+                if wait_info.get('prefill_seq') is not None:
+                    parts.append(f"prefill_seq={wait_info['prefill_seq']}")
+                if wait_info.get('play_seq') is not None:
+                    parts.append(f"play_seq_sched={wait_info['play_seq']}")
+                if wait_info.get('lag') is not None:
+                    parts.append(f"lag_ms={wait_info['lag'] * 1000:.1f}")
+            print(' '.join(parts))
+        except Exception:
+            pass
+
+    async def _start_opus_stream_decoder(self, input_sr: int, stream_queue: asyncio.Queue):
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                'ffmpeg', '-v', 'error', '-i', 'pipe:0',
+                '-f', 's16le', '-ar', '16000', '-ac', '1', 'pipe:1',
+                stdin=asyncio.subprocess.PIPE,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+        except Exception as exc:
+            print('VA: failed to start ffmpeg for streaming opus decode:', exc, file=sys.stderr)
+            return None
+        reader_task = asyncio.create_task(self._opus_stdout_reader(proc, stream_queue))
+        return {'proc': proc, 'reader_task': reader_task}
+
+    async def _write_opus_stream(self, pipeline, data: bytes):
+        if not pipeline or not data:
+            return
+        proc = pipeline.get('proc')
+        if not proc or proc.stdin is None:
+            return
+        try:
+            proc.stdin.write(data)
+            await proc.stdin.drain()
+        except Exception as exc:
+            print('VA: opus stream write failed:', exc, file=sys.stderr)
+
+    async def _stop_opus_stream_decoder(self, pipeline):
+        if not pipeline:
+            return
+        proc = pipeline.get('proc')
+        if proc and proc.stdin:
+            try:
+                proc.stdin.write_eof()
+            except Exception:
+                try:
+                    proc.stdin.close()
+                except Exception:
+                    pass
+        reader_task = pipeline.get('reader_task')
+        if reader_task:
+            try:
+                await reader_task
+            except Exception:
+                pass
+        if proc:
+            try:
+                await proc.wait()
+            except Exception:
+                pass
+
+    async def _opus_stdout_reader(self, proc, stream_queue: asyncio.Queue):
+        chunk = bytearray()
+        try:
+            while True:
+                data = await proc.stdout.read(self.PLAY_CHUNK_BYTES)
+                if not data:
+                    break
+                chunk.extend(data)
+                while len(chunk) >= self.PLAY_CHUNK_BYTES:
+                    frame = bytes(chunk[:self.PLAY_CHUNK_BYTES])
+                    del chunk[:self.PLAY_CHUNK_BYTES]
+                    if stream_queue:
+                        await stream_queue.put(frame)
+        except Exception as exc:
+            print('VA: opus reader error:', exc, file=sys.stderr)
+        finally:
+            if chunk and stream_queue:
+                await stream_queue.put(bytes(chunk))
 
     async def _encode_mp3(self, pcm_bytes: bytes):
         if lameenc is None:
@@ -520,45 +943,46 @@ class VoiceAssistantSession:
             print("VA: MP3 decode failed\n", traceback.format_exc(), file=sys.stderr)
             return None
 
+    async def _decode_opus_stream(self, opus_bytes: bytes, input_sr: int = 24000):
+        if not opus_bytes:
+            return b""
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                'ffmpeg', '-v', 'error', '-i', 'pipe:0',
+                '-f', 's16le', '-ar', '16000', '-ac', '1', 'pipe:1',
+                stdin=asyncio.subprocess.PIPE,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+        except Exception as e:
+            print('VA: failed to start ffmpeg for opus decode:', e, file=sys.stderr)
+            return None
+        stdout, stderr = await proc.communicate(opus_bytes)
+        if proc.returncode != 0:
+            try:
+                msg = stderr.decode()
+            except Exception:
+                msg = str(stderr)
+            print('VA: opus decode failed:', msg, file=sys.stderr)
+            return None
+        return stdout
+
     async def _play_to_device(self, pcm_bytes: bytes):
         self.playing = True
         try:
             print(f"VA TX START (hub→device) pcm={len(pcm_bytes)}B")
-            view = memoryview(pcm_bytes)
-            total = len(view)
-            pos = 0
-            sent_total = 0
-            next_deadline = time.time()
-            fudge = 0.0
             pace_start = time.time()
-            chunks = 0
-            warmup = 1
-            while pos < total and self.c.connected:
-                chunk = view[pos:pos + self.PLAY_CHUNK_BYTES]
-                pos += len(chunk)
-                try:
-                    await self.c.send(bytes_data=b"\x01" + bytes(chunk))
-                    self.last_tx_audio_ts = time.time()
-                    sent_total += len(chunk)
-                    chunks += 1
-                except Exception:
-                    break
-                if warmup > 0:
-                    warmup -= 1
-                else:
-                    samples = len(chunk) // 2
-                    dt = samples / 16000.0
-                    next_deadline += dt
-                    drift = next_deadline - time.time()
-                    sleep_for = drift + fudge
-                    if sleep_for > 0:
-                        await asyncio.sleep(sleep_for)
+            sent_total, chunks = await self._send_pcm_frames(pcm_bytes)
         finally:
             self.playing = False
             try:
                 elapsed = time.time() - pace_start if 'pace_start' in locals() else 0.0
                 audio_sec = (sent_total // 2) / 16000.0 if sent_total else 0.0
-                print(f"VA TX END (hub→device) sent≈{sent_total}B chunks={chunks} elapsed={elapsed:.2f}s audio={audio_sec:.2f}s ratio={elapsed/audio_sec if audio_sec else 0:.2f}")
+                print(
+                    f"VA TX END (hub→device) sent≈{sent_total}B chunks={chunks} "
+                    f"elapsed={elapsed:.2f}s audio={audio_sec:.2f}s "
+                    f"ratio={elapsed/audio_sec if audio_sec else 0:.2f}"
+                )
             except Exception:
                 pass
 
@@ -766,9 +1190,24 @@ class VoiceAssistantArbitrator:
         if (not self._busy_rejected) and (now_ts - self._last_active_scan) > 0.3:
             self._last_active_scan = now_ts
             def _has_active_other():
+                # First, clear any stale VO-active flags for colonels
+                # that are no longer connected. These can be left over
+                # across hub restarts or crashes.
+                qs_stale = (self.c.colonel.__class__.objects
+                            .filter(instance=self.c.instance,
+                                    is_vo_active=True,
+                                    socket_connected=False))
+                if qs_stale.exists():
+                    qs_stale.update(is_vo_active=False)
+
+                # Consider only colonels that are both VO-active and
+                # currently connected as truly "active" owners.
                 return (self.c.colonel.__class__.objects
-                        .filter(instance=self.c.instance, is_vo_active=True)
-                        .exclude(id=self.c.colonel.id).exists())
+                        .filter(instance=self.c.instance,
+                                is_vo_active=True,
+                                socket_connected=True)
+                        .exclude(id=self.c.colonel.id)
+                        .exists())
             try:
                 active_other = await sync_to_async(_has_active_other, thread_sensitive=True)()
             except Exception:
@@ -803,9 +1242,24 @@ class VoiceAssistantArbitrator:
                 return
 
             def _other_active():
+                # Clear any VO-active flags for colonels that are not
+                # currently connected; these are stale and should not
+                # block a new session from becoming the winner.
+                qs_stale = (self.c.colonel.__class__.objects
+                            .filter(instance=self.c.instance,
+                                    is_vo_active=True,
+                                    socket_connected=False))
+                if qs_stale.exists():
+                    qs_stale.update(is_vo_active=False)
+
+                # Only treat colonels that are *both* VO-active and
+                # connected as other active owners.
                 return (self.c.colonel.__class__.objects
-                        .filter(instance=self.c.instance, is_vo_active=True)
-                        .exclude(id=self.c.colonel.id).exists())
+                        .filter(instance=self.c.instance,
+                                is_vo_active=True,
+                                socket_connected=True)
+                        .exclude(id=self.c.colonel.id)
+                        .exists())
             if await sync_to_async(_other_active, thread_sensitive=True)():
                 if not self._busy_rejected:
                     self._busy_rejected = True
