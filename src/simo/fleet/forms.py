@@ -1822,12 +1822,14 @@ class SentinelDeviceConfigForm(BaseComponentForm):
         if not colonel:
             return
 
+        # Use model-level defaults for fields we don't
+        # expose on this helper form (e.g. custom_methods).
+        # Only set safe fallbacks for a minimal subset.
         defaults = {
             'icon': None,
             'category': None,
             'show_in_app': True,
             'value_units': None,
-            'custom_methods': '',
             'notes': '',
             'alarm_category': None,
         }
