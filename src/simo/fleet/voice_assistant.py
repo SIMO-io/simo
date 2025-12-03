@@ -12,6 +12,7 @@ import websockets
 import lameenc
 from pydub import AudioSegment
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 from django.conf import settings
 from asgiref.sync import sync_to_async
@@ -93,6 +94,16 @@ class VoiceAssistantSession:
         self._prewarm_requested = False
         self._idle_task = asyncio.create_task(self._idle_watchdog())
         self._utterance_task = asyncio.create_task(self._utterance_watchdog())
+        # Per-instance watchdog that clears stale VO-active
+        # flags so no Sentinel can hold ownership forever if
+        # its last wake is old.
+        try:
+            inst = getattr(self.c, 'instance', None)
+            if inst is not None and not hasattr(inst, '_vo_watchdog_started'):
+                setattr(inst, '_vo_watchdog_started', True)
+                asyncio.create_task(self._vo_active_watchdog())
+        except Exception:
+            pass
 
     async def start_if_needed(self):
         if self.active:
@@ -1016,6 +1027,41 @@ class VoiceAssistantSession:
             except Exception:
                 pass
 
+    async def _vo_active_watchdog(self):
+        """Clear stale is_vo_active flags based on last_wake.
+
+        Runs per instance (one task per Django Instance object) and
+        periodically resets is_vo_active=False for any colonels that
+        still hold it but whose last_wake is older than a safety
+        window (2 minutes).
+        """
+        STALE_SEC = 120
+        INTERVAL_SEC = 60
+        try:
+            Colonels = self.c.colonel.__class__
+            instance = self.c.instance
+        except Exception:
+            return
+
+        while True:
+            try:
+                await asyncio.sleep(INTERVAL_SEC)
+                cutoff = timezone.now() - timedelta(seconds=STALE_SEC)
+
+                def _clear_stale():
+                    qs = (Colonels.objects
+                          .filter(instance=instance, is_vo_active=True)
+                          .filter(Q(last_wake__lt=cutoff) | Q(last_wake__isnull=True)))
+                    # Use a single UPDATE per instance to clear all
+                    # stale owners.
+                    if qs.exists():
+                        qs.update(is_vo_active=False)
+                await sync_to_async(_clear_stale, thread_sensitive=True)()
+            except asyncio.CancelledError:
+                return
+            except Exception:
+                print("VA VO-active watchdog error\n", traceback.format_exc(), file=sys.stderr)
+
     async def _set_is_vo_active(self, flag: bool):
         def _execute():
             from simo.mcp_server.models import InstanceAccessToken
@@ -1100,6 +1146,14 @@ class VoiceAssistantSession:
         # Close cloud gate so subsequent sessions don't bypass arbitration
         try:
             self._cloud_gate.clear()
+        except Exception:
+            pass
+        # Reset arbitrator so each new VA session gets a
+        # fresh busy/winner decision and cannot reuse a
+        # stale _busy_rejected flag from a prior turn.
+        try:
+            if getattr(self.c, '_arb', None) is not None:
+                self.c._arb = None
         except Exception:
             pass
         for t in (self._finalizer_task, self._cloud_task, self._play_task, self._followup_task):
