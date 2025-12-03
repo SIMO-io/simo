@@ -1420,6 +1420,18 @@ class Gate(ControllerBase, TimerMixin):
     def default_value(self):
         return 'closed'
 
+    def is_in_alarm(self):
+        """Gate-specific alarm logic.
+
+        Uses the underlying component value, which for gates is expected to
+        be one of: 'closed', 'open', 'open_moving', 'closed_moving'.
+        Treat any value starting with 'closed' as an alarm condition.
+        """
+        value = getattr(self.component, 'value', None)
+        if not isinstance(value, str):
+            return False
+        return value.startswith('closed')
+
     def _validate_val(self, value, occasion=None):
         if occasion == BEFORE_SEND:
             if self.component.config.get('action_method') == 'click':

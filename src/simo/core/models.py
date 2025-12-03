@@ -369,22 +369,25 @@ class Component(DirtyFieldsMixin, models.Model, SimoAdminMixin, OnChangeMixin):
     value_previous = models.JSONField(null=True, blank=True, editable=False)
     value_units = models.CharField(max_length=100, null=True, blank=True)
     custom_methods = models.TextField(
-        blank=True, default='''
-def translate(value, occasion):
-    """
-        Adjust this to make value translations before value is
-        set on to a component and before it is sent to a device 
-        from your SIMO.io smart home instance.
-    """
-    if occasion == 'before-set':
-        return value
-    else:  # 'before-send'
-        return value
-
-def is_in_alarm(self):
-    return bool(self.value)
-        
-        '''
+        blank=True, default='''\
+# def translate(value, occasion):
+#     """
+#         Adjust this to make value translations before value is
+#         set on to a component and before it is sent to a device 
+#         from your SIMO.io smart home instance.
+#     """
+#     if occasion == 'before-set':
+#         return value
+#     else:  # 'before-send'
+#         return value
+#
+# def is_in_alarm(self):
+#     """Example override – by default the Component/Controller implementation
+#     is used. Uncomment and customize to change alarm logic for this
+#     specific component instance.
+#     """
+#     return bool(self.value)
+'''
     )
 
     slaves = models.ManyToManyField(
