@@ -130,7 +130,20 @@ class BaseObjectCommandsGatewayHandler(BaseGatewayHandler):
 
     def _on_mqtt_message(self, client, userdata, msg):
         from simo.core.models import Component
+        from simo.users.models import User
+        from simo.users.utils import introduce_user
+
         payload = json.loads(msg.payload)
+        # If actor_id provided, introduce that user so
+        # subsequent set()/history is attributed correctly.
+        actor_id = payload.get('actor_id')
+        if actor_id:
+            try:
+                user = User.objects.get(pk=actor_id)
+                introduce_user(user)
+            except Exception:
+                pass
+
         if 'set_val' in payload:
             component = get_event_obj(payload, Component)
             if not component:

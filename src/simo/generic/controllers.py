@@ -236,45 +236,83 @@ class Thermostat(ControllerBase):
         heating = False
         cooling = False
 
+        # Respect explicit mode first; fall back to existing auto logic.
         if self.component.config.get('engagement', 'static') == 'static':
             low = target_temp - 0.25
             high = target_temp + 0.25
-            if prefer_heating and heaters:
-                heating = self._engage_heating(
-                    heaters, current_temp, low, high
-                )
-                if not heating:
-                    cooling = self._engage_cooling(
-                        coolers, current_temp, low, high
-                    )
-            else:
-                cooling = self._engage_cooling(
-                    coolers, current_temp, low, high
-                )
-                if not cooling:
+
+            if mode == 'heater':
+                if heaters:
                     heating = self._engage_heating(
                         heaters, current_temp, low, high
                     )
+                cooling = False
+            elif mode == 'cooler':
+                if coolers:
+                    cooling = self._engage_cooling(
+                        coolers, current_temp, low, high
+                    )
+                heating = False
+            else:  # auto
+                if prefer_heating and heaters:
+                    heating = self._engage_heating(
+                        heaters, current_temp, low, high
+                    )
+                    if not heating:
+                        cooling = self._engage_cooling(
+                            coolers, current_temp, low, high
+                        )
+                else:
+                    cooling = self._engage_cooling(
+                        coolers, current_temp, low, high
+                    )
+                    if not cooling:
+                        heating = self._engage_heating(
+                            heaters, current_temp, low, high
+                        )
 
         else:
-            if prefer_heating and heaters:
-                low = target_temp - 2.5
-                high = target_temp + 0.5
-                window = high - low
-                reach = high - current_temp
-                reaction_force = self._get_reaction_force(window, reach)
-                if reaction_force:
-                    heating = True
-                self._engage_devices(heaters, reaction_force)
-            elif coolers and not heating:
-                low = target_temp - 1
-                high = target_temp + 2
-                window = high - low
-                reach = current_temp - low
-                reaction_force = self._get_reaction_force(window, reach)
-                if reaction_force:
-                    cooling = True
-                self._engage_devices(coolers, reaction_force)
+            if mode == 'heater':
+                if heaters:
+                    low = target_temp - 2.5
+                    high = target_temp + 0.5
+                    window = high - low
+                    reach = high - current_temp
+                    reaction_force = self._get_reaction_force(window, reach)
+                    if reaction_force:
+                        heating = True
+                    self._engage_devices(heaters, reaction_force)
+                cooling = False
+            elif mode == 'cooler':
+                if coolers:
+                    low = target_temp - 1
+                    high = target_temp + 2
+                    window = high - low
+                    reach = current_temp - low
+                    reaction_force = self._get_reaction_force(window, reach)
+                    if reaction_force:
+                        cooling = True
+                    self._engage_devices(coolers, reaction_force)
+                heating = False
+            else:  # auto
+                if prefer_heating and heaters:
+                    low = target_temp - 2.5
+                    high = target_temp + 0.5
+                    window = high - low
+                    reach = high - current_temp
+                    reaction_force = self._get_reaction_force(window, reach)
+                    if reaction_force:
+                        heating = True
+                    self._engage_devices(heaters, reaction_force)
+                elif coolers and not heating:
+                    low = target_temp - 1
+                    high = target_temp + 2
+                    window = high - low
+                    reach = current_temp - low
+                    reaction_force = self._get_reaction_force(window, reach)
+                    if reaction_force:
+                        cooling = True
+                    self._engage_devices(coolers, reaction_force)
 
         self.component.set({
             'mode': mode,

@@ -334,6 +334,9 @@ class ControllerBase(ABC, metaclass=ControllerMeta):
         # Regular send
         value = self._validate_val(value, BEFORE_SEND)
 
+        # Remember who initiated this change so we can pass the
+        # actor id down to gateway processes via MQTT and record
+        # proper history when the value is eventually set.
         self.component.change_init_by = get_current_user()
         self.component.change_init_date = timezone.now()
         self.component.save(
@@ -420,8 +423,14 @@ class ControllerBase(ABC, metaclass=ControllerMeta):
         self.component.save()
 
     def _send_to_device(self, value):
+        from simo.users.utils import get_current_user
+        actor = getattr(self.component, 'change_init_by', None) or get_current_user()
+        actor_id = getattr(actor, 'id', None) if actor else None
+        extra = {'set_val': value}
+        if actor_id:
+            extra['actor_id'] = actor_id
         GatewayObjectCommand(
-            self.component.gateway, self.component, set_val=value
+            self.component.gateway, self.component, **extra
         ).publish()
 
     def _receive_from_device(

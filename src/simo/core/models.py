@@ -421,10 +421,6 @@ class Component(DirtyFieldsMixin, models.Model, SimoAdminMixin, OnChangeMixin):
 
     notes = models.TextField(null=True, blank=True)
 
-    # Always-available default; can be overridden by custom_methods
-    def is_in_alarm(self):
-        return bool(self.value)
-
     alarm_category = models.CharField(
         max_length=50, null=True, blank=True, db_index=True, choices=(
             ('security', _("Security")), ('fire', _("Fire")),

@@ -1860,6 +1860,16 @@ class SentinelDeviceConfigForm(BaseComponentForm):
                 name__icontains=cat_slug
             ).first()
 
+            # Default alarm categories for Sentinel bundle components
+            # RoomPresenceSensor -> security; SmokeDetector -> fire;
+            # others: no alarm category by default.
+            if CtrlClass is RoomPresenceSensor:
+                self.cleaned_data['alarm_category'] = 'security'
+            elif CtrlClass is SmokeDetector:
+                self.cleaned_data['alarm_category'] = 'fire'
+            else:
+                self.cleaned_data['alarm_category'] = None
+
             comp = Component.objects.filter(
                 config__colonel=colonel.id,
                 controller_uid=CtrlClass.uid

@@ -450,7 +450,17 @@ class AutomationsGatewayHandler(GatesHandler, BaseObjectCommandsGatewayHandler):
     def on_mqtt_message(self, client, userdata, msg):
         self._log_debug(f"Mqtt message: {msg.payload}")
         from .controllers import Script
+        from simo.users.models import User
+        from simo.users.utils import introduce_user
+
         payload = json.loads(msg.payload)
+        actor_id = payload.get('actor_id')
+        if actor_id:
+            try:
+                user = User.objects.get(pk=actor_id)
+                introduce_user(user)
+            except Exception:
+                pass
         drop_current_instance()
         component = get_event_obj(payload, Component)
         if not component:

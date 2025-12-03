@@ -1163,6 +1163,55 @@ class SmokeDetector(FleetDeviceMixin, BaseBinarySensor):
     gateway_class = FleetGatewayHandler
     manual_add = False
 
+    def _receive_from_device(
+        self, value, is_alive=True, battery_level=None, error_msg=None
+    ):
+        # Sentinel 3.2.x sends [value, armed] for smoke detectors.
+        # Older firmwares may still send a bare boolean; tolerate both.
+        try:
+            val, armed = value
+        except Exception:
+            val = value
+            armed = True
+        if armed:
+            if self.component.arm_status not in ('pending-arm', 'armed'):
+                self.component.arm()
+        else:
+            if self.component.arm_status not in ('disarmed', 'breached'):
+                self.component.disarm()
+        return super()._receive_from_device(
+            val, is_alive, battery_level, error_msg
+        )
+
+    def arm(self):
+        """Arm the smoke detector from the hub.
+
+        Use the model's ``arm()`` helper (which drives arm_status and
+        history), then push the resulting arming state down to the
+        Sentinel device.
+        """
+        self.component.arm()
+        self.send(self.component.value)
+
+    def disarm(self):
+        """Disarm the smoke detector from the hub."""
+        self.component.disarm()
+        self.send(self.component.value)
+
+    def _send_to_device(self, value):
+        """Send arm/disarm state plus current alarm value to Sentinel.
+
+        ``value`` is the binary alarm state (True/False). We wrap it
+        together with the desired armed flag so the device can keep
+        its measurement and arming logic separate.
+        """
+        armed = self.component.arm_status in ('pending-arm', 'armed')
+        payload = [bool(value), armed]
+        GatewayObjectCommand(
+            self.component.gateway, self.component, set_val=payload
+        ).publish()
+
+
 
 class VoiceAssistant(FleetDeviceMixin, BaseBinarySensor):
     base_type = VoiceAssistantType

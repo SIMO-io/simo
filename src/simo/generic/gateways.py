@@ -348,8 +348,17 @@ class GenericGatewayHandler(
     def on_mqtt_message(self, client, userdata, msg):
         print("Mqtt message: ", msg.payload)
         from simo.generic.controllers import AlarmGroup#, #AudioAlert
+        from simo.users.models import User
+        from simo.users.utils import introduce_user
 
         payload = json.loads(msg.payload)
+        actor_id = payload.get('actor_id')
+        if actor_id:
+            try:
+                user = User.objects.get(pk=actor_id)
+                introduce_user(user)
+            except Exception:
+                pass
         drop_current_instance()
         component = get_event_obj(payload, Component)
         if not component:
@@ -390,8 +399,22 @@ class GenericGatewayHandler(
                 stats['disarmed'] += 1
                 slave.arm_status = 'disarmed'
 
+            # Prevent recursive alarm group updates while we change
+            # child components from the group controller.
             slave.do_not_update_alarm_group = True
             slave.save(update_fields=['arm_status'])
+
+            # Propagate arming intent down to the controller so
+            # device-specific logic (e.g. Sentinel smoke detector)
+            # can update the physical device state.
+            try:
+                if value == 'armed' and hasattr(slave.controller, 'arm'):
+                    slave.controller.arm()
+                elif value == 'disarmed' and hasattr(slave.controller, 'disarm'):
+                    slave.controller.disarm()
+            except Exception:
+                # Controller-level arm/disarm is best-effort here.
+                traceback.print_exc(file=sys.stderr)
 
             for other_group in Component.objects.filter(
                 controller_uid=AlarmGroup.uid,
@@ -399,11 +422,15 @@ class GenericGatewayHandler(
             ).exclude(pk=alarm_group.pk):
                 other_alarm_groups[other_group.pk] = other_group
 
-        alarm_group.value = value
-        if stats['pending-arm']:
-            alarm_group.value = 'pending-arm'
+        # Update group's aggregate stats and value via controller
+        # pipeline so history and actor attribution are tracked
+        # consistently. Use set() instead of mutating .value
+        # directly.
         alarm_group.config['stats'] = stats
-        alarm_group.save()
+        if stats['pending-arm']:
+            alarm_group.controller.set('pending-arm')
+        else:
+            alarm_group.controller.set(value)
 
         for pk, other_group in other_alarm_groups.items():
             other_group.refresh_status()
