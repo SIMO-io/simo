@@ -79,7 +79,17 @@ def manage_alarm_groups(sender, instance, *args, **kwargs):
     if instance.controller_uid != AlarmGroup.uid:
         return
 
-    if 'value' not in instance.get_dirty_fields():
+    dirty_fields = instance.get_dirty_fields()
+
+    # Always keep AlarmGroup arm_status in sync with its logical
+    # value so higher-level groups can treat it like any other
+    # alarm-capable component.
+    if instance.value in ('disarmed', 'pending-arm', 'armed', 'breached'):
+        instance.arm_status = instance.value
+    else:
+        instance.arm_status = 'disarmed'
+
+    if 'value' not in dirty_fields:
         return
 
     if instance.value == 'breached':
@@ -91,8 +101,7 @@ def manage_alarm_groups(sender, instance, *args, **kwargs):
                 countdown=instance.config['notify_on_breach']
             )
 
-    elif instance.get_dirty_fields()['value'] == 'breached' \
-    and instance.value == 'disarmed':
+    elif dirty_fields['value'] == 'breached' and instance.value == 'disarmed':
         instance.meta['breach_start'] = None
         for event_uid in instance.meta.get('events_triggered', []):
             event = instance.controller.events_map.get(event_uid)

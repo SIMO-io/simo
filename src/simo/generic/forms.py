@@ -263,10 +263,16 @@ class AlarmGroupConfigForm(BaseComponentForm):
             AlarmBreachEventForm, can_delete=True, can_order=True, extra=0
         ), label='Breach events'
     )
-    has_alarm = False
+    # Alarm groups participate in alarm hierarchy, so expose
+    # alarm settings (category + arm_status) in admin/app forms.
+    has_alarm = True
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        # Alarm groups must always declare an alarm category so
+        # they can be included as slaves in higher-level groups.
+        if 'alarm_category' in self.fields:
+            self.fields['alarm_category'].required = True
         from .controllers import AlarmGroup
         if not self.instance.pk:
             first_alarm_group = bool(

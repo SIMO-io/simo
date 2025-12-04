@@ -463,6 +463,16 @@ class AlarmGroup(ControllerBase):
         """Disarm the entire group."""
         self.send('disarmed')
 
+    def is_in_alarm(self):
+        """Return True only when the group is actually breached.
+
+        For alarm groups the value field represents the aggregate
+        state ('disarmed', 'pending-arm', 'armed', 'breached').
+        Only the breached state should be treated as an active alarm
+        when higher-level logic calls ``is_in_alarm()``.
+        """
+        return self.component.value == 'breached'
+
     def get_children(self):
         """Return the queryset of child components that form this group."""
         return Component.objects.filter(
