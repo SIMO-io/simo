@@ -1794,22 +1794,148 @@ class DALIButtonConfigForm(DALIDeviceConfigForm, BaseComponentForm):
     pass
 
 
+VO_LANGUAGES = [
+    ('af', 'Afrikaans'),
+    ('am', 'አማርኛ'),
+    ('ar', 'العربية'),
+    ('as', 'অসমীয়া'),
+    ('az', 'Azərbaycan'),
+    ('ba', 'Башҡорт'),
+    ('be', 'Беларуская'),
+    ('bg', 'Български'),
+    ('bn', 'বাংলা'),
+    ('bo', 'བོད་ཡིག'),
+    ('br', 'Brezhoneg'),
+    ('bs', 'Bosanski'),
+    ('ca', 'Català'),
+    ('cs', 'Čeština'),
+    ('cy', 'Cymraeg'),
+    ('da', 'Dansk'),
+    ('de', 'Deutsch'),
+    ('el', 'Ελληνικά'),
+    ('en', 'English'),
+    ('eo', 'Esperanto'),
+    ('es', 'Español'),
+    ('et', 'Eesti'),
+    ('eu', 'Euskara'),
+    ('fa', 'فارسی'),
+    ('fi', 'Suomi'),
+    ('fo', 'Føroyskt'),
+    ('fr', 'Français'),
+    ('fy', 'Frysk'),
+    ('ga', 'Gaeilge'),
+    ('gd', 'Gàidhlig'),
+    ('gl', 'Galego'),
+    ('gu', 'ગુજરાતી'),
+    ('ha', 'Hausa'),
+    ('haw', 'ʻŌlelo Hawaiʻi'),
+    ('he', 'עברית'),
+    ('hi', 'हिन्दी'),
+    ('hr', 'Hrvatski'),
+    ('ht', 'Kreyòl Ayisyen'),
+    ('hu', 'Magyar'),
+    ('hy', 'Հայերեն'),
+    ('id', 'Indonesia'),
+    ('is', 'Íslenska'),
+    ('it', 'Italiano'),
+    ('ja', '日本語'),
+    ('jw', 'Basa Jawa'),
+    ('ka', 'ქართული'),
+    ('kk', 'Қазақ'),
+    ('km', 'ខ្មែរ'),
+    ('kn', 'ಕನ್ನಡ'),
+    ('ko', '한국어'),
+    ('la', 'Latina'),
+    ('lb', 'Lëtzebuergesch'),
+    ('ln', 'Lingála'),
+    ('lo', 'ລາວ'),
+    ('lt', 'Lietuvių'),
+    ('lv', 'Latviešu'),
+    ('mg', 'Malagasy'),
+    ('mi', 'Māori'),
+    ('mk', 'Македонски'),
+    ('ml', 'മലയാളം'),
+    ('mn', 'Монгол'),
+    ('mr', 'मराठी'),
+    ('ms', 'Melayu'),
+    ('mt', 'Malti'),
+    ('my', 'မြန်မာ'),
+    ('ne', 'नेपाली'),
+    ('nl', 'Nederlands'),
+    ('no', 'Norsk'),
+    ('oc', 'Occitan'),
+    ('pa', 'ਪੰਜਾਬੀ'),
+    ('pl', 'Polski'),
+    ('ps', 'پښتو'),
+    ('pt', 'Português'),
+    ('ro', 'Română'),
+    ('ru', 'Русский'),
+    ('sa', 'संस्कृतम्'),
+    ('sd', 'سنڌي'),
+    ('si', 'සිංහල'),
+    ('sk', 'Slovenčina'),
+    ('sl', 'Slovenščina'),
+    ('sn', 'ChiShona'),
+    ('so', 'Soomaaliga'),
+    ('sq', 'Shqip'),
+    ('sr', 'Српски'),
+    ('su', 'Basa Sunda'),
+    ('sv', 'Svenska'),
+    ('sw', 'Kiswahili'),
+    ('ta', 'தமிழ்'),
+    ('te', 'తెలుగు'),
+    ('tg', 'Тоҷикӣ'),
+    ('th', 'ไทย'),
+    ('tk', 'Türkmençe'),
+    ('tl', 'Tagalog'),
+    ('tr', 'Türkçe'),
+    ('tt', 'Татарча'),
+    ('uk', 'Українська'),
+    ('ur', 'اردو'),
+    ('uz', 'O‘zbek'),
+    ('vi', 'Tiếng Việt'),
+    ('yi', 'ייִדיש'),
+    ('yo', 'Yorùbá'),
+    ('zh', '中文'),
+]
+
+
 class SentinelDeviceConfigForm(BaseComponentForm):
     colonel = Select2ModelChoiceField(
         label="Sentinel", queryset=Colonel.objects.filter(type='sentinel'),
         url='autocomplete-colonels',
         forward=(forward.Const({'type': 'sentinel'}, 'filters'),)
     )
+    voice = forms.ChoiceField(
+        label="Sento voice",
+        required=True,
+        choices=(
+            ('male', "Male"),
+            ('female', "Female"),
+        ),
+        initial='male',
+    )
+    language = forms.ChoiceField(
+        label="Sento language",
+        required=True,
+        choices=VO_LANGUAGES,
+        initial='en',
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        # Ensure Sento options are editable via app for owners.
+        if hasattr(self, 'basic_fields'):
+            self.basic_fields.extend(['voice', 'language'])
+
         # Limit colonels to current instance for convenience
         instance = get_current_instance()
         if instance:
             self.fields['colonel'].queryset = self.fields['colonel'].queryset.filter(
                 instance=instance
             )
-        visible_fields = ('name', 'zone', 'colonel')
+
+        visible_fields = ('name', 'zone', 'colonel', 'voice', 'language')
         for field_name in list(self.fields.keys()):
             if field_name in visible_fields:
                 continue
@@ -1921,3 +2047,10 @@ class VoiceAssistantConfigForm(BaseComponentForm):
             ('male', "Male"), ('female', "Female"),
         ),
     )
+    language = forms.ChoiceField(
+        label="Language", required=True, choices=VO_LANGUAGES
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.basic_fields.extend(['voice', 'language'])

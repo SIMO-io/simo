@@ -221,8 +221,18 @@ class VoiceAssistantSession:
                 "instance-uid": self.c.instance.uid,
                 "mcp-token": getattr(self.mcp_token, 'token', None),
                 "voice": self.voice,
-                "zone": self.zone
+                "zone": self.zone,
             }
+
+            # Attach language if available on the Voice Assistant component.
+            try:
+                lang = getattr(self.c, 'language', None) or None
+                if not lang and getattr(self.c, 'config', None):
+                    lang = self.c.config.get('language')
+                if lang:
+                    headers["language"] = lang
+            except Exception:
+                pass
             if not websockets:
                 raise RuntimeError("websockets library not available")
             print(f"VA WS CONNECT {ws_url}")
