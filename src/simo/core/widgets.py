@@ -94,7 +94,7 @@ class CheckboxWithHiddenFalse(forms.CheckboxInput):
         if attrs and attrs.get('id'):
             hidden_attrs['id'] = f"{attrs['id']}_hidden"
         hidden_html = forms.HiddenInput().render(
-            name, '0', attrs=hidden_attrs or None, renderer=renderer
+            name, '', attrs=hidden_attrs or None, renderer=renderer
         )
         return mark_safe(hidden_html + checkbox_html)
 
