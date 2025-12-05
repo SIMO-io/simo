@@ -86,10 +86,6 @@ class _MqttHub:
     @property
     def client(self) -> mqtt.Client:
         with self._lock:
-            # Detect forked process using this singleton and recreate client
-            if self._client is not None and os.getpid() != self._pid:
-                print("[MQTTHUB] PID changed, forcing client recreate", file=sys.stderr)
-                self._recreate_client()
             if self._client is None:
                 self._client = mqtt.Client()
                 self._client.username_pw_set('root', settings.SECRET_KEY)
@@ -227,7 +223,6 @@ class _MqttHub:
     def _on_connect(self, client: mqtt.Client, userdata, flags, rc):
         if rc == 0:
             self._connected.set()
-            print("[MQTTHUB] Connected to MQTT broker", file=sys.stderr)
         # Re-subscribe all topics after reconnect
         with self._lock:
             topics = list(self._subs.keys())
@@ -279,10 +274,21 @@ class _MqttHub:
 
 
 _hub: _MqttHub | None = None
+_hub_pid: int | None = None
 
 
 def get_mqtt_hub() -> _MqttHub:
-    global _hub
-    if _hub is None:
+    """Return a process-local MQTT hub.
+
+    Each OS process gets its own `_MqttHub` instance and underlying
+    `mqtt.Client`. This avoids sharing a client across forked
+    processes, which can leave background network threads in an
+    invalid state and break publishing (exactly what we observed with
+    scripts).
+    """
+    global _hub, _hub_pid
+    pid = os.getpid()
+    if _hub is None or _hub_pid != pid:
         _hub = _MqttHub()
+        _hub_pid = pid
     return _hub
