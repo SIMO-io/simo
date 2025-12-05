@@ -1,6 +1,7 @@
 import threading
 import logging
 import os
+import sys
 from typing import Callable, Dict, List, Tuple
 
 from django.conf import settings
@@ -28,16 +29,19 @@ class _MqttHub:
 
     def _recreate_client(self):
         # Close previous client if any (best-effort)
+        print("[MQTTHUB] Recreating MQTT client (pid changed or client dead)", file=sys.stderr)
         try:
             if self._client is not None:
                 try:
                     self._client.loop_stop()
                 except Exception:
-                    pass
+                    logger.exception("MQTT hub: loop_stop failed during recreate")
+                    print("[MQTTHUB] loop_stop failed during recreate", file=sys.stderr)
                 try:
                     self._client.disconnect()
                 except Exception:
-                    pass
+                    logger.exception("MQTT hub: disconnect failed during recreate")
+                    print("[MQTTHUB] disconnect failed during recreate", file=sys.stderr)
         finally:
             self._client = None
             self._started = False
@@ -55,15 +59,19 @@ class _MqttHub:
         try:
             self._client.reconnect_delay_set(min_delay=1, max_delay=30)
         except Exception as e:
-            print(f"[MQTTHUB] reconnect_delay_set failed (recreate): {e}")
+            logger.exception("MQTT hub: reconnect_delay_set failed (recreate)")
+            print(f"[MQTTHUB] reconnect_delay_set failed (recreate): {e}", file=sys.stderr)
         try:
             self._client.connect(host=settings.MQTT_HOST, port=settings.MQTT_PORT)
         except Exception as e:
             # Fallback to async connect
+            logger.warning("MQTT hub: sync connect failed in recreate: %s", e)
+            print(f"[MQTTHUB] sync connect failed (recreate): {e}; fallback to async", file=sys.stderr)
             try:
                 self._client.connect_async(host=settings.MQTT_HOST, port=settings.MQTT_PORT)
             except Exception as e2:
-                print(f"[MQTTHUB] connect_async failed (recreate): {e2}")
+                logger.exception("MQTT hub: connect_async failed (recreate)")
+                print(f"[MQTTHUB] connect_async failed (recreate): {e2}", file=sys.stderr)
         self._client.loop_start()
         self._started = True
         # Subscribe all topics for this fresh connection
@@ -80,6 +88,7 @@ class _MqttHub:
         with self._lock:
             # Detect forked process using this singleton and recreate client
             if self._client is not None and os.getpid() != self._pid:
+                print("[MQTTHUB] PID changed, forcing client recreate", file=sys.stderr)
                 self._recreate_client()
             if self._client is None:
                 self._client = mqtt.Client()
@@ -93,17 +102,20 @@ class _MqttHub:
                 try:
                     self._client.reconnect_delay_set(min_delay=1, max_delay=30)
                 except Exception as e:
-                    print(f"[MQTTHUB] reconnect_delay_set failed: {e}")
+                    logger.exception("MQTT hub: reconnect_delay_set failed")
+                    print(f"[MQTTHUB] reconnect_delay_set failed: {e}", file=sys.stderr)
                 try:
                     # Prefer a synchronous connect so first publish/subscribe is reliable
                     self._client.connect(host=settings.MQTT_HOST, port=settings.MQTT_PORT)
                 except Exception as e:
                     # Fallback to async connect if direct connect fails
-                    print(f"[MQTTHUB] sync connect failed: {e}; fallback to async")
+                    logger.warning("MQTT hub: sync connect failed: %s", e)
+                    print(f"[MQTTHUB] sync connect failed: {e}; fallback to async", file=sys.stderr)
                     try:
                         self._client.connect_async(host=settings.MQTT_HOST, port=settings.MQTT_PORT)
                     except Exception as e2:
-                        print(f"[MQTTHUB] connect_async failed: {e2}")
+                        logger.exception("MQTT hub: connect_async failed")
+                        print(f"[MQTTHUB] connect_async failed: {e2}", file=sys.stderr)
                 self._client.loop_start()
                 self._started = True
             else:
@@ -116,7 +128,9 @@ class _MqttHub:
                 self._client.on_log = self._on_log
                 try:
                     is_conn = self._client.is_connected()
-                except Exception:
+                except Exception as e:
+                    logger.exception("MQTT hub: is_connected check failed")
+                    print(f"[MQTTHUB] is_connected check failed: {e}", file=sys.stderr)
                     is_conn = False
                 if not is_conn:
                     try:
@@ -127,6 +141,7 @@ class _MqttHub:
                             self._client.connect_async(host=settings.MQTT_HOST, port=settings.MQTT_PORT)
                         except Exception as e2:
                             logger.exception("MQTT hub: reconnect async failed")
+                            print(f"[MQTTHUB] reconnect async failed: {e2}", file=sys.stderr)
                     if not self._started:
                         self._client.loop_start()
                         self._started = True
@@ -137,9 +152,15 @@ class _MqttHub:
         client = self.client
         try:
             info = client.publish(topic, payload, qos=qos, retain=retain)
+            # If publish returns non-success rc, surface it loudly
+            rc = getattr(info, "rc", mqtt.MQTT_ERR_SUCCESS)
+            if rc != mqtt.MQTT_ERR_SUCCESS:
+                logger.error("MQTT hub: publish rc=%s for topic %s", rc, topic)
+                print(f"[MQTTHUB] publish rc={rc} for topic {topic}", file=sys.stderr)
             return info
         except Exception as e:
             logger.exception("MQTT hub: publish failed for topic %s", topic)
+            print(f"[MQTTHUB] publish exception for topic {topic}: {e}", file=sys.stderr)
 
     def subscribe(self, topic: str, callback: Callable[[mqtt.Client, object, object], None]) -> Tuple[str, int]:
         """
@@ -159,8 +180,10 @@ class _MqttHub:
                             res = client.subscribe(topic)
                         except Exception as e:
                             logger.exception("MQTT hub: subscribe reconnect exception")
+                            print(f"[MQTTHUB] subscribe reconnect exception for {topic}: {e}", file=sys.stderr)
                 except Exception as e:
                     logger.exception("MQTT hub: subscribe failed for %s", topic)
+                    print(f"[MQTTHUB] subscribe failed for {topic}: {e}", file=sys.stderr)
             token = (topic, len(callbacks) - 1)
             return token
 
@@ -181,6 +204,7 @@ class _MqttHub:
                         res = self._client.unsubscribe(topic)
                 except Exception as e:
                     logger.exception("MQTT hub: unsubscribe failed for %s", topic)
+                    print(f"[MQTTHUB] unsubscribe failed for {topic}: {e}", file=sys.stderr)
 
     def shutdown(self):
         with self._lock:
@@ -189,10 +213,12 @@ class _MqttHub:
                     self._client.loop_stop()
                 except Exception as e:
                     logger.exception("MQTT hub: loop_stop exception")
+                    print(f"[MQTTHUB] loop_stop exception: {e}", file=sys.stderr)
                 try:
                     self._client.disconnect()
                 except Exception as e:
                     logger.exception("MQTT hub: disconnect exception")
+                    print(f"[MQTTHUB] disconnect exception: {e}", file=sys.stderr)
                 self._client = None
                 self._subs.clear()
                 self._started = False
@@ -201,14 +227,16 @@ class _MqttHub:
     def _on_connect(self, client: mqtt.Client, userdata, flags, rc):
         if rc == 0:
             self._connected.set()
+            print("[MQTTHUB] Connected to MQTT broker", file=sys.stderr)
         # Re-subscribe all topics after reconnect
         with self._lock:
             topics = list(self._subs.keys())
-        for topic in topics:
-            try:
-                client.subscribe(topic)
-            except Exception as e:
-                logger.exception("MQTT hub: resubscribe failed for %s", topic)
+            for topic in topics:
+                try:
+                    client.subscribe(topic)
+                except Exception as e:
+                    logger.exception("MQTT hub: resubscribe failed for %s", topic)
+                    print(f"[MQTTHUB] resubscribe failed for {topic}: {e}", file=sys.stderr)
 
     def _on_message(self, client: mqtt.Client, userdata, msg):
         # Dispatch to callbacks bound to this topic (exact) and any wildcard subscriptions
@@ -235,7 +263,7 @@ class _MqttHub:
                 logger.exception("MQTT hub: callback failed for topic %s", msg.topic)
 
     def _on_disconnect(self, client: mqtt.Client, userdata, rc):
-        pass
+        print(f"[MQTTHUB] Disconnected from MQTT broker (rc={rc})", file=sys.stderr)
 
     def _on_subscribe(self, client: mqtt.Client, userdata, mid, granted_qos):
         pass
