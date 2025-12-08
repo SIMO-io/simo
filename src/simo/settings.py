@@ -230,6 +230,8 @@ CELERY_TASK_TRACK_STARTED = True
 CELERY_TASK_TIME_LIMIT = 30 * 60
 CELERYD_HIJACK_ROOT_LOGGER = False
 CELERY_BROKER_URL = 'redis://127.0.0.1:6379/%d' % REDIS_DB['celery']
+CELERY_BEAT_SCHEDULE_FILENAME = os.path.join(VAR_DIR, "celerybeat-schedule")
+CELERY_BEAT_SCHEDULER = "simo.core.utils.celery_beat.SafePersistentScheduler"
 
 
 LOGIN_URL = "login"
