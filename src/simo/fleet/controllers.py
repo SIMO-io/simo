@@ -1166,6 +1166,8 @@ class SmokeDetector(FleetDeviceMixin, BaseBinarySensor):
     def _receive_from_device(
         self, value, is_alive=True, battery_level=None, error_msg=None
     ):
+        from simo.users.utils import get_device_user
+
         # Sentinel 3.2.x sends [value, armed] for smoke detectors.
         # Older firmwares may still send a bare boolean; tolerate both.
         try:
@@ -1173,12 +1175,19 @@ class SmokeDetector(FleetDeviceMixin, BaseBinarySensor):
         except Exception:
             val = value
             armed = True
+
         if armed:
             if self.component.arm_status not in ('pending-arm', 'armed'):
+                self.component.change_user = get_device_user()
                 self.component.arm()
         else:
             if self.component.arm_status not in ('disarmed', 'breached'):
+                self.component.change_user = get_device_user()
                 self.component.disarm()
+        try:
+            delattr(self.component, 'change_user')
+        except Exception:
+            pass
         return super()._receive_from_device(
             val, is_alive, battery_level, error_msg
         )

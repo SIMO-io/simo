@@ -4,6 +4,7 @@ import traceback
 import subprocess
 import datetime
 import numpy as np
+from contextvars import ContextVar
 from django.core.cache import cache
 from django.utils import timezone
 from django.template.loader import render_to_string
@@ -77,18 +78,24 @@ def update_mqtt_acls():
     )
 
 
-class _CurrentUerStore:
-    user = None
-
-
-_current_user_store = _CurrentUerStore()
+_current_user: ContextVar = ContextVar('simo_current_user', default=None)
 
 
 def introduce_user(user):
-    _current_user_store.user = user
+    """Set current user for the current request/task context.
+
+    Returns a token that can be used with ``reset_user``.
+    """
+    return _current_user.set(user)
+
+
+def reset_user(token):
+    _current_user.reset(token)
 
 
 def get_current_user():
-    if not _current_user_store.user:
-        _current_user_store.user = get_system_user()
-    return _current_user_store.user
+    user = _current_user.get()
+    if not user:
+        user = get_system_user()
+        _current_user.set(user)
+    return user

@@ -420,7 +420,16 @@ class ControllerBase(ABC, metaclass=ControllerMeta):
             instance=self.component.zone.instance,
             user=actor
         ).first()
-        self.component.save()
+        # Make sure Component.save() (and its security-history side effects)
+        # attributes changes to the same actor that initiated this update.
+        self.component.change_user = actor
+        try:
+            self.component.save()
+        finally:
+            try:
+                delattr(self.component, 'change_user')
+            except Exception:
+                pass
 
     def _send_to_device(self, value):
         from simo.users.utils import get_current_user

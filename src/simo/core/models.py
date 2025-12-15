@@ -537,7 +537,7 @@ class Component(DirtyFieldsMixin, models.Model, SimoAdminMixin, OnChangeMixin):
         dirty_fields_initial = self.get_dirty_fields(check_relationship=True)
 
         if self.pk:
-            actor = get_current_user()
+            actor = getattr(self, 'change_user', None) or get_current_user()
 
             if 'arm_status' in dirty_fields_initial:
                 ComponentHistory.objects.create(
