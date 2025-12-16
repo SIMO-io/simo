@@ -541,6 +541,10 @@ class FleetConsumer(AsyncWebsocketConsumer):
                         self._va = VoiceAssistantSession(self)
                     self._va.voice = data.get('voice', 'male')
                     self._va.zone = va_component.zone.id
+                    try:
+                        self._va.language = (va_component.config or {}).get('language')
+                    except Exception:
+                        self._va.language = None
 
             elif bytes_data:
                 if self.colonel.type == 'sentinel':

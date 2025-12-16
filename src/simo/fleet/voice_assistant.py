@@ -27,6 +27,24 @@ ADPCM_FRAME_FLAG = 0x80
 ADPCM_HEADER_SIZE = 6
 
 
+def _normalize_language(value):
+    if not value:
+        return None
+    try:
+        value = str(value)
+    except Exception:
+        return None
+    value = value.strip()
+    if not value:
+        return None
+    # Handle headers like "lt-LT,lt;q=0.9".
+    if ',' in value:
+        value = value.split(',', 1)[0].strip()
+    value = value.replace('_', '-')
+    # OpenAI transcription language hint expects a short code (ISO-639-1).
+    return value.split('-', 1)[0].lower() or None
+
+
 class VoiceAssistantSession:
     """Manages a single Sentinel voice session for a connected Colonel.
 
@@ -88,6 +106,7 @@ class VoiceAssistantSession:
         self._tx_prefill_chunks = 20
         self.voice = 'male'
         self.zone = None
+        self.language = None
         self._cloud_gate = asyncio.Event()
         self._start_session_notified = False
         self._start_session_inflight = False
@@ -226,9 +245,11 @@ class VoiceAssistantSession:
 
             # Attach language if available on the Voice Assistant component.
             try:
-                lang = getattr(self.c, 'language', None) or None
-                if not lang and getattr(self.c, 'config', None):
-                    lang = self.c.config.get('language')
+                lang = _normalize_language(
+                    self.language
+                    or getattr(self.c, 'language', None)
+                    or (getattr(self.c, 'config', None) or {}).get('language')
+                )
                 if lang:
                     headers["language"] = lang
             except Exception:
@@ -1130,6 +1151,9 @@ class VoiceAssistantSession:
             'mcp-token': getattr(self.mcp_token, 'token', None),
             'zone': self.zone,
         }
+        lang = _normalize_language(self.language)
+        if lang:
+            payload['language'] = lang
         def _post():
             try:
                 return requests.post(url, json=payload, timeout=5)
