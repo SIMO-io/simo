@@ -1338,10 +1338,17 @@ class MainState(StateSelect):
     config_form = MainStateSelectForm
     default_value = 'day'
 
+    ROUTINE_STATES = {'day', 'evening', 'night', 'morning'}
+    OVERRIDE_META_KEY = 'main_state_override'
+
     default_config = {
         'is_main': True,
         'weekdays_morning_hour': 6,
         'weekends_morning_hour': 7,
+        # Evening -> Night cutoff.
+        # If < 12, interpreted as next-day AM (e.g., 2 => 02:00 next day).
+        'sunday_thursday_night_hour': 0,
+        'friday_saturday_night_hour': 0,
         'away_on_no_action': 30,
         'sleeping_phones_hour': 21,
         'states': [
@@ -1367,25 +1374,93 @@ class MainState(StateSelect):
         ]
     }
 
+    def set(self, value, actor=None, alive=None, error_msg=None):
+        """Persist manual routine overrides for day/evening/night/morning.
+
+        If a user manually selects one of the routine states, we keep that
+        value until the schedule naturally reaches the same state (alignment).
+        """
+
+        from simo.users.utils import get_current_user, get_system_user
+
+        effective_actor = actor or self._get_actor(value) or get_current_user()
+        super().set(value, actor=effective_actor, alive=alive, error_msg=error_msg)
+
+        try:
+            system_user = get_system_user()
+        except Exception:
+            system_user = None
+
+        # Only user-initiated changes create/clear overrides.
+        if system_user and effective_actor and effective_actor.id == system_user.id:
+            return
+
+        meta = dict(self.component.meta or {})
+
+        if value in self.ROUTINE_STATES:
+            scheduled = self._get_day_evening_night_morning()
+            if value == scheduled:
+                meta.pop(self.OVERRIDE_META_KEY, None)
+            else:
+                meta[self.OVERRIDE_META_KEY] = {
+                    'value': value,
+                    'ts': int(time.time()),
+                }
+        else:
+            meta.pop(self.OVERRIDE_META_KEY, None)
+
+        if meta != (self.component.meta or {}):
+            self.component.meta = meta
+            self.component.save(update_fields=['meta'])
+
     def _get_day_evening_night_morning(self):
         from simo.automation.helpers import LocalSun
         sun = LocalSun(self.component.zone.instance.location)
         timezone.activate(self.component.zone.instance.timezone)
         localtime = timezone.localtime()
 
-        # It is daytime if the sun is up!
-        if not sun.is_night():
+        sunrise_today = sun.get_sunrise_time(localtime)
+        sunset_today = sun.get_sunset_time(localtime)
+
+        # Daytime if sun is up.
+        if sunrise_today <= localtime < sunset_today:
             return 'day'
 
-        # it is evening if the sun is down at the evening
-        if sun.get_sunset_time(localtime) < localtime:
+        # We are in the dark window that started at the last sunset.
+        if localtime >= sunset_today:
+            dark_start_day = localtime
+        else:
+            dark_start_day = localtime - datetime.timedelta(days=1)
+
+        if dark_start_day.weekday() in (4, 5):
+            night_hour = self.component.config.get('friday_saturday_night_hour', 0)
+        else:
+            night_hour = self.component.config.get('sunday_thursday_night_hour', 0)
+        try:
+            night_hour = int(night_hour)
+        except Exception:
+            night_hour = 0
+        if night_hour < 0 or night_hour > 23:
+            night_hour = 0
+
+        night_start_date = dark_start_day.date()
+        if night_hour < 12:
+            night_start_date = night_start_date + datetime.timedelta(days=1)
+        night_start = timezone.make_aware(
+            datetime.datetime.combine(night_start_date, datetime.time(night_hour, 0)),
+            timezone.get_current_timezone(),
+        )
+
+        # Evening lasts from sunset until configured night_start.
+        if localtime < night_start:
             return 'evening'
 
+        # Morning begins at configured hour (while still dark).
         if localtime.weekday() < 5:
-            if localtime.hour >= self.component.config['weekdays_morning_hour']:
+            if localtime.hour >= self.component.config.get('weekdays_morning_hour', 6):
                 return 'morning'
         else:
-            if localtime.hour >= self.component.config['weekends_morning_hour']:
+            if localtime.hour >= self.component.config.get('weekends_morning_hour', 7):
                 return 'morning'
 
         # 0 - 6AM and still dark

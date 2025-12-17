@@ -493,6 +493,16 @@ class MainStateSelectForm(BaseComponentForm):
     weekends_morning_hour = forms.IntegerField(
         initial=6, min_value=3, max_value=12
     )
+    sunday_thursday_night_hour = forms.IntegerField(
+        initial=0, min_value=0, max_value=23,
+        help_text='When should Evening switch to Night on Sunday-Thursday. '
+                  'If set below 12, it is treated as next-day AM.'
+    )
+    friday_saturday_night_hour = forms.IntegerField(
+        initial=0, min_value=0, max_value=23,
+        help_text='When should Evening switch to Night on Friday-Saturday. '
+                  'If set below 12, it is treated as next-day AM.'
+    )
     away_on_no_action = forms.IntegerField(
         required=False, initial=40, min_value=1, max_value=360,
         help_text="Set state to Away if nobody is at home "

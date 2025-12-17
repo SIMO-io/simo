@@ -439,21 +439,31 @@ class GenericGatewayHandler(
     def set_get_day_evening_night_morning(self, state):
         if state.value  not in ('day', 'night', 'evening', 'morning'):
             return
+
         new_state = state.controller._get_day_evening_night_morning()
+
+        override = None
+        try:
+            override = (state.meta or {}).get(getattr(state.controller, 'OVERRIDE_META_KEY', 'main_state_override'))
+        except Exception:
+            override = None
+
+        if override:
+            override_value = override.get('value')
+            routine_states = getattr(state.controller, 'ROUTINE_STATES', None) or {'day', 'evening', 'night', 'morning'}
+            if override_value not in routine_states:
+                override_value = None
+            if override_value and new_state != override_value:
+                return
+
+            meta = dict(state.meta or {})
+            meta.pop(getattr(state.controller, 'OVERRIDE_META_KEY', 'main_state_override'), None)
+            if meta != (state.meta or {}):
+                state.meta = meta
+                state.save(update_fields=['meta'])
+
         if new_state == state.value:
-            self.last_set_state = state.value
             return
-        if self.last_set_state:
-            # check if user maybe changed the state manually.
-            # If that's the case, we should not intervene
-            if new_state == 'day' and self.last_set_state not in ('night', 'morning'):
-                return
-            if new_state == 'evening' and self.last_set_state != 'day':
-                return
-            if new_state == 'night' and self.last_set_state != 'evening':
-                return
-            if new_state == 'morning' and self.last_set_state != 'night':
-                return
 
         print(f"New main state of {state.zone.instance} - {new_state}")
         state.send(new_state)
