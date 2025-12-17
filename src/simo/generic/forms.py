@@ -488,10 +488,12 @@ class StateSelectForm(BaseComponentForm):
 
 class MainStateSelectForm(BaseComponentForm):
     weekdays_morning_hour = forms.IntegerField(
-        initial=6, min_value=3, max_value=12
+        initial=6, min_value=3, max_value=12,
+        help_text='When should Night switch to Morning on Monday-Friday. '
     )
     weekends_morning_hour = forms.IntegerField(
-        initial=6, min_value=3, max_value=12
+        initial=6, min_value=3, max_value=12,
+        help_text='When should Night switch to Morning on Saturday-Sunday. '
     )
     sunday_thursday_night_hour = forms.IntegerField(
         initial=0, min_value=0, max_value=23,
@@ -523,6 +525,13 @@ class MainStateSelectForm(BaseComponentForm):
     states = FormsetField(
         formset_factory(StateForm, can_delete=True, can_order=True, extra=0)
     )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.basic_fields.extend(
+            ['weekdays_morning_hour', 'weekends_morning_hour',
+             'sunday_thursday_night_hour', 'friday_saturday_night_hour',]
+        )
 
     def clean(self):
         if not self.instance.id:
