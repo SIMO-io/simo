@@ -42,7 +42,7 @@ class InstanceMixin:
         ).last()
         if not self.instance:
             raise Http404()
-        introduce_instance(self.instance)
+        introduce_instance(self.instance, request)
         return super().dispatch(request, *args, **kwargs)
 
     def get_serializer_context(self):
@@ -233,6 +233,10 @@ class ComponentViewSet(
         for method_name, param in json_data.items():
             if method_name in ('id', 'secret'):
                 continue
+            if not isinstance(method_name, str):
+                continue
+            if method_name.startswith('_') or '__' in method_name:
+                continue
 
             component.prepare_controller()
 
@@ -243,6 +247,13 @@ class ComponentViewSet(
                 )
 
             call = getattr(component, method_name)
+
+            # Only allow controller-provided methods (never model methods like delete/save).
+            if getattr(call, '__self__', None) is not component.controller:
+                raise APIValidationError(
+                    _('"%s" method is not allowed') % method_name,
+                    code=403,
+                )
 
             if not isinstance(param, list) and not isinstance(param, dict):
                 param = [param]
@@ -349,7 +360,21 @@ class ComponentHistoryViewSet(InstanceMixin, viewsets.ReadOnlyModelViewSet):
     def list(self, request, format=None, *args, **kwargs):
         if request.GET.get('interval', None) in ('min', 'hour', 'day', 'week', 'month') \
         and 'component' in request.GET and 'start_from' in request.GET:
-            component = Component.objects.get(pk=request.GET['component'])
+            component = Component.objects.filter(
+                pk=request.GET['component'],
+                zone__instance=self.instance,
+            ).select_related('zone', 'zone__instance').first()
+            if not component:
+                raise Http404()
+            if not request.user.is_superuser:
+                role = request.user.get_role(self.instance)
+                if not role:
+                    raise Http404()
+                if not role.is_superuser and not role.is_owner:
+                    if not role.component_permissions.filter(
+                        component=component, read=True
+                    ).exists():
+                        raise Http404()
             start_from = datetime.datetime.utcfromtimestamp(
                 int(float(request.GET['start_from']))
             ).replace(tzinfo=pytz.utc)
@@ -531,13 +556,19 @@ class ActionsViewset(InstanceMixin, viewsets.ReadOnlyModelViewSet):
         user_role = self.request.user.get_role(self.instance)
         if user_role.is_owner:
             return qs
-        Action.objects.none()
+        return Action.objects.none()
 
 
 class SettingsViewSet(InstanceMixin, viewsets.GenericViewSet):
     url = 'core/settings'
     basename = 'settings'
     #http_method_names = ['get', 'head', 'options', 'patch']
+
+    def get_permissions(self):
+        permissions = super().get_permissions()
+        if self.request.method not in ('GET', 'HEAD', 'OPTIONS'):
+            permissions.append(IsInstanceSuperuser())
+        return permissions
 
 
     def list(self, request, format=None, *args, **kwargs):
@@ -639,7 +670,8 @@ class SettingsViewSet(InstanceMixin, viewsets.GenericViewSet):
             self.instance.device_report_history_days = device_report_history_days
 
         self.instance.indoor_climate_sensor = Component.objects.filter(
-            id=request_data.get('indoor_climate_sensor', 0)
+            id=request_data.get('indoor_climate_sensor', 0),
+            zone__instance=self.instance,
         ).first()
 
         self.instance.save()
@@ -798,7 +830,8 @@ class RunningDiscoveries(InstanceMixin, viewsets.GenericViewSet):
 
     def get_gateways(self, request):
         gateways = Gateway.objects.filter(
-            discovery__start__gt=time.time() - 60 * 60  # no more than an hour
+            discovery__start__gt=time.time() - 60 * 60,  # no more than an hour
+            discovery__instance_id=self.instance.id,
         )
         if 'controller_uid' in request.GET:
             gateways = gateways.filter(

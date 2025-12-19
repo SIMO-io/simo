@@ -687,6 +687,7 @@ class TTLock(FleetDeviceMixin, Lock):
             for code in data['codes']:
                 Fingerprint.objects.get_or_create(
                     value=f"ttlock-{self.component.id}-code-{str(code)}",
+                    instance=self.component.zone.instance,
                     defaults={'type': "TTLock code"}
                 )
         if 'fingerprints' in data:
@@ -694,6 +695,7 @@ class TTLock(FleetDeviceMixin, Lock):
             for finger in data['fingerprints']:
                 Fingerprint.objects.get_or_create(
                     value=f"ttlock-{self.component.id}-finger-{str(finger)}",
+                    instance=self.component.zone.instance,
                     defaults={'type': "TTLock code"}
                 )
         self.component.save(update_fields=['meta'])

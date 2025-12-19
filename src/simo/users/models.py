@@ -311,11 +311,12 @@ class User(AbstractBaseUser, SimoAdminMixin):
         return obj
 
     def update_mqtt_secret(self, reload=True):
-        ps = subprocess.Popen(
-            [f'mosquitto_passwd /etc/mosquitto/mosquitto_users {self.email}'],
-            shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE
+        subprocess.run(
+            ['mosquitto_passwd', '/etc/mosquitto/mosquitto_users', self.email],
+            input=f"{self.secret_key}\n{self.secret_key}".encode(),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
         )
-        ps.communicate(f"{self.secret_key}\n{self.secret_key}".encode())
         if reload:
             subprocess.run(
                 ['service', 'mosquitto', 'reload'], stdout=subprocess.PIPE
@@ -503,6 +504,10 @@ class User(AbstractBaseUser, SimoAdminMixin):
 
 class Fingerprint(models.Model):
     value = models.CharField(max_length=200, db_index=True, unique=True)
+    instance = models.ForeignKey(
+        'core.Instance', on_delete=models.CASCADE, null=True, blank=True,
+        help_text="Owning smart home instance (tenant)."
+    )
     user = models.ForeignKey(
         User, on_delete=models.CASCADE, null=True, blank=True,
         related_name='fingerprints'

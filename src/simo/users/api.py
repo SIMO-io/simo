@@ -391,9 +391,7 @@ class FingerprintViewSet(
     serializer_class = FingerprintSerializer
 
     def get_queryset(self):
-        qs = Fingerprint.objects.filter(
-            Q(user=None) | Q(user__roles__instance=self.instance)
-        )
+        qs = Fingerprint.objects.filter(instance=self.instance)
         if 'values' in self.request.GET:
             qs = qs.filter(value__in=self.request.GET['values'].split(','))
         return qs

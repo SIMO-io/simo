@@ -15,6 +15,10 @@ HOST = 'hub'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
 
+# True for cloud-hosted (shared, multi-tenant) "virtual hub" deployments.
+# Virtual hubs must avoid exposing any instance-local LAN features publicly.
+IS_VIRTUAL = False
+
 DEFAULT_AUTO_FIELD = 'django.db.models.AutoField'
 
 ALLOWED_HOSTS = ['*']

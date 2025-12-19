@@ -261,7 +261,11 @@ class Gateway(DirtyFieldsMixin, models.Model, SimoAdminMixin):
             )
 
     def start_discovery(self, controller_uid, init_data, timeout=None):
+        from simo.core.middleware import get_current_instance
+        instance = get_current_instance()
         self.discovery = {
+            'instance_id': getattr(instance, 'id', None),
+            'instance_uid': getattr(instance, 'uid', None),
             'start': time.time(),
             'timeout': timeout if timeout else 60,
             'controller_uid': controller_uid,
@@ -281,6 +285,9 @@ class Gateway(DirtyFieldsMixin, models.Model, SimoAdminMixin):
             print(
                 f"Gateway is not in pairing mode at the moment!"
             )
+            return
+        expected_instance_id = self.discovery.get('instance_id')
+        if expected_instance_id is not None and expected_instance_id != data.get('instance_id'):
             return
         if self.discovery['controller_uid'] != data.get('type'):
             print(f"Gateway is not in pairing mode for {self.discovery['controller_uid']} "

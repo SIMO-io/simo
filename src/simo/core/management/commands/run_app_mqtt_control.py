@@ -134,6 +134,11 @@ class Command(BaseCommand):
                 self.respond(client, user_id, request_id, ok=False, error=f'Method {method} not found')
                 return
             call = getattr(target, method)
+
+            # Only allow controller-provided methods (never model methods like delete/save).
+            if getattr(call, '__self__', None) is not target.controller:
+                self.respond(client, user_id, request_id, ok=False, error=f'Method {method} not allowed')
+                return
             try:
                 if isinstance(args, list) and isinstance(kwargs, dict):
                     result = call(*args, **kwargs)

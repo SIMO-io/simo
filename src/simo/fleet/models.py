@@ -1,6 +1,7 @@
 import requests
 import time
 import datetime
+import uuid
 from actstream import action
 from django.core.exceptions import ValidationError
 from django.db import transaction
@@ -10,6 +11,7 @@ from django.dispatch import receiver
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.utils import timezone
+from django.conf import settings
 from dirtyfields import DirtyFieldsMixin
 from simo.core.models import Instance, Gateway, Component
 from simo.core.utils.helpers import get_random_string
@@ -44,6 +46,50 @@ class InstanceOptions(models.Model):
         limit_choices_to={'is_active': True}
     )
     secret_key = models.CharField(max_length=20, default=get_new_secret)
+
+
+class SentinelPairingRequest(models.Model):
+    """Gates mobile app pairing to a single in-flight request per user.
+
+    The endpoint updates `active_token` on each new request.
+    Older long-polling requests should stop when their token no longer matches.
+    """
+
+    STATUS_CHOICES = (
+        ('pending', "Pending"),
+        ('completed', "Completed"),
+        ('timeout', "Timeout"),
+        ('superseded', "Superseded"),
+        ('error', "Error"),
+    )
+
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='sentinel_pairing_request',
+    )
+    instance = models.ForeignKey(
+        Instance,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='sentinel_pairing_requests',
+        limit_choices_to={'is_active': True},
+    )
+    colonel_uid = models.CharField(max_length=100, blank=True, default='')
+    status = models.CharField(
+        max_length=20,
+        default='pending',
+        choices=STATUS_CHOICES,
+        db_index=True,
+    )
+    active_token = models.UUIDField(default=uuid.uuid4, editable=False)
+    started_at = models.DateTimeField(null=True, blank=True)
+    finished_at = models.DateTimeField(null=True, blank=True)
+    last_error = models.TextField(blank=True, default='')
+
+    def __str__(self):
+        return f"SentinelPairingRequest(user={self.user_id}, status={self.status})"
 
 
 @receiver(post_save, sender=Instance)

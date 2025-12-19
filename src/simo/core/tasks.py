@@ -8,6 +8,7 @@ import subprocess
 import threading
 import pkg_resources
 import uuid
+from urllib.parse import urlparse
 from django.db.models import Q
 from django.db import connection, transaction
 from django.template.loader import render_to_string
@@ -303,13 +304,31 @@ def sync_with_remote():
 
             avatar_url = options.get('avatar_url')
             if avatar_url and user.avatar_url != avatar_url:
-                resp = requests.get(avatar_url)
-                user.avatar.save(
-                    os.path.basename(avatar_url), io.BytesIO(resp.content)
-                )
-                user.avatar_url = avatar_url
-                user.avatar_last_change = timezone.now()
-                user.save()
+                try:
+                    resp = requests.get(avatar_url, timeout=5, stream=True)
+                    resp.raise_for_status()
+
+                    max_bytes = 5 * 1024 * 1024
+                    buf = io.BytesIO()
+                    total = 0
+                    for chunk in resp.iter_content(chunk_size=8192):
+                        if not chunk:
+                            continue
+                        total += len(chunk)
+                        if total > max_bytes:
+                            raise ValueError('Avatar too large')
+                        buf.write(chunk)
+                    buf.seek(0)
+
+                    user.avatar.save(
+                        os.path.basename(urlparse(avatar_url).path) or 'avatar',
+                        buf,
+                    )
+                    user.avatar_url = avatar_url
+                    user.avatar_last_change = timezone.now()
+                    user.save()
+                except Exception:
+                    pass
 
 
 

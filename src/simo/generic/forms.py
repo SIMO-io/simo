@@ -716,7 +716,8 @@ class AudioAlertConfigForm(BaseComponentForm):
             save=True
         )
         Sound.objects.filter(
-            id=self.instance.config.get('sound_id', 0)
+            id=self.instance.config.get('sound_id', 0),
+            instance=self.instance.zone.instance,
         ).delete()
         self.instance.config['sound_id'] = sound.id
         self.instance.config['duration'] = self.cleaned_data['sound'].duration

@@ -7,7 +7,7 @@ class SoundSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Sound
-        fields = 'id', 'name', 'slug', 'length', 'url'
+        fields = 'id', 'name', 'duration', 'note', 'url'
 
 
     def get_url(self, obj):

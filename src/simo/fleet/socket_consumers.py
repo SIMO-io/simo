@@ -461,13 +461,17 @@ class FleetConsumer(AsyncWebsocketConsumer):
 
                         component = await sync_to_async(
                             Component.objects.get, thread_sensitive=True
-                        )(id=id)
+                        )(
+                            id=id,
+                            zone__instance=self.colonel.instance,
+                        )
 
                         if 'val' in data:
                             def receive_val(data):
                                 if data.get('actor'):
                                     fingerprint = Fingerprint.objects.filter(
                                         value=f"ttlock-{component.id}-{data.get('actor')}",
+                                        instance=component.zone.instance,
                                     ).first()
                                     component.change_init_fingerprint = fingerprint
                                 try:
@@ -508,6 +512,8 @@ class FleetConsumer(AsyncWebsocketConsumer):
                     def process_discovery_result():
                         self.gateway.refresh_from_db()
                         try:
+                            data['instance_id'] = self.colonel.instance_id
+                            data['instance_uid'] = self.colonel.instance.uid
                             self.gateway.process_discovery(data)
                         except Exception as e:
                             print(traceback.format_exc(), file=sys.stderr)

@@ -33,14 +33,38 @@ class IsInstanceSuperuser(BasePermission):
     message = "Only superusers are allowed to do this."
 
     def has_permission(self, request, view):
-        if request.user.is_master:
+        if not getattr(request.user, 'is_authenticated', False):
+            return False
+        if getattr(request.user, 'is_master', False):
             return True
         user_role = request.user.get_role(view.instance)
-        return user_role.is_superuser
+        return bool(user_role and user_role.is_superuser)
 
 
 class InstanceSuperuserCanEdit(BasePermission):
     message = "Only superusers are allowed to perform this action."
+
+    def has_permission(self, request, view):
+        if not getattr(request.user, 'is_authenticated', False):
+            return False
+        if request.method in SAFE_METHODS:
+            return True
+
+        if getattr(request.user, 'is_master', False):
+            return True
+
+        instance = getattr(view, 'instance', None)
+        if not instance:
+            return False
+
+        user_role = request.user.get_role(instance)
+        if not user_role:
+            return False
+        if user_role.is_superuser:
+            return True
+        if user_role.is_owner and request.method != 'DELETE':
+            return True
+        return False
 
     def has_object_permission(self, request, view, obj):
         '''
@@ -76,9 +100,11 @@ class ComponentPermission(BasePermission):
     message = "You do not have permission to do this on this component."
 
     def has_object_permission(self, request, view, obj):
+        if not getattr(request.user, 'is_authenticated', False):
+            return False
         if request.method in SAFE_METHODS:
             return True
-        if request.user.is_master:
+        if getattr(request.user, 'is_master', False):
             return True
         user_role = request.user.get_role(view.instance)
         if user_role.is_superuser:

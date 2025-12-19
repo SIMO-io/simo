@@ -225,6 +225,14 @@ class ComponentController(SIMOWebsocketConsumer):
         except:
             return self.close()
 
+        # Multi-tenant safety: user must belong to component's instance.
+        try:
+            instance = self.component.zone.instance
+        except Exception:
+            return self.close()
+        if not self.scope['user'].is_master and instance not in self.scope['user'].instances:
+            return self.close()
+
         if not self.component.controller.admin_widget_template:
             return self.close()
 

@@ -1,6 +1,7 @@
 import os
 import logging
 from celery import Celery
+from celery.signals import task_prerun, task_postrun
 from celery.loaders.app import AppLoader
 from celery.loaders.base import BaseLoader, find_related_module
 from django.conf import settings
@@ -45,3 +46,22 @@ class SIMOCeleryAppLoader(AppLoader):
 celery_app = Celery('celery', loader='simo.celeryc:SIMOCeleryAppLoader')
 celery_app.config_from_object('django.conf:settings', namespace='CELERY')
 celery_app.autodiscover_tasks()
+
+
+@task_prerun.connect
+def _simo_task_prerun(*args, **kwargs):
+    # Multi-tenant safety: never allow instance context to leak between tasks.
+    try:
+        from simo.core.middleware import drop_current_instance
+        drop_current_instance()
+    except Exception:
+        pass
+
+
+@task_postrun.connect
+def _simo_task_postrun(*args, **kwargs):
+    try:
+        from simo.core.middleware import drop_current_instance
+        drop_current_instance()
+    except Exception:
+        pass

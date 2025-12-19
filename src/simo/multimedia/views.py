@@ -6,6 +6,7 @@ from django.shortcuts import get_object_or_404
 from django.http import StreamingHttpResponse
 from dal import autocomplete
 from simo.core.utils.helpers import search_queryset
+from simo.core.middleware import get_current_instance
 from .models import Sound
 
 
@@ -15,16 +16,19 @@ class SoundAutocomplete(autocomplete.Select2QuerySetView):
         if not self.request.user.is_authenticated:
             raise Http404()
 
-        qs = Sound.objects.all()
+        if getattr(settings, 'IS_VIRTUAL', False):
+            return Sound.objects.none()
+
+        instance = get_current_instance(self.request)
+        if not instance:
+            return Sound.objects.none()
+        qs = Sound.objects.filter(instance=instance)
 
         if self.request.GET.get('value'):
             qs = qs.filter(pk__in=self.request.GET['value'].split(','))
         elif self.q:
-            qs = search_queryset(qs, self.q, ('name', 'slug'))
+            qs = search_queryset(qs, self.q, ('name',))
         return qs
-
-
-
 
 
 def file_iterator(file_path, chunk_size=8192, offset=0, length=None):
@@ -47,7 +51,13 @@ def file_iterator(file_path, chunk_size=8192, offset=0, length=None):
 
 
 def sound_stream(request, sound_id):
+    # Local hubs must allow public playback by LAN audio devices.
+    # Virtual hubs intentionally do not support this feature.
+    if getattr(settings, 'IS_VIRTUAL', False):
+        raise Http404()
+
     sound = get_object_or_404(Sound, id=sound_id)
+
     path = sound.file.path
     content_type = "audio/" + path.split('.')[-1]
 

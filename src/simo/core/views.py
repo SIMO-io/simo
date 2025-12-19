@@ -104,10 +104,13 @@ def finish_discovery(request):
         raise Http404()
     if not request.user.is_master:
         raise Http404()
+    from simo.core.middleware import get_current_instance
+    instance = get_current_instance(request)
     result = None
     for gateway in Gateway.objects.filter(
         discovery__start__gt=time.time() - 60 * 60,  # no more than an hour
-        discovery__controller_uid=request.GET['uid']
+        discovery__controller_uid=request.GET['uid'],
+        discovery__instance_id=getattr(instance, 'id', None),
     ):
         gateway.finish_discovery()
         for res in gateway.discovery['result']:

@@ -553,16 +553,19 @@ class VoiceAssistantSession:
             elif self._end_after_playback:
                 await self._end_session(cloud_also=False)
                 self._end_after_playback = False
-            elif ws_closed_error:
-                # Website closed with a non-1000 code: finish with error immediately
+            elif ws_closed_ok:
+                # Normal close without explicit finish: keep session open for follow-up.
+                pass
+
+            if ws_closed_error:
+                # Website closed with a non-1000 code: finish with error immediately.
+                # Note: this must run even if we already entered the
+                # streaming playback branches above.
                 try:
                     await self.c.send_data({'command': 'va', 'session': 'finish', 'status': 'error'})
                 except Exception:
                     pass
                 await self._end_session(cloud_also=True)
-            elif ws_closed_ok:
-                # Normal close without explicit finish: keep session open for follow-up.
-                pass
         except Exception as e:
             print("VA WS ERROR:", e, file=sys.stderr)
             print("VA: Cloud roundtrip failed\n", traceback.format_exc(), file=sys.stderr)

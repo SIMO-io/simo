@@ -33,6 +33,19 @@ class CamStreamConsumer(AsyncWebsocketConsumer):
         except:
             return self.close()
 
+        # Multi-tenant safety: user must belong to component's instance.
+        try:
+            instance = self.component.zone.instance
+        except Exception:
+            return self.close()
+        if not self.scope['user'].is_master:
+            allowed = await sync_to_async(
+                lambda: instance in self.scope['user'].instances,
+                thread_sensitive=True,
+            )()
+            if not allowed:
+                return self.close()
+
         # can_read = await sync_to_async(
         #     self.component.can_read, thread_sensitive=True
         # )(self.scope['user'])

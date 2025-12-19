@@ -1,6 +1,7 @@
 import os
 import io
 import requests
+from urllib.parse import urlparse
 from django.db import transaction
 from django.utils import timezone
 from django.contrib.auth import get_user_model
@@ -114,9 +115,24 @@ class SSOBackend(ModelBackend):
         and user.avatar_url != user_data.get('avatar_url'):
             user.avatar_url = user_data.get('avatar_url')
             try:
-                resp = requests.get(user.avatar_url)
+                resp = requests.get(user.avatar_url, timeout=5, stream=True)
+                resp.raise_for_status()
+
+                max_bytes = 5 * 1024 * 1024
+                buf = io.BytesIO()
+                total = 0
+                for chunk in resp.iter_content(chunk_size=8192):
+                    if not chunk:
+                        continue
+                    total += len(chunk)
+                    if total > max_bytes:
+                        raise ValueError('Avatar too large')
+                    buf.write(chunk)
+                buf.seek(0)
+
                 user.avatar.save(
-                    os.path.basename(user.avatar_url), io.BytesIO(resp.content)
+                    os.path.basename(urlparse(user.avatar_url).path) or 'avatar',
+                    buf,
                 )
             except:
                 pass

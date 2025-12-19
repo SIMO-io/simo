@@ -8,6 +8,10 @@ from django.conf import settings
 
 
 class Sound(models.Model):
+    instance = models.ForeignKey(
+        'core.Instance', on_delete=models.CASCADE, null=True, blank=True,
+        help_text='Owning smart home instance (tenant).'
+    )
     name = models.CharField(max_length=100, db_index=True)
     file = models.FileField(
         upload_to='sounds', storage=FileSystemStorage(
@@ -23,6 +27,15 @@ class Sound(models.Model):
 
     def __str__(self):
         return self.name
+
+    def save(self, *args, **kwargs):
+        if not self.instance_id:
+            try:
+                from simo.core.middleware import get_current_instance
+                self.instance = get_current_instance()
+            except Exception:
+                pass
+        return super().save(*args, **kwargs)
 
     def get_absolute_url(self):
         return self.file.url
@@ -40,4 +53,3 @@ def determine_duration(sender, instance, created, **kwargs):
             )
         )
         instance.save()
-

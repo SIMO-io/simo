@@ -18,12 +18,14 @@ class DjangoTokenVerifier(TokenVerifier):
             ).first()
             if not access_token:
                 return
-            introduce_instance(access_token.instance)
             return access_token
 
         access_token = await sync_to_async(_load, thread_sensitive=True)()
         if not access_token:
             return None
+
+        # Bind instance to the current async request/task context.
+        introduce_instance(access_token.instance)
 
         # Build a minimal AccessToken; scopes optional
         return AccessToken(

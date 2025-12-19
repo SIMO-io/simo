@@ -457,6 +457,14 @@ class ComponentSerializer(FormSerializer):
         if not self.instance or isinstance(self.instance, Iterable):
             #controller_uid = 'simo.generic.controllers.AlarmClock'
             controller_uid = self.context['request'].META.get('HTTP_CONTROLLER')
+
+            if controller_uid and (not self.context['request'].user.is_master):
+                from .utils.type_constants import get_controller_types_map
+                allowed = get_controller_types_map(user=self.context['request'].user)
+                if controller_uid not in allowed:
+                    raise serializers.ValidationError(
+                        ["Controller is not allowed for this user."]
+                    )
         else:
             controller_uid = self.instance.controller_uid
         form = self.Meta.form(

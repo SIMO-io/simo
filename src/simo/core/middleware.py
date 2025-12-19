@@ -1,28 +1,41 @@
 import pytz
 from django.utils import timezone
 from django.shortcuts import render
+from contextvars import ContextVar
 
 
-class InstanceCarrier:
-    instance = None
-
-_instance_carrier = InstanceCarrier()
+_current_instance: ContextVar = ContextVar('simo_current_instance', default=None)
 
 
 def introduce_instance(instance, request=None):
+    """Set current instance for the current request/task context.
+
+    Returns a token that can be used with ``reset_instance``.
+    """
     if request and request.user.is_authenticated \
     and instance not in request.user.instances:
+        # Avoid leaving a poisoned instance_id in the session.
+        try:
+            if request.session.get('instance_id') == getattr(instance, 'id', None):
+                request.session.pop('instance_id')
+        except Exception:
+            pass
         return
-    _instance_carrier.instance = instance
-    if request:
+    token = _current_instance.set(instance)
+    if request and instance is not None and request.user.is_authenticated:
         request.session['instance_id'] = instance.id
         request.instance = instance
+    return token
+
+
+def reset_instance(token):
+    _current_instance.reset(token)
 
 
 def drop_current_instance(request=None):
     if request and 'instance_id' in request.session:
         request.session.pop('instance_id')
-    _instance_carrier.instance = None
+    _current_instance.set(None)
 
 
 def get_current_instance(request=None):
@@ -34,9 +47,15 @@ def get_current_instance(request=None):
         if not instance:
             del request.session['instance_id']
         else:
-            introduce_instance(instance, request)
+            token = introduce_instance(instance, request)
+            if token is None:
+                # Session pointed at an instance the user cannot access.
+                try:
+                    del request.session['instance_id']
+                except Exception:
+                    pass
 
-    instance = getattr(_instance_carrier, 'instance', None)
+    instance = _current_instance.get()
 
     # NEVER FORCE THIS! IT's A very BAD IDEA!
     # For example gateways run on an instance neutral environment!
@@ -65,15 +84,21 @@ def instance_middleware(get_response):
 
     def middleware(request):
 
+        # Clear any leaked instance context (Celery, threads, prior requests).
+        token = _current_instance.set(None)
+
         if request.path.startswith('/admin'):
             if request.user.is_authenticated and not request.user.is_master:
-                return render(request, 'admin/msg_page.html', {
-                    'page_title': "You are not allowed in here",
-                    'msg': "Page you are trying to access is only for hub masters.",
-                    'suggestion': "Try switching your user to the one who has proper "
-                                  "rights to come here or ask for somebody who already has "
-                                  "master rights enable these rights for you."
-                })
+                try:
+                    return render(request, 'admin/msg_page.html', {
+                        'page_title': "You are not allowed in here",
+                        'msg': "Page you are trying to access is only for hub masters.",
+                        'suggestion': "Try switching your user to the one who has proper "
+                                      "rights to come here or ask for somebody who already has "
+                                      "master rights enable these rights for you."
+                    })
+                finally:
+                    _current_instance.reset(token)
 
         from simo.core.models import Instance
 
@@ -110,8 +135,14 @@ def instance_middleware(get_response):
                 tz = pytz.timezone('UTC')
                 timezone.activate(tz)
 
-        response = get_response(request)
-
-        return response
+        try:
+            response = get_response(request)
+            return response
+        finally:
+            try:
+                timezone.deactivate()
+            except Exception:
+                pass
+            _current_instance.reset(token)
 
     return middleware
