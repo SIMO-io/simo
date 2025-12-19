@@ -3,7 +3,7 @@ import re
 from django.contrib.auth.decorators import login_required
 from django.urls import reverse
 from django.shortcuts import redirect, get_object_or_404
-from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_POST
 from django.http import (
     HttpResponse, Http404, JsonResponse, HttpResponseForbidden
 )
@@ -12,13 +12,15 @@ from simo.conf import dynamic_settings
 from .models import Instance, Component, Gateway
 from .tasks import update as update_task, supervisor_restart, hardware_reboot
 from .middleware import introduce_instance
+from .utils.decorators import simo_csrf_exempt
 
 
 def get_timestamp(request):
     return HttpResponse(time.time())
 
 @login_required
-@csrf_exempt
+@require_POST
+@simo_csrf_exempt
 def upgrade(request):
     if not request.user.is_master:
         raise Http404()
@@ -30,7 +32,8 @@ def upgrade(request):
 
 
 @login_required
-@csrf_exempt
+@require_POST
+@simo_csrf_exempt
 def restart(request):
     if not request.user.is_master:
         raise Http404()
@@ -46,7 +49,8 @@ def restart(request):
 
 
 @login_required
-@csrf_exempt
+@require_POST
+@simo_csrf_exempt
 def reboot(request):
     if not request.user.is_master:
         raise Http404()
@@ -72,13 +76,15 @@ def set_instance(request, instance_slug):
 
 
 @login_required
-@csrf_exempt
+@require_POST
+@simo_csrf_exempt
 def delete_instance(request):
-    if request.method != 'POST':
-        raise Http404()
     if not request.user.is_master:
         return HttpResponseForbidden()
-    instance = get_object_or_404(Instance, uid=request.GET['uid'])
+    uid = request.POST.get('uid') or request.GET.get('uid')
+    if not uid:
+        raise Http404()
+    instance = get_object_or_404(Instance, uid=uid)
     instance.delete()
     return HttpResponse('success')
 

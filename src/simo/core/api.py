@@ -240,6 +240,25 @@ class ComponentViewSet(
 
             component.prepare_controller()
 
+            if not component.controller:
+                raise APIValidationError(
+                    _('Component has no controller assigned.'),
+                    code=400,
+                )
+
+            if component.controller.masters_only and not self.request.user.is_master:
+                raise APIValidationError(
+                    _('Only hub masters are allowed to do this.'),
+                    code=403,
+                )
+
+            allowed_methods = set(component.get_controller_methods())
+            if method_name not in allowed_methods:
+                raise APIValidationError(
+                    _('"%s" method is not allowed') % method_name,
+                    code=403,
+                )
+
             if not hasattr(component, method_name):
                 raise APIValidationError(
                      _('"%s" method not found on controller') % method_name,
@@ -247,13 +266,6 @@ class ComponentViewSet(
                 )
 
             call = getattr(component, method_name)
-
-            # Only allow controller-provided methods (never model methods like delete/save).
-            if getattr(call, '__self__', None) is not component.controller:
-                raise APIValidationError(
-                    _('"%s" method is not allowed') % method_name,
-                    code=403,
-                )
 
             if not isinstance(param, list) and not isinstance(param, dict):
                 param = [param]

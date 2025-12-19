@@ -130,15 +130,19 @@ class Command(BaseCommand):
 
             # Prepare controller and call
             target.prepare_controller()
+            if not target.controller:
+                self.respond(client, user_id, request_id, ok=False, error='Component has no controller')
+                return
+            if target.controller.masters_only and not user.is_master:
+                self.respond(client, user_id, request_id, ok=False, error='Only hub masters are allowed')
+                return
+            if method not in set(target.get_controller_methods()):
+                self.respond(client, user_id, request_id, ok=False, error=f'Method {method} not allowed')
+                return
             if not hasattr(target, method):
                 self.respond(client, user_id, request_id, ok=False, error=f'Method {method} not found')
                 return
             call = getattr(target, method)
-
-            # Only allow controller-provided methods (never model methods like delete/save).
-            if getattr(call, '__self__', None) is not target.controller:
-                self.respond(client, user_id, request_id, ok=False, error=f'Method {method} not allowed')
-                return
             try:
                 if isinstance(args, list) and isinstance(kwargs, dict):
                     result = call(*args, **kwargs)

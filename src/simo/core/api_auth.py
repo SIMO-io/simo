@@ -24,6 +24,17 @@ class SecretKeyAuth(BasicAuthentication):
 
 class IsAuthenticated(SessionAuthentication):
 
+    def _should_enforce_csrf(self, request) -> bool:
+        # The SIMO mobile app is not a browser and historically does not send
+        # CSRF tokens with session-authenticated API requests.
+        # For browser-originated requests, enforce CSRF as usual.
+        try:
+            meta = getattr(request, 'META', None) or request._request.META
+        except Exception:
+            meta = {}
+        ua = (meta.get('HTTP_USER_AGENT') or '').strip()
+        return not ua.startswith('SIMO')
+
     def authenticate(self, request):
         """
         Returns a `User` if the request session currently has a logged in user.
@@ -34,6 +45,9 @@ class IsAuthenticated(SessionAuthentication):
         # Unauthenticated, CSRF validation not required
         if not user.is_authenticated:
             raise exceptions.NotAuthenticated()
+
+        if self._should_enforce_csrf(request):
+            self.enforce_csrf(request)
 
         introduce_user(user)
 

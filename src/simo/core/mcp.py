@@ -8,7 +8,7 @@ from django.utils import timezone
 from simo.mcp_server.app import mcp
 from fastmcp.tools.tool import ToolResult
 from simo.users.utils import get_current_user, introduce_user, get_ai_user
-from simo.core.middleware import get_current_instance
+from simo.core.middleware import get_current_instance, introduce_instance
 from .models import Zone, Component, ComponentHistory
 from .serializers import MCPBasicZoneSerializer, MCPFullComponentSerializer
 from .utils.type_constants import BASE_TYPE_CLASS_MAP
@@ -162,6 +162,26 @@ async def execute_component_methods(
             component = Component.objects.get(
                 pk=component_id, zone__instance=instance
             )
+
+            # Ensure tenant/user context is available inside worker threads.
+            try:
+                introduce_instance(instance)
+            except Exception:
+                pass
+            try:
+                introduce_user(current_user)
+            except Exception:
+                pass
+
+            component.prepare_controller()
+            if not component.controller:
+                raise PermissionError('Component has no controller')
+            if component.controller.masters_only and not current_user.is_master:
+                raise PermissionError('Only hub masters are allowed')
+            allowed_methods = set(component.get_controller_methods())
+            if method_name not in allowed_methods:
+                raise PermissionError(f'Method {method_name} not allowed')
+
             fn = getattr(component, method_name)
             has_args = args is not None
             has_kwargs = kwargs is not None

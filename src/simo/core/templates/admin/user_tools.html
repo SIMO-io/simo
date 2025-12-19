@@ -16,15 +16,24 @@
       <i class="fas fa-sort-down"></i>
     </div>
     <div class="dropdown-content" style="right: 110px">
-      <a href="{% url 'upgrade' %}" title="Upgrade hub" class="update_link">
-        <i class="fas fa-angle-double-up"></i> Upgrade
-      </a>
-      <a href="{% url 'restart' %}" title="Restart main processes">
-        <i class="far fa-power-off" ></i> Restart processes
-      </a>
-      <a href="{% url 'reboot' %}" title="Reboot hub" id="reboot_link">
-        <i class="fad fa-power-off"></i> Reboot
-      </a>
+      <form method="post" action="{% url 'upgrade' %}">
+        {% csrf_token %}
+        <button type="submit" title="Upgrade hub" class="update_link" style="background:none;border:0;padding:0;color:inherit;cursor:pointer">
+          <i class="fas fa-angle-double-up"></i> Upgrade
+        </button>
+      </form>
+      <form method="post" action="{% url 'restart' %}">
+        {% csrf_token %}
+        <button type="submit" title="Restart main processes" style="background:none;border:0;padding:0;color:inherit;cursor:pointer">
+          <i class="far fa-power-off" ></i> Restart processes
+        </button>
+      </form>
+      <form method="post" action="{% url 'reboot' %}" onsubmit="return confirm('Reboot hub now?');">
+        {% csrf_token %}
+        <button type="submit" title="Reboot hub" id="reboot_link" style="background:none;border:0;padding:0;color:inherit;cursor:pointer">
+          <i class="fad fa-power-off"></i> Reboot
+        </button>
+      </form>
    </div>
 
   </div>

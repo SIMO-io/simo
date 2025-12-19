@@ -6,13 +6,13 @@ from django.db import DatabaseError, IntegrityError, transaction
 from django.http import Http404, HttpResponse, JsonResponse
 from django.db.models import Q
 from django.utils import timezone
-from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from django.core.cache import cache
 from dal import autocomplete
 from simo.core.utils.helpers import search_queryset
 from simo.core.models import Instance, Zone, Component
 from simo.core.middleware import get_current_instance, introduce_instance
+from simo.core.utils.decorators import simo_csrf_exempt
 from .models import Colonel, ColonelPin, Interface, SentinelPairingRequest
 from .forms import SentinelDeviceConfigForm
 
@@ -76,8 +76,8 @@ def _finish_pairing_request(*, user, token, status, error_message=''):
     )
 
 
-@csrf_exempt
 @require_POST
+@simo_csrf_exempt
 def new_sentinel(request):
 
     if not request.user.is_authenticated:

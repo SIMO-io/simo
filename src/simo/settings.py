@@ -19,6 +19,22 @@ DEBUG = False
 # Virtual hubs must avoid exposing any instance-local LAN features publicly.
 IS_VIRTUAL = False
 
+# ---------------------------------------------------------------------------
+# SIMO SSO configuration
+# ---------------------------------------------------------------------------
+# Cloud default values are provided for backwards compatibility.
+# Local hub deployments should override these in their local `settings.py`
+# (see `simo/core/management/_hub_template/hub/settings.py`).
+SSO_SERVER = os.environ.get('SIMO_SSO_SERVER', 'https://simo.io/sso-server/')
+SSO_PUBLIC_KEY = os.environ.get(
+    'SIMO_SSO_PUBLIC_KEY',
+    'mzfUL0V4aaxvJOS8o4ahrHPVTggk9J4oNb1Hz8RAoc8jKtDMx8iUDkKR3FZsNblc',
+)
+SSO_PRIVATE_KEY = os.environ.get(
+    'SIMO_SSO_PRIVATE_KEY',
+    'l1ELiixCre4SreSPQOdeER3LuQBCvJzGUEfjzSbZsXsyJ9qwVUZwMXhMjLG2yKbO',
+)
+
 DEFAULT_AUTO_FIELD = 'django.db.models.AutoField'
 
 ALLOWED_HOSTS = ['*']

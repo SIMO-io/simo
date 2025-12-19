@@ -15,17 +15,13 @@ from simo.core.utils.relay import HttpResponseRedirect
 
 from .models import User
 
-SSO_SERVER = 'https://simo.io/sso-server/'
-SSO_PUBLIC_KEY = 'mzfUL0V4aaxvJOS8o4ahrHPVTggk9J4oNb1Hz8RAoc8jKtDMx8iUDkKR3FZsNblc'
-SSO_PRIVATE_KEY = 'l1ELiixCre4SreSPQOdeER3LuQBCvJzGUEfjzSbZsXsyJ9qwVUZwMXhMjLG2yKbO'
-
 
 class LoginView(View):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.consumer = SyncConsumer(
-            SSO_SERVER, SSO_PUBLIC_KEY, SSO_PRIVATE_KEY
+            settings.SSO_SERVER, settings.SSO_PUBLIC_KEY, settings.SSO_PRIVATE_KEY
         )
 
     def get(self, request):
@@ -77,7 +73,7 @@ class AuthenticateView(LoginView):
     def get(self, request):
         raw_access_token = request.GET['access_token']
         access_token = URLSafeTimedSerializer(
-            SSO_PRIVATE_KEY
+            settings.SSO_PRIVATE_KEY
         ).loads(raw_access_token)
         user_data = self.consumer.consume('/verify/', {'access_token': access_token})
 
@@ -108,6 +104,5 @@ class AuthenticateView(LoginView):
         if request.headers.get('User-Agent', '').startswith("SIMO"):
             return JsonResponse({'status': "success"})
         return HttpResponseRedirect(next)
-
 
 
