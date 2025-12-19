@@ -25,10 +25,14 @@ from location_field.models.plain import PlainLocationField
 from simo.conf import dynamic_settings
 from simo.core.utils.mixins import SimoAdminMixin
 from simo.core.utils.helpers import get_random_string
+from simo.core.media_paths import get_user_media_uid, user_avatar_upload_to
 from simo.core.events import OnChangeMixin
 from simo.core.middleware import get_current_instance
 from .utils import get_current_user, rebuild_authorized_keys
 from .managers import ActiveInstanceManager
+
+
+ 
 
 
 class PermissionsRole(models.Model):
@@ -233,11 +237,18 @@ class User(AbstractBaseUser, SimoAdminMixin):
     name = models.CharField(_('name'), max_length=150)
     email = models.EmailField(_('email address'), unique=True)
     avatar = ThumbnailerImageField(
-        upload_to='avatars', null=True, blank=True,
+        upload_to=user_avatar_upload_to, null=True, blank=True,
         help_text=_("Comes from SIMO.io"),
     )
     avatar_url = models.URLField(null=True, blank=True)
     avatar_last_change = models.DateTimeField(auto_now_add=True)
+    media_uid = models.CharField(
+        max_length=16,
+        default=get_user_media_uid,
+        unique=True,
+        db_index=True,
+        help_text="Non-secret identifier used for media path partitioning."
+    )
     roles = models.ManyToManyField(PermissionsRole, through=InstanceUser)
     is_master = models.BooleanField(
         default=False,

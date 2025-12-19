@@ -23,10 +23,17 @@ from simo.core.utils.validators import validate_svg
 from simo.core.utils.helpers import get_random_string
 from simo.core.utils.model_helpers import dirty_fields_to_current_values
 from simo.users.models import User
+from simo.core.media_paths import (
+    instance_categories_upload_to,
+    instance_private_files_upload_to,
+)
 from .managers import (
     InstanceManager, ZonesManager, CategoriesManager, ComponentsManager
 )
 from .events import GatewayObjectCommand, OnChangeMixin
+
+
+ 
 
 
 class Icon(DirtyFieldsMixin, models.Model, SimoAdminMixin):
@@ -159,7 +166,7 @@ class Category(DirtyFieldsMixin, models.Model, SimoAdminMixin):
     name = models.CharField(_('name'), max_length=40)
     icon = models.ForeignKey(Icon, on_delete=models.SET_NULL, null=True)
     header_image = models.ImageField(
-        upload_to='categories', null=True, blank=True,
+        upload_to=instance_categories_upload_to, null=True, blank=True,
         help_text="Will be cropped down to: 830x430"
     )
     all = models.BooleanField(
@@ -699,7 +706,7 @@ class PrivateFile(models.Model):
     component = models.ForeignKey(
         Component, on_delete=models.CASCADE, related_name='private_files'
     )
-    file = models.FileField(upload_to='private_files')
+    file = models.FileField(upload_to=instance_private_files_upload_to)
     date_uploaded = models.DateTimeField(auto_now_add=True)
     meta = models.JSONField(default=dict)
 

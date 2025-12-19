@@ -173,8 +173,9 @@ class FleetConsumer(AsyncWebsocketConsumer):
             print("Colonel %s drop, it's not enabled!" % str(self.colonel))
             return await self.close()
 
-        if headers.get('instance-uid') != self.colonel.instance.uid \
-        or headers.get('instance-secret') != self.colonel.instance.fleet_options.secret_key:
+        # Avoid lazy FK loads in async context; rely on already-authenticated instance.
+        if headers.get('instance-uid') != self.instance.uid \
+        or headers.get('instance-secret') != self.instance.fleet_options.secret_key:
             print("NOT authorized!")
             return await self.close()
 
@@ -463,15 +464,16 @@ class FleetConsumer(AsyncWebsocketConsumer):
                             Component.objects.get, thread_sensitive=True
                         )(
                             id=id,
-                            zone__instance=self.colonel.instance,
+                            zone__instance_id=self.colonel.instance_id,
                         )
 
                         if 'val' in data:
                             def receive_val(data):
+                                instance_id = self.colonel.instance_id
                                 if data.get('actor'):
                                     fingerprint = Fingerprint.objects.filter(
                                         value=f"ttlock-{component.id}-{data.get('actor')}",
-                                        instance=component.zone.instance,
+                                        instance_id=instance_id,
                                     ).first()
                                     component.change_init_fingerprint = fingerprint
                                 try:
@@ -513,7 +515,7 @@ class FleetConsumer(AsyncWebsocketConsumer):
                         self.gateway.refresh_from_db()
                         try:
                             data['instance_id'] = self.colonel.instance_id
-                            data['instance_uid'] = self.colonel.instance.uid
+                            data['instance_uid'] = self.instance.uid
                             self.gateway.process_discovery(data)
                         except Exception as e:
                             print(traceback.format_exc(), file=sys.stderr)

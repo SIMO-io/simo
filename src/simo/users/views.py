@@ -16,6 +16,7 @@ from simo.core.middleware import get_current_instance
 from simo.core.utils.helpers import search_queryset
 from simo.conf import dynamic_settings
 from .models import InstanceInvitation, PermissionsRole, InstanceUser
+from .models import User
 
 
 @atomic
@@ -92,10 +93,70 @@ def accept_invitation(request, token):
         })
 
 def serve_protected(request, path, prefix=''):
-    if not request.user.is_authenticated:
-        # Don't even let anyone know if anything exists in here
-        # if not authenticated.
+    # Basic path traversal hardening
+    if not path or '..' in path or path.startswith('/'):
         raise Http404()
+
+    user = request.user if request.user.is_authenticated else None
+    if not user:
+        secret = request.META.get('HTTP_SECRET')
+        if secret:
+            user = User.objects.filter(secret_key=secret).first()
+
+    if not user or not user.is_active:
+        # Don't even let anyone know if anything exists in here
+        raise Http404()
+
+    # Tenant-safe media access
+    if prefix.startswith('/media'):
+        parts = [p for p in path.split('/') if p]
+        if not parts:
+            raise Http404()
+
+        # Instance-owned media: /media/instances/<instance_uid>/...
+        if len(parts) >= 3 and parts[0] == 'instances':
+            instance_uid = parts[1]
+            instance_id = None
+            try:
+                from simo.core.models import Instance
+                instance_id = Instance.objects.filter(uid=instance_uid, is_active=True).values_list('id', flat=True).first()
+            except Exception:
+                instance_id = None
+            if not instance_id:
+                raise Http404()
+            if not user.is_master:
+                if not InstanceUser.objects.filter(
+                    user=user, instance_id=instance_id, is_active=True
+                ).exists():
+                    raise Http404()
+
+        # User-owned avatars: /media/avatars/<media_uid>/...
+        elif len(parts) >= 3 and parts[0] == 'avatars':
+            media_uid = parts[1]
+            target_user = User.objects.filter(media_uid=media_uid).values('id').first()
+            if not target_user:
+                raise Http404()
+            target_user_id = target_user['id']
+            if not (user.is_master or user.id == target_user_id):
+                # Allow only if users share at least one active instance
+                my_instance_ids = InstanceUser.objects.filter(
+                    user=user, is_active=True
+                ).values('instance_id')
+                if not InstanceUser.objects.filter(
+                    user_id=target_user_id, is_active=True,
+                    instance_id__in=my_instance_ids,
+                ).exists():
+                    raise Http404()
+
+        # Global media (not instance-bound): icons
+        elif parts[0] == 'icons':
+            pass
+
+        # Anything else is treated as legacy/unscoped and denied
+        else:
+            raise Http404()
+
+    # Static is safe for any authenticated user.
     response = HttpResponse(status=200)
     response['Content-Type'] = ''
     response['X-Accel-Redirect'] = '/protected' + prefix + path
