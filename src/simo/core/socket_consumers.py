@@ -12,6 +12,7 @@ from simo.core.utils.logs import capture_socket_errors
 from simo.core.utils.mqtt import connect_with_retry, install_reconnect_handler
 import paho.mqtt.client as mqtt
 from simo.users.utils import introduce_user
+from simo.core.throttling import check_throttle, SimpleRequest
 from simo.core.models import Component, Gateway
 from simo.core.utils.model_helpers import get_log_file_path
 from simo.core.middleware import introduce_instance
@@ -215,6 +216,13 @@ class ComponentController(SIMOWebsocketConsumer):
 
     def connect(self):
 
+        wait = check_throttle(
+            request=SimpleRequest(user=self.scope.get('user')),
+            scope='ws.component.connect',
+        )
+        if wait > 0:
+            return self.close()
+
         introduce_user(self.scope['user'])
         self.accept()
 
@@ -294,6 +302,12 @@ class ComponentController(SIMOWebsocketConsumer):
 
     def receive(self, text_data=None, bytes_data=None, **kwargs):
         introduce_user(self.scope['user'])
+        wait = check_throttle(
+            request=SimpleRequest(user=self.scope.get('user')),
+            scope='ws.component.recv',
+        )
+        if wait > 0:
+            return self.close()
         json_data = json.loads(text_data)
         self.send_value = json_data.pop('send_value', False)
         for method, param in json_data.items():

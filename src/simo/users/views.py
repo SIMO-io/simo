@@ -107,6 +107,22 @@ def serve_protected(request, path, prefix=''):
         # Don't even let anyone know if anything exists in here
         raise Http404()
 
+    # Throttle protected static/media access.
+    if prefix.startswith('/media'):
+        scope = 'media'
+        parts = [p for p in path.split('/') if p]
+        if parts:
+            if parts[0] == 'icons':
+                scope = 'media.icons'
+            elif parts[0] == 'avatars':
+                scope = 'media.avatars'
+            elif parts[0] == 'instances':
+                scope = 'media.instances'
+        from simo.core.throttling import check_throttle
+        wait = check_throttle(request=request, scope=scope)
+        if wait > 0:
+            raise Http404()
+
     # Tenant-safe media access
     if prefix.startswith('/media'):
         parts = [p for p in path.split('/') if p]

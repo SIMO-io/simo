@@ -6,6 +6,7 @@ from asgiref.sync import sync_to_async
 from channels.generic.websocket import AsyncWebsocketConsumer
 from simo.users.utils import introduce_user
 from simo.core.models import Component
+from simo.core.throttling import check_throttle, SimpleRequest
 
 
 
@@ -15,6 +16,12 @@ class CamStreamConsumer(AsyncWebsocketConsumer):
     video = None
 
     async def connect(self):
+        wait = check_throttle(
+            request=SimpleRequest(user=self.scope.get('user')),
+            scope='ws.cam.connect',
+        )
+        if wait > 0:
+            return await self.close()
         await self.accept()
 
         if not self.scope['user'].is_authenticated:

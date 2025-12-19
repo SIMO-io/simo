@@ -177,6 +177,7 @@ class ComponentPermissionViewsets(
 class UserDeviceReport(InstanceMixin, viewsets.GenericViewSet):
     url = 'users'
     basename = 'device_report'
+    throttle_scope = 'users.device_report'
     serializer_class = Serializer
 
     @action(url_path='device-report', detail=False, methods=['post'])

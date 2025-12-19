@@ -9,6 +9,7 @@ from simo.mcp_server.app import mcp
 from fastmcp.tools.tool import ToolResult
 from simo.users.utils import get_current_user, introduce_user, get_ai_user
 from simo.core.middleware import get_current_instance, introduce_instance
+from simo.core.throttling import check_throttle, SimpleRequest
 from .models import Zone, Component, ComponentHistory
 from .serializers import MCPBasicZoneSerializer, MCPFullComponentSerializer
 from .utils.type_constants import BASE_TYPE_CLASS_MAP
@@ -138,6 +139,13 @@ async def execute_component_methods(
         current_user = get_current_user()
         if not current_user:
             introduce_user(get_ai_user())
+
+        wait = check_throttle(
+            request=SimpleRequest(user=get_current_user()),
+            scope='mcp.execute',
+        )
+        if wait > 0:
+            raise PermissionError('Throttled')
 
         instance = get_current_instance()
 

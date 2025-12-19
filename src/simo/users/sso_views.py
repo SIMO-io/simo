@@ -35,7 +35,7 @@ class LoginView(View):
         request_token = self.get_request_token(
             request, redirect_to
         )
-        host = urljoin(SSO_SERVER, 'authorize/')
+        host = urljoin(settings.SSO_SERVER, 'authorize/')
         url = '%s?%s' % (host, urlencode([('token', request_token)]))
         if request.headers.get('User-Agent', '').startswith("SIMO"):
             return JsonResponse({'url': url, 'status': 'redirect'})

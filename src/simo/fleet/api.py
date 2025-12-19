@@ -25,6 +25,7 @@ class InstanceOptionsViewSet(InstanceMixin, viewsets.ReadOnlyModelViewSet):
 class ColonelsViewSet(InstanceMixin, viewsets.ModelViewSet):
     url = 'fleet/colonels'
     basename = 'colonels'
+    throttle_scope = 'fleet.colonels'
     serializer_class = ColonelSerializer
 
     def get_permissions(self):
@@ -103,4 +104,3 @@ class InterfaceViewSet(
 
     def get_queryset(self):
         return Interface.objects.filter(colonel__instance=self.instance)
-

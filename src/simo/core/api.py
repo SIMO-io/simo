@@ -54,6 +54,7 @@ class InstanceMixin:
 class IconViewSet(viewsets.ReadOnlyModelViewSet):
     url = 'core/icons'
     basename = 'icons'
+    throttle_scope = 'core.icons'
     queryset = Icon.objects.all()
     serializer_class = IconSerializer
 
@@ -203,6 +204,7 @@ class ComponentViewSet(
 ):
     url = 'core/components'
     basename = 'components'
+    throttle_scope = 'core.components'
     serializer_class = ComponentSerializer
 
     def get_permissions(self):
@@ -714,6 +716,7 @@ class InfoViewSet(InstanceMixin, viewsets.GenericViewSet):
 class StatesViewSet(InstanceMixin, viewsets.GenericViewSet):
     url = 'core/states'
     basename = 'states'
+    throttle_scope = 'core.states'
 
     def list(self, request, format=None, *args, **kwargs):
         from simo.users.models import User
@@ -820,6 +823,7 @@ class RunningDiscoveries(InstanceMixin, viewsets.GenericViewSet):
     url = 'core/discoveries'
     basename = 'discoveries'
     queryset = []
+    throttle_scope = 'core.discoveries'
 
     def get_permissions(self):
         permissions = super().get_permissions()
@@ -869,3 +873,10 @@ class RunningDiscoveries(InstanceMixin, viewsets.GenericViewSet):
             for gateway in gateways:
                 gateway.finish_discovery()
         return RESTResponse(self.get_data(gateways))
+    def get_throttles(self):
+        # Separate tighter scope for control operations.
+        if getattr(self, 'action', None) in ('controller', 'control', 'subcomponent'):
+            self.throttle_scope = 'core.control'
+        else:
+            self.throttle_scope = 'core.components'
+        return super().get_throttles()

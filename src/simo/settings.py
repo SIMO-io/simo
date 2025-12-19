@@ -218,6 +218,9 @@ REST_FRAMEWORK = {
         'simo.users.permissions.IsActivePermission',
         'simo.core.permissions.InstancePermission'
     ],
+    'DEFAULT_THROTTLE_CLASSES': [
+        'simo.core.throttling.SimoAdaptiveThrottle',
+    ],
     'DEFAULT_RENDERER_CLASSES': [
         'rest_framework.renderers.JSONRenderer',
         'rest_framework.renderers.BrowsableAPIRenderer',
@@ -227,6 +230,83 @@ REST_FRAMEWORK = {
     'PAGE_SIZE': 1000,
     'DATETIME_FORMAT': '%s.%f',
     'DEFAULT_METADATA_CLASS': 'simo.core.api_meta.SIMOAPIMetadata'
+}
+
+
+# Adaptive throttling rules (shared for DRF + `@simo_throttle`).
+# Tune aggressively for virtual hubs if needed via local settings override.
+SIMO_THROTTLE = {
+    # Per-user ban duration (per hub) once any scope threshold is exceeded.
+    'ban_seconds': 300,
+
+    # Global overall limits (across all scopes) per user/IP.
+    'global_rules': [
+        {'window_seconds': 10, 'limit_authenticated': 4000, 'limit_anonymous': 80},
+        {'window_seconds': 60, 'limit_authenticated': 20000, 'limit_anonymous': 300},
+        {'window_seconds': 300, 'limit_authenticated': 60000, 'limit_anonymous': 800},
+    ],
+
+    # Default per-scope limits.
+    'default_rules': [
+        {'window_seconds': 10, 'limit_authenticated': 1200, 'limit_anonymous': 40},
+        {'window_seconds': 60, 'limit_authenticated': 4000, 'limit_anonymous': 120},
+        {'window_seconds': 300, 'limit_authenticated': 12000, 'limit_anonymous': 400},
+    ],
+
+    # Scope-specific overrides (based on app behavior).
+    'scopes': {
+        # Polling / high-frequency but legit
+        'core.states': [
+            {'window_seconds': 10, 'limit_authenticated': 2000, 'limit_anonymous': 60},
+            {'window_seconds': 60, 'limit_authenticated': 8000, 'limit_anonymous': 200},
+        ],
+        'fleet.colonels': [
+            {'window_seconds': 10, 'limit_authenticated': 40, 'limit_anonymous': 10},
+            {'window_seconds': 60, 'limit_authenticated': 240, 'limit_anonymous': 40},
+        ],
+        'core.discoveries': [
+            {'window_seconds': 10, 'limit_authenticated': 80, 'limit_anonymous': 20},
+            {'window_seconds': 60, 'limit_authenticated': 400, 'limit_anonymous': 80},
+        ],
+
+        # Burst endpoints
+        'core.icons': [
+            {'window_seconds': 10, 'limit_authenticated': 400, 'limit_anonymous': 40},
+            {'window_seconds': 60, 'limit_authenticated': 1200, 'limit_anonymous': 120},
+        ],
+        'core.components': [
+            {'window_seconds': 10, 'limit_authenticated': 1500, 'limit_anonymous': 60},
+            {'window_seconds': 60, 'limit_authenticated': 6000, 'limit_anonymous': 200},
+        ],
+
+        # Control surfaces
+        'core.control': [
+            {'window_seconds': 10, 'limit_authenticated': 200, 'limit_anonymous': 20},
+            {'window_seconds': 60, 'limit_authenticated': 800, 'limit_anonymous': 60},
+        ],
+        'mqtt.control': [
+            {'window_seconds': 10, 'limit_authenticated': 200, 'limit_anonymous': 20},
+            {'window_seconds': 60, 'limit_authenticated': 800, 'limit_anonymous': 60},
+        ],
+        'mcp.execute': [
+            {'window_seconds': 10, 'limit_authenticated': 120, 'limit_anonymous': 10},
+            {'window_seconds': 60, 'limit_authenticated': 600, 'limit_anonymous': 60},
+        ],
+
+        # Media
+        'media.icons': [
+            {'window_seconds': 10, 'limit_authenticated': 5000, 'limit_anonymous': 100},
+            {'window_seconds': 60, 'limit_authenticated': 20000, 'limit_anonymous': 300},
+        ],
+        'media.instances': [
+            {'window_seconds': 10, 'limit_authenticated': 2000, 'limit_anonymous': 80},
+            {'window_seconds': 60, 'limit_authenticated': 8000, 'limit_anonymous': 200},
+        ],
+        'media.avatars': [
+            {'window_seconds': 10, 'limit_authenticated': 800, 'limit_anonymous': 40},
+            {'window_seconds': 60, 'limit_authenticated': 3000, 'limit_anonymous': 120},
+        ],
+    },
 }
 
 REDIS_DB = {

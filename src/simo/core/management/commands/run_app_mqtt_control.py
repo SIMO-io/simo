@@ -11,6 +11,7 @@ from simo.users.models import User, InstanceUser, ComponentPermission
 from simo.users.utils import introduce_user
 from simo.core.models import Component
 from simo.core.utils.mqtt import connect_with_retry, install_reconnect_handler
+from simo.core.throttling import check_throttle, SimpleRequest
 
 
 CONTROL_PREFIX = 'SIMO/user'
@@ -86,6 +87,15 @@ class Command(BaseCommand):
             # Resolve user and permission
             user = User.objects.filter(id=user_id).first()
             if not user or not user.is_active:
+                return
+
+            # Throttle MQTT control per authenticated user (per hub ban).
+            wait = check_throttle(
+                request=SimpleRequest(user=user),
+                scope='mqtt.control',
+            )
+            if wait > 0:
+                # Drop actions aggressively when throttled.
                 return
             if not user.is_master:
                 # Must be active on instance
