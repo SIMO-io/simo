@@ -9,7 +9,7 @@ import threading
 import pkg_resources
 import uuid
 from urllib.parse import urlparse
-from django.db.models import Q
+from django.db.models import Q, Max
 from django.db import connection, transaction
 from django.template.loader import render_to_string
 from celeryc import celery_app
@@ -184,11 +184,33 @@ def sync_with_remote():
                 'device_token': user.primary_device_token
             })
 
-        last_event = ComponentHistory.objects.filter(
-            component__zone__instance=instance
-        ).order_by('-date').first()
-        if last_event:
-            instance_data['last_event'] = last_event.date.timestamp()
+        # Privacy-safe activity marker: last action is either a Colonel being
+        # alive or a real user action (excluding internal *.simo.io users).
+        last_user_event = ComponentHistory.objects.filter(
+            component__zone__instance=instance,
+            user__isnull=False,
+        ).exclude(
+            user__email__iendswith='simo.io'
+        ).aggregate(last=Max('date')).get('last')
+
+        try:
+            from simo.fleet.models import Colonel
+            last_colonel_seen = Colonel.objects.filter(
+                instance=instance
+            ).exclude(
+                last_seen=None
+            ).aggregate(last=Max('last_seen')).get('last')
+        except Exception:
+            last_colonel_seen = None
+
+        last_action = None
+        if last_user_event and last_colonel_seen:
+            last_action = max(last_user_event, last_colonel_seen)
+        else:
+            last_action = last_user_event or last_colonel_seen
+
+        # Always include the key to signal capability, even if 0.
+        instance_data['last_action'] = last_action.timestamp() if last_action else 0
 
         report_data['instances'].append(instance_data)
 
