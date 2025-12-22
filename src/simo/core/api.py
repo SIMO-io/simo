@@ -17,6 +17,7 @@ from django.core.cache import cache
 from rest_framework.decorators import action
 from rest_framework.response import Response as RESTResponse
 from rest_framework.exceptions import ValidationError as APIValidationError
+from rest_framework.exceptions import PermissionDenied
 from simo.core.utils.config_values import ConfigException
 from simo.core.utils.json import restore_json
 from .models import (
@@ -249,17 +250,11 @@ class ComponentViewSet(
                 )
 
             if component.controller.masters_only and not self.request.user.is_master:
-                raise APIValidationError(
-                    _('Only hub masters are allowed to do this.'),
-                    code=403,
-                )
+                raise PermissionDenied(_('Only hub masters are allowed to do this.'))
 
             allowed_methods = set(component.get_controller_methods())
             if method_name not in allowed_methods:
-                raise APIValidationError(
-                    _('"%s" method is not allowed') % method_name,
-                    code=403,
-                )
+                raise PermissionDenied(_('"%s" method is not allowed') % method_name)
 
             if not hasattr(component, method_name):
                 raise APIValidationError(

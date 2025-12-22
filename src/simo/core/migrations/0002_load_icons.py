@@ -35,7 +35,7 @@ def create_objects(apps, schema_editor):
         # load only a few icons for testing
         if 'test' in sys.argv and slug not in (
             'star', 'temperature-half', 'lightbulb', 'eye', 'faucet',
-            'flag-pennant', 'cloud-bolt-sun'
+            'flag-pennant', 'cloud-bolt-sun', 'home'
         ):
             continue
 

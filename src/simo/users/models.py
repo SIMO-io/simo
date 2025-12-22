@@ -214,6 +214,15 @@ def post_instance_user_save(sender, instance, created, **kwargs):
             except Exception:
                 pass
         transaction.on_commit(post_update)
+
+    # Invalidate cached membership/activity regardless of created/update.
+    try:
+        cache.delete(f'user-{instance.user.id}_instances')
+        cache.delete(f'user-{instance.user.id}_is_active')
+        cache.delete(f'user-{instance.user.id}_instance-{instance.instance.id}-role-id')
+        cache.delete(f'user-{instance.user.id}_instance-{instance.instance.id}_role')
+    except Exception:
+        pass
     # Rebuild ACLs if user became active/inactive due to this role change
     try:
         if created or ('is_active' in dirty_fields_prev):
@@ -224,6 +233,13 @@ def post_instance_user_save(sender, instance, created, **kwargs):
 @receiver(post_delete, sender=InstanceUser)
 def post_instance_user_delete(sender, instance, **kwargs):
     # Deleting role entry may change user's overall is_active; rebuild ACLs
+    try:
+        cache.delete(f'user-{instance.user.id}_instances')
+        cache.delete(f'user-{instance.user.id}_is_active')
+        cache.delete(f'user-{instance.user.id}_instance-{instance.instance.id}-role-id')
+        cache.delete(f'user-{instance.user.id}_instance-{instance.instance.id}_role')
+    except Exception:
+        pass
     try:
         dynamic_settings['core__needs_mqtt_acls_rebuild'] = True
     except Exception:
