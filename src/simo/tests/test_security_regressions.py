@@ -54,11 +54,23 @@ class BaseSimoTestCase(TestCase):
 
     def setUp(self):
         from django.core.cache import cache
+        from simo.core.middleware import drop_current_instance
+        from simo.users.utils import introduce_user
 
+        drop_current_instance()
+        introduce_user(None)
         try:
             cache.clear()
         except Exception:
             pass
+
+    def tearDown(self):
+        from simo.core.middleware import drop_current_instance
+        from simo.users.utils import introduce_user
+
+        drop_current_instance()
+        introduce_user(None)
+        super().tearDown()
 
 
 class MultiTenantIsolationTests(BaseSimoTestCase):
