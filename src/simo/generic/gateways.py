@@ -70,7 +70,7 @@ class GroupButtonsHandler:
         ):
             for ctrl in group_comp.config.get('controls', []):
                 if ctrl['button'] not in current_group_buttons:
-                    current_group_buttons[ctrl['button']] = set(group_comp.id)
+                    current_group_buttons[ctrl['button']] = {group_comp.id}
                 else:
                     current_group_buttons[ctrl['button']].add(group_comp.id)
 
@@ -98,7 +98,7 @@ class GroupButtonsHandler:
         btn_type = button.config.get('btn_type', 'momentary')
 
         if btn_type == 'momentary':
-            if button.value not in ('click', 'hold', 'up', 'double-click'):
+            if button.value not in ('click', 'double-click', 'down', 'up', 'hold'):
                 return
             for g_id in group_ids:
                 group = Component.objects.filter(id=g_id).first()

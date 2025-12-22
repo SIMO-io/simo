@@ -102,7 +102,10 @@ def get_event_obj(payload, model_class=None, gateway=None):
     if model_class and model_class != ct.model_class():
         return
 
-    obj = ct.get_object_for_this_type(pk=payload['obj_pk'])
+    try:
+        obj = ct.get_object_for_this_type(pk=payload['obj_pk'])
+    except Exception:
+        return
     if gateway and getattr(obj, 'gateway', None) != gateway:
         return
 

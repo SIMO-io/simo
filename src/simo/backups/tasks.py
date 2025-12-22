@@ -550,6 +550,8 @@ def get_partitions():
     try:
         name = lvm_partition.get('name')
         split_at = name.find('-')
+        if split_at <= 0:
+            raise ValueError('Unexpected LVM device name format')
         lv_group = name[:split_at]
         lv_name = name[split_at + 1:].replace('--', '-')
     except:
@@ -739,8 +741,11 @@ def perform_backup():
 
     if other_month_folders:
         # delete old backups to free up at least 20G of space
-        while shutil.disk_usage(sd_mountpoint).free < 20 * 1024 * 1024 * 1024:
-            remove_folder = other_month_folders.pop()[0]
+        while (
+            other_month_folders and
+            shutil.disk_usage(sd_mountpoint).free < 20 * 1024 * 1024 * 1024
+        ):
+            remove_folder = other_month_folders.pop(0)[0]
             print(f"REMOVE: {remove_folder}")
             shutil.rmtree(remove_folder)
 
@@ -819,11 +824,11 @@ def restore_backup(backup_id):
     )
 
     subprocess.run(["umount", snap_mount_point])
-    subprocess.run(
-        f"lvremove -f {lv_group}/{snap_name}", shell=True
-    )
 
     if res.returncode:
+        subprocess.run(
+            f"lvremove -f {lv_group}/{snap_name}", shell=True
+        )
         BackupLog.objects.create(
             level='error',
             msg="Can't restore. \n\n" + res.stderr.decode()
@@ -842,7 +847,7 @@ def clean_old_logs():
     from .models import BackupLog
     BackupLog.objects.filter(
         datetime__lt=timezone.now() - timedelta(days=90)
-    )
+    ).delete()
 
 
 @celery_app.on_after_finalize.connect
