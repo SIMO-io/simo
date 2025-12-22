@@ -114,7 +114,8 @@ def instance_middleware(get_response):
         # API calls
         if request.resolver_match:
             instance = Instance.objects.filter(
-                slug=request.resolver_match.kwargs.get('instance_slug')
+                slug=request.resolver_match.kwargs.get('instance_slug'),
+                is_active=True
             ).first()
 
         if not instance:

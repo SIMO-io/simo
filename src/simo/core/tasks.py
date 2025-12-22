@@ -231,9 +231,8 @@ def sync_with_remote():
         instance, new_instance = Instance.objects.update_or_create(
             uid=instance_uid, defaults=data
         )
-        if not instance.is_active:
-            instance.is_active = True
-            instance.save()
+        # Respect server-driven instance activation (used for subscription enforcement
+        # on virtual hubs). Do not auto-reactivate here.
 
         from simo.generic.controllers import Weather
         weather_component = Component.objects.filter(
