@@ -3,6 +3,7 @@ from calendar import monthrange
 import pytz
 import time
 import pkg_resources
+from django.conf import settings
 from django.utils.translation import gettext_lazy as _
 from django.utils import timezone
 from django.http import HttpResponse, Http404
@@ -720,7 +721,7 @@ class StatesViewSet(InstanceMixin, viewsets.GenericViewSet):
             instance_roles__instance=self.instance
         ).order_by(
             '-last_action'
-        ).exclude(email__in=('system@simo.io', 'device@simo.io'))
+        ).exclude(email__in=settings.SYSTEM_USERS)
         component_values = get_components_queryset(
             self.instance, request.user
         ).filter(zone__instance=self.instance).values(

@@ -3,7 +3,7 @@ import unittest
 from collections import OrderedDict
 from decimal import ROUND_DOWN, Decimal
 
-import mock
+from unittest import mock
 import pytz
 
 from ...fields.custom import (

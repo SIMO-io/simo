@@ -1,5 +1,5 @@
 from django.urls import re_path, path
-from .views import accept_invitation, RolesAutocomplete, mqtt_credentials
+from .views import accept_invitation, RolesAutocomplete, mqtt_credentials, whoami
 
 urlpatterns = [
     re_path(
@@ -11,4 +11,5 @@ urlpatterns = [
         RolesAutocomplete.as_view(), name='autocomplete-user-roles'
     ),
     path('mqtt-credentials/', mqtt_credentials, name='mqtt-credentials'),
+    path('whoami/', whoami, name='whoami'),
 ]

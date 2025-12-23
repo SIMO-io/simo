@@ -35,7 +35,7 @@ def decode_services(payload):
     for u in decode_field(payload, _ADV_TYPE_UUID16_COMPLETE):
         services.append(struct.unpack("<H", u)[0])
     for u in decode_field(payload, _ADV_TYPE_UUID32_COMPLETE):
-        services.append(struct.unpack("<d", u)[0])
+        services.append(struct.unpack("<I", u)[0])
     for u in decode_field(payload, _ADV_TYPE_UUID128_COMPLETE):
         services.append(u)
     return services

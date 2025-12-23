@@ -80,4 +80,8 @@ class CamStreamConsumer(AsyncWebsocketConsumer):
 
     async def disconnect(self, code):
         self.live = False
-        self.video.release()
+        try:
+            if self.video is not None:
+                self.video.release()
+        except Exception:
+            pass

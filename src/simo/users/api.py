@@ -2,6 +2,7 @@ import sys
 import pytz
 import datetime
 from django.db.models import Q
+from django.conf import settings
 from rest_framework import viewsets, mixins, status
 from rest_framework.serializers import Serializer
 from rest_framework.decorators import action
@@ -18,7 +19,7 @@ from .models import (
 )
 from .serializers import (
     UserSerializer, PermissionsRoleSerializer, InstanceInvitationSerializer,
-    FingerprintSerializer, ComponentPermissionSerializer
+    FingerprintSerializer, ComponentPermissionSerializer, InstanceUserSDKSerializer
 )
 
 
@@ -36,13 +37,12 @@ class UsersViewSet(mixins.RetrieveModelMixin,
         queryset = User.objects.all().order_by(
             '-last_action'
         ).exclude(
-            email__in=('system@simo.io', 'device@simo.io')
+            email__in=settings.SYSTEM_USERS
         ) # Exclude system user
 
         return queryset.filter(
             Q(roles__instance=self.instance) | Q(id=self.request.user.id)
         ).distinct()
-
 
     def check_permission_to_change(self, request, target_user):
         user_role = request.user.get_role(self.instance)
@@ -136,6 +136,24 @@ class UsersViewSet(mixins.RetrieveModelMixin,
         return RESTResponse(status=status.HTTP_204_NO_CONTENT)
 
     # (moved to dedicated view at /users/mqtt-credentials/)
+
+
+class InstanceUsersViewSet(InstanceMixin, viewsets.ReadOnlyModelViewSet):
+    url = 'users/instance-users'
+    basename = 'instance-users'
+    serializer_class = InstanceUserSDKSerializer
+    pagination_class = None
+
+    def get_queryset(self):
+        return (
+            InstanceUser.objects.filter(
+                instance=self.instance,
+                is_active=True,
+            )
+            .exclude(user__email__in=settings.SYSTEM_USERS)
+            .select_related('user', 'role')
+            .order_by('id')
+        )
 
 
 class RolesViewsets(InstanceMixin, viewsets.ReadOnlyModelViewSet):

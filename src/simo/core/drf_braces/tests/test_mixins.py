@@ -1,7 +1,7 @@
 from __future__ import absolute_import, print_function, unicode_literals
 import unittest
 
-import mock
+from unittest import mock
 from rest_framework.generics import GenericAPIView
 
 from ..mixins import (

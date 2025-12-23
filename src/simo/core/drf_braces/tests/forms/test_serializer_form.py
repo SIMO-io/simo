@@ -2,9 +2,10 @@ from __future__ import absolute_import, print_function, unicode_literals
 import unittest
 from datetime import datetime
 
-import mock
+from unittest import mock
 import six
 from django import forms
+from django.utils import timezone
 from rest_framework import serializers
 
 from ...forms.serializer_form import (
@@ -17,7 +18,7 @@ from ...forms.serializer_form import (
 )
 
 
-TESTING_MODULE = 'drf_braces.forms.serializer_form'
+TESTING_MODULE = 'simo.core.drf_braces.forms.serializer_form'
 
 
 class TestSerializer(serializers.Serializer):
@@ -222,7 +223,7 @@ class TestSerializerForm(unittest.TestCase):
         self.assertTrue(form.is_valid(), dict(form.errors))
         self.assertDictEqual(form.cleaned_data, {
             'bar': 500,
-            'exclude': datetime(2016, 1, 1, 16, 30)
+            'exclude': timezone.make_aware(datetime(2016, 1, 1, 16, 30))
         })
 
     def test_full_clean_invalid(self):

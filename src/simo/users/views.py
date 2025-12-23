@@ -1,4 +1,6 @@
 import re
+from urllib.parse import urlparse
+
 from django.contrib.auth.decorators import login_required
 from dal import autocomplete
 from django.contrib.auth import logout
@@ -9,12 +11,18 @@ from django.utils import timezone
 from django.urls import reverse_lazy
 from django.utils.http import urlencode
 from django.template.loader import render_to_string
+from django.conf import settings
 from django.http import (
     JsonResponse, HttpResponseRedirect, HttpResponse, Http404
 )
+from rest_framework.decorators import api_view, authentication_classes, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+
+from simo.core.api_auth import SecretKeyAuth, IsAuthenticated as SessionAuth
 from simo.core.middleware import get_current_instance
+from simo.users.permissions import IsActivePermission
 from simo.core.utils.helpers import search_queryset
-from simo.conf import dynamic_settings
 from .models import InstanceInvitation, PermissionsRole, InstanceUser
 from .models import User
 
@@ -214,3 +222,72 @@ def mqtt_credentials(request):
         'password': request.user.secret_key,
         'user_id': request.user.id
     })
+
+
+@api_view(["GET"])
+@authentication_classes([SecretKeyAuth, SessionAuth])
+@permission_classes([IsAuthenticated, IsActivePermission])
+def whoami(request):
+    """Bootstrap endpoint for simo-sdk.
+
+    Query params:
+      - instance: instance slug or uid to select.
+    """
+
+    user = request.user
+    requested = (request.GET.get('instance') or '').strip()
+    instances_qs = user.instances
+
+    instances_payload = [
+        {
+            'uid': inst.uid,
+            'slug': inst.slug,
+            'name': inst.name,
+            'timezone': inst.timezone,
+            'units_of_measure': inst.units_of_measure,
+        }
+        for inst in instances_qs
+    ]
+
+    selected_instance = None
+    if requested:
+        selected_instance = instances_qs.filter(slug=requested).first()
+        if not selected_instance:
+            selected_instance = instances_qs.filter(uid=requested).first()
+        if not selected_instance:
+            raise Http404()
+    elif len(instances_payload) == 1:
+        selected_instance = instances_qs.first()
+
+    parsed = urlparse(request.build_absolute_uri('/'))
+    mqtt_host = parsed.hostname
+    mqtt_tls = (parsed.scheme or '').lower() == 'https'
+    mqtt_port = 443 if mqtt_tls else 80
+
+    resp: dict = {
+        'user': {
+            'id': user.id,
+            'email': user.email,
+            'name': user.name,
+            'is_master': bool(getattr(user, 'is_master', False)),
+        },
+        'instances': instances_payload,
+        'mqtt': {
+            'host': mqtt_host,
+            'port': mqtt_port,
+            'tls': mqtt_tls,
+            'transport': 'websockets',
+            'path': '/mqtt/',
+        },
+    }
+
+    if selected_instance:
+        resp['selected_instance'] = {
+            'uid': selected_instance.uid,
+            'slug': selected_instance.slug,
+            'name': selected_instance.name,
+            'timezone': selected_instance.timezone,
+            'units_of_measure': selected_instance.units_of_measure,
+        }
+
+    return Response(resp)

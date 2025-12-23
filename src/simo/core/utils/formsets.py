@@ -142,30 +142,55 @@ class FormsetField(forms.Field):
             form_data = {}
 
             for field_name, field in self.formset_cls().form.declared_fields.items():
-                form_data[field_name] = formset_data.get(
-                    '%s-%d-%s' % (prefix, i, field_name)
-                )
+                key = '%s-%d-%s' % (prefix, i, field_name)
+                if (
+                    isinstance(field, forms.models.ModelMultipleChoiceField)
+                    and hasattr(formset_data, 'getlist')
+                ):
+                    form_data[field_name] = formset_data.getlist(key)
+                else:
+                    form_data[field_name] = formset_data.get(key)
 
             f_data = {}
             for key, val in form_data.items():
-                f_data[f"{self.formset_cls.form.prefix}-{key}"] = val
+                form_prefix = getattr(self.formset_cls.form, 'prefix', None)
+                if form_prefix:
+                    f_data[f"{form_prefix}-{key}"] = val
+                else:
+                    f_data[key] = val
             form = self.formset_cls.form(f_data)
             if form.is_valid():
                 form_data = form.cleaned_data
 
             for field_name, field in self.formset_cls().form.declared_fields.items():
 
-                if isinstance(field, forms.models.ModelChoiceField):
+                if isinstance(field, forms.models.ModelMultipleChoiceField):
+                    values = form_data[field_name]
+                    if values is None:
+                        values = []
+                    if values and all(hasattr(obj, 'pk') for obj in values):
+                        form_data[field_name] = [obj.pk for obj in values]
+                    else:
+                        normalized = []
+                        for v in values:
+                            if hasattr(v, 'pk'):
+                                normalized.append(v.pk)
+                            else:
+                                try:
+                                    normalized.append(int(v))
+                                except Exception:
+                                    continue
+                        form_data[field_name] = normalized
+                elif isinstance(field, forms.models.ModelChoiceField):
                     if isinstance(form_data[field_name], models.Model):
                         form_data[field_name] = form_data[field_name].pk
                     else:
                         form_data[field_name] = int(form_data[field_name])
-                elif isinstance(field, forms.models.ModelMultipleChoiceField):
-                    form_data[field_name] = [
-                        obj.pk for obj in form_data[field_name]
-                    ]
                 elif isinstance(field, forms.fields.BooleanField):
-                    form_data[field_name] = form_data[field_name] == 'on'
+                    if isinstance(form_data[field_name], bool):
+                        pass
+                    else:
+                        form_data[field_name] = form_data[field_name] == 'on'
                 elif isinstance(field, forms.fields.IntegerField):
                     try:
                         form_data[field_name] = int(form_data[field_name])
@@ -188,5 +213,3 @@ class FormsetField(forms.Field):
                 cleaned_value[i].pop('order')
 
         return cleaned_value
-
-

@@ -12,6 +12,7 @@ from urllib.parse import urlparse
 from django.db.models import Q, Max
 from django.db import connection, transaction
 from django.template.loader import render_to_string
+from django.conf import settings
 from celeryc import celery_app
 from django.utils import timezone
 from actstream.models import Action
@@ -171,7 +172,7 @@ def sync_with_remote():
         for user in User.objects.filter(
             is_master=True
         ).exclude(
-            email__in=('system@simo.io', 'device@simo.io')
+            email__in=settings.SYSTEM_USERS
         ).exclude(id__in=users_included).distinct():
             if not user.is_active:
                 continue
@@ -190,7 +191,7 @@ def sync_with_remote():
             component__zone__instance=instance,
             user__isnull=False,
         ).exclude(
-            user__email__iendswith='simo.io'
+            user__email__in=settings.SYSTEM_USERS
         ).aggregate(last=Max('date')).get('last')
 
         try:
@@ -216,12 +217,20 @@ def sync_with_remote():
 
     print("Sync UP with remote: ", json.dumps(report_data))
 
-    response = requests.post('https://simo.io/hubs/sync/', json=report_data)
+    try:
+        response = requests.post('https://simo.io/hubs/sync/', json=report_data)
+    except requests.RequestException:
+        print("Failed to sync with remote: request error")
+        return
     if response.status_code != 200:
         print("Faled! Response code: ", response.status_code)
         return
 
-    r_json = response.json()
+    try:
+        r_json = response.json()
+    except Exception:
+        print("Failed to sync with remote: bad JSON")
+        return
 
     print("Responded with: ", json.dumps(r_json))
 
@@ -240,14 +249,31 @@ def sync_with_remote():
         except Exception:
             pass
 
-    if dynamic_settings['core__remote_conn_version'] < r_json['remote_conn_version']:
-        save_config(r_json)
-    dynamic_settings['core__remote_conn_version'] = r_json['remote_conn_version']
+    remote_conn_version = r_json.get('remote_conn_version')
+    if isinstance(remote_conn_version, int):
+        if dynamic_settings['core__remote_conn_version'] < remote_conn_version:
+            save_config(r_json)
+        dynamic_settings['core__remote_conn_version'] = remote_conn_version
+
+    instances_payload = r_json.get('instances')
+    if not isinstance(instances_payload, list):
+        return
+
+    allow_remote_user_create = not User.objects.exclude(
+        email__in=settings.SYSTEM_USERS
+    ).exists()
+    bootstrap_user_created = False
 
     instance_uids = []
-    for data in r_json['instances']:
+    for data in instances_payload:
+        if not isinstance(data, dict):
+            continue
         users_data = data.pop('users', {})
-        instance_uid = data.pop('uid')
+        if not isinstance(users_data, dict):
+            users_data = {}
+        instance_uid = data.pop('uid', None)
+        if not instance_uid:
+            continue
         instance_uids.append(instance_uid)
         weather = data.pop('weather', None)
         instance, new_instance = Instance.objects.update_or_create(
@@ -274,16 +300,28 @@ def sync_with_remote():
 
 
         for email, options in users_data.items():
+            if not email:
+                continue
+            if not isinstance(options, dict):
+                options = {}
             if new_instance:
                 print(f"EMAIL: {email}")
                 print(f"OPTIONS: {options}")
-            if new_instance or not instance.instance_users.count():
-                # Create user for new instance!
+
+            if allow_remote_user_create and not bootstrap_user_created:
+                # Brand new hub bootstrap: remote may create exactly one user.
+                name = options.get('name')
+                if not name:
+                    continue
                 user, new_user = User.objects.get_or_create(
-                    email=email, defaults={
-                    'name': options.get('name'),
-                    'is_master': options.get('is_hub_master', False),
-                })
+                    email=email,
+                    defaults={
+                        'name': name,
+                        # First real user gets full hub-master access.
+                        'is_master': True,
+                    },
+                )
+                bootstrap_user_created = True
                 role = None
                 if options.get('is_superuser'):
                     print(f"Try getting superuser role!")
@@ -308,7 +346,8 @@ def sync_with_remote():
                     print("Creating InstanceUser!")
                     InstanceUser.objects.update_or_create(
                         user=user, instance=instance, defaults={
-                            'is_active': True, 'role': role
+                            'is_active': bool(options.get('is_active', True)),
+                            'role': role,
                         }
                     )
                 else:
@@ -319,8 +358,9 @@ def sync_with_remote():
             if not user:
                 continue
 
-            if user.name != options.get('name'):
-                user.name = options['name']
+            name = options.get('name')
+            if name and user.name != name:
+                user.name = name
                 user.save()
 
             avatar_url = options.get('avatar_url')
@@ -370,9 +410,12 @@ def clear_history():
             component__zone__instance=instance
         ).order_by('-date').values('id').iterator():
             if i < 5000:
+                i += 1
                 continue
             delete_ids.append(obj['id'])
-        ComponentHistory.objects.filter(id__in=delete_ids)
+            i += 1
+        if delete_ids:
+            ComponentHistory.objects.filter(id__in=delete_ids).delete()
         HistoryAggregate.objects.filter(
             component__zone__instance=instance, start__lt=old_times
         ).delete()
@@ -382,21 +425,27 @@ def clear_history():
             component__zone__instance=instance
         ).order_by('-start').values('id').iterator():
             if i < 1000:
+                i += 1
                 continue
             delete_ids.append(obj['id'])
-        HistoryAggregate.objects.filter(id__in=delete_ids)
+            i += 1
+        if delete_ids:
+            HistoryAggregate.objects.filter(id__in=delete_ids).delete()
         Action.objects.filter(
             data__instance_id=instance.id, timestamp__lt=old_times
-        )
+        ).delete()
         i = 0
         delete_ids = []
         for obj in Action.objects.filter(
             data__instance_id=instance.id
         ).order_by('-timestamp').values('id').iterator():
             if i < 5000:
+                i += 1
                 continue
             delete_ids.append(obj['id'])
-        Action.objects.filter(id__in=delete_ids)
+            i += 1
+        if delete_ids:
+            Action.objects.filter(id__in=delete_ids).delete()
 
 
 VACUUM_SQL = """

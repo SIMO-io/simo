@@ -617,6 +617,33 @@ class Component(DirtyFieldsMixin, models.Model, SimoAdminMixin, OnChangeMixin):
             'meta': self.meta,
         }
 
+        actor_type = None
+        actor_user_id = None
+        actor_instance_user_id = None
+
+        actor_user = getattr(self, 'change_user', None)
+        if actor_user:
+            actor_user_id = getattr(actor_user, 'id', None)
+            email = (getattr(actor_user, 'email', '') or '').strip().lower()
+
+            system_email = settings.SYSTEM_USERS[0] if settings.SYSTEM_USERS else None
+            device_email = settings.SYSTEM_USERS[1] if len(settings.SYSTEM_USERS) > 1 else None
+            ai_email = settings.SYSTEM_USERS[2] if len(settings.SYSTEM_USERS) > 2 else None
+
+            if system_email and email == system_email:
+                actor_type = 'system'
+            elif device_email and email == device_email:
+                actor_type = 'device'
+            elif ai_email and email == ai_email:
+                actor_type = 'ai'
+            else:
+                actor_type = 'user'
+
+        if actor_type == 'user':
+            actor_iuser = getattr(self, 'change_actor', None)
+            if actor_iuser is not None:
+                actor_instance_user_id = getattr(actor_iuser, 'id', None)
+
         masters_payload = []
         for master in self.masters.all():
             masters_payload.append({
@@ -630,6 +657,9 @@ class Component(DirtyFieldsMixin, models.Model, SimoAdminMixin, OnChangeMixin):
                     'alive': master.alive,
                     'meta': master.meta,
                     'slave_id': self.id,
+                    'actor_type': actor_type,
+                    'actor_user_id': actor_user_id,
+                    'actor_instance_user_id': actor_instance_user_id,
                 }
             })
 
@@ -637,6 +667,9 @@ class Component(DirtyFieldsMixin, models.Model, SimoAdminMixin, OnChangeMixin):
             'dirty_fields': dirty_current,
             'component': component_payload,
             'actor': getattr(self, 'change_actor', None),
+            'actor_type': actor_type,
+            'actor_user_id': actor_user_id,
+            'actor_instance_user_id': actor_instance_user_id,
             'masters': masters_payload,
         }
 

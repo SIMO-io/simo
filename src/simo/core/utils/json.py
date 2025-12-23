@@ -19,4 +19,6 @@ def restore_json(data):
             clean_data[key] = True
         elif val.lower() == 'false':
             clean_data[key] = False
+        else:
+            clean_data[key] = val
     return clean_data

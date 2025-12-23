@@ -1,5 +1,7 @@
 from unittest import mock
 
+from django.conf import settings
+
 from simo.users.auth_backends import SSOBackend
 from simo.users.models import User, InstanceInvitation, InstanceUser
 
@@ -9,8 +11,10 @@ from .base import BaseSimoTestCase, mk_instance, mk_user, mk_role
 class SSOBackendTests(BaseSimoTestCase):
     def test_system_user_emails_are_rejected(self):
         backend = SSOBackend()
-        self.assertIsNone(backend.authenticate(None, user_data={'email': 'system@simo.io', 'name': 'X'}))
-        self.assertIsNone(backend.authenticate(None, user_data={'email': 'device@simo.io', 'name': 'X'}))
+        for email in settings.SYSTEM_USERS:
+            self.assertIsNone(
+                backend.authenticate(None, user_data={'email': email, 'name': 'X'})
+            )
 
     def test_first_real_user_is_created_as_master(self):
         backend = SSOBackend()

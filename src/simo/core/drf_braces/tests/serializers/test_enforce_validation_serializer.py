@@ -1,7 +1,7 @@
 from __future__ import absolute_import, print_function, unicode_literals
 import unittest
 
-import mock
+from unittest import mock
 import six
 from rest_framework import fields, serializers
 
@@ -13,7 +13,7 @@ from ...serializers.enforce_validation_serializer import (
 )
 
 
-TESTING_MODULE = 'drf_braces.serializers.enforce_validation_serializer'
+TESTING_MODULE = 'simo.core.drf_braces.serializers.enforce_validation_serializer'
 
 
 class InnerSerializer(serializers.Serializer):

@@ -119,7 +119,12 @@ class ComponentHistoryAggregationTests(BaseSimoTestCase):
         mk_instance_user(user, inst, role, is_active=True)
         user = User.objects.get(pk=user.pk)
 
-        start_from = timezone.now() - datetime.timedelta(hours=2)
+        # Keep test deterministic: API floors start_from to hour.
+        start_from = (timezone.now() - datetime.timedelta(hours=2)).replace(
+            minute=0,
+            second=0,
+            microsecond=0,
+        )
         # Baseline value before start.
         ev0 = ComponentHistory.objects.create(component=comp, type='value', value=False, user=user)
         ComponentHistory.objects.filter(id=ev0.id).update(date=start_from - datetime.timedelta(minutes=10))

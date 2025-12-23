@@ -96,3 +96,41 @@ class FingerprintSerializer(serializers.ModelSerializer):
 
     def get_type(self, obj):
         return obj.type
+
+
+class InstanceUserSDKSerializer(serializers.ModelSerializer):
+    """InstanceUser representation for simo-sdk."""
+
+    user_id = serializers.IntegerField(source='user.id', read_only=True)
+    email = serializers.EmailField(source='user.email', read_only=True)
+    name = serializers.CharField(source='user.name', read_only=True)
+
+    role_id = serializers.IntegerField(source='role.id', read_only=True)
+    role_name = serializers.CharField(source='role.name', read_only=True)
+    role_is_owner = serializers.BooleanField(source='role.is_owner', read_only=True)
+    role_is_superuser = serializers.BooleanField(source='role.is_superuser', read_only=True)
+    role_can_manage_users = serializers.BooleanField(source='role.can_manage_users', read_only=True)
+    role_is_person = serializers.BooleanField(source='role.is_person', read_only=True)
+
+    last_seen = serializers.SerializerMethodField()
+
+    class Meta:
+        model = InstanceUser
+        fields = (
+            'id',
+            'user_id', 'email', 'name',
+            'role_id', 'role_name',
+            'role_is_owner', 'role_is_superuser',
+            'role_can_manage_users', 'role_is_person',
+            'is_active',
+            'at_home',
+            'last_seen',
+            'last_seen_location',
+            'last_seen_speed_kmh',
+            'phone_on_charge',
+        )
+
+    def get_last_seen(self, obj):
+        if obj.last_seen:
+            return obj.last_seen.timestamp()
+        return None

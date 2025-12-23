@@ -179,6 +179,9 @@ def post_save_change_events(sender, instance, created, **kwargs):
                 target,
                 dirty_fields=context['dirty_fields'],
                 actor=context.get('actor'),
+                actor_type=context.get('actor_type'),
+                actor_user_id=context.get('actor_user_id'),
+                actor_instance_user_id=context.get('actor_instance_user_id'),
                 **context['component']
             ).publish()
             for master_ctx in context['masters']:

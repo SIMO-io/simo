@@ -2,6 +2,7 @@ import os
 import io
 import requests
 from urllib.parse import urlparse
+from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 from django.contrib.auth import get_user_model
@@ -58,10 +59,9 @@ class SSOBackend(ModelBackend):
 
 
     def authenticate(self, request, user_data=None, **kwargs):
-        system_user_emails = ('system@simo.io', 'device@simo.io')
         if not user_data:
             return
-        if user_data['email'] in system_user_emails: # not valid email address.
+        if user_data['email'] in settings.SYSTEM_USERS: # not valid email address.
             return
 
         user = None
@@ -70,7 +70,7 @@ class SSOBackend(ModelBackend):
         except User.DoesNotExist:
             # There is no real user on a hub yet, except System
             # so we create first user right away!
-            if not User.objects.all().exclude(email__in=system_user_emails).count():
+            if not User.objects.all().exclude(email__in=settings.SYSTEM_USERS).count():
                 user = User.objects.create(
                     email=user_data['email'],
                     name=user_data['name'],

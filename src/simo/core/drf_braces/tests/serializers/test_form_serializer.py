@@ -3,9 +3,10 @@ import unittest
 from collections import OrderedDict
 from datetime import datetime
 
-import mock
+from unittest import mock
 import six
 from django import forms
+from django.utils import timezone
 from rest_framework import fields, serializers
 
 from ...serializers.form_serializer import (
@@ -19,7 +20,7 @@ from ...serializers.form_serializer import (
 )
 
 
-TESTING_MODULE = 'drf_braces.serializers.form_serializer'
+TESTING_MODULE = 'simo.core.drf_braces.serializers.form_serializer'
 
 
 class TestForm(forms.Form):
@@ -266,10 +267,10 @@ class TestFormSerializerBase(unittest.TestCase):
 
         kwargs = serializer._get_field_kwargs(form_field, fields.IntegerField)
 
-        self.assertDictContainsSubset({
-            'default': 100,
-            'validators': [mock.sentinel.validator, mock.ANY],
-        }, kwargs)
+        self.assertEqual(kwargs.get('default'), 100)
+        self.assertIn('validators', kwargs)
+        self.assertEqual(kwargs['validators'][0], mock.sentinel.validator)
+        self.assertEqual(len(kwargs['validators']), 2)
         self.assertNotIn('required', kwargs)
 
     def test_get_field_kwargs_choice_field(self):
@@ -280,12 +281,13 @@ class TestFormSerializerBase(unittest.TestCase):
 
         kwargs = serializer._get_field_kwargs(form_field, fields.ChoiceField)
 
-        self.assertDictContainsSubset({
-            'choices': OrderedDict([
+        self.assertEqual(
+            kwargs.get('choices'),
+            OrderedDict([
                 ('foo', 'foo'),
                 ('bar', 'bar'),
             ]),
-        }, kwargs)
+        )
 
     def test_validate(self):
         serializer = self.serializer_class(data={
@@ -310,7 +312,7 @@ class TestFormSerializerBase(unittest.TestCase):
 
         self.assertTrue(serializer.is_valid())
         self.assertDictEqual(serializer.validated_data, {
-            'other': datetime(2015, 1, 1, 12, 30),
+            'other': timezone.make_aware(datetime(2015, 1, 1, 12, 30)),
             'foo': 'hello',
             'bar': 257,
             'happy': '',

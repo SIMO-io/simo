@@ -19,6 +19,13 @@ DEBUG = False
 # Virtual hubs must avoid exposing any instance-local LAN features publicly.
 IS_VIRTUAL = False
 
+# Internal SIMO system accounts (not real hub users).
+SYSTEM_USERS = [
+    'system@simo.io',
+    'device@simo.io',
+    'ai@simo.io',
+]
+
 # ---------------------------------------------------------------------------
 # SIMO SSO configuration
 # ---------------------------------------------------------------------------

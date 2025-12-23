@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 from __future__ import absolute_import, print_function, unicode_literals
-from collections import Mapping
+from collections.abc import Mapping
 
 import six
 from rest_framework.renderers import JSONRenderer
