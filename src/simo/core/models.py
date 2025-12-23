@@ -240,8 +240,11 @@ class Gateway(DirtyFieldsMixin, models.Model, SimoAdminMixin):
 
         gateway_class = GATEWAYS_MAP.get(self.type)
         if gateway_class:
-            self.handler = gateway_class(self)
-            if hasattr(self.handler, 'run'):
+            try:
+                self.handler = gateway_class(self)
+            except TypeError:
+                self.handler = None
+            if self.handler and hasattr(self.handler, 'run'):
                 setattr(self, 'run', self.handler.run)
 
     def start(self):

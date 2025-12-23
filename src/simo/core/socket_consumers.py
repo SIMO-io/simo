@@ -226,6 +226,13 @@ class ComponentController(SIMOWebsocketConsumer):
         introduce_user(self.scope['user'])
         self.accept()
 
+        if not self.scope['user'].is_authenticated:
+            print("DROPPING SOCKET AS NOT AUTHENTICATED")
+            self.send(text_data=json.dumps(
+                {'event': 'close', 'reason': 'auth'}
+            ))
+            return self.close()
+
         try:
             self.component = Component.objects.get(
                 pk=self.scope['url_route']['kwargs']['component_id']
@@ -238,17 +245,10 @@ class ComponentController(SIMOWebsocketConsumer):
             instance = self.component.zone.instance
         except Exception:
             return self.close()
-        if not self.scope['user'].is_master and instance not in self.scope['user'].instances:
+        if not getattr(self.scope['user'], 'is_master', False) and instance not in getattr(self.scope['user'], 'instances', []):
             return self.close()
 
         if not self.component.controller.admin_widget_template:
-            return self.close()
-
-        if not self.scope['user'].is_authenticated:
-            print("DROPPING SOCKET AS NOT AUTHENTICATED")
-            self.send(text_data=json.dumps(
-                {'event': 'close', 'reason': 'auth'}
-            ))
             return self.close()
 
         if not self.scope['user'].is_active:

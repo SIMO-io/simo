@@ -4,6 +4,7 @@ import logging
 import json
 from concurrent.futures import ThreadPoolExecutor
 from asgiref.sync import sync_to_async
+from django.db import close_old_connections
 from django.utils import timezone
 from simo.mcp_server.app import mcp
 from fastmcp.tools.tool import ToolResult
@@ -22,13 +23,22 @@ async def get_state() -> dict:
     """
     PRIMARY RESOURCE – returns full current system state.
     """
-    def _build():
-        inst = get_current_instance()
+    inst = get_current_instance()
+    if not inst:
+        raise PermissionError('No instance context')
+
+    def _build(current_instance):
+        close_old_connections()
+        # Ensure tenant context is visible inside thread-sensitive calls.
+        try:
+            introduce_instance(current_instance)
+        except Exception:
+            pass
         data = {
             "unix_timestamp": int(timezone.now().timestamp()),
-            "ai_memory": inst.ai_memory,
+            "ai_memory": current_instance.ai_memory,
             "zones": MCPBasicZoneSerializer(
-                Zone.objects.filter(instance=inst).prefetch_related(
+                Zone.objects.filter(instance=current_instance).prefetch_related(
                     "components", "components__category",
                     "components__gateway", "components__slaves"
                 ),
@@ -45,7 +55,7 @@ async def get_state() -> dict:
             }
         return data
 
-    return await sync_to_async(_build, thread_sensitive=True)()
+    return await sync_to_async(_build, thread_sensitive=True)(inst)
 
 
 @mcp.tool(name="core.get_component")
@@ -53,15 +63,26 @@ async def get_component(id: str) -> dict:
     """
     Returns full component state, configs, metadata, methods, values, etc.
     """
-    def _load(component_id: str):
+    inst = get_current_instance()
+    if not inst:
+        raise PermissionError('No instance context')
+
+    def _load(component_id: str, current_instance):
+        close_old_connections()
+        try:
+            introduce_instance(current_instance)
+        except Exception:
+            pass
         component = (
-            Component.objects.filter(pk=component_id, zone__instance=get_current_instance())
+            Component.objects.filter(pk=component_id, zone__instance=current_instance)
             .select_related("zone", "category", "gateway")
             .first()
         )
+        if not component:
+            return {}
         return MCPFullComponentSerializer(component).data
 
-    return await sync_to_async(_load, thread_sensitive=True)(id)
+    return await sync_to_async(_load, thread_sensitive=True)(id, inst)
 
 
 @mcp.tool(name="core.get_component_value_change_history")
@@ -75,12 +96,21 @@ async def get_component_value_change_history(
     - end:   unix epoch seconds (younger than)
     - component_ids: ids joined by '-' OR '-' to include all
     """
-    def _load(_start: int, _end: int, _ids: str):
-        inst = get_current_instance()
-        tz = pytz.timezone(inst.timezone)
+    inst = get_current_instance()
+    if not inst:
+        raise PermissionError('No instance context')
+
+    def _load(_start: int, _end: int, _ids: str, current_instance):
+        close_old_connections()
+        try:
+            introduce_instance(current_instance)
+        except Exception:
+            pass
+
+        tz = pytz.timezone(current_instance.timezone)
         qs = (
             ComponentHistory.objects.filter(
-                component__zone__instance=inst,
+                component__zone__instance=current_instance,
                 date__gt=datetime.datetime.fromtimestamp(int(_start), tz=timezone.utc),
                 date__lt=datetime.datetime.fromtimestamp(int(_end), tz=timezone.utc),
             )
@@ -88,7 +118,14 @@ async def get_component_value_change_history(
             .order_by("-date")
         )
         if _ids != "-":
-            ids = [int(c_id) for c_id in _ids.split("-")]
+            ids = []
+            for raw_id in _ids.split("-"):
+                try:
+                    ids.append(int(raw_id))
+                except Exception:
+                    continue
+            if not ids:
+                return []
             qs = qs.filter(component__id__in=ids)
         history = []
         for item in qs[:100]:
@@ -102,7 +139,7 @@ async def get_component_value_change_history(
             })
         return history
 
-    return await sync_to_async(_load, thread_sensitive=True)(start, end, component_ids)
+    return await sync_to_async(_load, thread_sensitive=True)(start, end, component_ids, inst)
 
 
 @mcp.tool(name="core.execute_component_methods")
@@ -135,6 +172,7 @@ async def execute_component_methods(
     then correlate each reply without additional bookkeeping.
     """
     def _execute():
+        close_old_connections()
         log.debug(f"Execute component methods: {operations}")
         current_user = get_current_user()
         if not current_user:
@@ -214,12 +252,20 @@ async def update_ai_memory(text):
     """
     Overrides ai_memory with new memory text
     """
-    def _execute(text):
-        inst = get_current_instance()
-        inst.ai_memory = text
-        inst.save(update_fields=['ai_memory'])
+    inst = get_current_instance()
+    if not inst:
+        raise PermissionError('No instance context')
 
-    return await sync_to_async(_execute, thread_sensitive=True)(text)
+    def _execute(text, current_instance):
+        close_old_connections()
+        try:
+            introduce_instance(current_instance)
+        except Exception:
+            pass
+        current_instance.ai_memory = text
+        current_instance.save(update_fields=['ai_memory'])
+
+    return await sync_to_async(_execute, thread_sensitive=True)(text, inst)
 
 
 @mcp.tool(name="core.get_unix_timestamp")

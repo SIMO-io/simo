@@ -32,6 +32,53 @@ class CoreTasksTests(BaseSimoTestCase):
             component_action(comp.id, 'disarm', args=[], kwargs={})
         disarm.assert_called_once()
 
+    def test_component_action_defaults_args_kwargs(self):
+        from simo.core.tasks import component_action
+        from simo.generic.controllers import SwitchGroup
+
+        inst = mk_instance('inst-a', 'A')
+        zone = Zone.objects.create(instance=inst, name='Z', order=0)
+        gw, _ = Gateway.objects.get_or_create(type='simo.generic.gateways.GenericGatewayHandler')
+        comp = Component.objects.create(
+            name='C',
+            zone=zone,
+            category=None,
+            gateway=gw,
+            base_type='switch',
+            controller_uid=SwitchGroup.uid,
+            config={},
+            meta={},
+            value=False,
+        )
+
+        with mock.patch('simo.core.tasks.Component.disarm', autospec=True) as disarm:
+            component_action(comp.id, 'disarm')
+        disarm.assert_called_once()
+
+    def test_component_action_rejects_invalid_args_kwargs_shapes(self):
+        from simo.core.tasks import component_action
+        from simo.generic.controllers import SwitchGroup
+
+        inst = mk_instance('inst-a', 'A')
+        zone = Zone.objects.create(instance=inst, name='Z', order=0)
+        gw, _ = Gateway.objects.get_or_create(type='simo.generic.gateways.GenericGatewayHandler')
+        comp = Component.objects.create(
+            name='C',
+            zone=zone,
+            category=None,
+            gateway=gw,
+            base_type='switch',
+            controller_uid=SwitchGroup.uid,
+            config={},
+            meta={},
+            value=False,
+        )
+
+        with self.assertRaises(TypeError):
+            component_action(comp.id, 'disarm', args='nope', kwargs={})
+        with self.assertRaises(TypeError):
+            component_action(comp.id, 'disarm', args=[], kwargs='nope')
+
     def test_drop_fingerprints_learn_clears_expired_flags(self):
         from simo.core.tasks import drop_fingerprints_learn
 
@@ -90,4 +137,3 @@ class CoreTasksTests(BaseSimoTestCase):
 
         self.assertEqual(ds['core__latest_version_available'], '1.0.1')
         self.assertEqual(out, 'sig')
-

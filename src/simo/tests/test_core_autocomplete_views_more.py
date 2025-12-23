@@ -123,6 +123,124 @@ class AutocompleteViewsTests(BaseSimoTestCase, _ViewMixin):
 
         self.assertEqual(list(qs), [self.comp])
 
+    def test_component_autocomplete_filters_by_controller_uid(self):
+        from simo.core.autocomplete_views import ComponentAutocomplete
+
+        other = Component.objects.create(
+            name='Other',
+            zone=self.zone,
+            category=self.cat,
+            gateway=self.gw,
+            base_type='switch',
+            controller_uid='y',
+            config={},
+            meta={},
+            value=False,
+        )
+
+        request = self.rf.get('/x')
+        view = ComponentAutocomplete()
+        self._attach_request(view, request)
+        view.forwarded = {'controller_uid': ['x']}
+
+        with mock.patch('simo.core.autocomplete_views.get_current_instance', return_value=self.inst):
+            qs = view.get_queryset()
+
+        self.assertEqual(list(qs), [self.comp])
+        self.assertNotIn(other, list(qs))
+
+    def test_component_autocomplete_filters_by_alarm_category_including_alarm_group(self):
+        from simo.core.autocomplete_views import ComponentAutocomplete
+
+        alarmed = Component.objects.create(
+            name='Door',
+            zone=self.zone,
+            category=self.cat,
+            gateway=self.gw,
+            base_type='switch',
+            controller_uid='x',
+            config={},
+            meta={},
+            value=False,
+            alarm_category='security',
+        )
+        alarm_group = Component.objects.create(
+            name='Alarm Group',
+            zone=self.zone,
+            category=self.cat,
+            gateway=self.gw,
+            base_type='alarm-group',
+            controller_uid='x',
+            config={},
+            meta={},
+            value={},
+        )
+        other = Component.objects.create(
+            name='Other',
+            zone=self.zone,
+            category=self.cat,
+            gateway=self.gw,
+            base_type='switch',
+            controller_uid='x',
+            config={},
+            meta={},
+            value=False,
+            alarm_category='fire',
+        )
+
+        request = self.rf.get('/x')
+        view = ComponentAutocomplete()
+        self._attach_request(view, request)
+        view.forwarded = {'alarm_category': ['security']}
+
+        with mock.patch('simo.core.autocomplete_views.get_current_instance', return_value=self.inst):
+            qs = list(view.get_queryset())
+
+        self.assertIn(alarmed, qs)
+        self.assertIn(alarm_group, qs)
+        self.assertNotIn(other, qs)
+
+    def test_component_autocomplete_q_search_matches_zone_name_and_component_name(self):
+        from simo.core.autocomplete_views import ComponentAutocomplete
+
+        zone2 = Zone.objects.create(instance=self.inst, name='Kitchen', order=1)
+        comp2 = Component.objects.create(
+            name='Ceiling',
+            zone=zone2,
+            category=self.cat,
+            gateway=self.gw,
+            base_type='switch',
+            controller_uid='x',
+            config={},
+            meta={},
+            value=False,
+        )
+
+        request = self.rf.get('/x')
+        view = ComponentAutocomplete()
+        self._attach_request(view, request)
+        view.q = 'Kitchen'
+
+        with mock.patch('simo.core.autocomplete_views.get_current_instance', return_value=self.inst):
+            qs = list(view.get_queryset())
+        self.assertIn(comp2, qs)
+
+        view.q = 'Lamp'
+        with mock.patch('simo.core.autocomplete_views.get_current_instance', return_value=self.inst):
+            qs = list(view.get_queryset())
+        self.assertIn(self.comp, qs)
+
+    def test_category_get_result_label_renders_template(self):
+        from simo.core.autocomplete_views import CategoryAutocomplete
+
+        request = self.rf.get('/x')
+        view = CategoryAutocomplete()
+        self._attach_request(view, request)
+        with mock.patch('simo.core.autocomplete_views.render_to_string', return_value='x') as rts:
+            label = view.get_result_label(self.cat)
+        self.assertEqual(label, 'x')
+        rts.assert_called_once()
+
     def test_component_autocomplete_user_agent_simo_app_uses_default_label(self):
         from simo.core.autocomplete_views import ComponentAutocomplete
 

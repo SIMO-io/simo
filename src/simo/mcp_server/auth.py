@@ -1,5 +1,6 @@
 from typing import Any, Optional
 from asgiref.sync import sync_to_async
+from django.db import close_old_connections
 from simo.mcp_server.models import InstanceAccessToken
 from simo.core.middleware import introduce_instance
 from fastmcp.server.auth.auth import AccessToken, TokenVerifier
@@ -11,6 +12,7 @@ class DjangoTokenVerifier(TokenVerifier):
     async def verify_token(self, token: str) -> Optional[AccessToken]:
 
         def _load():
+            close_old_connections()
             access_token = InstanceAccessToken.objects.select_related(
                 "instance"
             ).filter(

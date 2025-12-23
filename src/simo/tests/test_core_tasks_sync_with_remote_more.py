@@ -10,6 +10,8 @@ from django.utils import timezone
 
 from simo.users.models import InstanceUser
 
+from simo.core.models import Component, Gateway, Zone
+
 from .base import BaseSimoTestCase, mk_instance, mk_instance_user, mk_role, mk_user
 
 
@@ -222,6 +224,321 @@ class TestSyncWithRemote(BaseSimoTestCase):
                 is_active=True,
             ).exists()
         )
+
+    def test_sync_with_remote_sets_weather_controller_alive(self):
+        from simo.core.tasks import sync_with_remote
+        from simo.generic.controllers import Weather
+
+        ds = {
+            'core__hub_uid': 'hub-uid',
+            'core__hub_secret': 'hub-secret',
+            'core__remote_conn_version': 1,
+        }
+
+        inst = mk_instance('inst-a', 'A')
+        zone = Zone.objects.create(instance=inst, name='Z', order=0)
+        gw, _ = Gateway.objects.get_or_create(
+            type='simo.generic.gateways.GenericGatewayHandler'
+        )
+        Component.objects.create(
+            name='Weather',
+            zone=zone,
+            category=None,
+            gateway=gw,
+            base_type='weather',
+            controller_uid=Weather.uid,
+            config={},
+            meta={},
+            value={},
+        )
+
+        resp = mock.Mock(status_code=200)
+        resp.json.return_value = {
+            'remote_conn_version': 1,
+            'instances': [
+                {
+                    'uid': inst.uid,
+                    'name': inst.name,
+                    'slug': inst.slug,
+                    'units_of_measure': inst.units_of_measure,
+                    'timezone': inst.timezone,
+                    'weather': {'temp': 21},
+                    'users': {},
+                }
+            ],
+        }
+
+        with (
+            mock.patch('simo.core.tasks.dynamic_settings', ds),
+            mock.patch('simo.core.tasks.get_self_ip', return_value='1.2.3.4'),
+            mock.patch('simo.core.tasks.requests.post', return_value=resp),
+            mock.patch('simo.core.controllers.ControllerBase.set', autospec=True) as set_value,
+            mock.patch('builtins.print'),
+        ):
+            sync_with_remote()
+
+        self.assertEqual(set_value.call_count, 1)
+        self.assertEqual(set_value.call_args.args[1], {'temp': 21})
+        self.assertEqual(set_value.call_args.kwargs.get('alive'), True)
+
+    def test_sync_with_remote_disables_weather_component_when_no_weather(self):
+        from simo.core.tasks import sync_with_remote
+        from simo.generic.controllers import Weather
+
+        ds = {
+            'core__hub_uid': 'hub-uid',
+            'core__hub_secret': 'hub-secret',
+            'core__remote_conn_version': 1,
+        }
+
+        inst = mk_instance('inst-a', 'A')
+        zone = Zone.objects.create(instance=inst, name='Z', order=0)
+        gw, _ = Gateway.objects.get_or_create(
+            type='simo.generic.gateways.GenericGatewayHandler'
+        )
+        comp = Component.objects.create(
+            name='Weather',
+            zone=zone,
+            category=None,
+            gateway=gw,
+            base_type='weather',
+            controller_uid=Weather.uid,
+            config={},
+            meta={},
+            value={},
+            alive=True,
+        )
+
+        resp = mock.Mock(status_code=200)
+        resp.json.return_value = {
+            'remote_conn_version': 1,
+            'instances': [
+                {
+                    'uid': inst.uid,
+                    'name': inst.name,
+                    'slug': inst.slug,
+                    'units_of_measure': inst.units_of_measure,
+                    'timezone': inst.timezone,
+                    'weather': None,
+                    'users': {},
+                }
+            ],
+        }
+
+        with (
+            mock.patch('simo.core.tasks.dynamic_settings', ds),
+            mock.patch('simo.core.tasks.get_self_ip', return_value='1.2.3.4'),
+            mock.patch('simo.core.tasks.requests.post', return_value=resp),
+            mock.patch('builtins.print'),
+        ):
+            sync_with_remote()
+
+        comp.refresh_from_db()
+        self.assertFalse(comp.alive)
+
+    def test_sync_with_remote_skips_remote_conn_version_when_not_int(self):
+        from simo.core.tasks import sync_with_remote
+
+        ds = {
+            'core__hub_uid': 'hub-uid',
+            'core__hub_secret': 'hub-secret',
+            'core__remote_conn_version': 1,
+        }
+
+        resp = mock.Mock(status_code=200)
+        resp.json.return_value = {
+            'remote_conn_version': '2',
+            'instances': [],
+        }
+
+        with (
+            mock.patch('simo.core.tasks.dynamic_settings', ds),
+            mock.patch('simo.core.tasks.get_self_ip', return_value='1.2.3.4'),
+            mock.patch('simo.core.tasks.requests.post', return_value=resp),
+            mock.patch('simo.core.tasks.save_config', autospec=True) as save_config,
+            mock.patch('builtins.print'),
+        ):
+            sync_with_remote()
+
+        save_config.assert_not_called()
+        self.assertEqual(ds['core__remote_conn_version'], 1)
+
+    def test_sync_with_remote_ignores_paid_until_non_int(self):
+        from simo.core.tasks import sync_with_remote
+
+        ds = {
+            'core__hub_uid': 'hub-uid',
+            'core__hub_secret': 'hub-secret',
+            'core__remote_conn_version': 1,
+            'core__paid_until': 0,
+        }
+
+        resp = mock.Mock(status_code=200)
+        resp.json.return_value = {
+            'remote_conn_version': 1,
+            'paid_until': 'nope',
+            'instances': [],
+        }
+
+        with (
+            mock.patch('simo.core.tasks.dynamic_settings', ds),
+            mock.patch('simo.core.tasks.get_self_ip', return_value='1.2.3.4'),
+            mock.patch('simo.core.tasks.requests.post', return_value=resp),
+            mock.patch('builtins.print'),
+        ):
+            sync_with_remote()
+
+        self.assertEqual(ds['core__paid_until'], 0)
+
+    def test_sync_with_remote_ignores_avatar_too_large(self):
+        from simo.core.tasks import sync_with_remote
+
+        ds = {
+            'core__hub_uid': 'hub-uid',
+            'core__hub_secret': 'hub-secret',
+            'core__remote_conn_version': 1,
+        }
+
+        inst = mk_instance('inst-a', 'A')
+        role = mk_role(inst, is_owner=True)
+        user = mk_user('u@example.com', 'U')
+        mk_instance_user(user, inst, role, is_active=True)
+        user.avatar_url = 'https://example.com/old.png'
+        user.save(update_fields=['avatar_url'])
+
+        resp = mock.Mock(status_code=200)
+        resp.json.return_value = {
+            'remote_conn_version': 1,
+            'instances': [
+                {
+                    'uid': inst.uid,
+                    'name': inst.name,
+                    'slug': inst.slug,
+                    'units_of_measure': inst.units_of_measure,
+                    'timezone': inst.timezone,
+                    'users': {
+                        user.email: {
+                            'name': user.name,
+                            'avatar_url': 'https://example.com/new.png',
+                        }
+                    },
+                }
+            ],
+        }
+
+        avatar_resp = mock.Mock()
+        avatar_resp.raise_for_status.return_value = None
+        avatar_resp.iter_content.return_value = [b'a' * (5 * 1024 * 1024 + 1)]
+
+        with (
+            mock.patch('simo.core.tasks.dynamic_settings', ds),
+            mock.patch('simo.core.tasks.get_self_ip', return_value='1.2.3.4'),
+            mock.patch('simo.core.tasks.requests.post', return_value=resp),
+            mock.patch('simo.core.tasks.requests.get', return_value=avatar_resp),
+            mock.patch.object(FieldFile, 'save', autospec=True) as ff_save,
+            mock.patch('builtins.print'),
+        ):
+            sync_with_remote()
+
+        user.refresh_from_db()
+        self.assertEqual(user.avatar_url, 'https://example.com/old.png')
+        ff_save.assert_not_called()
+
+    def test_sync_with_remote_ignores_instances_payload_not_a_list(self):
+        from simo.core.tasks import sync_with_remote
+
+        ds = {
+            'core__hub_uid': 'hub-uid',
+            'core__hub_secret': 'hub-secret',
+            'core__remote_conn_version': 1,
+            'core__remote_http': '',
+        }
+
+        resp = mock.Mock(status_code=200)
+        resp.json.return_value = {
+            'remote_conn_version': 1,
+            'hub_remote_http': 'https://remote',
+            'instances': 'nope',
+        }
+
+        with (
+            mock.patch('simo.core.tasks.dynamic_settings', ds),
+            mock.patch('simo.core.tasks.get_self_ip', return_value='1.2.3.4'),
+            mock.patch('simo.core.tasks.requests.post', return_value=resp),
+            mock.patch('builtins.print'),
+        ):
+            sync_with_remote()
+
+        self.assertEqual(ds['core__remote_http'], 'https://remote')
+
+    def test_sync_with_remote_skips_instances_without_uid_and_non_dict_entries(self):
+        from simo.core.tasks import sync_with_remote
+        from simo.core.models import Instance
+
+        ds = {
+            'core__hub_uid': 'hub-uid',
+            'core__hub_secret': 'hub-secret',
+            'core__remote_conn_version': 1,
+        }
+
+        resp = mock.Mock(status_code=200)
+        resp.json.return_value = {
+            'remote_conn_version': 1,
+            'instances': [
+                'bad',
+                {'name': 'missing uid'},
+            ],
+        }
+
+        with (
+            mock.patch('simo.core.tasks.dynamic_settings', ds),
+            mock.patch('simo.core.tasks.get_self_ip', return_value='1.2.3.4'),
+            mock.patch('simo.core.tasks.requests.post', return_value=resp),
+            mock.patch('builtins.print'),
+        ):
+            sync_with_remote()
+
+        self.assertEqual(Instance.objects.count(), 0)
+
+    def test_sync_with_remote_ignores_users_payload_not_a_dict(self):
+        from simo.core.tasks import sync_with_remote
+
+        ds = {
+            'core__hub_uid': 'hub-uid',
+            'core__hub_secret': 'hub-secret',
+            'core__remote_conn_version': 1,
+        }
+
+        inst = mk_instance('inst-a', 'A')
+        role = mk_role(inst, is_owner=True)
+        user = mk_user('u@example.com', 'U')
+        mk_instance_user(user, inst, role, is_active=True)
+
+        resp = mock.Mock(status_code=200)
+        resp.json.return_value = {
+            'remote_conn_version': 1,
+            'instances': [
+                {
+                    'uid': inst.uid,
+                    'name': inst.name,
+                    'slug': inst.slug,
+                    'units_of_measure': inst.units_of_measure,
+                    'timezone': inst.timezone,
+                    'users': ['bad'],
+                }
+            ],
+        }
+
+        with (
+            mock.patch('simo.core.tasks.dynamic_settings', ds),
+            mock.patch('simo.core.tasks.get_self_ip', return_value='1.2.3.4'),
+            mock.patch('simo.core.tasks.requests.post', return_value=resp),
+            mock.patch('builtins.print'),
+        ):
+            sync_with_remote()
+
+        user.refresh_from_db()
+        self.assertEqual(user.name, 'U')
 
     def test_sync_with_remote_updates_user_name_and_avatar(self):
         from simo.core.tasks import sync_with_remote

@@ -27,6 +27,14 @@ from .models import Instance, Component, ComponentHistory, HistoryAggregate
 def component_action(comp_id, method, args=None, kwargs=None):
     drop_current_instance()
     component = Component.objects.get(id=comp_id)
+    if args is None:
+        args = []
+    if kwargs is None:
+        kwargs = {}
+    if not isinstance(args, (list, tuple)):
+        raise TypeError('args must be a list/tuple')
+    if not isinstance(kwargs, dict):
+        raise TypeError('kwargs must be a dict')
     getattr(component, method)(*args, **kwargs)
 
 

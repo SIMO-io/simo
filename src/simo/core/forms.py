@@ -422,12 +422,24 @@ class ComponentAdminForm(forms.ModelForm):
     def clean_category(self):
         if not self.cleaned_data['category']:
             return
+        zone = self.cleaned_data.get('zone') or getattr(self.instance, 'zone', None)
+        if zone and self.cleaned_data['category'].instance_id != zone.instance_id:
+            raise forms.ValidationError(_("Category must belong to the same instance"))
         if self.cleaned_data['category'].all:
             raise forms.ValidationError(_(
                 "This is generic category where all components belong anyway. "
                 "Please choose something more specific."
             ))
         return self.cleaned_data['category']
+
+    def clean_zone(self):
+        zone = self.cleaned_data.get('zone')
+        if not zone:
+            return zone
+        current_zone = getattr(self.instance, 'zone', None)
+        if current_zone and zone.instance_id != current_zone.instance_id:
+            raise forms.ValidationError(_("Zone must belong to the same instance"))
+        return zone
 
     def clean_custom_methods(self):
         if 'custom_methods' not in self.cleaned_data:

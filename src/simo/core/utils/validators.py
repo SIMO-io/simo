@@ -33,7 +33,26 @@ def validate_flr(f):
 
 
 def validate_slaves(slaves, component, master_component=None):
+    try:
+        component_instance_id = component.zone.instance_id
+    except Exception:
+        component_instance_id = None
+
     for slave in slaves:
+        try:
+            slave_instance_id = slave.zone.instance_id
+        except Exception:
+            slave_instance_id = None
+
+        if component_instance_id is not None and slave_instance_id is not None:
+            if component_instance_id != slave_instance_id:
+                raise forms.ValidationError(
+                    _("Slave must belong to the same instance as master")
+                )
+        else:
+            raise forms.ValidationError(
+                _("Slave must belong to the same instance as master")
+            )
         if slave == component:
             raise forms.ValidationError(_(f"{component} is already a slave of {slave}"))
         if slave == master_component:
