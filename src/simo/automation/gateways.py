@@ -28,6 +28,20 @@ from .helpers import haversine_distance
 from simo.core.utils.mqtt import connect_with_retry, install_reconnect_handler
 
 
+def _virtual_scripts_managed_externally() -> bool:
+    """Return True when a pluggable app takes over script runtime."""
+    if not getattr(settings, 'IS_VIRTUAL', False):
+        return False
+    app_label = getattr(settings, 'VIRTUAL_AUTOMATIONS_APP', None)
+    if not app_label:
+        return False
+    try:
+        from django.apps import apps
+        return apps.is_installed(str(app_label))
+    except Exception:
+        return False
+
+
 class ScriptRunHandler(multiprocessing.Process):
     '''
       Threading offers better overall stability, but we use
@@ -285,6 +299,10 @@ class AutomationsGatewayHandler(GatesHandler, BaseObjectCommandsGatewayHandler):
         self.running_scripts = {}
         self.terminating_scripts = set()
 
+        if _virtual_scripts_managed_externally():
+            # Do not run local script processes on virtual hubs.
+            self.periodic_tasks = (('watch_gates', 60),)
+
 
     def watch_scripts(self):
         drop_current_instance()
@@ -366,6 +384,17 @@ class AutomationsGatewayHandler(GatesHandler, BaseObjectCommandsGatewayHandler):
             self.start_script(script)
 
     def run(self, exit):
+        if _virtual_scripts_managed_externally():
+            drop_current_instance()
+            self.exit = exit
+            self.logger = get_gw_logger(self.gateway_instance.id)
+            for task, period in self.periodic_tasks:
+                threading.Thread(
+                    target=self._run_periodic_task, args=(exit, task, period), daemon=True
+                ).start()
+            while not exit.is_set():
+                time.sleep(1)
+            return
         drop_current_instance()
         self.exit = exit
         self.logger = get_gw_logger(self.gateway_instance.id)
@@ -448,6 +477,8 @@ class AutomationsGatewayHandler(GatesHandler, BaseObjectCommandsGatewayHandler):
         mqtt_client.subscribe(command.get_topic())
 
     def on_mqtt_message(self, client, userdata, msg):
+        if _virtual_scripts_managed_externally():
+            return
         self._log_debug(f"Mqtt message: {msg.payload}")
         from .controllers import Script
         from simo.users.models import User

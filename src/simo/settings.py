@@ -24,6 +24,9 @@ SYSTEM_USERS = [
     'system@simo.io',
     'device@simo.io',
     'ai@simo.io',
+    # Used to attribute automation actions while keeping the account hidden
+    # from regular user lists.
+    'script@simo.io',
 ]
 
 # ---------------------------------------------------------------------------

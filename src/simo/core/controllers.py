@@ -224,33 +224,36 @@ class ControllerBase(ABC, metaclass=ControllerMeta):
     def _get_value_history(self, period):
         from .models import ComponentHistory
         entries = []
-        qs = ComponentHistory.objects.filter(
-            component=self.component, type='value'
-        ).order_by('date')
         if period == 'day':
-            last_val = None
-            first_item = qs.filter(
-                date__lte=timezone.now() - datetime.timedelta(hours=24)
-            ).last()
-            if first_item:
-                last_val = first_item.value
-            for i in range(24, 0, -1):
-                h = timezone.now() - datetime.timedelta(hours=i)
-                changes = qs.filter(
-                    date__gt=h,
-                    date__lt=h + datetime.timedelta(hours=1),
-                )
-                if not changes:
-                    entries.append(self._aggregate_values([last_val]))
-                    continue
+            now = timezone.now()
+            start = now - datetime.timedelta(hours=24)
+
+            qs = ComponentHistory.objects.filter(
+                component=self.component, type='value'
+            ).only('date', 'value').order_by('date')
+
+            # Baseline value before the window.
+            last_val = qs.filter(date__lte=start).values_list('value', flat=True).last()
+
+            # Pull all changes for the window once (instead of per-minute queryset indexing).
+            changes = list(
+                qs.filter(date__gt=start, date__lt=now).values_list('date', 'value')
+            )
+
+            change_idx = 0
+            for hour_offset in range(24, 0, -1):
+                hour_start = now - datetime.timedelta(hours=hour_offset)
+
                 values = []
-                current_change = 0
-                for i in range(60):
-                    if changes[current_change].date < h + datetime.timedelta(minutes=i):
-                        last_val = changes[current_change].value
-                        current_change += 1
+                for minute in range(60):
+                    boundary = hour_start + datetime.timedelta(minutes=minute)
+                    while change_idx < len(changes) and changes[change_idx][0] < boundary:
+                        last_val = changes[change_idx][1]
+                        change_idx += 1
                     values.append(last_val)
+
                 entries.append(self._aggregate_values(values))
+
             return entries
         elif period == 'week':
             return entries

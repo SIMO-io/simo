@@ -181,3 +181,44 @@ class ComponentHistoryListAndIntervalsTests(BaseSimoTestCase):
         self.assertEqual(resp.status_code, 200)
         # Response may be empty with no JSON renderer.
         self.assertIn(resp.content, (b'', b'null', b'null\n'))
+
+
+class ValueHistoryPerformanceAndStabilityTests(BaseSimoTestCase):
+    def test_value_history_day_does_not_crash_with_sparse_changes(self):
+        inst = mk_instance('inst-a', 'A')
+        zone = Zone.objects.create(instance=inst, name='Z', order=0)
+        gw, _ = Gateway.objects.get_or_create(type='simo.generic.gateways.GenericGatewayHandler')
+        from simo.core.controllers import NumericSensor
+
+        comp = Component.objects.create(
+            name='C',
+            zone=zone,
+            category=None,
+            gateway=gw,
+            base_type='numeric-sensor',
+            controller_uid=NumericSensor.uid,
+            config={},
+            meta={},
+            value=0,
+        )
+
+        user = mk_user('u@example.com', 'U')
+        role = mk_role(inst, is_superuser=True)
+        mk_instance_user(user, inst, role, is_active=True)
+        user = User.objects.get(pk=user.pk)
+
+        # Baseline before the 24h window.
+        ev0 = ComponentHistory.objects.create(component=comp, type='value', value=0, user=user)
+        ComponentHistory.objects.filter(id=ev0.id).update(
+            date=timezone.now() - datetime.timedelta(hours=25)
+        )
+
+        # One sparse change inside the window that used to trigger IndexError.
+        ev1 = ComponentHistory.objects.create(component=comp, type='value', value=10, user=user)
+        ComponentHistory.objects.filter(id=ev1.id).update(
+            date=timezone.now() - datetime.timedelta(hours=23, minutes=30)
+        )
+
+        data = comp.controller._get_value_history('day')
+        self.assertEqual(len(data), 24)
+        self.assertTrue(all(isinstance(item, list) and len(item) == 1 for item in data))

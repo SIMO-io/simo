@@ -43,7 +43,7 @@ def notify_users(severity, title, body=None, component=None, instance_users=None
             continue
         if iuser.instance.id != instance.id:
             continue
-        if not iuser.can_read(component):
+        if component is not None and not iuser.can_read(component):
             continue
         UserNotification.objects.create(
             user=iuser.user, notification=notification,
@@ -51,4 +51,3 @@ def notify_users(severity, title, body=None, component=None, instance_users=None
     notification.dispatch()
     if current_instance:
         introduce_instance(current_instance)
-

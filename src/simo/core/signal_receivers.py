@@ -8,7 +8,7 @@ from django.utils import timezone
 from django.conf import settings
 from django.template.loader import render_to_string
 from actstream import action
-from simo.users.models import PermissionsRole
+from simo.users.models import PermissionsRole, User, InstanceUser
 from .models import (
     Instance, Gateway, Component, Icon, Zone, Category, PublicFile, PrivateFile
 )
@@ -116,6 +116,43 @@ def create_instance_defaults(sender, instance, created, **kwargs):
     )
     PermissionsRole.objects.create(
         instance=instance, name="Guest", is_owner=False
+    )
+
+    # Create internal "Script" user for jailed automations.
+    # This account is excluded from regular user lists via settings.SYSTEM_USERS,
+    # but still attributed as a normal user in history.
+    script_user, _ = User.objects.get_or_create(
+        email='script@simo.io',
+        defaults={
+            'name': 'Script',
+            'is_master': False,
+        },
+    )
+    try:
+        if script_user.has_usable_password():
+            script_user.set_unusable_password()
+            script_user.save(update_fields=['password'])
+    except Exception:
+        pass
+
+    script_role, _ = PermissionsRole.objects.get_or_create(
+        instance=instance,
+        name='Script',
+        defaults={
+            'is_owner': False,
+            'is_superuser': True,
+            'can_manage_users': False,
+            'is_person': False,
+            'is_default': False,
+        },
+    )
+    InstanceUser.objects.get_or_create(
+        user=script_user,
+        instance=instance,
+        defaults={
+            'role': script_role,
+            'is_active': True,
+        },
     )
     generic.start()
     dummy.start()

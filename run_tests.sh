@@ -21,6 +21,9 @@ if [ "$#" -gt 0 ]; then
   DJANGO_TEST_ARGS=("$@")
 fi
 
+echo "Tip: run a single test module like:"
+echo "  bash packages/simo/run_tests.sh simo.tests.test_virtual_automations_hook"
+
 # Writable filesystem root for migrations that create media files.
 export SIMO_TEST_BASE_DIR="${SIMO_TEST_BASE_DIR:-/tmp/SIMO_test}"
 mkdir -p "${SIMO_TEST_BASE_DIR}/_var/media" "${SIMO_TEST_BASE_DIR}/_var/static" "${SIMO_TEST_BASE_DIR}/_var/public_media" "${SIMO_TEST_BASE_DIR}/_var/logs"

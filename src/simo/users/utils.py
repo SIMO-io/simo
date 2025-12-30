@@ -41,6 +41,24 @@ def get_ai_user():
     return device
 
 
+def get_script_user():
+    from .models import User
+    user, _new = User.objects.get_or_create(
+        email='script@simo.io',
+        defaults={
+            'name': 'Script',
+            'is_master': False,
+        },
+    )
+    try:
+        if user.has_usable_password():
+            user.set_unusable_password()
+            user.save(update_fields=['password'])
+    except Exception:
+        pass
+    return user
+
+
 def rebuild_authorized_keys():
     from .models import User
     try:
