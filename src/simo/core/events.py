@@ -168,8 +168,6 @@ class OnChangeMixin:
         mqtt_client.subscribe(event.get_topic())
 
     def on_mqtt_message(self, client, userdata, msg):
-        from simo.users.models import InstanceUser
-
         try:
             payload = json.loads(msg.payload)
         except Exception as e:
@@ -210,13 +208,56 @@ class OnChangeMixin:
         if no_args > 0:
             args = [self]
         if no_args > 1:
-            actor = payload.get('actor')
-            if isinstance(actor, InstanceUser):
-                args.append(actor)
+            args.append(self._resolve_actor_from_payload(payload))
         try:
             self._on_change_function(*args)
         except Exception:
             print(traceback.format_exc(), file=sys.stderr)
+
+    def _resolve_actor_from_payload(self, payload):
+        """Resolve actor for on_change callbacks.
+
+        MQTT payload is JSON-encoded, so any direct "actor" object reference
+        becomes a string (via json.dumps(default=str)). Prefer stable IDs.
+        """
+
+        from simo.users.models import InstanceUser
+
+        actor = payload.get('actor')
+        if isinstance(actor, InstanceUser):
+            return actor
+
+        actor_instance_user_id = payload.get('actor_instance_user_id')
+        if actor_instance_user_id:
+            try:
+                actor_instance_user_id = int(actor_instance_user_id)
+            except (TypeError, ValueError):
+                actor_instance_user_id = None
+        if actor_instance_user_id:
+            try:
+                return InstanceUser.objects.select_related('role', 'user').get(
+                    pk=actor_instance_user_id
+                )
+            except Exception:
+                pass
+
+        actor_user_id = payload.get('actor_user_id')
+        if actor_user_id:
+            try:
+                actor_user_id = int(actor_user_id)
+            except (TypeError, ValueError):
+                actor_user_id = None
+        if actor_user_id:
+            try:
+                return (
+                    InstanceUser.objects.select_related('role', 'user')
+                    .filter(instance=self.get_instance(), user_id=actor_user_id)
+                    .first()
+                )
+            except Exception:
+                return None
+
+        return None
 
     def on_change(self, function):
         use_hub = self._use_hub_watchers()

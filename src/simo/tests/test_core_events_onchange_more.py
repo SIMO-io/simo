@@ -9,7 +9,13 @@ from django.utils import timezone
 
 from simo.core.models import Component, Gateway, Zone
 
-from .base import BaseSimoTestCase, mk_instance
+from .base import (
+    BaseSimoTestCase,
+    mk_instance,
+    mk_instance_user,
+    mk_role,
+    mk_user,
+)
 
 
 class FakeMqttClient:
@@ -202,3 +208,141 @@ class EventsOnChangeMoreTests(BaseSimoTestCase):
         self.assertIsNone(self.comp._on_change_function)
         self.assertIsNone(getattr(self.comp, '_watcher_owner_event', None))
         self.assertIsNone(self.comp._mqtt_client)
+
+    def test_on_mqtt_message_calls_zero_arg_handler(self):
+        called = []
+
+        def handler():
+            called.append(True)
+
+        self.comp._on_change_function = handler
+        self.comp._obj_ct_id = self.ct_id
+        self.comp._on_change_since = timezone.now().timestamp() - 1
+
+        msg = SimpleNamespace(
+            payload=json.dumps(
+                {
+                    'obj_pk': self.comp.id,
+                    'obj_ct_pk': self.ct_id,
+                    'dirty_fields': {'value': True},
+                    'timestamp': timezone.now().timestamp(),
+                }
+            ).encode()
+        )
+        self.comp.on_mqtt_message(None, None, msg)
+        self.assertEqual(called, [True])
+
+    def test_on_mqtt_message_calls_one_arg_handler(self):
+        called = []
+
+        def handler(obj):
+            called.append(obj.id)
+
+        self.comp._on_change_function = handler
+        self.comp._obj_ct_id = self.ct_id
+        self.comp._on_change_since = timezone.now().timestamp() - 1
+
+        msg = SimpleNamespace(
+            payload=json.dumps(
+                {
+                    'obj_pk': self.comp.id,
+                    'obj_ct_pk': self.ct_id,
+                    'dirty_fields': {'value': True},
+                    'timestamp': timezone.now().timestamp(),
+                }
+            ).encode()
+        )
+        self.comp.on_mqtt_message(None, None, msg)
+        self.assertEqual(called, [self.comp.id])
+
+    def test_on_mqtt_message_calls_two_arg_handler_with_instance_user_actor(self):
+        inst = self.inst
+        user = mk_user('owner@example.com', 'Owner')
+        role = mk_role(inst, is_owner=True)
+        actor_iuser = mk_instance_user(user, inst, role)
+
+        called = []
+
+        def handler(obj, actor):
+            called.append(
+                (
+                    obj.id,
+                    actor.id if actor else None,
+                    actor.role.is_owner if actor else None,
+                )
+            )
+
+        self.comp._on_change_function = handler
+        self.comp._obj_ct_id = self.ct_id
+        self.comp._on_change_since = timezone.now().timestamp() - 1
+
+        msg = SimpleNamespace(
+            payload=json.dumps(
+                {
+                    'obj_pk': self.comp.id,
+                    'obj_ct_pk': self.ct_id,
+                    'dirty_fields': {'value': True},
+                    'timestamp': timezone.now().timestamp(),
+                    # Historically the payload carried `actor`, but it becomes a string.
+                    'actor': str(actor_iuser),
+                    'actor_instance_user_id': actor_iuser.id,
+                }
+            ).encode()
+        )
+        self.comp.on_mqtt_message(None, None, msg)
+        self.assertEqual(called, [(self.comp.id, actor_iuser.id, True)])
+
+    def test_on_mqtt_message_actor_user_id_fallback_resolves_instance_user(self):
+        inst = self.inst
+        user = mk_user('user@example.com', 'User')
+        role = mk_role(inst, is_owner=False)
+        actor_iuser = mk_instance_user(user, inst, role)
+
+        called = []
+
+        def handler(_obj, actor):
+            called.append(actor.id if actor else None)
+
+        self.comp._on_change_function = handler
+        self.comp._obj_ct_id = self.ct_id
+        self.comp._on_change_since = timezone.now().timestamp() - 1
+
+        msg = SimpleNamespace(
+            payload=json.dumps(
+                {
+                    'obj_pk': self.comp.id,
+                    'obj_ct_pk': self.ct_id,
+                    'dirty_fields': {'value': True},
+                    'timestamp': timezone.now().timestamp(),
+                    'actor_user_id': user.id,
+                }
+            ).encode()
+        )
+        self.comp.on_mqtt_message(None, None, msg)
+        self.assertEqual(called, [actor_iuser.id])
+
+    def test_on_mqtt_message_calls_two_arg_handler_with_none_actor_when_missing(self):
+        class Handler:
+            def __init__(self):
+                self.called = []
+
+            def cb(self, obj, actor):
+                self.called.append((obj.id, actor))
+
+        h = Handler()
+        self.comp._on_change_function = h.cb
+        self.comp._obj_ct_id = self.ct_id
+        self.comp._on_change_since = timezone.now().timestamp() - 1
+
+        msg = SimpleNamespace(
+            payload=json.dumps(
+                {
+                    'obj_pk': self.comp.id,
+                    'obj_ct_pk': self.ct_id,
+                    'dirty_fields': {'value': True},
+                    'timestamp': timezone.now().timestamp(),
+                }
+            ).encode()
+        )
+        self.comp.on_mqtt_message(None, None, msg)
+        self.assertEqual(h.called, [(self.comp.id, None)])
