@@ -143,6 +143,7 @@ class PresenceLighting(Script):
         super().__init__(*args, **kwargs)
         # script specific variables
         self.sensors = {}
+        self.sensor_true_since = {}
         self.condition_comps = {}
         self.light_org_values = {}
         self.light_send_values = {}
@@ -153,6 +154,46 @@ class PresenceLighting(Script):
         self.conditions = []
         self.expected_light_values = {}
         self._watched_lights = []
+
+        # Retry schedule is absolute offsets since the last desired-value change.
+        # 1m, 2m, 5m, 10m, 20m, 40m, 80m, 160m
+        self._light_retry_schedule = [
+            60,
+            120,
+            300,
+            600,
+            1200,
+            2400,
+            4800,
+            9600,
+        ]
+
+    def _value_is_true(self, value):
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, str):
+            return value.strip().upper() in ('ON', 'TRUE', '1', 'YES')
+        return bool(value)
+
+    def _mark_sensor_state(self, sensor):
+        if not sensor:
+            return
+        is_true = self._value_is_true(sensor.value)
+        if is_true:
+            self.sensor_true_since.setdefault(sensor.id, time.time())
+        else:
+            self.sensor_true_since.pop(sensor.id, None)
+
+    def _ensure_expected_light_value(self, light_id, expected_val):
+        now = time.time()
+        current = self.expected_light_values.get(light_id)
+        if current and current.get('expected_val') == expected_val:
+            return
+        self.expected_light_values[light_id] = {
+            'expected_val': expected_val,
+            'started_at': now,
+            'retry_index': 0,
+        }
 
     # ------------------------------------------------------------------
     # Helpers for cooperative shutdown
@@ -204,6 +245,7 @@ class PresenceLighting(Script):
                 if sensor:
                     sensor.on_change(self._on_sensor)
                     self.sensors[id] = sensor
+                    self._mark_sensor_state(sensor)
 
             for light_params in self.component.config['lights']:
                 if self._should_stop():
@@ -236,14 +278,36 @@ class PresenceLighting(Script):
             while not self._should_stop():
                 # Resend expected values if they have failed to reach
                 # corresponding light
-                for c_id, [timestamp, expected_val] in self.expected_light_values.items():
-                    if time.time() - timestamp < 5:
+                now = time.time()
+                for c_id, state in list(self.expected_light_values.items()):
+                    expected_val = state.get('expected_val')
+                    started_at = state.get('started_at')
+                    retry_index = state.get('retry_index', 0)
+
+                    if retry_index >= len(self._light_retry_schedule):
+                        self.expected_light_values.pop(c_id, None)
                         continue
+
+                    next_retry_at = started_at + self._light_retry_schedule[retry_index]
+                    if now < next_retry_at:
+                        continue
+
                     comp = Component.objects.filter(id=c_id).first()
                     if not comp:
+                        self.expected_light_values.pop(c_id, None)
                         continue
-                    print(f"Resending [{expected_val}] to {comp}")
+                    if comp.value == expected_val:
+                        self.expected_light_values.pop(c_id, None)
+                        continue
+
+                    print(
+                        f"Resending [{expected_val}] to {comp} "
+                        f"(retry {retry_index + 1}/{len(self._light_retry_schedule)})"
+                    )
                     comp.send(expected_val)
+                    state['retry_index'] = retry_index + 1
+                    if state['retry_index'] >= len(self._light_retry_schedule):
+                        self.expected_light_values.pop(c_id, None)
                 self._regulate()
                 if self._wait(random.randint(5, 15)):
                     break
@@ -253,6 +317,7 @@ class PresenceLighting(Script):
     def _on_sensor(self, sensor=None):
         if sensor:
             self.sensors[sensor.id] = sensor
+            self._mark_sensor_state(sensor)
             self._regulate(on_sensor=True)
 
     def _on_condition(self, condition_comp=None):
@@ -262,17 +327,25 @@ class PresenceLighting(Script):
                     condition['component'] = condition_comp
             self._regulate(on_condition_change=True)
 
-    def _on_light_change(self, light):
-        # If we were expecting some value change from the light
-        # We have received something. So we stop demanding it!
+    def _on_light_change(self, light, actor=None):
+        # Any light change cancels our retries (respect external changes).
         self.expected_light_values.pop(light.id, None)
         # change original value if it has been changed to something different
-        if self.is_on and light.value != self.light_send_values[light.id]:
-            self.light_send_values[light.id] = light.value
-            self.light_org_values[light.id] = light.value
+        if self.is_on and light.id in self.light_send_values:
+            if light.value != self.light_send_values[light.id]:
+                self.light_send_values[light.id] = light.value
+                self.light_org_values[light.id] = light.value
 
     def _regulate(self, on_sensor=False, on_condition_change=False):
-        presence_values = [s.value for id, s in self.sensors.items()]
+        now = time.time()
+        presence_values = []
+        for sensor_id, sensor in self.sensors.items():
+            raw_is_true = self._value_is_true(sensor.value)
+            if raw_is_true and self.hold_time:
+                true_since = self.sensor_true_since.get(sensor_id)
+                if true_since and (now - true_since) > (self.hold_time * 20):
+                    raw_is_true = False
+            presence_values.append(raw_is_true)
         if self.component.config.get('act_on', 0) == 0:
             must_on = any(presence_values)
         else:
@@ -336,7 +409,7 @@ class PresenceLighting(Script):
                 print(f"Send {on_val} to {comp}!")
                 self.light_send_values[comp.id] = on_val
                 if comp.value != on_val:
-                    self.expected_light_values[comp.id] = [time.time(), on_val]
+                    self._ensure_expected_light_value(comp.id, on_val)
                 comp.controller.send(on_val)
             return
 
@@ -374,7 +447,7 @@ class PresenceLighting(Script):
                 off_val = self.light_org_values.get(comp.id, 0)
             print(f"Send {off_val} to {comp}!")
             if comp.value != off_val:
-                self.expected_light_values[comp.id] = [time.time(), off_val]
+                self._ensure_expected_light_value(comp.id, off_val)
             comp.send(off_val)
 
 
