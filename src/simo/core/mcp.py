@@ -222,8 +222,6 @@ async def execute_component_methods(
             component.prepare_controller()
             if not component.controller:
                 raise PermissionError('Component has no controller')
-            if component.controller.masters_only and not current_user.is_master:
-                raise PermissionError('Only hub masters are allowed')
             allowed_methods = set(component.get_controller_methods())
             if method_name not in allowed_methods:
                 raise PermissionError(f'Method {method_name} not allowed')

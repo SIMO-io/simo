@@ -68,7 +68,8 @@ class Script(ControllerBase, TimerMixin):
         Parameters:
         - new_code (str|None): Optional Python script to persist before start.
         """
-        if new_code:
+        user = get_current_user()
+        if new_code and (not user or user.is_master):
             self.component.new_code = new_code
         self.send('start')
 

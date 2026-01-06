@@ -87,7 +87,7 @@ class TestMcpExecuteComponentMethods(SimpleTestCase):
         component.sum.assert_called_once_with(1, 2)
         component.kw.assert_called_once_with(a=1)
 
-    def test_masters_only_rejected_for_non_master(self):
+    def test_masters_only_controller_allows_non_master_method_invocation(self):
         from simo.core.mcp import execute_component_methods
 
         inst = SimpleNamespace(timezone='UTC')
@@ -97,6 +97,7 @@ class TestMcpExecuteComponentMethods(SimpleTestCase):
         component.controller = SimpleNamespace(masters_only=True)
         component.get_controller_methods.return_value = ['x']
         component.prepare_controller = mock.Mock()
+        component.x = mock.Mock(return_value='ok')
 
         with (
             mock.patch('simo.core.mcp.get_current_user', return_value=user),
@@ -105,8 +106,9 @@ class TestMcpExecuteComponentMethods(SimpleTestCase):
             mock.patch('simo.core.mcp.Component.objects.get', return_value=component),
             mock.patch('simo.core.mcp.ThreadPoolExecutor', DummyExecutor),
         ):
-            with self.assertRaises(PermissionError):
-                asyncio.run(execute_component_methods.fn([[1, 'x']]))
+            out = asyncio.run(execute_component_methods.fn([[1, 'x']]))
+
+        self.assertEqual(out, ['ok'])
 
     def test_method_not_allowed_rejected(self):
         from simo.core.mcp import execute_component_methods

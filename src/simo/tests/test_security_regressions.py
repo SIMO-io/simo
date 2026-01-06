@@ -196,6 +196,13 @@ class ControlSurfaceTests(BaseSimoTestCase):
             data={'start': []},
             format='json',
         )
+        self.assertEqual(resp.status_code, 200)
+
+        resp = client.patch(
+            f'/api/{inst.slug}/core/components/{script.id}/',
+            data={'name': 'nope'},
+            format='json',
+        )
         self.assertEqual(resp.status_code, 403)
 
     def test_disallowed_method_is_rejected(self):

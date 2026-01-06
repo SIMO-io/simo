@@ -143,9 +143,6 @@ class Command(BaseCommand):
             if not target.controller:
                 self.respond(client, user_id, request_id, ok=False, error='Component has no controller')
                 return
-            if target.controller.masters_only and not user.is_master:
-                self.respond(client, user_id, request_id, ok=False, error='Only hub masters are allowed')
-                return
             if method not in set(target.get_controller_methods()):
                 self.respond(client, user_id, request_id, ok=False, error=f'Method {method} not allowed')
                 return

@@ -250,9 +250,6 @@ class ComponentViewSet(
                     code=400,
                 )
 
-            if component.controller.masters_only and not self.request.user.is_master:
-                raise PermissionDenied(_('Only hub masters are allowed to do this.'))
-
             allowed_methods = set(component.get_controller_methods())
             if method_name not in allowed_methods:
                 raise PermissionDenied(_('"%s" method is not allowed') % method_name)

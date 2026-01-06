@@ -1,7 +1,7 @@
 from rest_framework.permissions import BasePermission, SAFE_METHODS, IsAuthenticated
 from django.http import Http404
 from .middleware import introduce_instance
-from .models import Instance, Category, Zone
+from .models import Instance, Category, Zone, Component
 
 
 class InstancePermission(BasePermission):
@@ -78,6 +78,10 @@ class InstanceSuperuserCanEdit(BasePermission):
 
         if request.method in SAFE_METHODS + ('POST',):
             return True
+
+        if isinstance(obj, Component) and obj.controller and obj.controller.masters_only \
+        and not request.user.is_master:
+            return False
 
         # allow deleting only empty categories and zones
         if type(obj) in (Zone, Category) and request.method == 'DELETE'\
