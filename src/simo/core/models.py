@@ -167,7 +167,8 @@ class Category(DirtyFieldsMixin, models.Model, SimoAdminMixin):
     icon = models.ForeignKey(Icon, on_delete=models.SET_NULL, null=True)
     header_image = models.ImageField(
         upload_to=instance_categories_upload_to, null=True, blank=True,
-        help_text="Will be cropped down to: 830x430"
+        help_text="Will be cropped down to: 830x430",
+        max_length=255,
     )
     all = models.BooleanField(
         default=False,
@@ -742,7 +743,7 @@ class PrivateFile(models.Model):
     component = models.ForeignKey(
         Component, on_delete=models.CASCADE, related_name='private_files'
     )
-    file = models.FileField(upload_to=instance_private_files_upload_to)
+    file = models.FileField(upload_to=instance_private_files_upload_to, max_length=255)
     date_uploaded = models.DateTimeField(auto_now_add=True)
     meta = models.JSONField(default=dict)
 
