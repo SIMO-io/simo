@@ -403,57 +403,64 @@ def sync_with_remote():
 
 @celery_app.task
 def clear_history():
+    BATCH_SIZE = 1000
+    KEEP_COMPONENT_HISTORY = 5000
+    KEEP_HISTORY_AGGREGATES = 1000
+    KEEP_ACTIONS = 5000
+
+    def delete_in_batches(qs, *, batch_size=BATCH_SIZE):
+        qs = qs.order_by('id')
+        while True:
+            ids = list(qs.values_list('id', flat=True)[:batch_size])
+            if not ids:
+                break
+            qs.model.objects.filter(id__in=ids).delete()
+
+    def enforce_keep_latest(qs, *, keep, order_by, batch_size=BATCH_SIZE):
+        qs = qs.order_by(order_by)
+        while True:
+            ids = list(qs.values_list('id', flat=True)[keep:keep + batch_size])
+            if not ids:
+                break
+            qs.model.objects.filter(id__in=ids).delete()
+
     for instance in Instance.objects.all():
         print(f"Clear history of {instance}")
         introduce_instance(instance)
-        old_times = timezone.now() - datetime.timedelta(
-            days=instance.history_days
+        old_times = timezone.now() - datetime.timedelta(days=instance.history_days)
+
+        delete_in_batches(
+            ComponentHistory.objects.filter(
+                component__zone__instance=instance, date__lt=old_times
+            )
         )
-        ComponentHistory.objects.filter(
-            component__zone__instance=instance, date__lt=old_times
-        ).delete()
-        i = 0
-        delete_ids = []
-        for obj in ComponentHistory.objects.filter(
-            component__zone__instance=instance
-        ).order_by('-date').values('id').iterator():
-            if i < 5000:
-                i += 1
-                continue
-            delete_ids.append(obj['id'])
-            i += 1
-        if delete_ids:
-            ComponentHistory.objects.filter(id__in=delete_ids).delete()
-        HistoryAggregate.objects.filter(
-            component__zone__instance=instance, start__lt=old_times
-        ).delete()
-        i = 0
-        delete_ids = []
-        for obj in HistoryAggregate.objects.filter(
-            component__zone__instance=instance
-        ).order_by('-start').values('id').iterator():
-            if i < 1000:
-                i += 1
-                continue
-            delete_ids.append(obj['id'])
-            i += 1
-        if delete_ids:
-            HistoryAggregate.objects.filter(id__in=delete_ids).delete()
-        Action.objects.filter(
-            data__instance_id=instance.id, timestamp__lt=old_times
-        ).delete()
-        i = 0
-        delete_ids = []
-        for obj in Action.objects.filter(
-            data__instance_id=instance.id
-        ).order_by('-timestamp').values('id').iterator():
-            if i < 5000:
-                i += 1
-                continue
-            delete_ids.append(obj['id'])
-            i += 1
-        if delete_ids:
-            Action.objects.filter(id__in=delete_ids).delete()
+        enforce_keep_latest(
+            ComponentHistory.objects.filter(component__zone__instance=instance),
+            keep=KEEP_COMPONENT_HISTORY,
+            order_by='-date',
+        )
+
+        delete_in_batches(
+            HistoryAggregate.objects.filter(
+                component__zone__instance=instance, start__lt=old_times
+            )
+        )
+        enforce_keep_latest(
+            HistoryAggregate.objects.filter(component__zone__instance=instance),
+            keep=KEEP_HISTORY_AGGREGATES,
+            order_by='-start',
+        )
+
+        delete_in_batches(
+            Action.objects.filter(
+                data__instance_id=instance.id, timestamp__lt=old_times
+            )
+        )
+        enforce_keep_latest(
+            Action.objects.filter(data__instance_id=instance.id),
+            keep=KEEP_ACTIONS,
+            order_by='-timestamp',
+        )
 
 
 VACUUM_SQL = """
