@@ -279,6 +279,13 @@ class Thermostat(ControllerBase):
                     window = high - low
                     reach = high - current_temp
                     reaction_force = self._get_reaction_force(window, reach)
+                    reaction_force = self._apply_dynamic_integral(
+                        reaction_force,
+                        target_temp=target_temp,
+                        current_temp=current_temp,
+                        direction='heat',
+                        window=window,
+                    )
                     if reaction_force:
                         heating = True
                     self._engage_devices(heaters, reaction_force)
@@ -290,6 +297,13 @@ class Thermostat(ControllerBase):
                     window = high - low
                     reach = current_temp - low
                     reaction_force = self._get_reaction_force(window, reach)
+                    reaction_force = self._apply_dynamic_integral(
+                        reaction_force,
+                        target_temp=target_temp,
+                        current_temp=current_temp,
+                        direction='cool',
+                        window=window,
+                    )
                     if reaction_force:
                         cooling = True
                     self._engage_devices(coolers, reaction_force)
@@ -301,6 +315,13 @@ class Thermostat(ControllerBase):
                     window = high - low
                     reach = high - current_temp
                     reaction_force = self._get_reaction_force(window, reach)
+                    reaction_force = self._apply_dynamic_integral(
+                        reaction_force,
+                        target_temp=target_temp,
+                        current_temp=current_temp,
+                        direction='heat',
+                        window=window,
+                    )
                     if reaction_force:
                         heating = True
                     self._engage_devices(heaters, reaction_force)
@@ -310,6 +331,13 @@ class Thermostat(ControllerBase):
                     window = high - low
                     reach = current_temp - low
                     reaction_force = self._get_reaction_force(window, reach)
+                    reaction_force = self._apply_dynamic_integral(
+                        reaction_force,
+                        target_temp=target_temp,
+                        current_temp=current_temp,
+                        direction='cool',
+                        window=window,
+                    )
                     if reaction_force:
                         cooling = True
                     self._engage_devices(coolers, reaction_force)
@@ -375,6 +403,89 @@ class Thermostat(ControllerBase):
         return reaction_force
 
 
+    def _apply_dynamic_integral(
+        self,
+        reaction_force,
+        *,
+        target_temp,
+        current_temp,
+        direction,
+        window,
+    ):
+        """Conservative PI-like adjustment for dynamic engagement.
+
+        Dynamic engagement is proportional-only by default, which can leave a
+        steady-state error (e.g. staying ~1°C below target in cold weather).
+        This adds a small, capped integral term that accumulates only when we
+        are near the target, and unwinds quickly once we cross it.
+
+        Parameters:
+        - reaction_force (float): Current proportional output (0–100).
+        - target_temp/current_temp (float): Temperatures.
+        - direction (str): 'heat' or 'cool'.
+        - window (float): Proportional band width.
+        """
+
+        if direction not in ('heat', 'cool'):
+            return reaction_force
+
+        now = time.time()
+        state = self.component.meta.get('dynamic_integral', {})
+        entry = state.get(direction, {})
+
+        last_ts = entry.get('ts', now)
+        dt_s = now - last_ts
+        if dt_s < 0:
+            dt_s = 0
+        # Clamp to keep manual re-evaluations from over-accumulating.
+        dt_s = min(dt_s, 10 * 60)
+
+        last_target = entry.get('target', target_temp)
+        if abs(last_target - target_temp) >= 0.25:
+            integral = 0.0
+        else:
+            integral = float(entry.get('i', 0.0))
+
+        if direction == 'heat':
+            error = target_temp - current_temp
+        else:
+            error = current_temp - target_temp
+
+        # Conservative deadband against sensor noise.
+        if abs(error) < 0.05:
+            error = 0.0
+
+        # Only accumulate when relatively close to target. Far away the
+        # proportional term already drives us strongly.
+        near_target = 0.0 < error <= max(0.5, window / 2)
+
+        dt_min = dt_s / 60
+        ki_up = 0.5   # % per minute per °C
+        ki_down = 2.0  # unwind faster to reduce overshoot risk
+        integral_cap = 20.0  # max extra duty
+
+        if near_target and reaction_force < 100:
+            integral += error * ki_up * dt_min
+        elif error < 0:
+            integral += error * ki_down * dt_min
+
+        if integral < 0:
+            integral = 0.0
+        elif integral > integral_cap:
+            integral = integral_cap
+
+        entry = {'i': integral, 'ts': now, 'target': target_temp}
+        state[direction] = entry
+        self.component.meta['dynamic_integral'] = state
+
+        adjusted = reaction_force + integral
+        if adjusted > 100:
+            return 100
+        if adjusted < 0:
+            return 0
+        return adjusted
+
+
     def _engage_devices(self, devices, reaction_force):
         for device in devices:
             if device.base_type == 'dimmer':
@@ -385,7 +496,7 @@ class Thermostat(ControllerBase):
                 elif reaction_force == 0:
                     device.turn_off()
                 else:
-                    device.pulse(30, reaction_force)
+                    device.pulse(300, reaction_force)
 
 
     def update_user_conf(self, new_conf):
