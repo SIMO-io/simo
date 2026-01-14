@@ -21,6 +21,8 @@ import asyncio.subprocess
 from simo.conf import dynamic_settings
 from simo.core.utils import adpcm4
 
+from .assistant import ASSISTANT_ALORA, voice_from_assistant
+
 MIC_CHANNEL_ID = 0
 SPK_CHANNEL_ID = 1
 ADPCM_FRAME_FLAG = 0x80
@@ -104,7 +106,8 @@ class VoiceAssistantSession:
         # Number of frames to prefill before starting
         # paced playback to the Sentinel.
         self._tx_prefill_chunks = 20
-        self.voice = 'male'
+        self.assistant = ASSISTANT_ALORA
+        self.voice = voice_from_assistant(self.assistant) or 'female'
         self.zone = None
         self.language = None
         self._cloud_gate = asyncio.Event()
@@ -239,6 +242,7 @@ class VoiceAssistantSession:
                 "hub-secret": hub_secret,
                 "instance-uid": self.c.instance.uid,
                 "mcp-token": getattr(self.mcp_token, 'token', None),
+                "assistant": self.assistant,
                 "voice": self.voice,
                 "zone": self.zone,
             }
@@ -1153,6 +1157,8 @@ class VoiceAssistantSession:
             'instance_uid': self.c.instance.uid,
             'mcp-token': getattr(self.mcp_token, 'token', None),
             'zone': self.zone,
+            'assistant': self.assistant,
+            'voice': self.voice,
         }
         lang = _normalize_language(self.language)
         if lang:

@@ -204,6 +204,7 @@ def new_sentinel(request):
                 'name': data.get('name') or 'Sentinel',
                 'zone': zone.id,
                 'colonel': colonel.id,
+                'assistant': data.get('assistant'),
                 'voice': data.get('voice'),
                 'language': data.get('language'),
             })

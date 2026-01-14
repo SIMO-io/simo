@@ -547,7 +547,29 @@ class FleetConsumer(AsyncWebsocketConsumer):
                     )()
                     if not self._va:
                         self._va = VoiceAssistantSession(self)
-                    self._va.voice = data.get('voice', 'male')
+                    from .assistant import (
+                        assistant_from_voice,
+                        assistant_from_wake_word_id,
+                        normalize_assistant,
+                        voice_from_assistant,
+                    )
+                    va_conf = getattr(va_component, 'config', None) or {}
+                    assistant = normalize_assistant(va_conf.get('assistant'))
+                    if not assistant:
+                        assistant = assistant_from_voice(va_conf.get('voice'))
+                    if not assistant:
+                        assistant = normalize_assistant(data.get('assistant'))
+                    if not assistant:
+                        assistant = assistant_from_voice(data.get('voice'))
+                    if not assistant:
+                        assistant = assistant_from_wake_word_id(
+                            (data.get('wake-stats') or {}).get('wake_word_id')
+                        )
+                    if not assistant:
+                        assistant = 'alora'
+                    self._va.assistant = assistant
+                    # Website still expects `voice` for TTS choice.
+                    self._va.voice = voice_from_assistant(assistant) or 'female'
                     self._va.zone = va_component.zone.id
                     try:
                         self._va.language = (va_component.config or {}).get('language')

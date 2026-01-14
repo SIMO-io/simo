@@ -1230,7 +1230,23 @@ class VoiceAssistant(FleetDeviceMixin, BaseBinarySensor):
     gateway_class = FleetGatewayHandler
     config_form = VoiceAssistantConfigForm
     manual_add = False
-    default_config = {'voice': 'male', 'enabled': True}
+    default_config = {'assistant': 'alora', 'enabled': True}
+
+    def _get_colonel_config(self):
+        """Return device config with backward-compatible `voice` alias."""
+        from .assistant import assistant_from_voice, normalize_assistant, voice_from_assistant
+
+        config = super()._get_colonel_config()
+        assistant = normalize_assistant(config.get('assistant'))
+        if not assistant:
+            assistant = assistant_from_voice(config.get('voice'))
+        if not assistant:
+            assistant = 'alora'
+        config['assistant'] = assistant
+        voice = voice_from_assistant(assistant)
+        if voice:
+            config['voice'] = voice
+        return config
 
     def arm(self):
         """

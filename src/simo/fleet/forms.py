@@ -1906,27 +1906,41 @@ class SentinelDeviceConfigForm(BaseComponentForm):
         url='autocomplete-colonels',
         forward=(forward.Const({'type': 'sentinel'}, 'filters'),)
     )
-    voice = forms.ChoiceField(
-        label="Sento voice",
+    assistant = forms.ChoiceField(
+        label="AI Assistant",
         required=True,
         choices=(
-            ('male', "Male"),
-            ('female', "Female"),
+            ('alora', "Alora"),
+            ('kovan', "Kovan"),
         ),
-        initial='male',
+        initial='alora',
     )
     language = forms.ChoiceField(
-        label="Sento language",
+        label="AI Assistant language",
         required=True,
         choices=VO_LANGUAGES,
         initial='en',
     )
 
     def __init__(self, *args, **kwargs):
+        # Backward compatibility: accept legacy `voice` param (male/female).
+        data = kwargs.get('data')
+        if data is not None:
+            try:
+                mutable = data.copy()
+            except Exception:
+                mutable = None
+            if mutable is not None and 'assistant' not in mutable and 'voice' in mutable:
+                from .assistant import assistant_from_voice
+                mapped = assistant_from_voice(mutable.get('voice'))
+                if mapped:
+                    mutable['assistant'] = mapped
+                    kwargs['data'] = mutable
+
         super().__init__(*args, **kwargs)
-        # Ensure Sento options are editable via app for owners.
+        # Ensure assistant options are editable via app for owners.
         if hasattr(self, 'basic_fields'):
-            self.basic_fields.extend(['voice', 'language'])
+            self.basic_fields.extend(['assistant', 'language'])
 
         # Limit colonels to current instance for convenience
         instance = get_current_instance()
@@ -1935,7 +1949,7 @@ class SentinelDeviceConfigForm(BaseComponentForm):
                 instance=instance
             )
 
-        visible_fields = ('name', 'zone', 'colonel', 'voice', 'language')
+        visible_fields = ('name', 'zone', 'colonel', 'assistant', 'language')
         for field_name in list(self.fields.keys()):
             if field_name in visible_fields:
                 continue
@@ -2041,16 +2055,33 @@ class RoomZonePresenceConfigForm(BaseComponentForm):
 
 
 class VoiceAssistantConfigForm(BaseComponentForm):
-    voice = forms.ChoiceField(
-        label="Voice",
-        required=True, choices=(
-            ('male', "Male"), ('female', "Female"),
+    assistant = forms.ChoiceField(
+        label="AI Assistant",
+        required=True,
+        choices=(
+            ('alora', "Alora"),
+            ('kovan', "Kovan"),
         ),
+        initial='alora',
     )
     language = forms.ChoiceField(
         label="Language", required=True, choices=VO_LANGUAGES
     )
 
     def __init__(self, *args, **kwargs):
+        # Backward compatibility: accept legacy `voice` param (male/female).
+        data = kwargs.get('data')
+        if data is not None:
+            try:
+                mutable = data.copy()
+            except Exception:
+                mutable = None
+            if mutable is not None and 'assistant' not in mutable and 'voice' in mutable:
+                from .assistant import assistant_from_voice
+                mapped = assistant_from_voice(mutable.get('voice'))
+                if mapped:
+                    mutable['assistant'] = mapped
+                    kwargs['data'] = mutable
+
         super().__init__(*args, **kwargs)
-        self.basic_fields.extend(['voice', 'language'])
+        self.basic_fields.extend(['assistant', 'language'])
