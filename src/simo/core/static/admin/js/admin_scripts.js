@@ -143,16 +143,23 @@
     };
 
     $('.update_link').click(function(e){
-        e.preventDefault();
-        if (confirm("Are you sure you want to UPDATE your hub?")){
-          window.location = this.href;
+        if (!confirm("Are you sure you want to UPDATE your hub?")){
+          e.preventDefault();
+          e.stopPropagation();
         }
     });
 
     $('#reboot_link').click(function(e){
-        e.preventDefault();
-        if (confirm("Are you sure you want to REBOOT your hub?")){
-          window.location = this.href;
+        // If this is a POST form button with onsubmit confirmation,
+        // do not interfere (avoids navigating to "undefined").
+        var $form = $(this).closest('form');
+        if ($form.length && $form.attr('onsubmit')){
+          return;
+        }
+
+        if (!confirm("Are you sure you want to REBOOT your hub?")){
+          e.preventDefault();
+          e.stopPropagation();
         }
     });
 

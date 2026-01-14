@@ -5,9 +5,12 @@
   <div id="version">
     V. {{ current_version }}
     {% if update_available %}
-     | <a href="{% url 'update' %}" title="Update hub" class="update_link" style="color: #eeff00">
-      update available ({{ update_available }})
-     </a>
+     | <form method="post" action="{% url 'upgrade' %}" style="display:inline">
+        {% csrf_token %}
+        <button type="submit" title="Update hub" class="update_link" style="background:none;border:0;padding:0;color: #eeff00;cursor:pointer">
+          update available ({{ update_available }})
+        </button>
+      </form>
     {% endif %}
   </div>
   <div class="dropdown-menu">
@@ -18,8 +21,8 @@
     <div class="dropdown-content" style="right: 110px">
       <form method="post" action="{% url 'upgrade' %}">
         {% csrf_token %}
-        <button type="submit" title="Upgrade hub" class="update_link" style="background:none;border:0;padding:0;color:inherit;cursor:pointer">
-          <i class="fas fa-angle-double-up"></i> Upgrade
+        <button type="submit" title="Update hub" class="update_link" style="background:none;border:0;padding:0;color:inherit;cursor:pointer">
+          <i class="fas fa-angle-double-up"></i> Update
         </button>
       </form>
       <form method="post" action="{% url 'restart' %}">
