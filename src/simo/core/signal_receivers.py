@@ -1,6 +1,6 @@
 import os
-import shutil
 from django.core.cache import cache
+from django.core.files import File
 from django.db import transaction
 from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
@@ -41,10 +41,6 @@ def create_instance_defaults(sender, instance, created, **kwargs):
         core_dir_path, 'static/defaults/category_headers'
     )
 
-    categories_media_dir = os.path.join(settings.MEDIA_ROOT, 'categories')
-    if not os.path.exists(categories_media_dir):
-        os.makedirs(categories_media_dir)
-
     # Create default categories
     climate_category = None
     other_category = None
@@ -53,19 +49,20 @@ def create_instance_defaults(sender, instance, created, **kwargs):
         ("Lights", 'lightbulb'), ("Security", 'eye'),
         ("Watering", 'faucet'), ("Other", 'flag-pennant')
     ]):
-        shutil.copy(
-            os.path.join(imgs_folder, "%s.jpg" % data[0].lower()),
-            os.path.join(
-                settings.MEDIA_ROOT, 'categories', "%s.jpg" % data[0].lower()
-            )
-        )
         cat = Category.objects.create(
             instance=instance,
             name=data[0], icon=Icon.objects.get(slug=data[1]),
-            all=i == 0, header_image=os.path.join(
-                'categories', "%s.jpg" % data[0].lower()
-            ), order=i + 10
+            all=i == 0, order=i + 10
         )
+
+        img_filename = f"{data[0].lower()}.jpg"
+        img_path = os.path.join(imgs_folder, img_filename)
+        try:
+            with open(img_path, 'rb') as img_file:
+                cat.header_image.save(img_filename, File(img_file), save=True)
+        except FileNotFoundError:
+            pass
+
         if cat.name == 'Climate':
             climate_category = cat
         if cat.name == 'Other':
