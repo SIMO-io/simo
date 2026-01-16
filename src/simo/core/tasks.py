@@ -267,7 +267,8 @@ def sync_with_remote():
     if not isinstance(instances_payload, list):
         return
 
-    allow_remote_user_create = not User.objects.exclude(
+    is_virtual_hub = bool(getattr(settings, 'IS_VIRTUAL', False))
+    allow_bootstrap_user_create = (not is_virtual_hub) and not User.objects.exclude(
         email__in=settings.SYSTEM_USERS
     ).exists()
     bootstrap_user_created = False
@@ -310,61 +311,77 @@ def sync_with_remote():
         for email, options in users_data.items():
             if not email:
                 continue
+            if email in settings.SYSTEM_USERS:
+                continue
             if not isinstance(options, dict):
                 options = {}
             if new_instance:
                 print(f"EMAIL: {email}")
                 print(f"OPTIONS: {options}")
 
-            if allow_remote_user_create and not bootstrap_user_created:
-                # Brand new hub bootstrap: remote may create exactly one user.
+            created_bootstrap_user = False
+            user = User.objects.filter(email=email).first()
+
+            if not user:
                 name = options.get('name')
                 if not name:
                     continue
-                user, new_user = User.objects.get_or_create(
-                    email=email,
-                    defaults={
-                        'name': name,
-                        # First real user gets full hub-master access.
-                        'is_master': True,
-                    },
-                )
-                bootstrap_user_created = True
-                role = None
-                if options.get('is_superuser'):
-                    print(f"Try getting superuser role!")
-                    role = PermissionsRole.objects.filter(
-                        instance=instance, is_superuser=True
-                    ).first()
-                    if role:
-                        print("ROLE FOUND: ", role)
-                    else:
-                        print("NO such a role.")
-                elif options.get('is_owner'):
-                    print(f"Try getting owner role!")
-                    role = PermissionsRole.objects.filter(
-                        instance=instance, is_owner=True, is_superuser=False
-                    ).first()
-                    if role:
-                        print("ROLE FOUND: ", role)
-                    else:
-                        print("NO such a role.")
 
-                if role:
-                    print("Creating InstanceUser!")
-                    InstanceUser.objects.update_or_create(
-                        user=user, instance=instance, defaults={
-                            'is_active': bool(options.get('is_active', True)),
-                            'role': role,
-                        }
+                if is_virtual_hub:
+                    # Virtual hubs are cloud-hosted, so SIMO.io is authoritative
+                    # for initial user provisioning per instance.
+                    user = User.objects.create(email=email, name=name)
+                elif allow_bootstrap_user_create and not bootstrap_user_created:
+                    # Brand new physical hub bootstrap: remote may create exactly one user.
+                    user, _new_user = User.objects.get_or_create(
+                        email=email,
+                        defaults={
+                            'name': name,
+                            # First real user gets full hub-master access.
+                            'is_master': True,
+                        },
                     )
-                else:
-                    print("Instance User was not created!")
-            else:
-                user = User.objects.filter(email=email).first()
+                    bootstrap_user_created = True
+                    created_bootstrap_user = True
 
             if not user:
                 continue
+
+            provision_instance_user = False
+            if is_virtual_hub:
+                # Virtual hubs: ensure each cloud-reported user has a local role
+                # entry for this instance.
+                provision_instance_user = not InstanceUser.objects.filter(
+                    user=user,
+                    instance=instance,
+                ).exists()
+            elif created_bootstrap_user:
+                provision_instance_user = True
+
+            if provision_instance_user:
+                role = None
+                if options.get('is_superuser') or options.get('is_hub_master'):
+                    role = PermissionsRole.objects.filter(
+                        instance=instance, is_superuser=True
+                    ).first()
+                elif options.get('is_owner'):
+                    role = PermissionsRole.objects.filter(
+                        instance=instance, is_owner=True, is_superuser=False
+                    ).first()
+                else:
+                    role = PermissionsRole.objects.filter(
+                        instance=instance, name__iexact='Guest'
+                    ).first()
+
+                if role:
+                    InstanceUser.objects.update_or_create(
+                        user=user,
+                        instance=instance,
+                        defaults={
+                            'is_active': bool(options.get('is_active', True)),
+                            'role': role,
+                        },
+                    )
 
             name = options.get('name')
             if name and user.name != name:

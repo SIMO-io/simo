@@ -6,6 +6,7 @@ from unittest import mock
 import requests
 from django.conf import settings
 from django.db.models.fields.files import FieldFile
+from django.test import override_settings
 from django.utils import timezone
 
 from simo.users.models import InstanceUser
@@ -173,6 +174,66 @@ class TestSyncWithRemote(BaseSimoTestCase):
         su = User.objects.get(email='su@example.com')
         self.assertTrue(su.is_master)
         self.assertFalse(User.objects.filter(email='owner@example.com').exists())
+
+    @override_settings(IS_VIRTUAL=True)
+    def test_sync_with_remote_virtual_provisions_owner_for_existing_user(self):
+        from simo.core.tasks import sync_with_remote
+
+        ds = {
+            'core__hub_uid': 'hub-uid',
+            'core__hub_secret': 'hub-secret',
+            'core__remote_conn_version': 1,
+        }
+
+        inst = mk_instance('inst-a', 'A')
+        role_owner = mk_role(inst, is_owner=True)
+
+        mk_user('owner@example.com', 'Owner')
+
+        r_json = {
+            'remote_conn_version': 1,
+            'instances': [
+                {
+                    'uid': inst.uid,
+                    'name': inst.name,
+                    'slug': inst.slug,
+                    'units_of_measure': inst.units_of_measure,
+                    'timezone': inst.timezone,
+                    'users': {
+                        'owner@example.com': {
+                            'name': 'Owner',
+                            'is_owner': True,
+                            'is_active': True,
+                        },
+                    },
+                }
+            ],
+        }
+        resp = mock.Mock(status_code=200)
+        resp.json.return_value = r_json
+
+        with (
+            mock.patch('simo.core.tasks.dynamic_settings', ds),
+            mock.patch('simo.core.tasks.get_self_ip', return_value='1.2.3.4'),
+            mock.patch('simo.core.tasks.uuid.getnode', return_value=0x1234),
+            mock.patch('simo.core.tasks.pkg_resources.get_distribution', return_value=mock.Mock(version='9.9.9')),
+            mock.patch('simo.core.tasks.requests.post', return_value=resp),
+            mock.patch('builtins.print'),
+        ):
+            sync_with_remote()
+
+        self.assertTrue(
+            InstanceUser.objects.filter(
+                user__email='owner@example.com',
+                role=role_owner,
+                is_active=True,
+            ).exists()
+        )
+
+        from simo.users.models import User
+
+        owner = User.objects.get(email='owner@example.com')
+        self.assertFalse(owner.is_master)
 
     def test_sync_with_remote_bootstrap_ignores_system_users(self):
         from simo.core.tasks import sync_with_remote
