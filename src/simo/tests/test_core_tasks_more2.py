@@ -144,51 +144,97 @@ class TestClearHistoryTask(SimpleTestCase):
         inst.history_days = 90
 
         ch_qs_old = mock.Mock()
-        ch_qs_old.delete = mock.Mock()
+        ch_qs_old_ordered = mock.Mock()
+        ch_old_values = mock.MagicMock()
+        ch_old_values.__getitem__.side_effect = [[1, 2], []]
+        ch_qs_old.order_by.return_value = ch_qs_old_ordered
+        ch_qs_old_ordered.values_list.return_value = ch_old_values
+        ch_qs_old_ordered.model = tasks.ComponentHistory
+
         ch_qs_all = mock.Mock()
-        ch_qs_all.order_by.return_value.values.return_value.iterator.return_value = [
-            {'id': i} for i in range(0, 5002)
-        ]
-        ch_qs_trim = mock.Mock()
-        ch_qs_trim.delete = mock.Mock()
+        ch_qs_all_annotated = mock.Mock()
+        ch_qs_all_filtered = mock.Mock()
+        ch_qs_all_ordered = mock.Mock()
+        ch_keep_values = mock.MagicMock()
+        ch_keep_values.__getitem__.side_effect = [[100, 101], []]
+        ch_qs_all.annotate.return_value = ch_qs_all_annotated
+        ch_qs_all_annotated.filter.return_value = ch_qs_all_filtered
+        ch_qs_all_filtered.order_by.return_value = ch_qs_all_ordered
+        ch_qs_all_ordered.values_list.return_value = ch_keep_values
+        ch_qs_all_ordered.model = tasks.ComponentHistory
+
+        ch_qs_old_delete = mock.Mock()
+        ch_qs_old_delete.delete = mock.Mock()
+        ch_qs_keep_delete = mock.Mock()
+        ch_qs_keep_delete.delete = mock.Mock()
 
         ha_qs_old = mock.Mock()
-        ha_qs_old.delete = mock.Mock()
+        ha_qs_old_ordered = mock.Mock()
+        ha_old_values = mock.MagicMock()
+        ha_old_values.__getitem__.side_effect = [[10], []]
+        ha_qs_old.order_by.return_value = ha_qs_old_ordered
+        ha_qs_old_ordered.values_list.return_value = ha_old_values
+        ha_qs_old_ordered.model = tasks.HistoryAggregate
+
         ha_qs_all = mock.Mock()
-        ha_qs_all.order_by.return_value.values.return_value.iterator.return_value = [
-            {'id': i} for i in range(0, 1002)
-        ]
-        ha_qs_trim = mock.Mock()
-        ha_qs_trim.delete = mock.Mock()
+        ha_qs_all_ordered = mock.Mock()
+        ha_keep_values = mock.MagicMock()
+        ha_keep_values.__getitem__.side_effect = [[200], []]
+        ha_qs_all.order_by.return_value = ha_qs_all_ordered
+        ha_qs_all_ordered.values_list.return_value = ha_keep_values
+        ha_qs_all_ordered.model = tasks.HistoryAggregate
+
+        ha_qs_old_delete = mock.Mock()
+        ha_qs_old_delete.delete = mock.Mock()
+        ha_qs_keep_delete = mock.Mock()
+        ha_qs_keep_delete.delete = mock.Mock()
 
         act_qs_old = mock.Mock()
-        act_qs_old.delete = mock.Mock()
+        act_qs_old_ordered = mock.Mock()
+        act_old_values = mock.MagicMock()
+        act_old_values.__getitem__.side_effect = [[20], []]
+        act_qs_old.order_by.return_value = act_qs_old_ordered
+        act_qs_old_ordered.values_list.return_value = act_old_values
+        act_qs_old_ordered.model = tasks.Action
+
         act_qs_all = mock.Mock()
-        act_qs_all.order_by.return_value.values.return_value.iterator.return_value = [
-            {'id': i} for i in range(0, 5002)
-        ]
-        act_qs_trim = mock.Mock()
-        act_qs_trim.delete = mock.Mock()
+        act_qs_all_ordered = mock.Mock()
+        act_keep_values = mock.MagicMock()
+        act_keep_values.__getitem__.side_effect = [[300], []]
+        act_qs_all.order_by.return_value = act_qs_all_ordered
+        act_qs_all_ordered.values_list.return_value = act_keep_values
+        act_qs_all_ordered.model = tasks.Action
+
+        act_qs_old_delete = mock.Mock()
+        act_qs_old_delete.delete = mock.Mock()
+        act_qs_keep_delete = mock.Mock()
+        act_qs_keep_delete.delete = mock.Mock()
 
         def ch_filter_side_effect(*_args, **kwargs):
             if kwargs.get('date__lt') is not None:
                 return ch_qs_old
-            if kwargs.get('id__in') is not None:
-                return ch_qs_trim
+            if kwargs.get('id__in') == [1, 2]:
+                return ch_qs_old_delete
+            if kwargs.get('id__in') == [100, 101]:
+                return ch_qs_keep_delete
             return ch_qs_all
 
         def ha_filter_side_effect(*_args, **kwargs):
             if kwargs.get('start__lt') is not None:
                 return ha_qs_old
-            if kwargs.get('id__in') is not None:
-                return ha_qs_trim
+            if kwargs.get('id__in') == [10]:
+                return ha_qs_old_delete
+            if kwargs.get('id__in') == [200]:
+                return ha_qs_keep_delete
             return ha_qs_all
 
         def act_filter_side_effect(*_args, **kwargs):
             if kwargs.get('timestamp__lt') is not None:
                 return act_qs_old
-            if kwargs.get('id__in') is not None:
-                return act_qs_trim
+            if kwargs.get('id__in') == [20]:
+                return act_qs_old_delete
+            if kwargs.get('id__in') == [300]:
+                return act_qs_keep_delete
             return act_qs_all
 
         with (
@@ -202,11 +248,11 @@ class TestClearHistoryTask(SimpleTestCase):
         ):
             tasks.clear_history()
 
-        ch_qs_old.delete.assert_called_once()
-        ha_qs_old.delete.assert_called_once()
-        act_qs_old.delete.assert_called_once()
+        ch_qs_old_delete.delete.assert_called_once()
+        ha_qs_old_delete.delete.assert_called_once()
+        act_qs_old_delete.delete.assert_called_once()
 
         # Should delete items beyond keep window.
-        ch_qs_trim.delete.assert_called_once()
-        ha_qs_trim.delete.assert_called_once()
-        act_qs_trim.delete.assert_called_once()
+        ch_qs_keep_delete.delete.assert_called_once()
+        ha_qs_keep_delete.delete.assert_called_once()
+        act_qs_keep_delete.delete.assert_called_once()

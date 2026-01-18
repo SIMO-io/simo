@@ -9,7 +9,8 @@ import threading
 import pkg_resources
 import uuid
 from urllib.parse import urlparse
-from django.db.models import Q, Max
+from django.db.models import Q, Max, F, Window
+from django.db.models.functions import RowNumber
 from django.db import connection, transaction
 from django.template.loader import render_to_string
 from django.conf import settings
@@ -441,6 +442,24 @@ def clear_history():
                 break
             qs.model.objects.filter(id__in=ids).delete()
 
+    def enforce_keep_latest_per_component(qs, *, keep, batch_size=BATCH_SIZE):
+        qs = qs.annotate(
+            rn=Window(
+                expression=RowNumber(),
+                partition_by=[F('component_id')],
+                order_by=F('date').desc(),
+            )
+        ).filter(
+            rn__gt=keep
+        ).order_by(
+            'component_id', 'date'
+        )
+        while True:
+            ids = list(qs.values_list('id', flat=True)[:batch_size])
+            if not ids:
+                break
+            qs.model.objects.filter(id__in=ids).delete()
+
     for instance in Instance.objects.all():
         print(f"Clear history of {instance}")
         introduce_instance(instance)
@@ -451,10 +470,9 @@ def clear_history():
                 component__zone__instance=instance, date__lt=old_times
             )
         )
-        enforce_keep_latest(
+        enforce_keep_latest_per_component(
             ComponentHistory.objects.filter(component__zone__instance=instance),
             keep=KEEP_COMPONENT_HISTORY,
-            order_by='-date',
         )
 
         delete_in_batches(
