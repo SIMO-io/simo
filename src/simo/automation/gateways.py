@@ -28,56 +28,6 @@ from .helpers import haversine_distance
 from simo.core.utils.mqtt import connect_with_retry, install_reconnect_handler
 
 
-def _get_script_multiprocessing_context() -> multiprocessing.context.BaseContext:
-    """Return multiprocessing context for running scripts.
-
-    Scripts are spawned from the Automations gateway process, which is
-    multi-threaded (MQTT loop + periodic tasks). Forking from a
-    multi-threaded process can deadlock in the child on inherited locks
-    (observed: Django signal dispatcher lock).
-
-    Default to 'forkserver' when available (Linux) to keep startup cheap
-    (fork-based) while avoiding inherited-lock deadlocks. Fall back to
-    'spawn' when forkserver is not available.
-    """
-
-    method = os.environ.get('SIMO_SCRIPT_START_METHOD')
-    if not method:
-        method = getattr(settings, 'SCRIPT_START_METHOD', None)
-    if not method:
-        try:
-            methods = multiprocessing.get_all_start_methods()
-        except Exception:
-            methods = []
-        if 'forkserver' in methods:
-            method = 'forkserver'
-        else:
-            method = 'spawn'
-    try:
-        return multiprocessing.get_context(method)
-    except ValueError:
-        # Fallback to default for platforms/environments that do not support
-        # the requested start method.
-        return multiprocessing.get_context()
-
-
-_SCRIPT_MP_CTX = _get_script_multiprocessing_context()
-
-
-def _get_script_startup_timeout_seconds() -> int:
-    value = os.environ.get('SIMO_SCRIPT_STARTUP_TIMEOUT')
-    if value is None:
-        value = getattr(settings, 'SCRIPT_STARTUP_TIMEOUT', None)
-    try:
-        timeout = int(value) if value is not None else 180
-    except Exception:
-        timeout = 180
-    return max(timeout, 5)
-
-
-_SCRIPT_STARTUP_TIMEOUT_SECONDS = _get_script_startup_timeout_seconds()
-
-
 def _virtual_scripts_managed_externally() -> bool:
     """Return True when a pluggable app takes over script runtime."""
     if not getattr(settings, 'IS_VIRTUAL', False):
@@ -92,7 +42,7 @@ def _virtual_scripts_managed_externally() -> bool:
         return False
 
 
-class ScriptRunHandler(_SCRIPT_MP_CTX.Process):
+class ScriptRunHandler(multiprocessing.Process):
     '''
       Threading offers better overall stability, but we use
       multiprocessing for Scripts so that they are better isolated and
@@ -105,10 +55,9 @@ class ScriptRunHandler(_SCRIPT_MP_CTX.Process):
         super().__init__(*args, **kwargs)
         self.component_id = component_id
         self.exit_event = exit_event
-        self.started_event = _SCRIPT_MP_CTX.Event()
-        self.exit_in_use = _SCRIPT_MP_CTX.Event()
-        self.exin_in_use_fail = _SCRIPT_MP_CTX.Event()
-        self.watchers_cleaned = _SCRIPT_MP_CTX.Event()
+        self.exit_in_use = multiprocessing.Event()
+        self.exin_in_use_fail = multiprocessing.Event()
+        self.watchers_cleaned = multiprocessing.Event()
 
     def run(self):
         db_connection.connect()
@@ -124,13 +73,8 @@ class ScriptRunHandler(_SCRIPT_MP_CTX.Process):
         sys.stdout = stdout_logger
         sys.stderr = stderr_logger
         self.component.meta['pid'] = os.getpid()
-        try:
-            self.component.save(update_fields=['meta'])
-        except Exception:
-            pass
         self.component.set('running')
         print("------START-------")
-        self.started_event.set()
         try:
             set_current_watcher_stop_event(self.exit_event)
             def _await_exit_cleanup():
@@ -354,7 +298,6 @@ class AutomationsGatewayHandler(GatesHandler, BaseObjectCommandsGatewayHandler):
         self._scripts_lock = threading.RLock()
         self.running_scripts = {}
         self.terminating_scripts = set()
-        self._script_start_backoff = {}
 
         if _virtual_scripts_managed_externally():
             # Do not run local script processes on virtual hubs.
@@ -365,6 +308,12 @@ class AutomationsGatewayHandler(GatesHandler, BaseObjectCommandsGatewayHandler):
         drop_current_instance()
         with self._scripts_lock:
             running_snapshot = list(self.running_scripts.items())
+
+        # If a script process gets stuck during startup (e.g. forked while a
+        # global lock is held in another thread), it may stay alive forever
+        # without ever switching the Component state to 'running'.
+        # This watchdog makes sure such scripts can't block keep-alive.
+        startup_timeout = 60
 
         # observe running scripts and drop the ones that are no longer alive
         for id, data in running_snapshot:
@@ -384,32 +333,13 @@ class AutomationsGatewayHandler(GatesHandler, BaseObjectCommandsGatewayHandler):
                 terminating = id in self.terminating_scripts
 
             if process.is_alive():
-                started_event = getattr(process, 'started_event', None)
-                if started_event is not None and started_event.is_set():
-                    # Startup completed; clear any backoff state.
-                    self._script_start_backoff.pop(id, None)
-                else:
-                    # If a child process gets wedged during startup (e.g. due
-                    # to a fork+lock deadlock), it may stay alive forever
-                    # without ever reaching the point where it marks itself as
-                    # started. Detect that and recover, with backoff to avoid
-                    # restart storms.
-                    if (
-                        comp
-                        and not terminating
-                        and (time.time() - data['start_time']) > _SCRIPT_STARTUP_TIMEOUT_SECONDS
-                    ):
-                        backoff = self._script_start_backoff.get(id, {})
-                        attempts = int(backoff.get('attempts', 0)) + 1
-                        cooldown = min(600, 10 * (2 ** min(attempts - 1, 6)))
-                        self._script_start_backoff[id] = {
-                            'attempts': attempts,
-                            'next_start_at': time.time() + cooldown,
-                        }
-                        self._log_warning(
-                            f"Script {comp} appears stuck during startup; restarting "
-                            f"(attempt {attempts}, cooldown {cooldown}s)"
-                        )
+                if comp and not terminating and comp.value != 'running':
+                    if time.time() - data['start_time'] > startup_timeout:
+                        try:
+                            logger = get_component_logger(comp)
+                            logger.log(logging.INFO, "-------STARTUP TIMEOUT-------")
+                        except Exception:
+                            pass
                         try:
                             process.kill()
                         except Exception:
@@ -469,13 +399,9 @@ class AutomationsGatewayHandler(GatesHandler, BaseObjectCommandsGatewayHandler):
                 except Exception:
                     pass
 
-        now = time.time()
         for script in Component.objects.filter(
             base_type='script', config__keep_alive=True
         ).exclude(value__in=('running', 'stopped', 'finished')):
-            backoff = self._script_start_backoff.get(script.id)
-            if backoff and now < float(backoff.get('next_start_at', 0)):
-                continue
             self.start_script(script)
 
     def run(self, exit):
@@ -526,10 +452,10 @@ class AutomationsGatewayHandler(GatesHandler, BaseObjectCommandsGatewayHandler):
         # We presume that this is the only running gateway, therefore
         # if there are any running scripts, that is not true.
         for component in Component.objects.filter(
-            base_type='script', value='running'
+            controller_uid=Script.uid, value='running'
         ):
             component.value = 'error'
-            component.save(update_fields=['value'])
+            component.save()
 
         # Start scripts that are designed to be autostarted
         # as well as those that are designed to be kept alive, but
@@ -602,21 +528,16 @@ class AutomationsGatewayHandler(GatesHandler, BaseObjectCommandsGatewayHandler):
 
 
     def start_script(self, component):
-        # Avoid noisy logs when keep-alive calls start_script() repeatedly
-        # for an already-running process.
-        with self._scripts_lock:
-            entry = self.running_scripts.get(component.id)
-            if entry:
-                proc = entry['proc']
-                if component.id not in self.terminating_scripts and proc.is_alive():
-                    return
-
         self._log_info(f"START SCRIPT {component}")
 
         with self._scripts_lock:
             entry = self.running_scripts.get(component.id)
             if entry:
                 proc = entry['proc']
+                # Script appears to be healthy; do nothing and return.
+                if component.id not in self.terminating_scripts and proc.is_alive():
+                    return
+
                 # script is in terminating state or is no longer alive
                 # since starting of a new script was requested, we kill it viciously
                 # and continue on!
@@ -626,8 +547,9 @@ class AutomationsGatewayHandler(GatesHandler, BaseObjectCommandsGatewayHandler):
                     pass
                 self.running_scripts.pop(component.id, None)
 
-            exit_event = _SCRIPT_MP_CTX.Event()
-            process = ScriptRunHandler(component.id, exit_event, daemon=True)
+            process = ScriptRunHandler(
+                component.id, multiprocessing.Event(), daemon=True
+            )
             process.start()
             self.running_scripts[component.id] = {
                 'proc': process, 'start_time': time.time()
