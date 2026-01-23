@@ -11,10 +11,14 @@ class ScriptMultiprocessingContextTests(BaseSimoTestCase):
     def test_script_process_context_defaults_to_spawn(self):
         from simo.automation import gateways
 
+        import multiprocessing
+
         with mock.patch.dict(os.environ, {}, clear=True):
             with override_settings(SCRIPT_START_METHOD=None):
                 ctx = gateways._get_script_multiprocessing_context()
-        self.assertEqual(ctx.get_start_method(), 'spawn')
+        methods = multiprocessing.get_all_start_methods()
+        expected = 'forkserver' if 'forkserver' in methods else 'spawn'
+        self.assertEqual(ctx.get_start_method(), expected)
 
     def test_script_process_context_respects_env_override(self):
         if sys.platform.startswith('win'):
@@ -25,4 +29,3 @@ class ScriptMultiprocessingContextTests(BaseSimoTestCase):
         with mock.patch.dict(os.environ, {'SIMO_SCRIPT_START_METHOD': 'fork'}):
             ctx = gateways._get_script_multiprocessing_context()
         self.assertEqual(ctx.get_start_method(), 'fork')
-

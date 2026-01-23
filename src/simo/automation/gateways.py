@@ -34,15 +34,25 @@ def _get_script_multiprocessing_context() -> multiprocessing.context.BaseContext
     Scripts are spawned from the Automations gateway process, which is
     multi-threaded (MQTT loop + periodic tasks). Forking from a
     multi-threaded process can deadlock in the child on inherited locks
-    (observed: Django signal dispatcher lock). Default to 'spawn' to
-    avoid inheriting lock state.
+    (observed: Django signal dispatcher lock).
+
+    Default to 'forkserver' when available (Linux) to keep startup cheap
+    (fork-based) while avoiding inherited-lock deadlocks. Fall back to
+    'spawn' when forkserver is not available.
     """
 
     method = os.environ.get('SIMO_SCRIPT_START_METHOD')
     if not method:
         method = getattr(settings, 'SCRIPT_START_METHOD', None)
     if not method:
-        method = 'spawn'
+        try:
+            methods = multiprocessing.get_all_start_methods()
+        except Exception:
+            methods = []
+        if 'forkserver' in methods:
+            method = 'forkserver'
+        else:
+            method = 'spawn'
     try:
         return multiprocessing.get_context(method)
     except ValueError:
@@ -59,9 +69,9 @@ def _get_script_startup_timeout_seconds() -> int:
     if value is None:
         value = getattr(settings, 'SCRIPT_STARTUP_TIMEOUT', None)
     try:
-        timeout = int(value) if value is not None else 30
+        timeout = int(value) if value is not None else 180
     except Exception:
-        timeout = 30
+        timeout = 180
     return max(timeout, 5)
 
 
@@ -95,6 +105,7 @@ class ScriptRunHandler(_SCRIPT_MP_CTX.Process):
         super().__init__(*args, **kwargs)
         self.component_id = component_id
         self.exit_event = exit_event
+        self.started_event = _SCRIPT_MP_CTX.Event()
         self.exit_in_use = _SCRIPT_MP_CTX.Event()
         self.exin_in_use_fail = _SCRIPT_MP_CTX.Event()
         self.watchers_cleaned = _SCRIPT_MP_CTX.Event()
@@ -119,6 +130,7 @@ class ScriptRunHandler(_SCRIPT_MP_CTX.Process):
             pass
         self.component.set('running')
         print("------START-------")
+        self.started_event.set()
         try:
             set_current_watcher_stop_event(self.exit_event)
             def _await_exit_cleanup():
@@ -342,6 +354,7 @@ class AutomationsGatewayHandler(GatesHandler, BaseObjectCommandsGatewayHandler):
         self._scripts_lock = threading.RLock()
         self.running_scripts = {}
         self.terminating_scripts = set()
+        self._script_start_backoff = {}
 
         if _virtual_scripts_managed_externally():
             # Do not run local script processes on virtual hubs.
@@ -371,27 +384,40 @@ class AutomationsGatewayHandler(GatesHandler, BaseObjectCommandsGatewayHandler):
                 terminating = id in self.terminating_scripts
 
             if process.is_alive():
-                # If a child process gets wedged during startup (e.g. due to a
-                # fork+lock deadlock), it may stay alive forever without ever
-                # switching the Component state to 'running' or opening its
-                # component log. Detect that and recover.
-                if (
-                    comp
-                    and not terminating
-                    and comp.value != 'running'
-                    and (time.time() - data['start_time']) > _SCRIPT_STARTUP_TIMEOUT_SECONDS
-                ):
-                    self._log_warning(
-                        f"Script {comp} appears stuck during startup; restarting"
-                    )
-                    try:
-                        process.kill()
-                    except Exception:
-                        pass
-                    self.last_death = time.time()
-                    with self._scripts_lock:
-                        self.running_scripts.pop(id, None)
-                    continue
+                started_event = getattr(process, 'started_event', None)
+                if started_event is not None and started_event.is_set():
+                    # Startup completed; clear any backoff state.
+                    self._script_start_backoff.pop(id, None)
+                else:
+                    # If a child process gets wedged during startup (e.g. due
+                    # to a fork+lock deadlock), it may stay alive forever
+                    # without ever reaching the point where it marks itself as
+                    # started. Detect that and recover, with backoff to avoid
+                    # restart storms.
+                    if (
+                        comp
+                        and not terminating
+                        and (time.time() - data['start_time']) > _SCRIPT_STARTUP_TIMEOUT_SECONDS
+                    ):
+                        backoff = self._script_start_backoff.get(id, {})
+                        attempts = int(backoff.get('attempts', 0)) + 1
+                        cooldown = min(600, 10 * (2 ** min(attempts - 1, 6)))
+                        self._script_start_backoff[id] = {
+                            'attempts': attempts,
+                            'next_start_at': time.time() + cooldown,
+                        }
+                        self._log_warning(
+                            f"Script {comp} appears stuck during startup; restarting "
+                            f"(attempt {attempts}, cooldown {cooldown}s)"
+                        )
+                        try:
+                            process.kill()
+                        except Exception:
+                            pass
+                        self.last_death = time.time()
+                        with self._scripts_lock:
+                            self.running_scripts.pop(id, None)
+                        continue
                 if not comp and not terminating:
                     # script is deleted and was not properly called to stop
                     process.kill()
@@ -443,9 +469,13 @@ class AutomationsGatewayHandler(GatesHandler, BaseObjectCommandsGatewayHandler):
                 except Exception:
                     pass
 
+        now = time.time()
         for script in Component.objects.filter(
             base_type='script', config__keep_alive=True
         ).exclude(value__in=('running', 'stopped', 'finished')):
+            backoff = self._script_start_backoff.get(script.id)
+            if backoff and now < float(backoff.get('next_start_at', 0)):
+                continue
             self.start_script(script)
 
     def run(self, exit):
