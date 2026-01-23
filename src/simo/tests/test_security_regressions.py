@@ -163,7 +163,7 @@ class MediaIsolationTests(BaseSimoTestCase):
 
 
 class ControlSurfaceTests(BaseSimoTestCase):
-    def test_masters_only_controller_denies_non_master_even_if_superuser(self):
+    def test_non_master_superuser_can_edit_script_component(self):
         inst = _mk_instance('inst-a', 'A')
         zone = Zone.objects.create(instance=inst, name='Z', order=0)
 
@@ -203,7 +203,7 @@ class ControlSurfaceTests(BaseSimoTestCase):
             data={'name': 'nope'},
             format='json',
         )
-        self.assertEqual(resp.status_code, 403)
+        self.assertEqual(resp.status_code, 200)
 
     def test_disallowed_method_is_rejected(self):
         inst = _mk_instance('inst-a', 'A')

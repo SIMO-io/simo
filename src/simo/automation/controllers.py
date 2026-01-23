@@ -33,7 +33,7 @@ class Script(ControllerBase, TimerMixin):
     admin_widget_template = 'admin/controller_widgets/script.html'
     default_config = {'autostart': True, 'autorestart': True}
     default_value = 'stopped'
-    masters_only = True
+    masters_only = False
 
     def _validate_val(self, value, occasion=None):
         if occasion == BEFORE_SEND:
