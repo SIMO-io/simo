@@ -1160,6 +1160,12 @@ class VoiceAssistantSession:
             'assistant': self.assistant,
             'voice': self.voice,
         }
+        try:
+            wake_stats = getattr(self.c.colonel, 'wake_stats', None)
+            if isinstance(wake_stats, dict) and wake_stats:
+                payload['wake_stats'] = wake_stats
+        except Exception:
+            pass
         lang = _normalize_language(self.language)
         if lang:
             payload['language'] = lang
