@@ -10,6 +10,7 @@ from django.core.exceptions import ValidationError
 from django.utils import timezone
 from django.template.loader import render_to_string
 from django.utils.translation import gettext_lazy as _
+from django.db import transaction, connections, router
 from simo.users.utils import introduce_user, get_current_user, get_device_user
 from .utils.helpers import is_hex_color, classproperty
 # from django.utils.functional import classproperty
@@ -394,45 +395,57 @@ class ControllerBase(ABC, metaclass=ControllerMeta):
         if not actor:
             actor = get_current_user()
 
-        self.component.refresh_from_db()
-        if value != self.component.value and self.component.track_history:
-            self.component.value_previous = self.component.value
-            from .models import ComponentHistory
-            ComponentHistory.objects.create(
-                component=self.component, type='value', value=value,
-                user=actor, alive=self.component.alive
-            )
-            from actstream import action
-            action.send(
-                actor, target=self.component, verb="value change",
-                instance_id=self.component.zone.instance.id,
-                action_type='comp_value', value=value
-            )
-            actor.last_action = timezone.now()
-            actor.save()
-        self.component.value = value
-        self.component.change_init_by = None
-        self.component.change_init_date = None
-        self.component.change_init_to = None
-        self.component.change_init_fingerprint = None
-        if alive is not None:
-            self.component.alive = alive
-        if error_msg is not None:
-            self.component.error_msg = error_msg
-        self.component.change_actor = InstanceUser.objects.filter(
-            instance=self.component.zone.instance,
-            user=actor
-        ).first()
-        # Make sure Component.save() (and its security-history side effects)
-        # attributes changes to the same actor that initiated this update.
-        self.component.change_user = actor
-        try:
-            self.component.save()
-        finally:
+        using = (
+            getattr(getattr(self.component, '_state', None), 'db', None)
+            or router.db_for_write(self.component.__class__, instance=self.component)
+            or 'default'
+        )
+
+        with transaction.atomic(using=using):
+            comp_qs = self.component.__class__.objects.using(using)
+            if connections[using].features.has_select_for_update:
+                comp_qs = comp_qs.select_for_update()
+            self.component = comp_qs.get(pk=self.component.pk)
+
+            if value != self.component.value and self.component.track_history:
+                self.component.value_previous = self.component.value
+                from .models import ComponentHistory
+                ComponentHistory.objects.create(
+                    component=self.component, type='value', value=value,
+                    user=actor, alive=self.component.alive
+                )
+                from actstream import action
+                action.send(
+                    actor, target=self.component, verb="value change",
+                    instance_id=self.component.zone.instance.id,
+                    action_type='comp_value', value=value
+                )
+                actor.last_action = timezone.now()
+                actor.save()
+
+            self.component.value = value
+            self.component.change_init_by = None
+            self.component.change_init_date = None
+            self.component.change_init_to = None
+            self.component.change_init_fingerprint = None
+            if alive is not None:
+                self.component.alive = alive
+            if error_msg is not None:
+                self.component.error_msg = error_msg
+            self.component.change_actor = InstanceUser.objects.filter(
+                instance=self.component.zone.instance,
+                user=actor
+            ).first()
+            # Make sure Component.save() (and its security-history side effects)
+            # attributes changes to the same actor that initiated this update.
+            self.component.change_user = actor
             try:
-                delattr(self.component, 'change_user')
-            except Exception:
-                pass
+                self.component.save()
+            finally:
+                try:
+                    delattr(self.component, 'change_user')
+                except Exception:
+                    pass
 
     def _send_to_device(self, value):
         from simo.users.utils import get_current_user

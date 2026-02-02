@@ -4,8 +4,9 @@ from django.core.exceptions import ValidationError
 from django.test import override_settings
 
 from simo.core.models import Gateway, Zone, Component
+from simo.users.utils import introduce_user
 
-from .base import BaseSimoTestCase, BaseSimoTransactionTestCase, mk_instance
+from .base import BaseSimoTestCase, BaseSimoTransactionTestCase, mk_instance, mk_user
 
 
 class ScriptControllerTests(BaseSimoTestCase):
@@ -60,6 +61,7 @@ class ScriptControllerTests(BaseSimoTestCase):
         self.comp.save(update_fields=['config'])
 
         # BaseSimoTestCase already blocks MQTT side effects.
+        introduce_user(mk_user('master@example.com', 'Master', is_master=True))
         self.comp.controller.start(new_code='print("new")')
 
         self.comp.refresh_from_db()

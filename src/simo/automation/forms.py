@@ -110,7 +110,7 @@ class ScriptConfigForm(AutomationComponentForm):
 
 
     def clean(self):
-        if self.cleaned_data['assistant_request']:
+        if self.cleaned_data.get('assistant_request'):
             resp = self.instance.ai_assistant(
                 self.cleaned_data['assistant_request'],
                 self.instance.config.get('code')

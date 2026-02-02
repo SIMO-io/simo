@@ -187,8 +187,8 @@ class ValueHistoryPerformanceAndStabilityTests(BaseSimoTestCase):
     def test_value_history_day_does_not_crash_with_sparse_changes(self):
         inst = mk_instance('inst-a', 'A')
         zone = Zone.objects.create(instance=inst, name='Z', order=0)
-        gw, _ = Gateway.objects.get_or_create(type='simo.generic.gateways.GenericGatewayHandler')
-        from simo.core.controllers import NumericSensor
+        gw, _ = Gateway.objects.get_or_create(type='simo.generic.gateways.DummyGatewayHandler')
+        from simo.generic.controllers import DummyNumericSensor
 
         comp = Component.objects.create(
             name='C',
@@ -196,7 +196,7 @@ class ValueHistoryPerformanceAndStabilityTests(BaseSimoTestCase):
             category=None,
             gateway=gw,
             base_type='numeric-sensor',
-            controller_uid=NumericSensor.uid,
+            controller_uid=DummyNumericSensor.uid,
             config={},
             meta={},
             value=0,

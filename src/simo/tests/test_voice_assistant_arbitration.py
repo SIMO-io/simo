@@ -131,7 +131,10 @@ class VoiceAssistantArbitratorTests(BaseSimoTransactionTestCase):
         session = mock.AsyncMock()
         arb = VoiceAssistantArbitrator(self._mk_consumer(inst, c1), session)
 
-        async_to_sync(arb._decide_arbitration)()
+        # The arbitration window is time-based (900ms). Freeze `timezone.now()`
+        # inside the module to keep this deterministic on slow machines.
+        with mock.patch('simo.fleet.voice_assistant.timezone.now', autospec=True, return_value=now):
+            async_to_sync(arb._decide_arbitration)()
 
         c1.refresh_from_db()
         self.assertTrue(c1.is_vo_active)

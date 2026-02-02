@@ -102,7 +102,7 @@ class ThermostatControllerTests(BaseSimoTestCase):
         switch.reset_mock()
         self.comp.controller._engage_devices([dimmer, switch], 55)
         dimmer.output_percent.assert_called_once_with(55)
-        switch.pulse.assert_called_once_with(30, 55)
+        switch.pulse.assert_called_once_with(300, 55)
 
 
 class WateringControllerTests(BaseSimoTestCase):
@@ -262,4 +262,3 @@ class WateringControllerTests(BaseSimoTestCase):
 
         reset.assert_called_once()
         start.assert_called_once()
-
