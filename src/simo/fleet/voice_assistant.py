@@ -71,6 +71,7 @@ class VoiceAssistantSession:
     TX_PACE_BIAS = 0.50
     FOLLOWUP_SEC = 15
     CLOUD_RESPONSE_TIMEOUT_SEC = 60
+    WEBSITE_REALTIME_WS_URL = "wss://simo.io/ws/voice-assistant-realtime/"
 
     def __init__(self, consumer):
         self.c = consumer
@@ -86,8 +87,19 @@ class VoiceAssistantSession:
         self.mcp_token = None
         self._finalizer_task = None
         self._cloud_task = None
+        self._rt_task = None
+        self._rt_tx_task = None
+        self._rt_rx_task = None
+        self._rt_send_queue = asyncio.Queue(256)
+        self._rt_turn_seq = 0
+        self._rt_pending_turn_seq = None
+        self._rt_fallback_task = None
+        self._rt_reconnect_after_ts = 0.0
+        self._rt_reconnect_backoff_sec = 0.5
         self._play_task = None
         self._followup_task = None
+        self._followup_unlocked = False
+
         self._tx_samples_per_chunk = self.PLAY_CHUNK_BYTES // 2
         # ADPCM encoder state for outbound speaker stream (hub→Sentinel)
         self._tx_adpcm_state = adpcm4.ImaAdpcmState()
@@ -99,6 +111,7 @@ class VoiceAssistantSession:
         self._tx_stream_play_chunks = 0
         self._tx_debug_seq = 0
         self._tx_last_send_ts = None
+        self._play_start_ts = None
         self._tx_clock_base = None
         self._tx_clock_frames = 0
         self._tx_clock_target = None
@@ -127,11 +140,25 @@ class VoiceAssistantSession:
         except Exception:
             pass
 
+    def _reset_realtime_state(self):
+        # This object may survive multiple VA sessions on the same websocket
+        # consumer. Ensure no stale audio/commit messages remain queued.
+        self._rt_send_queue = asyncio.Queue(256)
+        self._rt_turn_seq = 0
+        self._rt_pending_turn_seq = None
+        self._rt_reconnect_after_ts = 0.0
+        self._rt_reconnect_backoff_sec = 0.5
+        self._rt_fallback_task = None
+        self._rt_task = None
+        self._rt_tx_task = None
+        self._rt_rx_task = None
+
     async def start_if_needed(self):
         if self.active:
             return
         self.active = True
         self.started_ts = time.time()
+        self._reset_realtime_state()
         # Ensure a fresh session starts gated until arbitration grants winner
         try:
             self._cloud_gate.clear()
@@ -140,7 +167,38 @@ class VoiceAssistantSession:
         # is_vo_active will be set by arbitration via open_as_winner
 
     async def on_audio_chunk(self, payload: bytes):
-        if self.playing or self.awaiting_response:
+        # New speech cancels followup shutdown.
+        try:
+            if self._followup_task and not self._followup_task.done():
+                self._followup_task.cancel()
+        except Exception:
+            pass
+        if self.playing and not self.awaiting_response:
+            # If playback is truly active, we should have sent speaker audio
+            # recently. Allow a short grace period at the start of playback.
+            now = time.time()
+            last_tx = self.last_tx_audio_ts or 0
+            play_age = now - (self._play_start_ts or now)
+            if play_age > 5.0 and last_tx and (now - last_tx) > 2.0:
+                print(
+                    f"VA RX: clearing stuck playing flag play_age={play_age:.2f}s last_tx_age={now-last_tx:.2f}s"
+                )
+                self.playing = False
+                self._play_start_ts = None
+                try:
+                    if self._rt_rx_task and not self._rt_rx_task.done():
+                        self._rt_rx_task.cancel()
+                except Exception:
+                    pass
+                try:
+                    if self._play_task and not self._play_task.done():
+                        self._play_task.cancel()
+                except Exception:
+                    pass
+
+        if self.awaiting_response:
+            return
+        if self.playing and not self._followup_unlocked:
             return
         await self.start_if_needed()
         if not getattr(self, '_rx_started', False):
@@ -148,6 +206,21 @@ class VoiceAssistantSession:
             self._rx_start_ts = time.time()
             print("VA RX START (device→hub)")
         self.capture_buf.extend(payload)
+
+        # Stream audio to Website in parallel (realtime path). The websocket
+        # task waits for arbitration gate, so we can queue audio early.
+        try:
+            now_ts = time.time()
+            if now_ts >= self._rt_reconnect_after_ts:
+                if not self._rt_task or self._rt_task.done():
+                    self._rt_task = asyncio.create_task(self._website_realtime_loop())
+                try:
+                    self._rt_send_queue.put_nowait(payload)
+                except asyncio.QueueFull:
+                    pass
+        except Exception:
+            pass
+
         self.last_chunk_ts = time.time()
         self.last_rx_audio_ts = self.last_chunk_ts
         if len(self.capture_buf) > 2 * 16000 * self.MAX_UTTERANCE_SEC:
@@ -161,7 +234,7 @@ class VoiceAssistantSession:
             while True:
                 if not self.active:
                     return
-                if self.awaiting_response or self.playing:
+                if self.awaiting_response or (self.playing and not self._followup_unlocked):
                     return
                 if self.last_chunk_ts and (time.time() - self.last_chunk_ts) * 1000 >= self.INACTIVITY_MS:
                     print("VA FINALIZE UTTERANCE (quiet)")
@@ -175,7 +248,7 @@ class VoiceAssistantSession:
         while True:
             try:
                 await asyncio.sleep(0.1)
-                if not self.active or self.awaiting_response or self.playing:
+                if not self.active or self.awaiting_response or (self.playing and not self._followup_unlocked):
                     continue
                 if self.capture_buf and self.last_chunk_ts and (time.time() - self.last_chunk_ts) * 1000 >= self.INACTIVITY_MS:
                     print("VA FINALIZE (watchdog)")
@@ -202,6 +275,65 @@ class VoiceAssistantSession:
             pass
         finally:
             self._rx_started = False
+
+        # Signal end-of-turn to Website Realtime bridge.
+        # Audio has already been queued/sent incrementally.
+        self.awaiting_response = True
+        self._rt_turn_seq += 1
+        turn_seq = self._rt_turn_seq
+        self._rt_pending_turn_seq = turn_seq
+        try:
+            if self._rt_fallback_task and not self._rt_fallback_task.done():
+                self._rt_fallback_task.cancel()
+        except Exception:
+            pass
+        self._rt_fallback_task = asyncio.create_task(
+            self._realtime_turn_fallback_timeout(turn_seq, pcm)
+        )
+        try:
+            if not self._rt_task or self._rt_task.done():
+                self._rt_task = asyncio.create_task(self._website_realtime_loop())
+            try:
+                self._rt_send_queue.put_nowait({'input': 'commit'})
+            except asyncio.QueueFull:
+                raise RuntimeError('realtime send queue full')
+            print(f"VA RT: enqueue commit turn_seq={turn_seq}")
+        except Exception:
+            # Fall back to legacy one-shot MP3 flow.
+            self.awaiting_response = False
+            if self._cloud_task and not self._cloud_task.done():
+                return
+            self._cloud_task = asyncio.create_task(self._cloud_roundtrip_and_play(pcm))
+
+    async def _realtime_turn_fallback_timeout(self, turn_seq: int, pcm: bytes):
+        """Fallback to legacy MP3 flow if realtime turn stalls."""
+        deadline = time.time() + 30
+        while time.time() < deadline:
+            if self._rt_pending_turn_seq != turn_seq:
+                return
+            if not self.awaiting_response or self.playing:
+                return
+            # If realtime websocket is still running, do not fall back (avoid
+            # duplicate actions). Only fall back when realtime has died.
+            if self._rt_task and not self._rt_task.done():
+                try:
+                    await asyncio.sleep(1)
+                except asyncio.CancelledError:
+                    return
+                continue
+            break
+
+        # Realtime still running (just slow): do not fall back.
+        if self._rt_task and not self._rt_task.done():
+            return
+
+        if self._rt_pending_turn_seq != turn_seq:
+            return
+        if not self.awaiting_response or self.playing:
+            return
+
+        self._rt_pending_turn_seq = None
+        self.awaiting_response = False
         if self._cloud_task and not self._cloud_task.done():
             return
         self._cloud_task = asyncio.create_task(self._cloud_roundtrip_and_play(pcm))
@@ -502,6 +634,21 @@ class VoiceAssistantSession:
                                 except Exception:
                                     pass
                             if 'reasoning' in data:
+                                if data.get('reasoning') is True:
+                                    if not self.awaiting_response:
+                                        print("VA: server commit (reasoning)")
+                                    self.awaiting_response = True
+                                    try:
+                                        self.capture_buf.clear()
+                                        self.last_chunk_ts = 0.0
+                                        self._rx_started = False
+                                    except Exception:
+                                        pass
+                                    try:
+                                        if self._finalizer_task and not self._finalizer_task.done():
+                                            self._finalizer_task.cancel()
+                                    except Exception:
+                                        pass
                                 try:
                                     await self.c.send_data({'command': 'va', 'reasoning': bool(data['reasoning'])})
                                 except Exception:
@@ -587,6 +734,364 @@ class VoiceAssistantSession:
                 pass
             if self.active and not self.playing and not self._end_after_playback:
                 await self._start_followup_timer()
+
+    async def _website_realtime_loop(self):
+        """Persistent Website WS that bridges to OpenAI Realtime on cloud."""
+        print("VA RT: starting Website realtime websocket")
+        if time.time() < self._rt_reconnect_after_ts:
+            return
+        try:
+            await asyncio.wait_for(self._cloud_gate.wait(), timeout=30)
+        except asyncio.TimeoutError:
+            print("VA RT: cloud gate timeout")
+            return
+
+        # Ensure token and notify Website.
+        try:
+            if self.mcp_token is None:
+                await self.ensure_mcp_token()
+        except Exception:
+            pass
+        if self.mcp_token is None or not getattr(self.mcp_token, 'token', None):
+            print("VA RT: missing mcp token")
+            return
+
+        if (not self._start_session_notified) and (not self._start_session_inflight):
+            try:
+                await self._start_cloud_session()
+            except Exception:
+                pass
+            else:
+                self._start_session_notified = True
+
+        hub_uid = await sync_to_async(lambda: dynamic_settings['core__hub_uid'], thread_sensitive=True)()
+        hub_secret = await sync_to_async(lambda: dynamic_settings['core__hub_secret'], thread_sensitive=True)()
+        headers = {
+            "hub-uid": hub_uid,
+            "hub-secret": hub_secret,
+            "instance-uid": self.c.instance.uid,
+            "mcp-token": getattr(self.mcp_token, 'token', None),
+            "assistant": self.assistant,
+            "voice": self.voice,
+            "zone": self.zone,
+            "colonel_uid": getattr(self.c.colonel, 'uid', ''),
+        }
+        try:
+            lang = _normalize_language(self.language)
+            if lang:
+                headers["language"] = lang
+        except Exception:
+            pass
+
+        kwargs = {'max_size': 10 * 1024 * 1024}
+        ws_params = inspect.signature(websockets.connect).parameters
+        if 'additional_headers' in ws_params:
+            kwargs['additional_headers'] = headers
+        else:
+            kwargs['extra_headers'] = headers
+
+        try:
+            async with websockets.connect(self.WEBSITE_REALTIME_WS_URL, **kwargs) as ws:
+                print(f"VA RT: WS OPEN {self.WEBSITE_REALTIME_WS_URL}")
+                # Reset reconnect backoff on successful connect.
+                self._rt_reconnect_backoff_sec = 0.5
+                self._rt_tx_task = asyncio.create_task(self._website_realtime_tx(ws))
+                self._rt_rx_task = asyncio.create_task(self._website_realtime_rx(ws))
+                done, pending = await asyncio.wait(
+                    [self._rt_tx_task, self._rt_rx_task],
+                    return_when=asyncio.FIRST_COMPLETED,
+                )
+                for task in pending:
+                    task.cancel()
+                # Surface task exceptions so they don't get logged as
+                # "Task exception was never retrieved".
+                for task in done:
+                    try:
+                        task.result()
+                    except Exception as exc:
+                        raise exc
+        except Exception as e:
+            print("VA RT WS ERROR:", e, file=sys.stderr)
+            # Avoid tight reconnect loops on repeated server failures.
+            delay = self._rt_reconnect_backoff_sec
+            if delay < 10:
+                self._rt_reconnect_backoff_sec = min(10.0, delay * 2.0)
+            self._rt_reconnect_after_ts = time.time() + delay
+            # Avoid getting stuck if we already committed a turn.
+            self.awaiting_response = False
+
+    async def _website_realtime_tx(self, ws):
+        sent_bytes = 0
+        sent_frames = 0
+        last_log_ts = time.time()
+        while True:
+            item = await self._rt_send_queue.get()
+            if item is None:
+                return
+            if isinstance(item, (bytes, bytearray)):
+                await ws.send(bytes(item))
+                sent_frames += 1
+                sent_bytes += len(item)
+            elif isinstance(item, dict):
+                await ws.send(json.dumps(item))
+                if item.get('input') == 'commit':
+                    print(f"VA RT: sent commit frames={sent_frames} bytes={sent_bytes}")
+
+            now = time.time()
+            if now - last_log_ts > 3.0:
+                last_log_ts = now
+                print(f"VA RT: tx frames={sent_frames} bytes={sent_bytes} q={self._rt_send_queue.qsize()}")
+
+    async def _website_realtime_rx(self, ws):
+        """Receive Website realtime stream (Opus/PCM + control) and play to device."""
+        streaming_opus = False
+        opus_sr = 24000
+        opus_stream_buffer = bytearray()
+        stream_queue = None
+        stream_consumer = None
+        stream_done = asyncio.Event()
+        opus_pipeline = None
+
+        async def _stream_consumer():
+            nonlocal stream_queue
+            self.playing = True
+            self._followup_unlocked = False
+            self._play_start_ts = time.time()
+            # Avoid false "stuck" detection before the first PCM frame is sent.
+            if not self.last_tx_audio_ts:
+                self.last_tx_audio_ts = self._play_start_ts
+            try:
+                # Reuse existing clocked pacing logic for PCM frames.
+                self._reset_stream_throttle(reason='realtime_stream_consumer')
+                frame_bytes = self.PLAY_CHUNK_BYTES
+                samples_per_frame = frame_bytes // 2
+                frame_interval = samples_per_frame / 16000.0
+                prefill = self._tx_prefill_chunks
+                frames = deque()
+                producer_done = False
+
+                async def _producer():
+                    nonlocal producer_done
+                    try:
+                        while True:
+                            chunk = await stream_queue.get()
+                            if chunk is None:
+                                producer_done = True
+                                break
+                            if chunk:
+                                frames.append(chunk)
+                    finally:
+                        producer_done = True
+
+                prod_task = asyncio.create_task(_producer())
+                frames_sent = 0
+                while frames_sent < prefill:
+                    while not frames:
+                        if producer_done:
+                            break
+                        await asyncio.sleep(0.005)
+                    if not frames:
+                        break
+                    chunk = frames.popleft()
+                    now = time.monotonic()
+                    self._tx_stream_prefill_sent += 1
+                    wait_info = {
+                        'stage': 'prefill',
+                        'interval': frame_interval,
+                        'target': now,
+                        'prefill_seq': self._tx_stream_prefill_sent,
+                        'play_seq': 0,
+                    }
+                    ok = await self._send_pcm_frame(chunk, wait_info=wait_info)
+                    if not ok:
+                        return
+                    frames_sent += 1
+
+                if frames_sent == 0:
+                    return
+
+                start = time.monotonic()
+                base_frames = frames_sent
+                self._tx_clock_base = start
+                self._tx_clock_frames = base_frames
+
+                tick = 0.01
+                while True:
+                    if producer_done and not frames:
+                        break
+                    now = time.monotonic()
+                    elapsed = now - start
+                    should_have = base_frames + int(elapsed / frame_interval)
+                    to_send = should_have - self._tx_clock_frames
+                    if to_send < 0:
+                        to_send = 0
+                    if to_send > self._tx_max_lag_frames:
+                        to_send = self._tx_max_lag_frames
+                    for _ in range(to_send):
+                        if not frames:
+                            break
+                        chunk = frames.popleft()
+                        seq = self._tx_clock_frames + 1
+                        target = start + (seq - base_frames) * frame_interval
+                        wait_info = {
+                            'stage': 'play',
+                            'interval': frame_interval,
+                            'target': target,
+                            'prefill_seq': None,
+                            'play_seq': seq,
+                            'lag': now - target,
+                        }
+                        ok = await self._send_pcm_frame(chunk, wait_info=wait_info)
+                        if not ok:
+                            return
+                        self._tx_clock_frames += 1
+                        self._tx_stream_play_chunks += 1
+                    await asyncio.sleep(tick)
+            finally:
+                self.playing = False
+                try:
+                    stream_done.set()
+                except Exception:
+                    pass
+
+        try:
+            async for msg in ws:
+                if isinstance(msg, (bytes, bytearray)):
+                    if streaming_opus:
+                        # Do not start playback just because Website announced
+                        # the format. Start decoding/pacing only after the
+                        # first audio bytes arrive.
+                        if opus_pipeline is None:
+                            opus_stream_buffer.clear()
+                            stream_queue = asyncio.Queue(64)
+                            stream_done.clear()
+                            stream_consumer = asyncio.create_task(_stream_consumer())
+                            opus_pipeline = await self._start_opus_stream_decoder(opus_sr, stream_queue)
+                            print(f"VA RT: stream opus sr={opus_sr} pipeline={bool(opus_pipeline)}")
+                        if opus_pipeline:
+                            await self._write_opus_stream(opus_pipeline, msg)
+                        else:
+                            opus_stream_buffer.extend(msg)
+                    continue
+
+                try:
+                    data = json.loads(msg)
+                except Exception:
+                    data = None
+                if not isinstance(data, dict):
+                    continue
+
+                audio = data.get('audio') if isinstance(data.get('audio'), dict) else None
+                if audio and audio.get('format') == 'opus':
+                    streaming_opus = True
+                    opus_sr = int(audio.get('sr', 24000) or 24000)
+                    # Only record format; actual playback begins on first bytes.
+                    opus_stream_buffer.clear()
+                    stream_queue = None
+                    stream_consumer = None
+                    opus_pipeline = None
+                    continue
+
+                if data.get('turn') == 'done':
+                    # Finish playback for this turn.
+                    print("VA RT: turn done")
+                    # From this point on we are no longer *waiting* for the
+                    # cloud response. Clear the flag immediately so follow-up
+                    # speech can be captured even while we still drain buffered
+                    # speaker audio frames.
+                    self.awaiting_response = False
+                    self._followup_unlocked = True
+                    if streaming_opus:
+                        if opus_pipeline:
+                            await self._stop_opus_stream_decoder(opus_pipeline)
+                            opus_pipeline = None
+                            if stream_queue is not None:
+                                await stream_queue.put(None)
+                                if stream_consumer:
+                                    await stream_done.wait()
+                        else:
+                            pcm_out = await self._decode_opus_stream(bytes(opus_stream_buffer), opus_sr)
+                            if pcm_out:
+                                await self._play_to_device(pcm_out)
+                        opus_stream_buffer.clear()
+                        # Keep `streaming_opus=True` for the lifetime of the
+                        # Website realtime websocket. The Website announces the
+                        # audio format once on connect, then sends raw Opus
+                        # bytes for every turn. If we reset this flag here,
+                        # subsequent turn audio bytes are ignored.
+
+                    self._rt_pending_turn_seq = None
+                    try:
+                        if self._rt_fallback_task and not self._rt_fallback_task.done():
+                            self._rt_fallback_task.cancel()
+                    except Exception:
+                        pass
+                    if self.active and not self.playing and not self._end_after_playback:
+                        await self._start_followup_timer()
+                    continue
+
+                if data.get('session') == 'finish':
+                    self._end_after_playback = True
+                    print(f"VA RT: session finish status={data.get('status')}")
+                    try:
+                        await self.c.send_data(
+                            {'command': 'va', 'session': 'finish', 'status': data.get('status', 'success')}
+                        )
+                    except Exception:
+                        pass
+                    continue
+
+                if 'reasoning' in data:
+                    # Website is the authority for turn commit/response start.
+                    # When it signals `reasoning=True`, it has committed input
+                    # and started generating a response. Clear any local audio
+                    # capture buffer so we don't later finalize and send a
+                    # redundant commit (which can leave us stuck awaiting a
+                    # response that will never come).
+                    if data.get('reasoning') is True:
+                        if not self.awaiting_response:
+                            print("VA RT: server commit (reasoning)")
+                        self.awaiting_response = True
+                        try:
+                            self.capture_buf.clear()
+                            self.last_chunk_ts = 0.0
+                            self._rx_started = False
+                        except Exception:
+                            pass
+                        try:
+                            if self._finalizer_task and not self._finalizer_task.done():
+                                self._finalizer_task.cancel()
+                        except Exception:
+                            pass
+                    try:
+                        await self.c.send_data({'command': 'va', 'reasoning': bool(data['reasoning'])})
+                    except Exception:
+                        pass
+                    continue
+        finally:
+            self.awaiting_response = False
+            try:
+                if stream_queue is not None:
+                    try:
+                        await stream_queue.put(None)
+                    except Exception:
+                        pass
+                if stream_consumer and not stream_consumer.done():
+                    stream_consumer.cancel()
+                    try:
+                        await stream_consumer
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+            # Ensure we never get stuck in playing=True on dropped streams.
+            self.playing = False
+            self._play_start_ts = None
+            try:
+                if opus_pipeline:
+                    await self._stop_opus_stream_decoder(opus_pipeline)
+            except Exception:
+                pass
 
     async def _send_pcm_frame(self, pcm_chunk: bytes, wait_info=None) -> bool:
         if not pcm_chunk or (len(pcm_chunk) & 1):
@@ -1205,10 +1710,31 @@ class VoiceAssistantSession:
                 self.c._arb = None
         except Exception:
             pass
-        for t in (self._finalizer_task, self._cloud_task, self._play_task, self._followup_task):
+        try:
+            self._rt_send_queue.put_nowait(None)
+        except Exception:
+            pass
+        # Drop any queued audio so next session starts clean.
+        try:
+            self._rt_send_queue = asyncio.Queue(256)
+        except Exception:
+            pass
+        for t in (
+            self._finalizer_task,
+            self._cloud_task,
+            self._rt_task,
+            self._rt_tx_task,
+            self._rt_rx_task,
+            self._rt_fallback_task,
+            self._play_task,
+            self._followup_task,
+        ):
             if t and not t.done():
                 t.cancel()
-        self._finalizer_task = self._cloud_task = self._play_task = self._followup_task = None
+        self._finalizer_task = self._cloud_task = None
+        self._rt_task = self._rt_tx_task = self._rt_rx_task = None
+        self._rt_fallback_task = None
+        self._play_task = self._followup_task = None
         await self._set_is_vo_active(False)
         if cloud_also:
             await self._finish_cloud_session()

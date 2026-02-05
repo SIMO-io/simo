@@ -2,6 +2,9 @@ import pytz
 import datetime
 import logging
 import json
+from typing import Any, TypeAlias
+
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 from concurrent.futures import ThreadPoolExecutor
 from asgiref.sync import sync_to_async
 from django.db import close_old_connections
@@ -16,6 +19,43 @@ from .serializers import MCPBasicZoneSerializer, MCPFullComponentSerializer
 from .utils.type_constants import BASE_TYPE_CLASS_MAP
 
 log = logging.getLogger(__name__)
+
+
+class ExecuteComponentMethodOperation(BaseModel):
+    model_config = ConfigDict(extra='ignore', populate_by_name=True)
+
+    component_id: int = Field(
+        ...,
+        description=(
+            "Numeric component ID (database primary key). "
+            "Always use the numeric `id` from `core.get_state` or `core.get_component`."
+        ),
+        validation_alias=AliasChoices('component_id', 'id'),
+    )
+    method_name: str = Field(
+        ...,
+        description="Controller method name to execute (e.g. `turn_off`).",
+        validation_alias=AliasChoices('method_name', 'method'),
+    )
+    args: list[Any] | None = Field(
+        default=None,
+        description="Positional arguments for the method (or null).",
+    )
+    kwargs: dict[str, Any] | None = Field(
+        default=None,
+        description="Keyword arguments for the method (or null).",
+    )
+
+
+ExecuteComponentMethodOp2: TypeAlias = tuple[int, str]
+ExecuteComponentMethodOp3: TypeAlias = tuple[int, str, list[Any] | None]
+ExecuteComponentMethodOp4: TypeAlias = tuple[int, str, list[Any] | None, dict[str, Any] | None]
+ExecuteComponentMethodOp: TypeAlias = (
+    ExecuteComponentMethodOperation
+    | ExecuteComponentMethodOp2
+    | ExecuteComponentMethodOp3
+    | ExecuteComponentMethodOp4
+)
 
 
 @mcp.tool(name="core.get_state")
@@ -51,7 +91,7 @@ async def get_state() -> dict:
                 "name": str(cls.name),
                 "description": str(cls.description),
                 "purpose": str(cls.purpose),
-                "basic_methods": str(cls.required_methods),
+                "basic_methods": list(cls.required_methods or ()),
             }
         return data
 
@@ -144,28 +184,21 @@ async def get_component_value_change_history(
 
 @mcp.tool(name="core.execute_component_methods")
 async def execute_component_methods(
-    operations: list
+    operations: list[ExecuteComponentMethodOp]
 ):
     """
     Execute many component method calls in parallel and return their outputs
     in the original order.
 
-    ``operations`` must be a list where every element is either
-    ``[component_id, method_name]`` or
-    ``[component_id, method_name, args, kwargs]``. ``args`` must be a list (or
-    ``None``) and ``kwargs`` a dict (or ``None``). The tool fans out the calls
-    concurrently so long-running components do not block others. Example:
+    ``operations`` must be a list, each element describing a single component
+    method call. Component identifiers MUST be numeric component IDs.
 
-    ``operations`` may use positional lists/tuples or keyword dictionaries.
-    Valid formats:
+    Supported operation formats:
 
-    - ``[component_id, method_name]``
-    - ``[component_id, method_name, args, kwargs]``
-    - ``{"component_id": 101, "method_name": "turn_on", "args": [], "kwargs": {}}``
-
-    ``args`` must be a list (or ``None``) and ``kwargs`` a dict (or ``None``).
-    The tool fans out the calls concurrently so long-running components do not
-    block others. Example: ``[[101, "turn_on"], [202, "set_level", [75], None]]``
+    - ``{"component_id": 101, "method_name": "turn_on"}``
+    - ``{"component_id": 101, "method_name": "send", "args": [75]}``
+    - ``[101, "turn_on"]``
+    - ``[202, "send", [75], null]``
 
     Always expect the response list to align positionally with the operations
     you supplied. This makes it easy for AI orchestrators to fan out work and
@@ -191,16 +224,20 @@ async def execute_component_methods(
             return []
 
         def _normalize(op):
+            if isinstance(op, ExecuteComponentMethodOperation):
+                return op.component_id, op.method_name, op.args, op.kwargs
             if isinstance(op, dict):
                 component_id = op.get('component_id') or op.get('id')
                 method_name = op.get('method_name') or op.get('method')
                 args = op.get('args')
                 kwargs = op.get('kwargs')
-            else:
-                component_id = op[0]
-                method_name = op[1]
-                args = op[2] if len(op) > 2 else None
-                kwargs = op[3] if len(op) > 3 else None
+                return component_id, method_name, args, kwargs
+
+            # Array/tuple form: [component_id, method_name, args?, kwargs?]
+            component_id = op[0]
+            method_name = op[1]
+            args = op[2] if len(op) > 2 else None
+            kwargs = op[3] if len(op) > 3 else None
             return component_id, method_name, args, kwargs
 
         def _run(op):
