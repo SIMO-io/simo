@@ -1,4 +1,5 @@
 import tempfile
+from unittest import mock
 
 from django.test import Client, override_settings
 from django.utils import timezone
@@ -197,6 +198,18 @@ class CoreSettingsStatesComponentsTests(BaseSimoTestCase):
             format='json',
         )
         self.assertEqual(resp.status_code, 400)
+
+    def test_settings_get_falls_back_to_dev_when_metadata_missing(self):
+        from simo.core.utils import version as version_utils
+
+        with mock.patch(
+            'simo.core.utils.version.metadata.version',
+            side_effect=version_utils.metadata.PackageNotFoundError('simo'),
+        ):
+            resp = self.api.get(f'/api/{self.inst.slug}/core/settings/')
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json().get('version'), 'dev')
 
     def test_settings_patch_updates_instance(self):
         from simo.generic.controllers import SwitchGroup
