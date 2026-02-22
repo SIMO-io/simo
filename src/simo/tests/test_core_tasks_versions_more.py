@@ -32,8 +32,8 @@ def _mk_case(versions):
             mock.patch('simo.core.tasks.requests.get', return_value=resp),
             mock.patch('simo.conf.dynamic_settings', ds),
             mock.patch(
-                'simo.core.tasks.pkg_resources.get_distribution',
-                return_value=mock.Mock(version='0.0.0'),
+                'simo.core.tasks.get_simo_version',
+                return_value='0.0.0',
             ),
             mock.patch('simo.core.models.Instance.objects.all', return_value=inst_qs),
             mock.patch('simo.core.tasks.update.s', return_value='sig'),
@@ -63,4 +63,3 @@ for idx, versions in enumerate(_CASES):
         f'test_case_{idx}',
         _mk_case(versions),
     )
-

@@ -1,7 +1,7 @@
 import importlib
 import simo
-import pkg_resources
 from simo.core.utils.helpers import get_self_ip
+from simo.core.utils.version import get_simo_version
 from django.apps import apps
 from simo.core.models import Instance
 from simo.conf import dynamic_settings
@@ -14,10 +14,7 @@ def additional_templates_context(request):
         instances = Instance.objects.none()
     else:
         instances = request.user.instances
-    try:
-        version = pkg_resources.get_distribution('simo').version
-    except:
-        version = 'dev'
+    version = get_simo_version()
     ctx = {
         'hub_ip': get_self_ip(),
         'dynamic_settings': dynamic_settings,

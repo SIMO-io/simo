@@ -90,7 +90,7 @@ class TestMaybeUpdateToLatestMore(SimpleTestCase):
         with (
             mock.patch('simo.core.tasks.requests.get', return_value=resp),
             mock.patch('simo.conf.dynamic_settings', ds),
-            mock.patch('simo.core.tasks.pkg_resources.get_distribution', return_value=mock.Mock(version='1.2.3')),
+            mock.patch('simo.core.tasks.get_simo_version', return_value='1.2.3'),
         ):
             out = maybe_update_to_latest()
 
@@ -110,7 +110,7 @@ class TestMaybeUpdateToLatestMore(SimpleTestCase):
         with (
             mock.patch('simo.core.tasks.requests.get', return_value=resp),
             mock.patch('simo.conf.dynamic_settings', ds),
-            mock.patch('simo.core.tasks.pkg_resources.get_distribution', return_value=mock.Mock(version='1.0.0')),
+            mock.patch('simo.core.tasks.get_simo_version', return_value='1.0.0'),
             mock.patch('simo.core.models.Instance.objects.all', return_value=inst_qs),
             mock.patch('builtins.print') as printer,
         ):

@@ -16,7 +16,7 @@ class TemplateContextTests(SimpleTestCase):
             mock.patch('simo.core.context.is_update_available', autospec=True, return_value=False),
             mock.patch('simo.core.context.get_current_instance', autospec=True, return_value=None),
             mock.patch('simo.core.context.dynamic_settings', {'x': 1}),
-            mock.patch('simo.core.context.pkg_resources.get_distribution', autospec=True, side_effect=Exception('nope')),
+            mock.patch('simo.core.context.get_simo_version', autospec=True, return_value='dev'),
         ):
             ctx = additional_templates_context(req)
 

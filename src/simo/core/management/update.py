@@ -2,7 +2,7 @@ import requests
 import sys
 import os
 import subprocess
-import pkg_resources
+from simo.core.utils.version import get_simo_version
 
 
 HUB_DIR = '/etc/SIMO/hub'
@@ -54,9 +54,8 @@ def maybe_update():
     if not os.path.exists('/etc/SIMO/_var/auto_update'):
         print("Auto updates are disabled")
     else:
-        try:
-            current = pkg_resources.get_distribution('simo').version
-        except:
+        current = get_simo_version(default='')
+        if not current:
             return
         resp = requests.get("https://pypi.org/pypi/simo/json")
         if resp.status_code != 200:

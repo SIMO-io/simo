@@ -129,7 +129,7 @@ class CoreTasksTests(BaseSimoTestCase):
 
         with mock.patch('simo.core.tasks.requests.get', autospec=True, return_value=resp), \
                 mock.patch('simo.conf.dynamic_settings', ds), \
-                mock.patch('simo.core.tasks.pkg_resources.get_distribution', autospec=True, return_value=mock.Mock(version='1.0.0')), \
+                mock.patch('simo.core.tasks.get_simo_version', autospec=True, return_value='1.0.0'), \
                 mock.patch('simo.core.models.Instance.objects.all', autospec=True) as all_qs, \
                 mock.patch('simo.core.tasks.update.s', autospec=True, return_value='sig'):
             all_qs.return_value.count.return_value = 0

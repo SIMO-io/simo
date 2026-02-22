@@ -6,7 +6,6 @@ import datetime
 import requests
 import subprocess
 import threading
-import pkg_resources
 import uuid
 from urllib.parse import urlparse
 from django.db.models import Q, Max, F, Window
@@ -19,6 +18,7 @@ from django.utils import timezone
 from actstream.models import Action
 from simo.conf import dynamic_settings
 from simo.core.utils.helpers import get_self_ip
+from simo.core.utils.version import get_simo_version
 from simo.core.middleware import introduce_instance, drop_current_instance
 from simo.users.models import PermissionsRole, InstanceUser
 from .models import Instance, Component, ComponentHistory, HistoryAggregate
@@ -138,10 +138,7 @@ def sync_with_remote():
     except:
         mac = ''
 
-    try:
-        version = pkg_resources.get_distribution('simo').version
-    except:
-        version = 'dev'
+    version = get_simo_version()
 
     report_data = {
         'simo_version': version,
@@ -567,11 +564,7 @@ def maybe_update_to_latest():
     versions.sort(reverse=True, key=version_no)
     dynamic_settings['core__latest_version_available'] = versions[0]
 
-    try:
-        version = pkg_resources.get_distribution('simo').version
-    except:
-        # dev environment
-        version = dynamic_settings['core__latest_version_available']
+    version = get_simo_version(default=dynamic_settings['core__latest_version_available'])
 
     if dynamic_settings['core__latest_version_available'] == version:
         print("Up to date!")

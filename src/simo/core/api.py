@@ -2,12 +2,12 @@ import datetime
 from calendar import monthrange
 import pytz
 import time
-import pkg_resources
 from django.conf import settings
 from django.utils.translation import gettext_lazy as _
 from django.utils import timezone
 from django.http import HttpResponse, Http404
 from simo.core.utils.helpers import get_self_ip, search_queryset
+from simo.core.utils.version import get_simo_version
 from simo.core.middleware import introduce_instance
 from rest_framework import status
 from actstream.models import Action
@@ -615,10 +615,7 @@ class SettingsViewSet(InstanceMixin, viewsets.GenericViewSet):
         else:
             main_state = None
 
-        try:
-            version = pkg_resources.get_distribution('simo').version
-        except:
-            version = 'dev'
+        version = get_simo_version()
 
         return RESTResponse({
             'hub_uid': dynamic_settings['core__hub_uid'],
