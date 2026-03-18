@@ -361,10 +361,33 @@ def post_component_save(sender, instance, created, *args, **kwargs):
         return
     if 'config' not in instance.get_dirty_fields():
         return
-    colonel = Colonel.objects.filter(id=instance.config.get('colonel', 0)).first()
+
+    colonel_id = instance.config.get('colonel')
+    colonel = None
+    if colonel_id:
+        colonel = Colonel.objects.filter(id=colonel_id).first()
+        if colonel:
+            colonel.components.add(instance)
+
+    # Keep Colonel.components in sync with Component.config['colonel'].
+    # The M2M relation is treated as a cache elsewhere, so it must not retain
+    # stale links when a component is re-assigned.
+    stale_colonels = list(Colonel.objects.filter(components=instance))
+    if colonel:
+        stale_colonels = [c for c in stale_colonels if c.id != colonel.id]
+
+    for other in stale_colonels:
+        other.components.remove(instance)
+
     if not colonel:
+        def update_stale_colonels():
+            for other in stale_colonels:
+                other.rebuild_occupied_pins()
+                other.save()
+                other.update_config()
+
+        transaction.on_commit(update_stale_colonels)
         return
-    colonel.components.add(instance)
 
     # ------------------------------------------------------------------
     # InterfaceAddress occupancy sync (always run for fleet components)
@@ -387,6 +410,16 @@ def post_component_save(sender, instance, created, *args, **kwargs):
         RoomPresenceSensor, RoomZonePresenceSensor
     ):
         return
+
+    if stale_colonels:
+        def update_stale_colonels():
+            for other in stale_colonels:
+                other.rebuild_occupied_pins()
+                other.save()
+                other.update_config()
+
+        transaction.on_commit(update_stale_colonels)
+
     colonel.rebuild_occupied_pins()
     colonel.save()
     colonel.update_config()

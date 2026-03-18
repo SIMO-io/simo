@@ -1566,13 +1566,27 @@ class MainState(StateSelect):
         if localtime < night_start:
             return 'evening'
 
-        # Morning begins at configured hour (while still dark).
-        if localtime.weekday() < 5:
-            if localtime.hour >= self.component.config.get('weekdays_morning_hour', 6):
-                return 'morning'
+        morning_date = dark_start_day.date() + datetime.timedelta(days=1)
+        if morning_date.weekday() < 5:
+            morning_hour = self.component.config.get('weekdays_morning_hour', 6)
         else:
-            if localtime.hour >= self.component.config.get('weekends_morning_hour', 7):
-                return 'morning'
+            morning_hour = self.component.config.get('weekends_morning_hour', 7)
+        try:
+            morning_hour = int(morning_hour)
+        except Exception:
+            morning_hour = 6
+        if morning_hour < 0 or morning_hour > 23:
+            morning_hour = 6
+
+        morning_start = timezone.make_aware(
+            datetime.datetime.combine(morning_date, datetime.time(morning_hour, 0)),
+            timezone.get_current_timezone(),
+        )
+
+        # Morning begins at configured hour on the next calendar day,
+        # while it is still dark.
+        if localtime >= morning_start:
+            return 'morning'
 
         # 0 - 6AM and still dark
         return 'night'

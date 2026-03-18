@@ -1,3 +1,4 @@
+import copy
 import traceback, json
 from dal import forward
 from django.contrib.admin.forms import AdminAuthenticationForm as OrgAdminAuthenticationForm
@@ -319,8 +320,10 @@ class ComponentAdminForm(forms.ModelForm):
                 self.instance.value = self.controller.default_value
                 self.instance.value_units = self.controller.default_value_units
                 self.instance.value_previous = self.controller.default_value
-                self.instance.config = self.controller.default_config
-                self.instance.meta = self.controller.default_meta
+                # `default_config`/`default_meta` are often dicts and must not be
+                # shared between component instances.
+                self.instance.config = copy.deepcopy(self.controller.default_config)
+                self.instance.meta = copy.deepcopy(self.controller.default_meta)
 
         self.cleanup_missing_keys(kwargs.get("data"), kwargs.get("files"))
 
