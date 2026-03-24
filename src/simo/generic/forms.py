@@ -77,41 +77,41 @@ class ThermostatConfigForm(BaseComponentForm):
     temperature_sensor = Select2ModelChoiceField(
         queryset=Component.objects.filter(
             base_type__in=(
-                NumericSensor.base_type,
-                MultiSensor.base_type
+                NumericSensor.base_type.slug,
+                MultiSensor.base_type.slug
             )
         ),
         url='autocomplete-component',
         forward=(
             forward.Const([
-                NumericSensor.base_type,
-                MultiSensor.base_type
+                NumericSensor.base_type.slug,
+                MultiSensor.base_type.slug
             ], 'base_type'),
         )
     )
     # TODO: support for multiple heaters
     heaters = Select2ModelMultipleChoiceField(
         queryset=Component.objects.filter(
-            base_type__in=(Switch.base_type, Dimmer.base_type)
+            base_type__in=(Switch.base_type.slug, Dimmer.base_type.slug)
         ),
         required=False,
         url='autocomplete-component',
         forward=(
             forward.Const([
-                Switch.base_type, Dimmer.base_type
+                Switch.base_type.slug, Dimmer.base_type.slug
             ], 'base_type'),
         )
     )
     # TODO: support for multiple coolers
     coolers = Select2ModelMultipleChoiceField(
         queryset=Component.objects.filter(
-            base_type__in=(Switch.base_type, Dimmer.base_type)
+            base_type__in=(Switch.base_type.slug, Dimmer.base_type.slug)
         ),
         required=False,
         url='autocomplete-component',
         forward=(
             forward.Const([
-                Switch.base_type, Dimmer.base_type
+                Switch.base_type.slug, Dimmer.base_type.slug
             ], 'base_type'),
         )
 
