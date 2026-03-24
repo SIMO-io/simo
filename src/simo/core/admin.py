@@ -6,6 +6,7 @@ from django.utils.safestring import mark_safe
 from easy_thumbnails.fields import ThumbnailerField
 from adminsortable2.admin import SortableAdminMixin
 from django.template.loader import render_to_string
+from django.template import TemplateDoesNotExist
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_protect
 from django.shortcuts import redirect, render
@@ -492,11 +493,13 @@ class ComponentAdmin(EasyObjectsDeleteMixin, admin.ModelAdmin):
     name_display.short_description = _("name")
 
     def control(self, obj):
-        return render_to_string(
-            obj.controller.admin_widget_template, {
-                'obj': obj, 'global_preferences': dynamic_settings
-            }
-        )
+        ctx = {'obj': obj, 'global_preferences': dynamic_settings}
+        try:
+            return render_to_string(obj.controller.admin_widget_template, ctx)
+        except TemplateDoesNotExist:
+            return render_to_string(
+                'admin/controller_widgets/generic.html', ctx
+            )
 
     def info(self, obj):
         if not obj.controller:

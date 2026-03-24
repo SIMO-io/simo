@@ -91,7 +91,9 @@ class ThermostatConfigForm(BaseComponentForm):
     )
     # TODO: support for multiple heaters
     heaters = Select2ModelMultipleChoiceField(
-        queryset=Component.objects.filter(base_type=Switch.base_type),
+        queryset=Component.objects.filter(
+            base_type__in=(Switch.base_type, Dimmer.base_type)
+        ),
         required=False,
         url='autocomplete-component',
         forward=(
@@ -102,7 +104,9 @@ class ThermostatConfigForm(BaseComponentForm):
     )
     # TODO: support for multiple coolers
     coolers = Select2ModelMultipleChoiceField(
-        queryset=Component.objects.filter(base_type=Switch.base_type),
+        queryset=Component.objects.filter(
+            base_type__in=(Switch.base_type, Dimmer.base_type)
+        ),
         required=False,
         url='autocomplete-component',
         forward=(
