@@ -7,7 +7,7 @@ from django.db.models import Q
 from django.utils.translation import gettext_lazy as _
 from django.core.files.uploadedfile import InMemoryUploadedFile
 from simo.core.forms import HiddenField, BaseComponentForm
-from simo.core.models import Component
+from simo.core.models import Component, Zone
 from simo.core.controllers import (
     NumericSensor, MultiSensor, Switch, Dimmer
 )
@@ -130,12 +130,44 @@ class ThermostatConfigForm(BaseComponentForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        target_instance_id = None
+        if self.instance.pk and self.instance.zone_id:
+            target_instance_id = self.instance.zone.instance_id
+        elif 'zone' in self.data:
+            zone_id = self.data.get('zone')
+            try:
+                target_instance_id = Zone._base_manager.filter(
+                    pk=zone_id
+                ).values_list('instance_id', flat=True).first()
+            except Exception:
+                target_instance_id = None
+
+        sensors_qs = Component._base_manager.filter(
+            base_type__in=(
+                NumericSensor.base_type.slug,
+                MultiSensor.base_type.slug,
+            )
+        )
+        outputs_qs = Component._base_manager.filter(
+            base_type__in=(
+                Switch.base_type.slug,
+                Dimmer.base_type.slug,
+            )
+        )
+        if target_instance_id:
+            sensors_qs = sensors_qs.filter(zone__instance_id=target_instance_id)
+            outputs_qs = outputs_qs.filter(zone__instance_id=target_instance_id)
+
+        self.fields['temperature_sensor'].queryset = sensors_qs
+        self.fields['heaters'].queryset = outputs_qs
+        self.fields['coolers'].queryset = outputs_qs
+
         if self.instance.pk:
             temperature_sensor = Component.objects.filter(
                 pk=self.instance.config.get('temperature_sensor', 0)
             ).first()
             if temperature_sensor \
-            and temperature_sensor.base_type == MultiSensor.base_type:
+            and temperature_sensor.base_type == MultiSensor.base_type.slug:
                 self.fields['use_real_feel'].initial = self.instance.config[
                     'user_config'
                 ].get('use_real_feel')
@@ -153,7 +185,7 @@ class ThermostatConfigForm(BaseComponentForm):
             )
         self.instance.config['has_real_feel'] = True if self.cleaned_data[
             'temperature_sensor'
-        ].base_type == MultiSensor.base_type else False
+        ].base_type == MultiSensor.base_type.slug else False
         self.instance.config['user_config']['use_real_feel'] = \
         self.cleaned_data.get('use_real_feel', False)
         return super().save(commit)

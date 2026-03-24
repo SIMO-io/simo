@@ -4,6 +4,7 @@ from django.contrib.admin.sites import AdminSite
 from django.template import TemplateDoesNotExist
 
 from simo.core.models import Component, Gateway, Zone
+from simo.core.middleware import introduce_instance
 
 from .base import BaseSimoTestCase, mk_instance
 
@@ -68,6 +69,8 @@ class ThermostatFormAndAdminTests(BaseSimoTestCase):
             },
             value_units='C',
         )
+        self.other_inst = mk_instance('inst-b', 'B')
+        self.other_zone = Zone.objects.create(instance=self.other_inst, name='Z2', order=0)
 
     def test_thermostat_form_accepts_dimmer_for_heaters_and_coolers(self):
         from simo.generic.forms import ThermostatConfigForm
@@ -96,6 +99,26 @@ class ThermostatFormAndAdminTests(BaseSimoTestCase):
             [obj.id for obj in form.cleaned_data['heaters']],
             [self.dimmer.id],
         )
+
+    def test_existing_thermostat_form_uses_component_instance_not_current_context(self):
+        from simo.generic.forms import ThermostatConfigForm
+
+        introduce_instance(self.other_inst)
+        form = ThermostatConfigForm(
+            instance=self.thermostat,
+            data={
+                'name': 'Thermostat',
+                'zone': self.zone.id,
+                'temperature_sensor': self.sensor.id,
+                'heaters': [str(self.dimmer.id)],
+                'coolers': [str(self.dimmer.id)],
+                'engagement': 'dynamic',
+                'min': '4',
+                'max': '36',
+            },
+        )
+
+        self.assertTrue(form.is_valid(), form.errors)
 
     def test_component_admin_control_falls_back_when_widget_template_is_missing(self):
         from simo.core.admin import ComponentAdmin
