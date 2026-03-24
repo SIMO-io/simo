@@ -1,4 +1,5 @@
-from simo.core.models import Gateway, Zone
+from simo.core.models import Component, Gateway, Zone
+from simo.core.middleware import introduce_instance
 from simo.fleet.controllers import Gate
 from simo.fleet.forms import GateConfigForm
 from simo.fleet.gateways import FleetGatewayHandler
@@ -15,6 +16,7 @@ class GateConfigFormTests(BaseSimoTestCase):
         self.inst.save(update_fields=['location'])
         self.zone = Zone.objects.create(instance=self.inst, name='Z', order=0)
         Gateway.objects.get_or_create(type=FleetGatewayHandler.uid)
+        self.fleet_gw = Gateway.objects.get(type=FleetGatewayHandler.uid)
         self.colonel = Colonel.objects.create(
             instance=self.inst, uid='c-1', type='sentinel', name='C1'
         )
@@ -54,3 +56,38 @@ class GateConfigFormTests(BaseSimoTestCase):
 
         self.assertTrue(form.is_valid(), form.errors)
         self.assertEqual(form.cleaned_data['auto_open_distance'], '200 m')
+
+    def test_partial_form_without_location_does_not_crash(self):
+        introduce_instance(self.inst)
+        gate = Component.objects.create(
+            name='Gate base',
+            zone=self.zone,
+            category=None,
+            gateway=self.fleet_gw,
+            base_type='gate',
+            controller_uid=Gate.uid,
+            config={
+                'colonel': self.colonel.id,
+                'open_pin_no': self.open_pin.no,
+                'open_action': 'HIGH',
+                'close_action': 'HIGH',
+                'control_method': 'pulse',
+                'closed_value': 'LOW',
+                'open_duration': 30,
+                'auto_open_distance': '100 m',
+                'location': '0,0',
+            },
+            meta={},
+            value=0,
+        )
+
+        form = GateConfigForm(
+            instance=gate,
+            data={
+                'name': 'Gate 1',
+                'zone': self.zone.id,
+                'auto_open_distance': '200 m',
+            },
+        )
+
+        self.assertNotIn('location', form.fields)

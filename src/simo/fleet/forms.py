@@ -1329,8 +1329,11 @@ class GateConfigForm(ColonelComponentForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        if not self.fields['location'].initial:
-            self.fields['location'].initial = get_current_instance().location
+        location_field = self.fields.get('location')
+        if location_field and not location_field.initial:
+            current_instance = get_current_instance()
+            if current_instance:
+                location_field.initial = current_instance.location
 
     def clean_auto_open_distance(self):
         raw_distance = self.cleaned_data.get('auto_open_distance')
