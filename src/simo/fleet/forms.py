@@ -1332,12 +1332,12 @@ class GateConfigForm(ColonelComponentForm):
         if not self.fields['location'].initial:
             self.fields['location'].initial = get_current_instance().location
 
-    def clean_distance(self):
-        distance = self.cleaned_data.get('auto_open_distance')
-        if not distance:
-            return distance
+    def clean_auto_open_distance(self):
+        raw_distance = self.cleaned_data.get('auto_open_distance')
+        if not raw_distance:
+            return raw_distance
         try:
-            distance = input_to_meters(distance)
+            distance = input_to_meters(raw_distance)
         except Exception as e:
             raise forms.ValidationError(str(e))
 
@@ -1350,7 +1350,7 @@ class GateConfigForm(ColonelComponentForm):
                 "This is to high of a distance. Max 2 km is allowed."
             )
 
-        return distance
+        return raw_distance.strip()
 
 
     def clean(self):

@@ -144,7 +144,6 @@ class PresenceLighting(Script):
         super().__init__(*args, **kwargs)
         # script specific variables
         self.sensors = {}
-        self.sensor_true_since = {}
         self.condition_comps = {}
         self.light_org_values = {}
         self.light_send_values = {}
@@ -176,14 +175,13 @@ class PresenceLighting(Script):
             return value.strip().upper() in ('ON', 'TRUE', '1', 'YES')
         return bool(value)
 
-    def _mark_sensor_state(self, sensor):
-        if not sensor:
-            return
-        is_true = self._value_is_true(sensor.value)
-        if is_true:
-            self.sensor_true_since.setdefault(sensor.id, time.time())
-        else:
-            self.sensor_true_since.pop(sensor.id, None)
+    def _sensor_states_text(self):
+        if not self.sensors:
+            return 'no sensors'
+        return ', '.join(
+            f"{sensor}={self._value_is_true(sensor.value)}"
+            for sensor in self.sensors.values()
+        )
 
     def _ensure_expected_light_value(self, light_id, expected_val):
         now = time.time()
@@ -246,7 +244,6 @@ class PresenceLighting(Script):
                 if sensor:
                     sensor.on_change(self._on_sensor)
                     self.sensors[id] = sensor
-                    self._mark_sensor_state(sensor)
 
             for light_params in self.component.config['lights']:
                 if self._should_stop():
@@ -318,7 +315,7 @@ class PresenceLighting(Script):
     def _on_sensor(self, sensor=None):
         if sensor:
             self.sensors[sensor.id] = sensor
-            self._mark_sensor_state(sensor)
+            print(f"Sensor change: {sensor} -> {sensor.value}")
             self._regulate(on_sensor=True)
 
     def _on_condition(self, condition_comp=None):
@@ -338,22 +335,18 @@ class PresenceLighting(Script):
                 self.light_org_values[light.id] = light.value
 
     def _regulate(self, on_sensor=False, on_condition_change=False):
-        now = time.time()
-        presence_values = []
-        for sensor_id, sensor in self.sensors.items():
-            raw_is_true = self._value_is_true(sensor.value)
-            if raw_is_true and self.hold_time:
-                true_since = self.sensor_true_since.get(sensor_id)
-                if true_since and (now - true_since) > (self.hold_time * 20):
-                    raw_is_true = False
-            presence_values.append(raw_is_true)
+        sensor_states = self._sensor_states_text()
+        presence_values = [
+            self._value_is_true(sensor.value)
+            for sensor in self.sensors.values()
+        ]
         if self.component.config.get('act_on', 0) == 0:
             must_on = any(presence_values)
         else:
             must_on = all(presence_values)
 
         if must_on and on_sensor:
-            print("Presence detected!")
+            print(f"Presence detected! Sensors: {sensor_states}")
 
         if must_on:
             self.last_presence = 0
@@ -416,17 +409,34 @@ class PresenceLighting(Script):
 
         else:
             if not additional_conditions_met:
+                print(
+                    "Turning lights OFF because additional conditions are no "
+                    f"longer met. Sensors: {sensor_states}"
+                )
                 return self._turn_it_off()
             if not any(presence_values):
                 if not self.component.config.get('hold_time', 0):
+                    print(
+                        "No presence detected. Hold time disabled. "
+                        f"Sensors: {sensor_states}"
+                    )
                     return self._turn_it_off()
 
                 if not self.last_presence:
                     self.last_presence = time.time()
+                    print(
+                        "No presence detected. Starting hold timer for "
+                        f"{self.hold_time}s. Sensors: {sensor_states}"
+                    )
 
                 if self.hold_time and (
                     time.time() - self.hold_time > self.last_presence
                 ):
+                    print(
+                        "No presence detected long enough. "
+                        f"Hold time {self.hold_time}s elapsed. "
+                        f"Sensors: {sensor_states}"
+                    )
                     self._turn_it_off()
 
 
