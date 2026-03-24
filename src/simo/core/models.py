@@ -146,6 +146,7 @@ class Zone(DirtyFieldsMixin, models.Model, SimoAdminMixin):
     order = models.PositiveIntegerField(
         default=0, blank=False, null=False, db_index=True
     )
+    all_objects = models.Manager()
     objects = ZonesManager()
 
     # TODO: Admin ordering not working via remote!
@@ -455,6 +456,7 @@ class Component(DirtyFieldsMixin, models.Model, SimoAdminMixin, OnChangeMixin):
         )
     )
 
+    all_objects = models.Manager()
     objects = ComponentsManager()
 
     tracker = FieldTracker(fields=('value', 'arm_status'))

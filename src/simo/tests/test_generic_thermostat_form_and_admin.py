@@ -1,10 +1,12 @@
 from unittest import mock
 
 from django.contrib.admin.sites import AdminSite
+from django.test import RequestFactory
 from django.template import TemplateDoesNotExist
 
 from simo.core.models import Component, Gateway, Zone
-from simo.core.middleware import introduce_instance
+from simo.core.middleware import introduce_instance, get_current_instance
+from simo.users.models import User
 
 from .base import BaseSimoTestCase, mk_instance
 
@@ -139,3 +141,29 @@ class ThermostatFormAndAdminTests(BaseSimoTestCase):
             render_mock.call_args_list[1].args[0],
             'admin/controller_widgets/generic.html',
         )
+
+    def test_component_admin_change_view_switches_to_object_instance(self):
+        from django.contrib import admin
+        from simo.core.admin import ComponentAdmin
+
+        admin_obj = ComponentAdmin(Component, AdminSite())
+        request = RequestFactory().get('/admin/core/component/%s/change/' % self.thermostat.id)
+        request.user = User.objects.create(
+            email='master@example.com',
+            name='Master',
+            is_master=True,
+        )
+        request.session = {'instance_id': self.other_inst.id}
+
+        with mock.patch.object(
+            admin.ModelAdmin,
+            'change_view',
+            autospec=True,
+            side_effect=lambda _self, req, *a, **k: (
+                self.assertEqual(get_current_instance(), self.inst) or 'ok'
+            ),
+        ):
+            response = admin_obj.change_view(request, str(self.thermostat.id))
+
+        self.assertEqual(response, 'ok')
+        self.assertEqual(request.session['instance_id'], self.inst.id)

@@ -430,6 +430,16 @@ class ComponentAdmin(EasyObjectsDeleteMixin, admin.ModelAdmin):
             request.session.pop('add_comp_type')
         elif request.session.get('add_comp_gateway'):
             request.session.pop('add_comp_gateway')
+        object_id = kwargs.get('object_id')
+        if object_id is None and args:
+            object_id = args[0]
+        if object_id:
+            obj = Component.all_objects.select_related('zone__instance').filter(
+                pk=object_id
+            ).first()
+            if obj:
+                from simo.core.middleware import introduce_instance
+                introduce_instance(obj.zone.instance, request)
         return super().change_view(request, *args, **kwargs)
 
     def changelist_view(self, request, extra_context=None):

@@ -136,19 +136,19 @@ class ThermostatConfigForm(BaseComponentForm):
         elif 'zone' in self.data:
             zone_id = self.data.get('zone')
             try:
-                target_instance_id = Zone._base_manager.filter(
+                target_instance_id = Zone.all_objects.filter(
                     pk=zone_id
                 ).values_list('instance_id', flat=True).first()
             except Exception:
                 target_instance_id = None
 
-        sensors_qs = Component._base_manager.filter(
+        sensors_qs = Component.all_objects.filter(
             base_type__in=(
                 NumericSensor.base_type.slug,
                 MultiSensor.base_type.slug,
             )
         )
-        outputs_qs = Component._base_manager.filter(
+        outputs_qs = Component.all_objects.filter(
             base_type__in=(
                 Switch.base_type.slug,
                 Dimmer.base_type.slug,
@@ -163,7 +163,7 @@ class ThermostatConfigForm(BaseComponentForm):
         self.fields['coolers'].queryset = outputs_qs
 
         if self.instance.pk:
-            temperature_sensor = Component.objects.filter(
+            temperature_sensor = Component.all_objects.filter(
                 pk=self.instance.config.get('temperature_sensor', 0)
             ).first()
             if temperature_sensor \
