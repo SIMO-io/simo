@@ -46,6 +46,9 @@ from .forms import (
 # ----------- Generic controllers -----------------------------
 
 
+MULTI_SENSOR_BASE_TYPE = getattr(MultiSensor.base_type, 'slug', MultiSensor.base_type)
+
+
 
 class DimmableLightsGroup(Dimmer):
     name = _("Dimmable Lights Group")
@@ -204,7 +207,7 @@ class Thermostat(ControllerBase):
             self.component.save()
 
         current_temp = temperature_sensor.value
-        if temperature_sensor.base_type == MultiSensor.base_type:
+        if temperature_sensor.base_type == MULTI_SENSOR_BASE_TYPE:
             value_dict = {}
             for val in temperature_sensor.value:
                 value_dict[val[0]] = val[1]

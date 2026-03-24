@@ -12,7 +12,7 @@ django-admin-sortable2==2.1.10
 django-admin-shortcuts==3.0.1
 django-bootstrap4==3.0.1
 psycopg2==2.9.2
-django-model-utils==4.2.0
+django-model-utils==4.5.1
 django-dirtyfields==1.7.0
 paho-mqtt==1.6.1
 django-timezone-field==4.2.1

@@ -32,6 +32,16 @@ ACTION_METHODS = (
 )
 
 
+def _base_type_slug(base_type):
+    return getattr(base_type, 'slug', base_type)
+
+
+NUMERIC_SENSOR_BASE_TYPE = _base_type_slug(NumericSensor.base_type)
+MULTI_SENSOR_BASE_TYPE = _base_type_slug(MultiSensor.base_type)
+SWITCH_BASE_TYPE = _base_type_slug(Switch.base_type)
+DIMMER_BASE_TYPE = _base_type_slug(Dimmer.base_type)
+
+
 class ControlForm(forms.Form):
     button = Select2ModelChoiceField(
         queryset=Component.objects.filter(base_type='button'),
@@ -77,41 +87,41 @@ class ThermostatConfigForm(BaseComponentForm):
     temperature_sensor = Select2ModelChoiceField(
         queryset=Component.objects.filter(
             base_type__in=(
-                NumericSensor.base_type.slug,
-                MultiSensor.base_type.slug
+                NUMERIC_SENSOR_BASE_TYPE,
+                MULTI_SENSOR_BASE_TYPE
             )
         ),
         url='autocomplete-component',
         forward=(
             forward.Const([
-                NumericSensor.base_type.slug,
-                MultiSensor.base_type.slug
+                NUMERIC_SENSOR_BASE_TYPE,
+                MULTI_SENSOR_BASE_TYPE
             ], 'base_type'),
         )
     )
     # TODO: support for multiple heaters
     heaters = Select2ModelMultipleChoiceField(
         queryset=Component.objects.filter(
-            base_type__in=(Switch.base_type.slug, Dimmer.base_type.slug)
+            base_type__in=(SWITCH_BASE_TYPE, DIMMER_BASE_TYPE)
         ),
         required=False,
         url='autocomplete-component',
         forward=(
             forward.Const([
-                Switch.base_type.slug, Dimmer.base_type.slug
+                SWITCH_BASE_TYPE, DIMMER_BASE_TYPE
             ], 'base_type'),
         )
     )
     # TODO: support for multiple coolers
     coolers = Select2ModelMultipleChoiceField(
         queryset=Component.objects.filter(
-            base_type__in=(Switch.base_type.slug, Dimmer.base_type.slug)
+            base_type__in=(SWITCH_BASE_TYPE, DIMMER_BASE_TYPE)
         ),
         required=False,
         url='autocomplete-component',
         forward=(
             forward.Const([
-                Switch.base_type.slug, Dimmer.base_type.slug
+                SWITCH_BASE_TYPE, DIMMER_BASE_TYPE
             ], 'base_type'),
         )
 
@@ -144,14 +154,14 @@ class ThermostatConfigForm(BaseComponentForm):
 
         sensors_qs = Component.all_objects.filter(
             base_type__in=(
-                NumericSensor.base_type.slug,
-                MultiSensor.base_type.slug,
+                NUMERIC_SENSOR_BASE_TYPE,
+                MULTI_SENSOR_BASE_TYPE,
             )
         )
         outputs_qs = Component.all_objects.filter(
             base_type__in=(
-                Switch.base_type.slug,
-                Dimmer.base_type.slug,
+                SWITCH_BASE_TYPE,
+                DIMMER_BASE_TYPE,
             )
         )
         if target_instance_id:
@@ -167,7 +177,7 @@ class ThermostatConfigForm(BaseComponentForm):
                 pk=self.instance.config.get('temperature_sensor', 0)
             ).first()
             if temperature_sensor \
-            and temperature_sensor.base_type == MultiSensor.base_type.slug:
+            and temperature_sensor.base_type == MULTI_SENSOR_BASE_TYPE:
                 self.fields['use_real_feel'].initial = self.instance.config[
                     'user_config'
                 ].get('use_real_feel')
@@ -185,7 +195,7 @@ class ThermostatConfigForm(BaseComponentForm):
             )
         self.instance.config['has_real_feel'] = True if self.cleaned_data[
             'temperature_sensor'
-        ].base_type == MultiSensor.base_type.slug else False
+        ].base_type == MULTI_SENSOR_BASE_TYPE else False
         self.instance.config['user_config']['use_real_feel'] = \
         self.cleaned_data.get('use_real_feel', False)
         return super().save(commit)
@@ -421,11 +431,11 @@ class ContourForm(forms.Form):
     name = forms.CharField()
     switch = Select2ModelChoiceField(
         queryset=Component.objects.filter(
-            base_type__in=(Switch.base_type, Dimmer.base_type)
+            base_type__in=(SWITCH_BASE_TYPE, DIMMER_BASE_TYPE)
         ),
         url='autocomplete-component',
         forward=(
-            forward.Const([Switch.base_type], 'base_type'),
+            forward.Const([SWITCH_BASE_TYPE], 'base_type'),
         )
     )
     runtime = forms.IntegerField(
