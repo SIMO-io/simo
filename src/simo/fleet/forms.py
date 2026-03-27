@@ -1806,6 +1806,18 @@ class RoomPresenceSensorConfigForm(BaseComponentForm):
         help_text="Presence detection sensitivity. Accepted values: 1-19."
     )
 
+    def save(self, commit=True):
+        is_new = not self.instance.pk
+        obj = super().save(commit=commit)
+        if commit and not is_new and obj.config.get('colonel'):
+            GatewayObjectCommand(
+                obj.gateway, Colonel(id=obj.config['colonel']), id=obj.id,
+                command='call', method='update_config', args=[
+                    obj.controller._get_colonel_config()
+                ]
+            ).publish()
+        return obj
+
 
 def bind_component_to_security_alarm_group(component):
     alarm_group = Component.objects.filter(

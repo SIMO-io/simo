@@ -202,3 +202,46 @@ class FleetControllersMoreTests(BaseSimoTestCase):
             [value for value, _label in form.fields['sens'].choices],
             list(range(1, 20)),
         )
+
+    def test_room_presence_sensor_config_form_pushes_live_update_config(self):
+        from simo.core.events import GatewayObjectCommand
+        from simo.fleet.controllers import RoomPresenceSensor
+        from simo.fleet.forms import RoomPresenceSensorConfigForm
+
+        comp = self._mk_component(
+            controller_uid=RoomPresenceSensor.uid,
+            base_type='binary-sensor',
+            config={'colonel': self.colonel.id, 'sens': 10},
+            value=False,
+        )
+
+        GatewayObjectCommand.publish.reset_mock()
+        form = RoomPresenceSensorConfigForm(instance=comp, data={'sens': '14'})
+        self.assertTrue(form.is_valid(), form.errors)
+        obj = form.save()
+
+        self.assertEqual(obj.config.get('sens'), 14)
+        GatewayObjectCommand.publish.assert_called_once()
+        cmd_obj = GatewayObjectCommand.publish.call_args.args[0]
+        self.assertEqual(cmd_obj.data.get('command'), 'call')
+        self.assertEqual(cmd_obj.data.get('method'), 'update_config')
+        self.assertEqual(cmd_obj.data.get('id'), comp.id)
+
+    def test_room_presence_sensor_config_form_does_not_trigger_full_colonel_update(self):
+        from simo.fleet.controllers import RoomPresenceSensor
+        from simo.fleet.forms import RoomPresenceSensorConfigForm
+
+        comp = self._mk_component(
+            controller_uid=RoomPresenceSensor.uid,
+            base_type='binary-sensor',
+            config={'colonel': self.colonel.id, 'sens': 10},
+            value=False,
+        )
+
+        form = RoomPresenceSensorConfigForm(instance=comp, data={'sens': '12'})
+        self.assertTrue(form.is_valid(), form.errors)
+
+        with mock.patch('simo.fleet.models.Colonel.update_config', autospec=True) as update_config:
+            form.save()
+
+        update_config.assert_not_called()
