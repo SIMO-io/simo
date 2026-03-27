@@ -36,6 +36,7 @@ from .forms import (
     DaliSwitchConfigForm,
     DaliOccupancySensorConfigForm, DALILightSensorConfigForm,
     DALIButtonConfigForm, SentinelDeviceConfigForm,
+    RoomPresenceSensorConfigForm,
     RoomZonePresenceConfigForm, VoiceAssistantConfigForm
 )
 
@@ -1059,8 +1060,10 @@ class AmbientLightSensor(FleetDeviceMixin, BaseNumericSensor):
 
 class RoomPresenceSensor(FleetDeviceMixin, BaseBinarySensor):
     gateway_class = FleetGatewayHandler
+    config_form = RoomPresenceSensorConfigForm
     name = "Human presence sensor"
     manual_add = False
+    default_config = {'sens': 10}
 
 
 class RoomZonePresenceSensor(FleetDeviceMixin, BaseBinarySensor):

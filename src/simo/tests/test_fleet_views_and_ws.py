@@ -5,7 +5,7 @@ from asgiref.sync import async_to_sync
 from channels.testing import WebsocketCommunicator
 from django.test import Client
 
-from simo.core.models import Gateway
+from simo.core.models import Component, Gateway, Zone
 from simo.fleet.gateways import FleetGatewayHandler
 from simo.fleet.models import Colonel
 from simo.users.models import User
@@ -69,6 +69,57 @@ class FleetViewsTests(BaseSimoTestCase):
 
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.json(), [])
+
+    def test_sentinel_form_binds_presence_sensor_to_security_alarm_group(self):
+        from simo.fleet.forms import SentinelDeviceConfigForm
+        from simo.generic.controllers import AlarmGroup
+
+        inst = mk_instance('inst-b', 'B')
+        zone = Zone.objects.create(instance=inst, name='Z', order=0)
+        Gateway.objects.get_or_create(type=FleetGatewayHandler.uid)
+        generic_gw, _ = Gateway.objects.get_or_create(
+            type='simo.generic.gateways.GenericGatewayHandler'
+        )
+        colonel = Colonel.objects.create(
+            instance=inst,
+            uid='sentinel-1',
+            type='sentinel',
+            name='S',
+            firmware_version='1.0',
+            enabled=True,
+        )
+        alarm_group = Component.objects.create(
+            name='Security',
+            zone=zone,
+            category=None,
+            gateway=generic_gw,
+            base_type='alarm-group',
+            controller_uid=AlarmGroup.uid,
+            alarm_category='security',
+            config={'is_main': True, 'components': [], 'breach_events': []},
+            meta={'breach_times': [], 'events_triggered': []},
+            value='disarmed',
+        )
+
+        form = SentinelDeviceConfigForm(data={
+            'name': 'Sentinel',
+            'zone': str(zone.id),
+            'colonel': str(colonel.id),
+            'assistant': 'alora',
+            'language': 'en',
+        })
+        self.assertTrue(form.is_valid(), form.errors)
+
+        form.save()
+
+        presence_sensor = Component.objects.get(
+            zone=zone,
+            controller_uid='simo.fleet.controllers.RoomPresenceSensor',
+        )
+        self.assertEqual(presence_sensor.config.get('sens'), 10)
+
+        alarm_group.refresh_from_db()
+        self.assertIn(presence_sensor.id, alarm_group.config.get('components', []))
 
 
 class FleetConsumerWsTests(BaseSimoTransactionTestCase):

@@ -190,3 +190,15 @@ class FleetControllersMoreTests(BaseSimoTestCase):
         imperial_instance = mock.Mock(units_of_measure='imperial')
         with mock.patch('simo.fleet.controllers.get_current_instance', autospec=True, return_value=imperial_instance):
             self.assertEqual(ctrl.default_value_units, 'F')
+
+    def test_room_presence_sensor_config_form_exposes_at_sens_choices(self):
+        from simo.fleet.controllers import RoomPresenceSensor
+
+        form = RoomPresenceSensor.config_form(controller_uid=RoomPresenceSensor.uid)
+
+        self.assertIn('sens', form.fields)
+        self.assertEqual(form.fields['sens'].initial, 10)
+        self.assertEqual(
+            [value for value, _label in form.fields['sens'].choices],
+            list(range(1, 20)),
+        )

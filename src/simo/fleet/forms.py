@@ -1797,6 +1797,41 @@ class DALIButtonConfigForm(DALIDeviceConfigForm, BaseComponentForm):
     pass
 
 
+class RoomPresenceSensorConfigForm(BaseComponentForm):
+    sens = forms.TypedChoiceField(
+        label="AT+SENS",
+        coerce=int,
+        initial=10,
+        choices=tuple((value, str(value)) for value in range(1, 20)),
+        help_text="Presence detection sensitivity. Accepted values: 1-19."
+    )
+
+
+def bind_component_to_security_alarm_group(component):
+    alarm_group = Component.objects.filter(
+        zone__instance=component.zone.instance,
+        base_type='alarm-group',
+        alarm_category='security',
+        config__is_main=True,
+    ).first()
+    if not alarm_group:
+        alarm_group = Component.objects.filter(
+            zone__instance=component.zone.instance,
+            base_type='alarm-group',
+            alarm_category='security',
+        ).first()
+    if not alarm_group:
+        return
+
+    components = list(alarm_group.config.get('components') or [])
+    if component.id in components:
+        return
+
+    components.append(component.id)
+    alarm_group.config['components'] = components
+    alarm_group.controller.refresh_status()
+
+
 VO_LANGUAGES = [
     ('af', 'Afrikaans'),
     ('am', 'አማርኛ'),
@@ -2027,6 +2062,8 @@ class SentinelDeviceConfigForm(BaseComponentForm):
                 comp.value_units = CtrlClass.default_value_units
                 comp.config['colonel'] = colonel.id
                 comp.save()
+                if CtrlClass is RoomPresenceSensor:
+                    bind_component_to_security_alarm_group(comp)
                 last_comp = comp
             else:
                 raise Exception(form.errors)
