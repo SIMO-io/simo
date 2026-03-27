@@ -199,6 +199,25 @@ class AutomationGatewayScriptsTests(BaseSimoTestCase):
         self.script.refresh_from_db()
         self.assertEqual(self.script.value, 'stopped')
 
+    def test_stop_script_uses_pid_fallback_when_not_tracked(self):
+        from simo.automation import gateways as gw_mod
+
+        handler = self._mk_gateway()
+        self.script.value = 'running'
+        self.script.meta = {'pid': 4242}
+        self.script.save(update_fields=['value', 'meta'])
+
+        with (
+            mock.patch.object(handler, '_stop_untracked_script_pid', autospec=True, return_value=True) as stop_pid,
+            mock.patch.object(handler, '_pid_exists', autospec=True, return_value=False),
+            mock.patch.object(gw_mod, 'get_component_logger', autospec=True, return_value=mock.Mock()),
+        ):
+            handler.stop_script(self.script, stop_status='stopped')
+
+        stop_pid.assert_called_once()
+        self.script.refresh_from_db()
+        self.assertEqual(self.script.value, 'stopped')
+
     def test_stop_script_sets_exit_event_and_terminates_process_noncooperative(self):
         from simo.automation import gateways as gw_mod
 

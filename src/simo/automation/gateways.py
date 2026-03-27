@@ -1,6 +1,7 @@
 import os
 import sys
 import logging
+import signal
 import pytz
 import json
 import time
@@ -73,6 +74,7 @@ class ScriptRunHandler(multiprocessing.Process):
         sys.stdout = stdout_logger
         sys.stderr = stderr_logger
         self.component.meta['pid'] = os.getpid()
+        self.component.meta['ppid'] = os.getppid()
         self.component.set('running')
         print("------START-------")
         try:
@@ -106,6 +108,16 @@ class ScriptRunHandler(multiprocessing.Process):
             clear_current_watcher_stop_event()
             sys.stdout = original_stdout
             sys.stderr = original_stderr
+            try:
+                self.component.refresh_from_db()
+                meta = dict(self.component.meta or {})
+                if meta.get('pid') == os.getpid():
+                    meta.pop('pid', None)
+                    meta.pop('ppid', None)
+                    self.component.meta = meta
+                    self.component.save(update_fields=['meta'])
+            except Exception:
+                pass
             self.watchers_cleaned.set()
 
     def run_code(self):
@@ -303,6 +315,90 @@ class AutomationsGatewayHandler(GatesHandler, BaseObjectCommandsGatewayHandler):
             # Do not run local script processes on virtual hubs.
             self.periodic_tasks = (('watch_gates', 60),)
 
+    @staticmethod
+    def _get_script_pid(component):
+        try:
+            pid = component.meta.get('pid')
+        except Exception:
+            return None
+        try:
+            pid = int(pid)
+        except (TypeError, ValueError):
+            return None
+        return pid if pid > 0 else None
+
+    @staticmethod
+    def _pid_exists(pid):
+        if not pid:
+            return False
+        try:
+            os.kill(pid, 0)
+        except ProcessLookupError:
+            return False
+        except PermissionError:
+            return True
+        except Exception:
+            return os.path.exists(f"/proc/{pid}")
+        return True
+
+    def _clear_script_runtime_meta(self, component):
+        try:
+            meta = dict(component.meta or {})
+        except Exception:
+            return
+        changed = False
+        for key in ('pid', 'ppid'):
+            if key in meta:
+                meta.pop(key, None)
+                changed = True
+        if not changed:
+            return
+        component.meta = meta
+        component.save(update_fields=['meta'])
+
+    def _terminate_pid(self, pid, logger=None):
+        if not self._pid_exists(pid):
+            return True
+        if logger:
+            logger.log(logging.INFO, "-------ORPHAN STOP-------")
+        try:
+            os.kill(pid, signal.SIGTERM)
+        except ProcessLookupError:
+            return True
+        except Exception:
+            pass
+        start = time.time()
+        while time.time() - start < 2:
+            if not self._pid_exists(pid):
+                return True
+            time.sleep(0.1)
+        if logger:
+            logger.log(logging.INFO, "-------ORPHAN KILL-------")
+        try:
+            os.kill(pid, signal.SIGKILL)
+        except ProcessLookupError:
+            return True
+        except Exception:
+            return False
+        start = time.time()
+        while time.time() - start < 1:
+            if not self._pid_exists(pid):
+                return True
+            time.sleep(0.1)
+        return not self._pid_exists(pid)
+
+    def _stop_untracked_script_pid(self, component, logger=None):
+        pid = self._get_script_pid(component)
+        if not pid:
+            return False
+        terminated = self._terminate_pid(pid, logger=logger)
+        if terminated or not self._pid_exists(pid):
+            try:
+                self._clear_script_runtime_meta(component)
+            except Exception:
+                pass
+            return True
+        return False
 
     def watch_scripts(self):
         drop_current_instance()
@@ -380,19 +476,38 @@ class AutomationsGatewayHandler(GatesHandler, BaseObjectCommandsGatewayHandler):
             # give 10s air before we wake these dead scripts up!
             return
 
+        for comp in Component.objects.filter(
+            base_type='script', value__in=('stopped', 'finished', 'error')
+        ):
+            pid = self._get_script_pid(comp)
+            if not pid:
+                continue
+            if self._pid_exists(pid):
+                try:
+                    self._stop_untracked_script_pid(
+                        comp, logger=get_component_logger(comp)
+                    )
+                except Exception:
+                    pass
+            else:
+                try:
+                    self._clear_script_runtime_meta(comp)
+                except Exception:
+                    pass
+
         # Reconcile scripts marked as 'running' in DB but not tracked or with dead PID
         with self._scripts_lock:
             tracked_ids = set(self.running_scripts.keys())
         for comp in Component.objects.filter(base_type='script', value='running'):
             if comp.id in tracked_ids:
                 continue
-            pid = None
-            try:
-                pid = int(comp.meta.get('pid')) if comp.meta and 'pid' in comp.meta else None
-            except Exception:
-                pid = None
-            is_pid_alive = bool(pid) and os.path.exists(f"/proc/{pid}")
+            pid = self._get_script_pid(comp)
+            is_pid_alive = self._pid_exists(pid)
             if not is_pid_alive:
+                try:
+                    self._clear_script_runtime_meta(comp)
+                except Exception:
+                    pass
                 try:
                     comp.value = 'error'
                     comp.save(update_fields=['value'])
@@ -454,8 +569,7 @@ class AutomationsGatewayHandler(GatesHandler, BaseObjectCommandsGatewayHandler):
         for component in Component.objects.filter(
             controller_uid=Script.uid, value='running'
         ):
-            component.value = 'error'
-            component.save()
+            self.stop_script(component, stop_status='error')
 
         # Start scripts that are designed to be autostarted
         # as well as those that are designed to be kept alive, but
@@ -561,7 +675,16 @@ class AutomationsGatewayHandler(GatesHandler, BaseObjectCommandsGatewayHandler):
             self.terminating_scripts.add(component.id)
             script_entry = self.running_scripts.get(component.id)
         if not script_entry:
-            if component.value == 'running':
+            logger = None
+            try:
+                tz = pytz.timezone(component.zone.instance.timezone)
+                timezone.activate(tz)
+                logger = get_component_logger(component)
+            except Exception:
+                logger = None
+            self._stop_untracked_script_pid(component, logger=logger)
+            pid = self._get_script_pid(component)
+            if component.value != stop_status and not self._pid_exists(pid):
                 component.value = stop_status
                 component.save(update_fields=['value'])
             with self._scripts_lock:
@@ -605,6 +728,7 @@ class AutomationsGatewayHandler(GatesHandler, BaseObjectCommandsGatewayHandler):
                 script_proc.kill()
 
             component.set(stop_status)
+            self._clear_script_runtime_meta(component)
             with self._scripts_lock:
                 self.terminating_scripts.discard(component.id)
                 # making sure it's fully killed along with it's child processes
