@@ -1,0 +1,15 @@
+<div class="component-controller" data-ws_url="{{ obj.get_socket_url|default_if_none:"" }}">
+  <div style="display:inline-block; margin-right: 12px; vertical-align: middle;">
+    {% if obj.get_tvoc is not None %}
+      <strong>{{ obj.get_tvoc }}</strong> ppb
+    {% else %}
+      <strong>--</strong> ppb
+    {% endif %}
+    {% if obj.get_aqi is not None %}
+      <span style="margin-left: 8px; color: #666;">AQI {{ obj.get_aqi }}</span>
+    {% endif %}
+  </div>
+  <button class="button action" style="padding: 5px 10px" data-method="recalibrate">
+    <i class="fas fa-sliders-h" style="color:#79aec8"></i>&nbsp;&nbsp;Calibrate
+  </button>
+</div>

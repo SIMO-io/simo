@@ -245,3 +245,23 @@ class FleetControllersMoreTests(BaseSimoTestCase):
             form.save()
 
         update_config.assert_not_called()
+
+    def test_sentinel_air_quality_recalibrate_publishes_call_command(self):
+        from simo.core.events import GatewayObjectCommand
+        from simo.fleet.controllers import AirQualitySensor
+
+        comp = self._mk_component(
+            controller_uid=AirQualitySensor.uid,
+            base_type='multi-sensor',
+            value=[['TVOC', 120, 'ppb'], ['AQI (UBA)', 1, '']],
+        )
+        ctrl = AirQualitySensor(comp)
+
+        GatewayObjectCommand.publish.reset_mock()
+        ctrl.recalibrate()
+
+        GatewayObjectCommand.publish.assert_called_once()
+        cmd_obj = GatewayObjectCommand.publish.call_args.args[0]
+        self.assertEqual(cmd_obj.data.get('command'), 'call')
+        self.assertEqual(cmd_obj.data.get('method'), 'recalibrate')
+        self.assertEqual(cmd_obj.data.get('id'), comp.id)

@@ -935,6 +935,7 @@ class RoomSiren(FleetDeviceMixin, StateSelect):
 class AirQualitySensor(FleetDeviceMixin, BaseMultiSensor):
     gateway_class = FleetGatewayHandler
     config_form = BaseComponentForm
+    admin_widget_template = 'fleet/admin/controller_widgets/air_quality_sensor.html'
     name = "Air Quality Sensor"
     app_widget = AirQualityWidget
     manual_add = False
@@ -976,6 +977,9 @@ class AirQualitySensor(FleetDeviceMixin, BaseMultiSensor):
                     return entry[1]
         except:
             return
+
+    def recalibrate(self):
+        self._call_cmd('recalibrate')
 
 
 class TempHumSensor(FleetDeviceMixin, BasicSensorMixin, BaseMultiSensor):
