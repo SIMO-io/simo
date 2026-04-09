@@ -1,4 +1,4 @@
-import time
+import copy
 from django import forms
 from django.forms import formset_factory
 from django.utils.translation import gettext_lazy as _
@@ -232,15 +232,19 @@ class PresenceLightingConfigForm(AutomationComponentForm):
         queryset=Component.objects.filter(
             base_type__in=('binary-sensor', 'switch')
         ),
-        required=True,
+        required=False,
         url='autocomplete-component',
-        forward=(forward.Const(['binary-sensor', 'switch'], 'base_type'),)
+        forward=(forward.Const(['binary-sensor', 'switch'], 'base_type'),),
+        help_text=(
+            "Optional. Leave empty to use conditions-only mode."
+        )
     )
     act_on = forms.TypedChoiceField(
         coerce=int, initial=0, choices=(
             (0, "At least one sensor detects presence"),
             (1, "All sensors detect presence"),
-        )
+        ),
+        help_text="Ignored when no presence sensors are selected."
     )
     hold_time = forms.TypedChoiceField(
         initial=3, coerce=int, required=False, choices=(
@@ -250,7 +254,10 @@ class PresenceLightingConfigForm(AutomationComponentForm):
             (30, "5 min"), (60, "10 min"), (120, "20 min"), (180, "30 min"),
             (3600, "1 h")
         ),
-        help_text="Hold off time after last presence detector is deactivated."
+        help_text=(
+            "Hold off time after last presence detector is deactivated. "
+            "Ignored when no presence sensors are selected."
+        )
     )
     conditions = FormsetField(
         formset_factory(
@@ -279,6 +286,12 @@ class PresenceLightingConfigForm(AutomationComponentForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        if self.is_bound and 'presence_sensors' not in self.fields:
+            self.fields['presence_sensors'] = copy.deepcopy(
+                self.base_fields['presence_sensors']
+            )
+            if 'presence_sensors' not in self.config_fields:
+                self.config_fields.append('presence_sensors')
         self.app_exclude_fields.extend(['alarm_category', 'code', 'log'])
         self.basic_fields.extend(
             ['lights', 'on_value', 'off_value', 'presence_sensors',
@@ -294,3 +307,16 @@ class PresenceLightingConfigForm(AutomationComponentForm):
                     self.instance.id
                 )
             )
+
+    def clean(self):
+        cleaned_data = super().clean()
+        presence_sensors = cleaned_data.get('presence_sensors')
+        conditions = cleaned_data.get('conditions') or []
+
+        if not presence_sensors and not conditions:
+            self.add_error(
+                'conditions',
+                "At least one additional condition is required when no presence sensors are selected."
+            )
+
+        return cleaned_data

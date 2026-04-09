@@ -177,11 +177,28 @@ class PresenceLighting(Script):
 
     def _sensor_states_text(self):
         if not self.sensors:
-            return 'no sensors'
+            if self._is_sensorless_mode():
+                return 'sensorless mode'
+            return 'no active sensors'
         return ', '.join(
             f"{sensor}={self._value_is_true(sensor.value)}"
             for sensor in self.sensors.values()
         )
+
+    def _configured_presence_sensor_ids(self):
+        return self.component.config.get('presence_sensors') or []
+
+    def _is_sensorless_mode(self):
+        return not self._configured_presence_sensor_ids()
+
+    def _presence_requirements_met(self, presence_values):
+        if self._is_sensorless_mode():
+            return True
+        if not self.sensors:
+            return False
+        if self.component.config.get('act_on', 0) == 0:
+            return any(presence_values)
+        return all(presence_values)
 
     def _ensure_expected_light_value(self, light_id, expected_val):
         now = time.time()
@@ -237,7 +254,7 @@ class PresenceLighting(Script):
     def _run(self):
         self.hold_time = self.component.config.get('hold_time', 0) * 10
         try:
-            for id in self.component.config['presence_sensors']:
+            for id in self._configured_presence_sensor_ids():
                 if self._should_stop():
                     break
                 sensor = Component.objects.filter(id=id).first()
@@ -272,6 +289,9 @@ class PresenceLighting(Script):
                     self.conditions.append(condition)
                     comp.on_change(self._on_condition)
                     self.condition_comps[comp.id] = comp
+
+            if self._is_sensorless_mode() and not self._should_stop():
+                self._regulate()
 
             while not self._should_stop():
                 # Resend expected values if they have failed to reach
@@ -340,18 +360,19 @@ class PresenceLighting(Script):
             self._value_is_true(sensor.value)
             for sensor in self.sensors.values()
         ]
-        if self.component.config.get('act_on', 0) == 0:
-            must_on = any(presence_values)
-        else:
-            must_on = all(presence_values)
+        sensorless_mode = self._is_sensorless_mode()
+        must_on = self._presence_requirements_met(presence_values)
 
         if must_on and on_sensor:
             print(f"Presence detected! Sensors: {sensor_states}")
 
-        if must_on:
+        if must_on and not sensorless_mode:
             self.last_presence = 0
 
         additional_conditions_met = True
+        if sensorless_mode and not self.conditions:
+            additional_conditions_met = False
+
         for condition in self.conditions:
 
             comp = condition['component']
@@ -384,7 +405,7 @@ class PresenceLighting(Script):
                 return
             if not additional_conditions_met:
                 return
-            if on_condition_change:
+            if on_condition_change and not sensorless_mode:
                 return
 
             print("Turn the lights ON!")
@@ -414,6 +435,8 @@ class PresenceLighting(Script):
                     f"longer met. Sensors: {sensor_states}"
                 )
                 return self._turn_it_off()
+            if sensorless_mode:
+                return
             if not any(presence_values):
                 if not self.component.config.get('hold_time', 0):
                     print(
