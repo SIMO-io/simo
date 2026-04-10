@@ -1,33 +1,47 @@
 <div class="component-controller" data-ws_url="{{ obj.get_socket_url|default_if_none:"" }}">
-  {% if obj.is_down %}
-    <i class="fas fa-toggle-on fa-2x component_switch action momentary-action"
-       data-press-method="send"
-       data-press-value="down"
-       data-release-method="send"
-       data-release-value="up"
-       data-hold-method="send"
-       data-hold-value="hold"
-       data-click-method="send"
-       data-click-value="click"
-       data-double-method="send"
-       data-double-value="double-click"
-       data-double-delay="350"
-       data-hold-delay="1000"
-    ></i>
+  {% if obj.config.virtual_control_mode == 'toggle' %}
+    {% if obj.is_down %}
+      <i class="fas fa-toggle-on fa-2x component_switch action"
+         data-method="send"
+         data-value="up"
+      ></i>
+    {% else %}
+      <i class="fas fa-toggle-off fa-2x component_switch action"
+         data-method="send"
+         data-value="down"
+      ></i>
+    {% endif %}
   {% else %}
-    <i class="fas fa-toggle-off fa-2x component_switch action momentary-action"
-       data-press-method="send"
-       data-press-value="down"
-       data-release-method="send"
-       data-release-value="up"
-       data-hold-method="send"
-       data-hold-value="hold"
-       data-click-method="send"
-       data-click-value="click"
-       data-double-method="send"
-       data-double-value="double-click"
-       data-double-delay="350"
-       data-hold-delay="1000"
-    ></i>
+    {% if obj.is_down %}
+      <i class="fas fa-toggle-on fa-2x component_switch action momentary-action"
+         data-press-method="send"
+         data-press-value="down"
+         data-release-method="send"
+         data-release-value="up"
+         data-hold-method="send"
+         data-hold-value="hold"
+         data-click-method="send"
+         data-click-value="click"
+         data-double-method="send"
+         data-double-value="double-click"
+         data-double-delay="350"
+         data-hold-delay="1000"
+      ></i>
+    {% else %}
+      <i class="fas fa-toggle-off fa-2x component_switch action momentary-action"
+         data-press-method="send"
+         data-press-value="down"
+         data-release-method="send"
+         data-release-value="up"
+         data-hold-method="send"
+         data-hold-value="hold"
+         data-click-method="send"
+         data-click-value="click"
+         data-double-method="send"
+         data-double-value="double-click"
+         data-double-delay="350"
+         data-hold-delay="1000"
+      ></i>
+    {% endif %}
   {% endif %}
 </div>

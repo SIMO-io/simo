@@ -290,6 +290,18 @@ class ColonelBinarySensorConfigForm(ColonelComponentForm):
 
 
 class ColonelButtonConfigForm(ColonelComponentForm):
+    virtual_control_mode = forms.ChoiceField(
+        label="App/Admin control mode",
+        initial='momentary',
+        choices=(
+            ('momentary', "Momentary"),
+            ('toggle', "Toggle"),
+        ),
+        help_text=(
+            "Affects only SIMO app and Django admin virtual control behavior. "
+            "Physical button input keeps working as configured on the device."
+        )
+    )
     pin = Select2ModelChoiceField(
         label="Port",
         queryset=ColonelPin.objects.filter(input=True),
@@ -1794,7 +1806,18 @@ class DALILightSensorConfigForm(DALIDeviceConfigForm, BaseComponentForm):
 
 
 class DALIButtonConfigForm(DALIDeviceConfigForm, BaseComponentForm):
-    pass
+    virtual_control_mode = forms.ChoiceField(
+        label="App/Admin control mode",
+        initial='momentary',
+        choices=(
+            ('momentary', "Momentary"),
+            ('toggle', "Toggle"),
+        ),
+        help_text=(
+            "Affects only SIMO app and Django admin virtual control behavior. "
+            "Physical button input keeps working as configured on the device."
+        )
+    )
 
 
 class RoomPresenceSensorConfigForm(BaseComponentForm):
