@@ -3,9 +3,9 @@ from unittest import mock
 
 from django.core.exceptions import ValidationError
 
-from simo.core.models import Component, Gateway, Zone
+from simo.core.models import Component, ComponentHistory, Gateway, Zone
 
-from .base import BaseSimoTestCase, mk_instance
+from .base import BaseSimoTestCase, mk_instance, mk_instance_user, mk_role, mk_user
 
 
 class SensorControllersTests(BaseSimoTestCase):
@@ -161,6 +161,29 @@ class ButtonControllerTests(BaseSimoTestCase):
         gear = ctrl.get_bonded_gear()
         self.assertEqual({c.id for c in gear}, {c1.id, c2.id})
 
+    def test_same_value_records_history_when_button_actor_changes(self):
+        role = mk_role(self.inst)
+        user1 = mk_user('user1@example.com', 'User 1')
+        user2 = mk_user('user2@example.com', 'User 2')
+        mk_instance_user(user1, self.inst, role)
+        mk_instance_user(user2, self.inst, role)
+
+        self.button.track_history = True
+        self.button.value = 'down'
+        self.button.save(update_fields=['track_history', 'value'])
+
+        ComponentHistory.objects.create(
+            component=self.button, type='value', value='down', user=user1
+        )
+        self.Button(self.button).set('down', actor=user1)
+        self.assertEqual(ComponentHistory.objects.count(), 1)
+
+        self.Button(self.button).set('down', actor=user2)
+        self.assertEqual(ComponentHistory.objects.count(), 2)
+        last_event = ComponentHistory.objects.order_by('-date', '-id').first()
+        self.assertEqual(last_event.value, 'down')
+        self.assertEqual(last_event.user, user2)
+
 
 class OnOffPokerMixinTests(BaseSimoTestCase):
     def setUp(self):
@@ -206,3 +229,20 @@ class OnOffPokerMixinTests(BaseSimoTestCase):
         self.assertEqual(self.comp.controller._validate_val(0), False)
         with self.assertRaises(ValidationError):
             self.comp.controller._validate_val('nope')
+
+    def test_same_value_does_not_record_extra_history_for_non_buttons(self):
+        role = mk_role(self.inst)
+        user1 = mk_user('switch1@example.com', 'Switch 1')
+        user2 = mk_user('switch2@example.com', 'Switch 2')
+        mk_instance_user(user1, self.inst, role)
+        mk_instance_user(user2, self.inst, role)
+
+        self.comp.track_history = True
+        self.comp.value = False
+        self.comp.save(update_fields=['track_history', 'value'])
+
+        ComponentHistory.objects.create(
+            component=self.comp, type='value', value=False, user=user1
+        )
+        self.comp.controller.set(False, actor=user2)
+        self.assertEqual(ComponentHistory.objects.count(), 1)

@@ -1,8 +1,10 @@
 import json, ast
+from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 from django.db.transaction import atomic
 from simo.core.middleware import get_current_instance
 from simo.core.events import GatewayObjectCommand
+from simo.users.utils import get_current_user
 from simo.core.controllers import (
     BinarySensor as BaseBinarySensor,
     Button as BaseButton,
@@ -979,6 +981,13 @@ class AirQualitySensor(FleetDeviceMixin, BaseMultiSensor):
             return
 
     def recalibrate(self):
+        user = get_current_user()
+        if not user.is_master:
+            role = user.get_role(self.component.zone.instance)
+            if not role or not role.is_superuser:
+                raise ValidationError(
+                    "Only instance superusers can recalibrate this air quality sensor."
+                )
         self._call_cmd('recalibrate')
 
 

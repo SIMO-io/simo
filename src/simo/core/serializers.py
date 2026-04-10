@@ -559,7 +559,28 @@ class ComponentSerializer(FormSerializer):
         raise serializers.ValidationError(form.errors)
 
     def get_controller_methods(self, obj):
-        return obj.get_controller_methods()
+        methods = obj.get_controller_methods()
+        if 'recalibrate' not in methods:
+            return methods
+        if obj.controller_uid != 'simo.fleet.controllers.AirQualitySensor':
+            return methods
+
+        user = self.context.get('user')
+        if not user:
+            user = self.context.get('request').user
+        if user.is_superuser:
+            return methods
+
+        instance = self.context.get('instance')
+        if not instance:
+            try:
+                instance = obj.zone.instance
+            except Exception:
+                instance = None
+        role = user.get_role(instance) if instance else None
+        if role and role.is_superuser:
+            return methods
+        return [method for method in methods if method != 'recalibrate']
 
     def get_info(self, obj):
         if obj.controller:

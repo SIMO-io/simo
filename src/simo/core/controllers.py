@@ -407,8 +407,26 @@ class ControllerBase(ABC, metaclass=ControllerMeta):
                 comp_qs = comp_qs.select_for_update()
             self.component = comp_qs.get(pk=self.component.pk)
 
-            if value != self.component.value and self.component.track_history:
-                self.component.value_previous = self.component.value
+            value_changed = value != self.component.value
+            should_track_history = value_changed
+            if (
+                not should_track_history
+                and self.component.track_history
+                and self.component.base_type == 'button'
+            ):
+                from .models import ComponentHistory
+                last_event = ComponentHistory.objects.filter(
+                    component=self.component, type='value'
+                ).order_by('-date', '-id').first()
+                last_actor_id = getattr(last_event, 'user_id', None)
+                actor_id = getattr(actor, 'id', None)
+                if not last_event or last_event.value != value \
+                or last_actor_id != actor_id:
+                    should_track_history = True
+
+            if should_track_history and self.component.track_history:
+                if value_changed:
+                    self.component.value_previous = self.component.value
                 from .models import ComponentHistory
                 ComponentHistory.objects.create(
                     component=self.component, type='value', value=value,
@@ -422,6 +440,8 @@ class ControllerBase(ABC, metaclass=ControllerMeta):
                 )
                 actor.last_action = timezone.now()
                 actor.save()
+            elif value_changed:
+                self.component.value_previous = self.component.value
 
             self.component.value = value
             self.component.change_init_by = None
