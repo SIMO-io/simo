@@ -82,15 +82,22 @@
                   e.preventDefault();
                   $(this).attr('disabled', 'disabled');
                   $(this).addClass('disabled');
+                  var positionalValue;
                   var kwargs = {};
                   $.each($(this).data(), function(key, val){
                       if (key.substring(key.length - 5) === '_node'){
                           kwargs[key.substring(0, key.length - 5)] = $('#' + val).val();
+                      }else if (key === 'value'){
+                          positionalValue = val;
                       }else if (key !== 'method'){
                           kwargs[key] = val;
                       }
                   });
-                  sendAction($(this).data('method'), undefined, kwargs);
+                  if (positionalValue !== undefined){
+                      sendAction($(this).data('method'), positionalValue);
+                  } else {
+                      sendAction($(this).data('method'), undefined, kwargs);
+                  }
                 });
 
               $el.find('.momentary-action').on('pointerdown', function(e){
