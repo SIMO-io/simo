@@ -1,8 +1,33 @@
-<div class="component-controller"
-       data-ws_url="{{ obj.get_socket_url|default_if_none:"" }}">
-{% if obj.is_down %}
-  <i class="fas fa-rectangle-landscape" style="color: #1b6082;"></i>
-{% else %}
-  <i class="far fa-rectangle-landscape" style="color: #a7a7a7;"></i>
-{% endif %}
+<div class="component-controller" data-ws_url="{{ obj.get_socket_url|default_if_none:"" }}">
+  {% if obj.is_down %}
+    <i class="fas fa-toggle-on fa-2x component_switch action momentary-action"
+       data-press-method="send"
+       data-press-value="down"
+       data-release-method="send"
+       data-release-value="up"
+       data-hold-method="send"
+       data-hold-value="hold"
+       data-click-method="send"
+       data-click-value="click"
+       data-double-method="send"
+       data-double-value="double-click"
+       data-double-delay="350"
+       data-hold-delay="1000"
+    ></i>
+  {% else %}
+    <i class="fas fa-toggle-off fa-2x component_switch action momentary-action"
+       data-press-method="send"
+       data-press-value="down"
+       data-release-method="send"
+       data-release-value="up"
+       data-hold-method="send"
+       data-hold-value="hold"
+       data-click-method="send"
+       data-click-value="click"
+       data-double-method="send"
+       data-double-value="double-click"
+       data-double-delay="350"
+       data-hold-delay="1000"
+    ></i>
+  {% endif %}
 </div>
