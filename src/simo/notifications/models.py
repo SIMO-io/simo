@@ -1,7 +1,5 @@
 import requests
 from django.utils.translation import gettext_lazy as _
-from django.db.models.signals import post_save
-from django.dispatch import receiver
 from django.db import models
 from django.utils import timezone
 from simo.users.models import User
@@ -28,8 +26,16 @@ class Notification(models.Model):
     component = models.ForeignKey(
         Component, null=True, blank=True, on_delete=models.SET_NULL
     )
+    is_pending = models.BooleanField(default=False, db_index=True)
+    dispatch_after = models.DateTimeField(null=True, blank=True, db_index=True)
+    cancelled = models.DateTimeField(null=True, blank=True, db_index=True)
+    event_key = models.CharField(max_length=100, null=True, blank=True, db_index=True)
 
     def dispatch(self):
+        if self.cancelled:
+            return
+        if self.is_pending:
+            return
         data = {
             'instance_uid': self.instance.uid,
             'hub_secret': dynamic_settings['core__hub_secret'],
@@ -40,12 +46,16 @@ class Notification(models.Model):
         if self.component:
             data['component_id'] = self.component.id
         user_notifications = self.user_notifications.filter(sent__isnull=True)
+        if not user_notifications.exists():
+            return
         for user_notification in user_notifications:
             token = user_notification.user.primary_device_token
             if token:
                 data['to_tokens'].append(
                     user_notification.user.primary_device_token
                 )
+        if not data['to_tokens']:
+            return
         try:
             response = requests.post(
                 'https://simo.io/api/notifications/postmaster/', json=data
@@ -63,4 +73,3 @@ class UserNotification(models.Model):
     )
     sent = models.DateTimeField(null=True, blank=True, db_index=True)
     archived = models.DateTimeField(null=True, blank=True, db_index=True)
-

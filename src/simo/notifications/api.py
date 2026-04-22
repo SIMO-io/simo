@@ -32,6 +32,8 @@ class NotificationsViewSet(
         qs = Notification.objects.filter(
             instance=self.instance,
             user_notifications__user=self.request.user,
+            is_pending=False,
+            cancelled__isnull=True,
         )
         if 'archived' in self.request.query_params:
             try:

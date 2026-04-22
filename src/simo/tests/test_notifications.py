@@ -63,6 +63,19 @@ class NotificationsApiTests(BaseSimoTestCase):
         ids = [row['id'] for row in _results(resp)]
         self.assertEqual(ids, [n1.id])
 
+    def test_notifications_list_hides_pending_and_cancelled(self):
+        visible = Notification.objects.create(instance=self.inst, severity='info', title='T1')
+        pending = Notification.objects.create(instance=self.inst, severity='info', title='T2', is_pending=True)
+        cancelled = Notification.objects.create(instance=self.inst, severity='info', title='T3', cancelled=timezone.now())
+        UserNotification.objects.create(user=self.user, notification=visible)
+        UserNotification.objects.create(user=self.user, notification=pending)
+        UserNotification.objects.create(user=self.user, notification=cancelled)
+
+        resp = self.api.get(f'/api/{self.inst.slug}/notifications/')
+        self.assertEqual(resp.status_code, 200)
+        ids = [row['id'] for row in _results(resp)]
+        self.assertEqual(ids, [visible.id])
+
 
 class NotifyUsersUtilTests(BaseSimoTestCase):
     def test_notify_users_creates_user_notifications_and_restores_instance(self):
@@ -82,4 +95,3 @@ class NotifyUsersUtilTests(BaseSimoTestCase):
 
         # verify instance context restored
         self.assertEqual(get_current_instance(), inst)
-

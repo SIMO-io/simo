@@ -1,6 +1,8 @@
 import time
 import sys
 import traceback
+import uuid
+from django.db import transaction
 from django.db.models.signals import pre_save, post_save, post_delete
 from django.dispatch import receiver
 from simo.core.models import Component
@@ -49,6 +51,12 @@ def handle_alarm_groups(sender, instance, *args, **kwargs):
         else:
             alarm_group_value = 'pending-arm'
 
+        if ag.value == 'breached' and alarm_group_value != 'breached':
+            # Alarm groups latch once breached and require an explicit
+            # clear/disarm path instead of silently mirroring child
+            # downgrades back to armed/pending-arm.
+            alarm_group_value = 'breached'
+
         print(f"{ag} value: {alarm_group_value}")
 
         if alarm_group_value == 'breached' and instance.arm_status == 'breached':
@@ -94,12 +102,7 @@ def manage_alarm_groups(sender, instance, *args, **kwargs):
 
     if instance.value == 'breached':
         instance.meta['events_triggered'] = []
-
-        if instance.config.get('notify_on_breach') is not None:
-            notify_users_on_alarm_group_breach.apply_async(
-                args=[instance.id],
-                countdown=instance.config['notify_on_breach']
-            )
+        instance.meta['breach_transition_id'] = uuid.uuid4().hex
 
     elif dirty_fields['value'] == 'breached' and instance.value == 'disarmed':
         instance.meta['breach_start'] = None
@@ -113,6 +116,61 @@ def manage_alarm_groups(sender, instance, *args, **kwargs):
                 getattr(event['component'], event['disarm_action'])()
             except Exception:
                 print(traceback.format_exc(), file=sys.stderr)
+
+
+@receiver(post_save, sender=Component)
+def schedule_alarm_group_breach_notifications(sender, instance, *args, **kwargs):
+    from .controllers import AlarmGroup
+    from simo.notifications.utils import create_notification
+
+    if instance.controller_uid != AlarmGroup.uid:
+        return
+
+    dirty_fields = instance.get_dirty_fields()
+    if 'value' not in dirty_fields:
+        return
+    if instance.value != 'breached':
+        return
+
+    notify_delay = instance.config.get('notify_on_breach')
+    if notify_delay is None:
+        return
+
+    breach_transition_id = instance.meta.get('breach_transition_id')
+    if not breach_transition_id:
+        return
+
+    breached_components = Component.objects.filter(
+        pk__in=instance.config.get('components', []),
+        arm_status='breached'
+    )
+    body = "Security Breach! " + '; '.join(
+        [str(c) for c in breached_components]
+    )
+    notification = create_notification(
+        severity='alarm',
+        title=str(instance),
+        body=body,
+        component=instance,
+        instance=instance.zone.instance,
+        dispatch=False,
+        dispatch_countdown=notify_delay,
+        event_key=breach_transition_id,
+    )
+    using = getattr(getattr(instance, '_state', None), 'db', None) or 'default'
+
+    def _enqueue():
+        if notify_delay and notify_delay > 0:
+            notify_users_on_alarm_group_breach.apply_async(
+                args=[notification.id, instance.id, breach_transition_id],
+                countdown=notify_delay
+            )
+        else:
+            from simo.notifications.utils import dispatch_notification_now
+
+            dispatch_notification_now(notification.id)
+
+    transaction.on_commit(_enqueue, using=using)
 
 
 @receiver(post_delete, sender=Component)

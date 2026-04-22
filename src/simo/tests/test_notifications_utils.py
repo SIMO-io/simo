@@ -57,22 +57,29 @@ class NotifyUsersTests(BaseSimoTestCase):
         iu_other = mk_instance_user(user_other, other_inst, role_other, is_active=True)
 
         with mock.patch('simo.notifications.models.Notification.dispatch', autospec=True) as dispatch:
-            notify_users(
-                'info',
-                'Hello',
-                body='Body',
-                component=self.comp,
-                instance=self.inst,
-                instance_users=[iu_ok, iu_system, iu_denied, iu_other],
-            )
+            with self.captureOnCommitCallbacks(execute=False) as callbacks:
+                notify_users(
+                    'info',
+                    'Hello',
+                    body='Body',
+                    component=self.comp,
+                    instance=self.inst,
+                    instance_users=[iu_ok, iu_system, iu_denied, iu_other],
+                )
+                dispatch.assert_not_called()
 
-        # One notification created.
-        self.assertEqual(Notification.objects.count(), 1)
-        notif = Notification.objects.first()
-        self.assertEqual(notif.instance_id, self.inst.id)
-        self.assertEqual(notif.severity, 'info')
-        self.assertEqual(notif.title, f'{self.inst.name}: Hello')
-        dispatch.assert_called_once()
+            # One notification created.
+            self.assertEqual(Notification.objects.count(), 1)
+            notif = Notification.objects.first()
+            self.assertEqual(notif.instance_id, self.inst.id)
+            self.assertEqual(notif.severity, 'info')
+            self.assertEqual(notif.title, f'{self.inst.name}: Hello')
+            self.assertFalse(notif.is_pending)
+            self.assertIsNone(notif.cancelled)
+            self.assertGreaterEqual(len(callbacks), 1)
+            for callback in callbacks:
+                callback()
+            dispatch.assert_called_once()
 
         # Only the allowed recipient gets a UserNotification.
         self.assertEqual(UserNotification.objects.count(), 1)
@@ -82,4 +89,3 @@ class NotifyUsersTests(BaseSimoTestCase):
         # Instance context is restored.
         self.assertIsNotNone(get_current_instance())
         self.assertEqual(get_current_instance().id, self.inst.id)
-

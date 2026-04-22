@@ -1,32 +1,48 @@
 import sys, traceback, time
+from django.db import transaction
+from django.utils import timezone
 from celeryc import celery_app
-from simo.core.middleware import drop_current_instance, drop_current_instance
+from simo.core.middleware import drop_current_instance
 
 
 @celery_app.task
-def notify_users_on_alarm_group_breach(ag_id):
+def notify_users_on_alarm_group_breach(notification_id, ag_id, breach_transition_id=None):
     from simo.core.models import Component
-    drop_current_instance()
-    ag = Component.objects.filter(id=ag_id).first()
-    if not ag:
-        return
-    if ag.value != 'breached':
-        # no longer breached, somebody disarmed it,
-        # no need to send any notifications
-        return
+    from simo.notifications.models import Notification
+    from simo.notifications.utils import dispatch_notification_now
 
-    breached_components = Component.objects.filter(
-        pk__in=ag.config['components'],
-        arm_status='breached'
-    )
-    body = "Security Breach! " + '; '.join(
-        [str(c) for c in breached_components]
-    )
-    from simo.notifications.utils import notify_users
-    notify_users(
-        'alarm', str(ag), body, component=ag,
-        instance=ag.zone.instance
-    )
+    drop_current_instance()
+    with transaction.atomic():
+        notification = Notification.objects.select_for_update().filter(
+            id=notification_id
+        ).first()
+        if not notification:
+            return
+        if notification.cancelled:
+            return
+        if not notification.is_pending:
+            return
+        ag = Component.objects.select_for_update().filter(id=ag_id).first()
+        if not ag:
+            notification.cancelled = timezone.now()
+            notification.is_pending = False
+            notification.save(update_fields=['cancelled', 'is_pending'])
+            return
+        current_transition_id = ag.meta.get('breach_transition_id')
+        if breach_transition_id and current_transition_id != breach_transition_id:
+            notification.cancelled = timezone.now()
+            notification.is_pending = False
+            notification.save(update_fields=['cancelled', 'is_pending'])
+            return
+        if ag.value != 'breached':
+            notification.cancelled = timezone.now()
+            notification.is_pending = False
+            notification.save(update_fields=['cancelled', 'is_pending'])
+            return
+        notification.is_pending = False
+        notification.save(update_fields=['is_pending'])
+
+    dispatch_notification_now(notification_id)
 
 
 @celery_app.task

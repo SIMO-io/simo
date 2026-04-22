@@ -1195,21 +1195,38 @@ class SmokeDetector(FleetDeviceMixin, BaseBinarySensor):
             val = value
             armed = True
 
+        current_status = self.component.arm_status
+        current_alarm = bool(val)
+        clear_breach_to_armed = (
+            armed and current_status == 'breached' and not current_alarm
+        )
+
+        # Treat the device-reported armed flag as status, not as an
+        # unconditional command to re-arm the hub-side component. In
+        # particular, duplicate "still armed + still alarming" packets
+        # must preserve the breached state.
         if armed:
-            if self.component.arm_status not in ('pending-arm', 'armed'):
+            if current_status not in ('pending-arm', 'armed', 'breached'):
                 self.component.change_user = get_device_user()
                 Component.arm(self.component)
         else:
-            if self.component.arm_status not in ('disarmed', 'breached'):
+            if current_status != 'disarmed':
                 self.component.change_user = get_device_user()
                 Component.disarm(self.component)
+        result = super()._receive_from_device(
+            val, is_alive, battery_level, error_msg
+        )
+        if clear_breach_to_armed:
+            self.component.change_user = get_device_user()
+            self.component.refresh_from_db()
+            if not self.component.value:
+                self.component.arm_status = 'armed'
+                self.component.save(update_fields=['arm_status'])
         try:
             delattr(self.component, 'change_user')
         except Exception:
             pass
-        return super()._receive_from_device(
-            val, is_alive, battery_level, error_msg
-        )
+        return result
 
     def arm(self):
         """Arm the smoke detector from the hub.

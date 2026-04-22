@@ -3,8 +3,9 @@ from unittest import mock
 from django.utils import timezone
 
 from simo.core.models import Component, Gateway, Zone
+from simo.notifications.models import Notification, UserNotification
 
-from .base import BaseSimoTestCase, mk_instance
+from .base import BaseSimoTestCase, mk_instance, mk_instance_user, mk_role, mk_user
 
 
 class AlarmGroupTasksTests(BaseSimoTestCase):
@@ -13,6 +14,9 @@ class AlarmGroupTasksTests(BaseSimoTestCase):
         self.inst = mk_instance('inst-a', 'A')
         self.zone = Zone.objects.create(instance=self.inst, name='Z', order=0)
         self.gw, _ = Gateway.objects.get_or_create(type='simo.generic.gateways.GenericGatewayHandler')
+        user = mk_user('alarm@example.com', 'Alarm User')
+        role = mk_role(self.inst, is_superuser=True)
+        mk_instance_user(user, self.inst, role, is_active=True)
 
         from simo.generic.controllers import AlarmGroup, SwitchGroup
 
@@ -64,18 +68,62 @@ class AlarmGroupTasksTests(BaseSimoTestCase):
             value='breached',
         )
 
-    def test_notify_users_on_alarm_group_breach_sends_notification(self):
+    def test_notify_users_on_alarm_group_breach_dispatches_persisted_notification(self):
         from simo.generic.tasks import notify_users_on_alarm_group_breach
+        from simo.notifications.utils import create_notification
 
-        with mock.patch('simo.notifications.utils.notify_users', autospec=True) as notify:
-            notify_users_on_alarm_group_breach(self.alarm_group.id)
+        self.alarm_group.meta['breach_transition_id'] = 'breach-1'
+        self.alarm_group.save(update_fields=['meta'])
+        notification = create_notification(
+            'alarm',
+            str(self.alarm_group),
+            body='Security Breach! Door',
+            component=self.alarm_group,
+            instance=self.inst,
+            dispatch=False,
+            dispatch_countdown=5,
+            event_key='breach-1',
+        )
 
-        notify.assert_called_once()
-        args, kwargs = notify.call_args
-        self.assertEqual(args[0], 'alarm')
-        self.assertIn('Security Breach!', args[2])
-        self.assertEqual(kwargs.get('component').id, self.alarm_group.id)
-        self.assertEqual(kwargs.get('instance').id, self.inst.id)
+        with mock.patch('simo.notifications.utils.dispatch_notification_now', autospec=True) as dispatch:
+            notify_users_on_alarm_group_breach(
+                notification.id, self.alarm_group.id, 'breach-1'
+            )
+
+        dispatch.assert_called_once_with(notification.id)
+        notification.refresh_from_db()
+        self.assertFalse(notification.is_pending)
+        self.assertIsNone(notification.cancelled)
+        self.assertEqual(UserNotification.objects.filter(notification=notification).count(), 1)
+
+    def test_notify_users_on_alarm_group_breach_cancels_pending_notification_when_group_clears(self):
+        from simo.generic.tasks import notify_users_on_alarm_group_breach
+        from simo.notifications.utils import create_notification
+
+        self.alarm_group.meta['breach_transition_id'] = 'breach-1'
+        self.alarm_group.save(update_fields=['meta'])
+        notification = create_notification(
+            'alarm',
+            str(self.alarm_group),
+            body='Security Breach! Door',
+            component=self.alarm_group,
+            instance=self.inst,
+            dispatch=False,
+            dispatch_countdown=5,
+            event_key='breach-1',
+        )
+        self.alarm_group.value = 'disarmed'
+        self.alarm_group.save(update_fields=['value'])
+
+        with mock.patch('simo.notifications.utils.dispatch_notification_now', autospec=True) as dispatch:
+            notify_users_on_alarm_group_breach(
+                notification.id, self.alarm_group.id, 'breach-1'
+            )
+
+        dispatch.assert_not_called()
+        notification.refresh_from_db()
+        self.assertFalse(notification.is_pending)
+        self.assertIsNotNone(notification.cancelled)
 
     def test_fire_breach_events_respects_threshold_delay_and_idempotency(self):
         from simo.generic.tasks import fire_breach_events
@@ -110,4 +158,3 @@ class AlarmGroupTasksTests(BaseSimoTestCase):
         ):
             fire_breach_events(self.alarm_group.id)
         turn_on.assert_not_called()
-

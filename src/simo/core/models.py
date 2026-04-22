@@ -687,6 +687,12 @@ class Component(DirtyFieldsMixin, models.Model, SimoAdminMixin, OnChangeMixin):
             return self.arm()
         self.refresh_from_db()
         if self.alarm_category:
+            if self.arm_status == 'breached':
+                if self.is_in_alarm():
+                    return
+                self.arm_status = 'armed'
+                self.save()
+                return
             self.arm_status = 'pending-arm'
             self.save()
 
