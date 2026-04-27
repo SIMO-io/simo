@@ -1,10 +1,13 @@
+import json
 import time
 from types import SimpleNamespace
 from unittest import mock
 
+from django.contrib.contenttypes.models import ContentType
 from django.utils import timezone
 
 from simo.core.models import Component, Gateway, Zone
+from simo.users.utils import get_current_user
 
 from .base import BaseSimoTestCase, mk_instance, mk_user, mk_role, mk_instance_user
 
@@ -63,6 +66,33 @@ class GenericGatewayPeriodicTests(BaseSimoTestCase):
         comp.controller.set = mock.Mock()
         handler.perform_value_send(comp, True)
         comp.controller.set.assert_called_once_with(True)
+
+    def test_generic_gateway_message_restores_user_context_after_actor_scoped_message(self):
+        from simo.generic.controllers import DummySwitch
+
+        actor = mk_user('actor@example.com', 'Actor')
+        comp = Component.objects.create(
+            name='S',
+            zone=self.zone,
+            category=None,
+            gateway=self.dummy_gw,
+            base_type='switch',
+            controller_uid=DummySwitch.uid,
+            config={},
+            meta={},
+            value=False,
+        )
+        handler = self._mk_generic_handler()
+        ct_id = ContentType.objects.get_for_model(Component).pk
+
+        msg = mock.Mock()
+        msg.payload = json.dumps(
+            {'obj_ct_pk': ct_id, 'obj_pk': comp.pk, 'set_val': True, 'actor_id': actor.pk}
+        ).encode()
+
+        handler.on_mqtt_message(None, None, msg)
+
+        self.assertEqual(get_current_user().email, 'system@simo.io')
 
     def test_generic_watch_timers_triggers_timer_end(self):
         from simo.generic.controllers import DummySwitch

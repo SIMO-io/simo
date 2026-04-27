@@ -3,6 +3,7 @@ from types import SimpleNamespace
 from unittest import mock
 
 from simo.core.models import Component, Gateway, Zone
+from simo.users.utils import get_current_user
 
 from .base import BaseSimoTestCase, mk_instance, mk_role, mk_user, mk_instance_user
 
@@ -209,7 +210,6 @@ class ManagementMqttControlCommandTests(BaseSimoTestCase):
         )
         with (
             mock.patch('simo.core.management.commands.run_app_mqtt_control.check_throttle', autospec=True, return_value=0),
-            mock.patch('simo.core.management.commands.run_app_mqtt_control.introduce_user', autospec=True),
         ):
             cmd.on_message(client, None, msg)
         self.assertTrue(client.publish.called)
@@ -237,7 +237,6 @@ class ManagementMqttControlCommandTests(BaseSimoTestCase):
         )
         with (
             mock.patch('simo.core.management.commands.run_app_mqtt_control.check_throttle', autospec=True, return_value=0),
-            mock.patch('simo.core.management.commands.run_app_mqtt_control.introduce_user', autospec=True),
             mock.patch('simo.core.controllers.Switch.toggle', autospec=True, return_value=None),
         ):
             cmd.on_message(client, None, msg)
@@ -304,13 +303,42 @@ class ManagementMqttControlCommandTests(BaseSimoTestCase):
         )
         with (
             mock.patch('simo.core.management.commands.run_app_mqtt_control.check_throttle', autospec=True, return_value=0),
-            mock.patch('simo.core.management.commands.run_app_mqtt_control.introduce_user', autospec=True),
             mock.patch('simo.core.controllers.Switch.toggle', autospec=True, return_value=None) as toggle,
         ):
             cmd.on_message(client, None, msg)
 
         toggle.assert_called_once()
         client.publish.assert_called_once()
+
+    def test_on_message_restores_user_context_after_call(self):
+        from simo.generic.controllers import DummySwitch
+
+        user = mk_user('mqtt@example.com', 'MQTT', is_master=True)
+        comp = Component.objects.create(
+            name='C',
+            zone=self.zone,
+            category=None,
+            gateway=self.gw,
+            base_type='switch',
+            controller_uid=DummySwitch.uid,
+            config={},
+            meta={},
+            value=False,
+        )
+
+        cmd = self._mk_cmd()
+        client = mock.Mock()
+        msg = SimpleNamespace(
+            topic=f'SIMO/user/{user.id}/control/{self.inst.uid}/Component/{comp.id}',
+            payload=json.dumps({'request_id': 'r', 'method': 'toggle'}).encode(),
+        )
+        with (
+            mock.patch('simo.core.management.commands.run_app_mqtt_control.check_throttle', autospec=True, return_value=0),
+            mock.patch('simo.core.controllers.Switch.toggle', autospec=True, return_value=None),
+        ):
+            cmd.on_message(client, None, msg)
+
+        self.assertEqual(get_current_user().email, 'system@simo.io')
 
     def test_respond_without_request_id_does_not_publish(self):
         cmd = self._mk_cmd()

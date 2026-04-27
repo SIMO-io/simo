@@ -8,7 +8,7 @@ from django.core.management.base import BaseCommand
 from django.conf import settings
 
 from simo.users.models import User, InstanceUser, ComponentPermission
-from simo.users.utils import introduce_user
+from simo.users.utils import user_context
 from simo.core.models import Component
 from simo.core.utils.mqtt import connect_with_retry, install_reconnect_handler
 from simo.core.throttling import check_throttle, SimpleRequest
@@ -120,48 +120,48 @@ class Command(BaseCommand):
             if not component:
                 return
 
-            introduce_user(user)
-            payload = json.loads(msg.payload or '{}')
-            request_id = payload.get('request_id')
-            sub_id = payload.get('subcomponent_id')
-            method = payload.get('method')
-            args = payload.get('args', [])
-            kwargs = payload.get('kwargs', {})
-            if method in (None, 'id', 'secret') or str(method).startswith('_'):
-                return
-
-            # Choose target component (main or subcomponent)
-            target = component
-            if sub_id:
-                try:
-                    target = component.slaves.get(pk=sub_id)
-                except Exception:
+            with user_context(user):
+                payload = json.loads(msg.payload or '{}')
+                request_id = payload.get('request_id')
+                sub_id = payload.get('subcomponent_id')
+                method = payload.get('method')
+                args = payload.get('args', [])
+                kwargs = payload.get('kwargs', {})
+                if method in (None, 'id', 'secret') or str(method).startswith('_'):
                     return
 
-            # Prepare controller and call
-            target.prepare_controller()
-            if not target.controller:
-                self.respond(client, user_id, request_id, ok=False, error='Component has no controller')
-                return
-            if method not in set(target.get_controller_methods()):
-                self.respond(client, user_id, request_id, ok=False, error=f'Method {method} not allowed')
-                return
-            if not hasattr(target, method):
-                self.respond(client, user_id, request_id, ok=False, error=f'Method {method} not found')
-                return
-            call = getattr(target, method)
-            try:
-                if isinstance(args, list) and isinstance(kwargs, dict):
-                    result = call(*args, **kwargs)
-                elif isinstance(args, list):
-                    result = call(*args)
-                elif isinstance(kwargs, dict):
-                    result = call(**kwargs)
-                else:
-                    result = call()
-                self.respond(client, user_id, request_id, ok=True, result=result)
-            except Exception:
-                self.respond(client, user_id, request_id, ok=False, error=''.join(traceback.format_exception(*sys.exc_info())))
+                # Choose target component (main or subcomponent)
+                target = component
+                if sub_id:
+                    try:
+                        target = component.slaves.get(pk=sub_id)
+                    except Exception:
+                        return
+
+                # Prepare controller and call
+                target.prepare_controller()
+                if not target.controller:
+                    self.respond(client, user_id, request_id, ok=False, error='Component has no controller')
+                    return
+                if method not in set(target.get_controller_methods()):
+                    self.respond(client, user_id, request_id, ok=False, error=f'Method {method} not allowed')
+                    return
+                if not hasattr(target, method):
+                    self.respond(client, user_id, request_id, ok=False, error=f'Method {method} not found')
+                    return
+                call = getattr(target, method)
+                try:
+                    if isinstance(args, list) and isinstance(kwargs, dict):
+                        result = call(*args, **kwargs)
+                    elif isinstance(args, list):
+                        result = call(*args)
+                    elif isinstance(kwargs, dict):
+                        result = call(**kwargs)
+                    else:
+                        result = call()
+                    self.respond(client, user_id, request_id, ok=True, result=result)
+                except Exception:
+                    self.respond(client, user_id, request_id, ok=False, error=''.join(traceback.format_exception(*sys.exc_info())))
         except Exception:
             # Never crash the consumer
             pass

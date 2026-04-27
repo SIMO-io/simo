@@ -131,31 +131,32 @@ class BaseObjectCommandsGatewayHandler(BaseGatewayHandler):
     def _on_mqtt_message(self, client, userdata, msg):
         from simo.core.models import Component
         from simo.users.models import User
-        from simo.users.utils import introduce_user
+        from simo.users.utils import user_context
 
         payload = json.loads(msg.payload)
-        # If actor_id provided, introduce that user so
-        # subsequent set()/history is attributed correctly.
         actor_id = payload.get('actor_id')
+        actor = None
         if actor_id:
             try:
-                user = User.objects.get(pk=actor_id)
-                introduce_user(user)
+                actor = User.objects.get(pk=actor_id)
             except Exception:
-                pass
+                actor = None
 
-        if 'set_val' in payload:
-            component = get_event_obj(payload, Component)
-            if not component:
-                return
-            print(f"Perform Value ({str(payload['set_val'])}) Send to {component}")
-            try:
-                self.perform_value_send(component, payload['set_val'])
-            except Exception as e:
-                self.logger.error(e, exc_info=True)
+        # Scope actor attribution to a single MQTT message so unrelated
+        # follow-up device/system events cannot inherit a previous user.
+        with user_context(actor):
+            if 'set_val' in payload:
+                component = get_event_obj(payload, Component)
+                if not component:
+                    return
+                print(f"Perform Value ({str(payload['set_val'])}) Send to {component}")
+                try:
+                    self.perform_value_send(component, payload['set_val'])
+                except Exception as e:
+                    self.logger.error(e, exc_info=True)
 
-        if 'bulk_send' in payload:
-            self.perform_bulk_send(payload['bulk_send'])
+            if 'bulk_send' in payload:
+                self.perform_bulk_send(payload['bulk_send'])
 
     def perform_value_send(self, component, value):
         raise NotImplemented()

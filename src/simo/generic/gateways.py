@@ -349,31 +349,32 @@ class GenericGatewayHandler(
         print("Mqtt message: ", msg.payload)
         from simo.generic.controllers import AlarmGroup#, #AudioAlert
         from simo.users.models import User
-        from simo.users.utils import introduce_user
+        from simo.users.utils import user_context
 
         payload = json.loads(msg.payload)
         actor_id = payload.get('actor_id')
+        actor = None
         if actor_id:
             try:
-                user = User.objects.get(pk=actor_id)
-                introduce_user(user)
+                actor = User.objects.get(pk=actor_id)
             except Exception:
-                pass
-        drop_current_instance()
-        component = get_event_obj(payload, Component)
-        if not component:
-            return
-        try:
-            if component.controller_uid == AlarmGroup.uid:
-                self.control_alarm_group(component, payload.get('set_val'))
-            # elif component.controller_uid == AudioAlert.uid:
-            #     self.control_audio_alert(component, payload.get('set_val'))
-            elif payload.get('pulse'):
-                self.start_pulse(component, payload['pulse'])
-            else:
-                component.controller.set(payload.get('set_val'))
-        except Exception:
-            print(traceback.format_exc(), file=sys.stderr)
+                actor = None
+        with user_context(actor):
+            drop_current_instance()
+            component = get_event_obj(payload, Component)
+            if not component:
+                return
+            try:
+                if component.controller_uid == AlarmGroup.uid:
+                    self.control_alarm_group(component, payload.get('set_val'))
+                # elif component.controller_uid == AudioAlert.uid:
+                #     self.control_audio_alert(component, payload.get('set_val'))
+                elif payload.get('pulse'):
+                    self.start_pulse(component, payload['pulse'])
+                else:
+                    component.controller.set(payload.get('set_val'))
+            except Exception:
+                print(traceback.format_exc(), file=sys.stderr)
 
 
     def control_alarm_group(self, alarm_group, value):

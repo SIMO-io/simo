@@ -617,28 +617,29 @@ class AutomationsGatewayHandler(GatesHandler, BaseObjectCommandsGatewayHandler):
         self._log_debug(f"Mqtt message: {msg.payload}")
         from .controllers import Script
         from simo.users.models import User
-        from simo.users.utils import introduce_user
+        from simo.users.utils import user_context
 
         payload = json.loads(msg.payload)
         actor_id = payload.get('actor_id')
+        actor = None
         if actor_id:
             try:
-                user = User.objects.get(pk=actor_id)
-                introduce_user(user)
+                actor = User.objects.get(pk=actor_id)
             except Exception:
-                pass
-        drop_current_instance()
-        component = get_event_obj(payload, Component)
-        if not component:
-            return
-        introduce_instance(component.zone.instance)
-        if not isinstance(component.controller, Script):
-            return
+                actor = None
+        with user_context(actor):
+            drop_current_instance()
+            component = get_event_obj(payload, Component)
+            if not component:
+                return
+            introduce_instance(component.zone.instance)
+            if not isinstance(component.controller, Script):
+                return
 
-        if payload.get('set_val') == 'start':
-            self.start_script(component)
-        elif payload.get('set_val') == 'stop':
-            self.stop_script(component)
+            if payload.get('set_val') == 'start':
+                self.start_script(component)
+            elif payload.get('set_val') == 'stop':
+                self.stop_script(component)
 
 
     def start_script(self, component):

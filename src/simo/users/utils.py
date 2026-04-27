@@ -4,6 +4,7 @@ import traceback
 import subprocess
 import datetime
 import numpy as np
+from contextlib import contextmanager
 from contextvars import ContextVar
 from django.core.cache import cache
 from django.utils import timezone
@@ -109,6 +110,16 @@ def introduce_user(user):
 
 def reset_user(token):
     _current_user.reset(token)
+
+
+@contextmanager
+def user_context(user):
+    """Temporarily bind the current user for the active context."""
+    token = introduce_user(user)
+    try:
+        yield user
+    finally:
+        reset_user(token)
 
 
 def get_current_user():

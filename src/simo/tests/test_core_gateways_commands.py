@@ -4,6 +4,7 @@ from unittest import mock
 from django.contrib.contenttypes.models import ContentType
 
 from simo.core.models import Component, Gateway, Zone
+from simo.users.utils import get_current_user
 
 from .base import BaseSimoTestCase, mk_instance, mk_user
 
@@ -160,7 +161,7 @@ class GatewaysCommandHandlingTests(BaseSimoTestCase):
 
         handler.perform_value_send.assert_not_called()
 
-    def test_on_mqtt_message_actor_id_introduces_user(self):
+    def test_on_mqtt_message_actor_id_scopes_user_context(self):
         handler = self._mk_handler()
         handler.perform_value_send = mock.Mock()
 
@@ -182,9 +183,35 @@ class GatewaysCommandHandlingTests(BaseSimoTestCase):
             {'obj_ct_pk': self.ct_id, 'obj_pk': comp.pk, 'set_val': True, 'actor_id': user.pk}
         ).encode()
 
-        with mock.patch('simo.users.utils.introduce_user', autospec=True) as intro:
+        with mock.patch('simo.users.utils.user_context', autospec=True) as ctx:
             handler._on_mqtt_message(None, None, msg)
-        intro.assert_called_once()
+        ctx.assert_called_once_with(user)
+
+    def test_on_mqtt_message_restores_user_context_after_actor_scoped_message(self):
+        handler = self._mk_handler()
+        handler.perform_value_send = mock.Mock()
+
+        user = mk_user('restore@example.com', 'Restore')
+        comp = Component.objects.create(
+            name='C',
+            zone=self.zone,
+            category=None,
+            gateway=self.gw,
+            base_type='switch',
+            controller_uid='x',
+            config={},
+            meta={},
+            value=False,
+        )
+
+        msg = mock.Mock()
+        msg.payload = json.dumps(
+            {'obj_ct_pk': self.ct_id, 'obj_pk': comp.pk, 'set_val': True, 'actor_id': user.pk}
+        ).encode()
+
+        handler._on_mqtt_message(None, None, msg)
+
+        self.assertEqual(get_current_user().email, 'system@simo.io')
 
     def test_perform_bulk_send_continues_on_exceptions(self):
         handler = self._mk_handler()
