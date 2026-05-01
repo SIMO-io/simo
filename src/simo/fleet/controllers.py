@@ -1014,7 +1014,9 @@ class TempHumSensor(FleetDeviceMixin, BasicSensorMixin, BaseMultiSensor):
             ['temp_raw', 0, 'C'],
             ['hum_raw', 0, '%'],
             ['core', 0, 'C'],
-            ['outside', 0, 'C']
+            ['outside', 0, 'C'],
+            ['tmp1', 0, 'C'],
+            ['tmp2', 0, 'C']
         ]
 
     def _receive_from_device(self, value, *args, **kwargs):
@@ -1040,7 +1042,9 @@ class TempHumSensor(FleetDeviceMixin, BasicSensorMixin, BaseMultiSensor):
             ['temp_raw', value.get('temp_raw'), 'C'],
             ['hum_raw', value.get('hum_raw'), '%'],
             ['core', value.get('core'), 'C'],
-            ['outside', value.get('out'), 'C']
+            ['outside', value.get('out'), 'C'],
+            ['tmp1', value.get('tmp1'), 'C'],
+            ['tmp2', value.get('tmp2'), 'C']
         ]
 
         if self.sys_temp_units == 'F':
