@@ -1080,7 +1080,7 @@ class RoomPresenceSensor(FleetDeviceMixin, BaseBinarySensor):
     config_form = RoomPresenceSensorConfigForm
     name = "Human presence sensor"
     manual_add = False
-    default_config = {'sens': 10}
+    default_config = {'sens': 10, 'range': 3.0}
 
 
 class RoomZonePresenceSensor(FleetDeviceMixin, BaseBinarySensor):

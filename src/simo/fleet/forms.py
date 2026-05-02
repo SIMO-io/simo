@@ -1828,6 +1828,13 @@ class RoomPresenceSensorConfigForm(BaseComponentForm):
         choices=tuple((value, str(value)) for value in range(1, 20)),
         help_text="Presence detection sensitivity. Accepted values: 1-19."
     )
+    range = forms.FloatField(
+        label="AT+RANGE",
+        min_value=1.0,
+        max_value=10.0,
+        initial=3.0,
+        help_text="Presence detection range in meters."
+    )
 
     def save(self, commit=True):
         is_new = not self.instance.pk

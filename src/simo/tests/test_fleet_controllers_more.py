@@ -206,6 +206,10 @@ class FleetControllersMoreTests(BaseSimoTestCase):
             [value for value, _label in form.fields['sens'].choices],
             list(range(1, 20)),
         )
+        self.assertIn('range', form.fields)
+        self.assertEqual(form.fields['range'].initial, 3.0)
+        self.assertEqual(form.fields['range'].min_value, 1.0)
+        self.assertEqual(form.fields['range'].max_value, 10.0)
 
     def test_room_presence_sensor_config_form_pushes_live_update_config(self):
         from simo.core.events import GatewayObjectCommand
@@ -215,16 +219,20 @@ class FleetControllersMoreTests(BaseSimoTestCase):
         comp = self._mk_component(
             controller_uid=RoomPresenceSensor.uid,
             base_type='binary-sensor',
-            config={'colonel': self.colonel.id, 'sens': 10},
+            config={'colonel': self.colonel.id, 'sens': 10, 'range': 3.0},
             value=False,
         )
 
         GatewayObjectCommand.publish.reset_mock()
-        form = RoomPresenceSensorConfigForm(instance=comp, data={'sens': '14'})
+        form = RoomPresenceSensorConfigForm(
+            instance=comp,
+            data={'sens': '14', 'range': '5.3'},
+        )
         self.assertTrue(form.is_valid(), form.errors)
         obj = form.save()
 
         self.assertEqual(obj.config.get('sens'), 14)
+        self.assertEqual(obj.config.get('range'), 5.3)
         GatewayObjectCommand.publish.assert_called_once()
         cmd_obj = GatewayObjectCommand.publish.call_args.args[0]
         self.assertEqual(cmd_obj.data.get('command'), 'call')
@@ -238,11 +246,14 @@ class FleetControllersMoreTests(BaseSimoTestCase):
         comp = self._mk_component(
             controller_uid=RoomPresenceSensor.uid,
             base_type='binary-sensor',
-            config={'colonel': self.colonel.id, 'sens': 10},
+            config={'colonel': self.colonel.id, 'sens': 10, 'range': 3.0},
             value=False,
         )
 
-        form = RoomPresenceSensorConfigForm(instance=comp, data={'sens': '12'})
+        form = RoomPresenceSensorConfigForm(
+            instance=comp,
+            data={'sens': '12', 'range': '6.5'},
+        )
         self.assertTrue(form.is_valid(), form.errors)
 
         with mock.patch('simo.fleet.models.Colonel.update_config', autospec=True) as update_config:
