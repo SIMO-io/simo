@@ -562,7 +562,11 @@ class ComponentSerializer(FormSerializer):
         methods = obj.get_controller_methods()
         if 'recalibrate' not in methods:
             return methods
-        if obj.controller_uid != 'simo.fleet.controllers.AirQualitySensor':
+        superuser_only_recalibration = {
+            'simo.fleet.controllers.AirQualitySensor',
+            'simo.fleet.controllers.RoomPresenceSensor',
+        }
+        if obj.controller_uid not in superuser_only_recalibration:
             return methods
 
         user = self.context.get('user')

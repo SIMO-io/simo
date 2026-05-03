@@ -261,6 +261,81 @@ class FleetControllersMoreTests(BaseSimoTestCase):
 
         update_config.assert_not_called()
 
+    def test_sentinel_room_presence_recalibrate_publishes_call_command(self):
+        from simo.core.events import GatewayObjectCommand
+        from simo.core.serializers import ComponentSerializer
+        from simo.fleet.controllers import RoomPresenceSensor
+
+        comp = self._mk_component(
+            controller_uid=RoomPresenceSensor.uid,
+            base_type='binary-sensor',
+            config={'colonel': self.colonel.id, 'sens': 10, 'range': 3.0},
+            value=False,
+        )
+        ctrl = RoomPresenceSensor(comp)
+        user = mk_user('room-super@simo.io', 'Room Super')
+        role = mk_role(self.inst, is_superuser=True)
+        mk_instance_user(user, self.inst, role)
+
+        GatewayObjectCommand.publish.reset_mock()
+        with mock.patch('simo.fleet.controllers.get_current_user', return_value=user):
+            ctrl.recalibrate()
+
+        GatewayObjectCommand.publish.assert_called_once()
+        cmd_obj = GatewayObjectCommand.publish.call_args.args[0]
+        self.assertEqual(cmd_obj.data.get('command'), 'call')
+        self.assertEqual(cmd_obj.data.get('method'), 'recalibrate')
+        self.assertEqual(cmd_obj.data.get('id'), comp.id)
+
+        serializer = ComponentSerializer(
+            instance=comp,
+            context={
+                'request': SimpleNamespace(
+                    user=user,
+                    path='/',
+                    build_absolute_uri=lambda p: p,
+                ),
+                'instance': self.inst,
+            },
+        )
+        self.assertIn('recalibrate', serializer.get_controller_methods(comp))
+
+    def test_sentinel_room_presence_recalibrate_denied_for_non_superuser(self):
+        from simo.core.events import GatewayObjectCommand
+        from simo.core.serializers import ComponentSerializer
+        from simo.fleet.controllers import RoomPresenceSensor
+
+        comp = self._mk_component(
+            controller_uid=RoomPresenceSensor.uid,
+            base_type='binary-sensor',
+            config={'colonel': self.colonel.id, 'sens': 10, 'range': 3.0},
+            value=False,
+        )
+        ctrl = RoomPresenceSensor(comp)
+        user = mk_user('room-regular@simo.io', 'Room Regular')
+        role = mk_role(self.inst, is_superuser=False)
+        mk_instance_user(user, self.inst, role)
+
+        GatewayObjectCommand.publish.reset_mock()
+        with mock.patch('simo.fleet.controllers.get_current_user', return_value=user):
+            with self.assertRaises(ValidationError):
+                ctrl.recalibrate()
+
+        GatewayObjectCommand.publish.assert_not_called()
+
+        serializer = ComponentSerializer(
+            instance=comp,
+            context={
+                'request': SimpleNamespace(
+                    user=user,
+                    path='/',
+                    build_absolute_uri=lambda p: p,
+                ),
+                'instance': self.inst,
+            },
+        )
+        self.assertNotIn('recalibrate', serializer.get_controller_methods(comp))
+
     def test_sentinel_air_quality_recalibrate_publishes_call_command(self):
         from simo.core.events import GatewayObjectCommand
         from simo.core.serializers import ComponentSerializer

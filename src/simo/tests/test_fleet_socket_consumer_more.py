@@ -253,6 +253,53 @@ class FleetConsumerWsMoreTests(BaseSimoTransactionTestCase):
         comp.refresh_from_db()
         self.assertEqual(comp.meta.get('options'), {'a': 1})
 
+    def test_receive_comp_meta_merges_meta(self):
+        from simo.fleet.socket_consumers import FleetConsumer
+
+        zone = Zone.objects.create(instance=self.inst, name='ZM', order=0)
+        comp = Component.objects.create(
+            name='M',
+            zone=zone,
+            category=None,
+            gateway=Gateway.objects.get(type=FleetGatewayHandler.uid),
+            base_type='binary-sensor',
+            controller_uid='x',
+            config={'colonel': 0},
+            meta={'existing': True},
+            value=False,
+        )
+
+        async def run():
+            app = FleetConsumer.as_asgi()
+            communicator = WebsocketCommunicator(app, '/ws/fleet/')
+            communicator.scope['headers'] = self._mk_headers()
+
+            with (
+                mock.patch('simo.fleet.socket_consumers.mqtt.Client', autospec=True, return_value=FakeMqttClient()),
+                mock.patch('simo.fleet.socket_consumers.install_reconnect_handler', autospec=True),
+                mock.patch('simo.fleet.socket_consumers.connect_with_retry', autospec=True, return_value=True),
+                mock.patch('simo.fleet.socket_consumers.asyncio.create_task', side_effect=_discard_task),
+            ):
+                await communicator.connect()
+                await communicator.receive_from(timeout=2)
+                await communicator.send_to(text_data=json.dumps({
+                    'comp': comp.id,
+                    'meta': {
+                        'study_result': {
+                            'status': 'success',
+                            'code': 'A3',
+                            'raw_frame': '55aa0600a3a5',
+                        }
+                    },
+                }))
+            await communicator.disconnect()
+
+        async_to_sync(run)()
+        comp.refresh_from_db()
+        self.assertTrue(comp.meta.get('existing'))
+        self.assertEqual(comp.meta['study_result']['status'], 'success')
+        self.assertEqual(comp.meta['study_result']['code'], 'A3')
+
     def test_receive_comp_val_calls_receive_from_device(self):
         from simo.fleet.socket_consumers import FleetConsumer
         from simo.fleet.controllers import BinarySensor

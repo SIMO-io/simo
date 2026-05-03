@@ -1078,9 +1078,20 @@ class AmbientLightSensor(FleetDeviceMixin, BaseNumericSensor):
 class RoomPresenceSensor(FleetDeviceMixin, BaseBinarySensor):
     gateway_class = FleetGatewayHandler
     config_form = RoomPresenceSensorConfigForm
+    admin_widget_template = 'fleet/admin/controller_widgets/room_presence_sensor.html'
     name = "Human presence sensor"
     manual_add = False
     default_config = {'sens': 10, 'range': 3.0}
+
+    def recalibrate(self):
+        user = get_current_user()
+        if not user.is_master:
+            role = user.get_role(self.component.zone.instance)
+            if not role or not role.is_superuser:
+                raise ValidationError(
+                    "Only instance superusers can recalibrate this room presence sensor."
+                )
+        self._call_cmd('recalibrate')
 
 
 class RoomZonePresenceSensor(FleetDeviceMixin, BaseBinarySensor):

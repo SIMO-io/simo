@@ -80,6 +80,10 @@
             function activateButton($el){
               $el.find('.action').not('.momentary-action').on('click', function(e){
                   e.preventDefault();
+                  var confirmText = $(this).data('confirm');
+                  if (confirmText && !window.confirm(confirmText)){
+                      return;
+                  }
                   $(this).attr('disabled', 'disabled');
                   $(this).addClass('disabled');
                   var positionalValue;
@@ -89,7 +93,7 @@
                           kwargs[key.substring(0, key.length - 5)] = $('#' + val).val();
                       }else if (key === 'value'){
                           positionalValue = val;
-                      }else if (key !== 'method'){
+                      }else if (key !== 'method' && key !== 'confirm'){
                           kwargs[key] = val;
                       }
                   });

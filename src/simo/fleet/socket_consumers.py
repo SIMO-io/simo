@@ -500,6 +500,18 @@ class FleetConsumer(AsyncWebsocketConsumer):
                                 receive_options, thread_sensitive=True
                             )(data['options'])
 
+                        if 'meta' in data:
+                            def receive_meta(val):
+                                if not isinstance(val, dict):
+                                    return
+                                if not isinstance(component.meta, dict):
+                                    component.meta = {}
+                                component.meta.update(val)
+                                component.save(update_fields=['meta'])
+                            await sync_to_async(
+                                receive_meta, thread_sensitive=True
+                            )(data['meta'])
+
                         if component.controller_uid == TTLock.uid:
                             if 'codes' in data or 'fingerprints' in data:
                                 await sync_to_async(
