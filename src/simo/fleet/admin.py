@@ -1,4 +1,5 @@
 from threading import Timer
+from urllib.parse import urlencode
 from actstream.models import actor_stream
 from django.contrib import admin, messages
 from django.core.exceptions import PermissionDenied, ValidationError
@@ -7,6 +8,7 @@ from django.template.loader import render_to_string
 from django.templatetags.static import static
 from django.urls import path, reverse
 from django.utils.html import format_html, format_html_join
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.safestring import mark_safe
 from simo.core.middleware import get_current_instance
 from simo.core.utils.admin import FormAction
@@ -68,7 +70,8 @@ class ColonelAdmin(admin.ModelAdmin):
     readonly_fields = (
         'type', 'uid', 'connected', 'last_seen',
         'firmware_version', 'newer_firmware_available',
-        'history', 'wake_stats', 'last_wake', 'is_vo_active'
+        'history', 'wake_stats', 'last_wake', 'is_vo_active',
+        'dali_diagnostics'
     )
 
     actions = (
@@ -84,7 +87,7 @@ class ColonelAdmin(admin.ModelAdmin):
             'name', 'instance', 'enabled', 'firmware_auto_update',
             'type', 'uid', 'connected', 'last_seen',
             'firmware_version', 'newer_firmware_available',
-            'logs_stream', 'log'
+            'logs_stream', 'dali_diagnostics', 'log'
         )}),
         ("History", {
             'fields': ('history',),
@@ -198,6 +201,41 @@ class ColonelAdmin(admin.ModelAdmin):
             'admin/colonel_history.html', {'actions': actor_stream(obj)[:100]}
         )
 
+    def dali_diagnostics(self, obj):
+        if not obj or not obj.pk:
+            return ''
+
+        dali_interfaces = list(obj.interfaces.filter(type='dali'))
+        if not dali_interfaces:
+            return "No DALI interfaces configured."
+        if not obj.is_connected:
+            return "Colonel offline."
+
+        change_url = reverse('admin:fleet_colonel_change', args=[obj.pk])
+        rows = []
+        for interface in dali_interfaces:
+            buttons = []
+            for action, label in DALI_BROADCAST_ACTION_CHOICES:
+                url = reverse(
+                    'admin:fleet_interface_dali_broadcast',
+                    args=[interface.pk, action]
+                )
+                url = f"{url}?{urlencode({'next': change_url})}"
+                buttons.append(format_html(
+                    '<a class="button" style="margin-right: 4px;" '
+                    'href="{}">{}</a>',
+                    url, label
+                ))
+            rows.append(format_html(
+                '<div style="margin: 6px 0;"><strong>DALI {}</strong>: {}</div>',
+                interface.no,
+                format_html_join('', '{}', ((button,) for button in buttons))
+            ))
+
+        return format_html_join('', '{}', ((row,) for row in rows))
+
+    dali_diagnostics.short_description = "DALI diagnostics"
+
 @admin.register(Interface)
 class InterfaceAdmin(admin.ModelAdmin):
     list_display = (
@@ -243,6 +281,13 @@ class InterfaceAdmin(admin.ModelAdmin):
         self._dispatch_dali_broadcast(
             request, Interface.objects.filter(pk=obj.pk), action
         )
+        redirect_to = request.GET.get('next')
+        if redirect_to and url_has_allowed_host_and_scheme(
+            redirect_to,
+            allowed_hosts={request.get_host()},
+            require_https=request.is_secure()
+        ):
+            return HttpResponseRedirect(redirect_to)
         return HttpResponseRedirect(
             reverse('admin:fleet_interface_change', args=[obj.pk])
         )
