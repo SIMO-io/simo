@@ -23,6 +23,16 @@ from .utils import GPIO_PINS, INTERFACES_PINS_MAP, \
 
 # -------------------------------------------------------------------------
 
+DALI_BROADCAST_ACTION_CHOICES = (
+    ('off', "Power OFF"),
+    ('on', "Power ON / max"),
+    ('min', "Recall MIN"),
+    ('level_50', "Set 50%"),
+    ('identify', "Identify gear"),
+)
+
+DALI_BROADCAST_ACTION_LABELS = dict(DALI_BROADCAST_ACTION_CHOICES)
+
 
 
 legacy_colonel_pins_map = {
@@ -550,8 +560,25 @@ class Interface(models.Model):
             return
         GatewayObjectCommand(
             gw, self.colonel, command='broadcast_reset',
-            data={'interface': self.no}
+            interface=self.no
         ).publish()
+
+    def dali_broadcast(self, action):
+        if self.type != 'dali':
+            raise ValidationError("Only DALI interfaces support DALI broadcasts.")
+        if action not in DALI_BROADCAST_ACTION_LABELS:
+            raise ValidationError("Unsupported DALI broadcast action.")
+
+        from .gateways import FleetGatewayHandler
+        gw = Gateway.objects.filter(type=FleetGatewayHandler.uid).first()
+        if not gw:
+            return False
+
+        GatewayObjectCommand(
+            gw, self.colonel, command='dali_broadcast',
+            interface=self.no, action=action
+        ).publish()
+        return True
 
 
 class InterfaceAddress(models.Model):

@@ -7,7 +7,9 @@ from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError as APIValidationError
 from simo.core.api import InstanceMixin
 from simo.core.permissions import IsInstanceSuperuser
-from .models import InstanceOptions, Colonel, Interface
+from .models import (
+    InstanceOptions, Colonel, Interface, DALI_BROADCAST_ACTION_LABELS
+)
 from .serializers import (
     InstanceOptionsSerializer, ColonelSerializer, ColonelInterfaceSerializer
 )
@@ -104,3 +106,23 @@ class InterfaceViewSet(
 
     def get_queryset(self):
         return Interface.objects.filter(colonel__instance=self.instance)
+
+    @action(detail=True, methods=['post'], url_path='dali-broadcast')
+    def dali_broadcast(self, request, pk=None, *args, **kwargs):
+        interface = self.get_object()
+        action_name = request.data.get('action')
+        if interface.type != 'dali':
+            raise APIValidationError(
+                _('Interface is not configured for DALI.'), code=400
+            )
+        if action_name not in DALI_BROADCAST_ACTION_LABELS:
+            raise APIValidationError(
+                _('Unsupported DALI broadcast action.'), code=400
+            )
+        if not interface.colonel.is_connected:
+            raise APIValidationError(_('Colonel is not connected.'), code=400)
+        if not interface.dali_broadcast(action_name):
+            raise APIValidationError(
+                _('Fleet gateway is not available.'), code=400
+            )
+        return RESTResponse({'status': 'success'})
