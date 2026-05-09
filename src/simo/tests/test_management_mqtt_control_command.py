@@ -3,6 +3,7 @@ from types import SimpleNamespace
 from unittest import mock
 
 from simo.core.models import Component, Gateway, Zone
+from simo.users.models import ComponentPermission
 from simo.users.utils import get_current_user
 
 from .base import BaseSimoTestCase, mk_instance, mk_role, mk_user, mk_instance_user
@@ -19,6 +20,15 @@ class ManagementMqttControlCommandTests(BaseSimoTestCase):
         from simo.core.management.commands.run_app_mqtt_control import Command
 
         return Command()
+
+    def _publish_payload(self, client):
+        client.publish.assert_called_once()
+        return json.loads(client.publish.call_args.args[1])
+
+    def _assert_error_response(self, client, error):
+        payload = self._publish_payload(client)
+        self.assertFalse(payload['ok'])
+        self.assertIn(error, payload['error'])
 
     def test_handle_exits_when_connect_fails(self):
         from simo.core.management.commands.run_app_mqtt_control import Command
@@ -37,7 +47,7 @@ class ManagementMqttControlCommandTests(BaseSimoTestCase):
         cmd = self._mk_cmd()
         client = mock.Mock()
         cmd.on_connect(client, None, None, 0)
-        client.subscribe.assert_called_once_with(f'{CONTROL_PREFIX}/+/control/#')
+        client.subscribe.assert_called_once_with(f'{CONTROL_PREFIX}/+/control/#', qos=1)
 
     def test_on_message_ignores_bad_topic(self):
         cmd = self._mk_cmd()
@@ -88,7 +98,7 @@ class ManagementMqttControlCommandTests(BaseSimoTestCase):
             payload=json.dumps({'request_id': 'r', 'method': 'toggle'}).encode(),
         )
         cmd.on_message(client, None, msg)
-        client.publish.assert_not_called()
+        self._assert_error_response(client, 'Inactive or unknown user')
 
     def test_on_message_throttled_drops_request(self):
         user = mk_user('u@example.com', 'U', is_master=True)
@@ -112,10 +122,13 @@ class ManagementMqttControlCommandTests(BaseSimoTestCase):
         )
         with mock.patch('simo.core.management.commands.run_app_mqtt_control.check_throttle', autospec=True, return_value=1):
             cmd.on_message(client, None, msg)
-        client.publish.assert_not_called()
+        self._assert_error_response(client, 'Rate limit exceeded')
 
     def test_on_message_non_master_requires_instance_membership(self):
         user = mk_user('u@example.com', 'U', is_master=False)
+        other_inst = mk_instance('inst-b', 'B')
+        other_role = mk_role(other_inst, is_superuser=False)
+        mk_instance_user(user, other_inst, other_role, is_active=True)
         comp = Component.objects.create(
             name='C',
             zone=self.zone,
@@ -135,7 +148,7 @@ class ManagementMqttControlCommandTests(BaseSimoTestCase):
         )
         with mock.patch('simo.core.management.commands.run_app_mqtt_control.check_throttle', autospec=True, return_value=0):
             cmd.on_message(client, None, msg)
-        client.publish.assert_not_called()
+        self._assert_error_response(client, 'Permission denied')
 
     def test_on_message_non_master_requires_write_permission(self):
         user = mk_user('u@example.com', 'U', is_master=False)
@@ -162,7 +175,113 @@ class ManagementMqttControlCommandTests(BaseSimoTestCase):
         )
         with mock.patch('simo.core.management.commands.run_app_mqtt_control.check_throttle', autospec=True, return_value=0):
             cmd.on_message(client, None, msg)
-        client.publish.assert_not_called()
+        self._assert_error_response(client, 'Permission denied')
+
+    def test_on_message_role_superuser_can_control_without_component_permission(self):
+        from simo.generic.controllers import SwitchGroup
+
+        user = mk_user('super@example.com', 'Super', is_master=False)
+        role = mk_role(self.inst, is_superuser=True)
+        mk_instance_user(user, self.inst, role, is_active=True)
+        comp = Component.objects.create(
+            name='C',
+            zone=self.zone,
+            category=None,
+            gateway=self.gw,
+            base_type='switch',
+            controller_uid=SwitchGroup.uid,
+            config={},
+            meta={},
+            value=False,
+        )
+        ComponentPermission.objects.filter(role=role, component=comp).delete()
+
+        cmd = self._mk_cmd()
+        client = mock.Mock()
+        msg = SimpleNamespace(
+            topic=f'SIMO/user/{user.id}/control/{self.inst.uid}/Component/{comp.id}',
+            payload=json.dumps({'request_id': 'r', 'method': 'toggle'}).encode(),
+        )
+        with (
+            mock.patch('simo.core.management.commands.run_app_mqtt_control.check_throttle', autospec=True, return_value=0),
+            mock.patch('simo.core.controllers.Switch.toggle', autospec=True, return_value=None),
+        ):
+            cmd.on_message(client, None, msg)
+
+        payload = self._publish_payload(client)
+        self.assertTrue(payload['ok'])
+
+    def test_on_message_role_owner_can_control_without_component_permission(self):
+        from simo.generic.controllers import SwitchGroup
+
+        user = mk_user('owner@example.com', 'Owner', is_master=False)
+        role = mk_role(self.inst, is_owner=True)
+        mk_instance_user(user, self.inst, role, is_active=True)
+        comp = Component.objects.create(
+            name='C',
+            zone=self.zone,
+            category=None,
+            gateway=self.gw,
+            base_type='switch',
+            controller_uid=SwitchGroup.uid,
+            config={},
+            meta={},
+            value=False,
+        )
+        ComponentPermission.objects.filter(role=role, component=comp).delete()
+
+        cmd = self._mk_cmd()
+        client = mock.Mock()
+        msg = SimpleNamespace(
+            topic=f'SIMO/user/{user.id}/control/{self.inst.uid}/Component/{comp.id}',
+            payload=json.dumps({'request_id': 'r', 'method': 'toggle'}).encode(),
+        )
+        with (
+            mock.patch('simo.core.management.commands.run_app_mqtt_control.check_throttle', autospec=True, return_value=0),
+            mock.patch('simo.core.controllers.Switch.toggle', autospec=True, return_value=None),
+        ):
+            cmd.on_message(client, None, msg)
+
+        payload = self._publish_payload(client)
+        self.assertTrue(payload['ok'])
+
+    def test_on_message_non_master_with_write_permission_can_control(self):
+        from simo.generic.controllers import SwitchGroup
+
+        user = mk_user('writer@example.com', 'Writer', is_master=False)
+        role = mk_role(self.inst, is_superuser=False)
+        mk_instance_user(user, self.inst, role, is_active=True)
+        comp = Component.objects.create(
+            name='C',
+            zone=self.zone,
+            category=None,
+            gateway=self.gw,
+            base_type='switch',
+            controller_uid=SwitchGroup.uid,
+            config={},
+            meta={},
+            value=False,
+        )
+        ComponentPermission.objects.update_or_create(
+            role=role,
+            component=comp,
+            defaults={'read': True, 'write': True},
+        )
+
+        cmd = self._mk_cmd()
+        client = mock.Mock()
+        msg = SimpleNamespace(
+            topic=f'SIMO/user/{user.id}/control/{self.inst.uid}/Component/{comp.id}',
+            payload=json.dumps({'request_id': 'r', 'method': 'toggle'}).encode(),
+        )
+        with (
+            mock.patch('simo.core.management.commands.run_app_mqtt_control.check_throttle', autospec=True, return_value=0),
+            mock.patch('simo.core.controllers.Switch.toggle', autospec=True, return_value=None),
+        ):
+            cmd.on_message(client, None, msg)
+
+        payload = self._publish_payload(client)
+        self.assertTrue(payload['ok'])
 
     def test_on_message_ignores_private_method(self):
         user = mk_user('u@example.com', 'U', is_master=True)
@@ -185,7 +304,7 @@ class ManagementMqttControlCommandTests(BaseSimoTestCase):
         )
         with mock.patch('simo.core.management.commands.run_app_mqtt_control.check_throttle', autospec=True, return_value=0):
             cmd.on_message(client, None, msg)
-        client.publish.assert_not_called()
+        self._assert_error_response(client, 'Method not allowed')
 
     def test_on_message_method_not_allowed_responds_error(self):
         from simo.generic.controllers import SwitchGroup

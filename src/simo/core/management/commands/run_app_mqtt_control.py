@@ -66,9 +66,11 @@ class Command(BaseCommand):
 
     def on_connect(self, client, userdata, flags, rc):
         # SIMO/user/+/control/#
-        client.subscribe(f'{CONTROL_PREFIX}/+/control/#')
+        client.subscribe(f'{CONTROL_PREFIX}/+/control/#', qos=1)
 
     def on_message(self, client, userdata, msg):
+        user_id = None
+        request_id = None
         try:
             print("Control: ", msg.topic)
             parts = msg.topic.split('/')
@@ -82,11 +84,17 @@ class Command(BaseCommand):
             try:
                 component_id = int(parts[6])
             except Exception:
+                payload, request_id = self.get_payload(msg)
+                self.respond(client, user_id, request_id, ok=False, error='Invalid component id')
                 return
 
-            # Resolve user and permission
+            payload, request_id = self.get_payload(msg)
+            if payload is None:
+                return
+
             user = User.objects.filter(id=user_id).first()
             if not user or not user.is_active:
+                self.respond(client, user_id, request_id, ok=False, error='Inactive or unknown user')
                 return
 
             # Throttle MQTT control per authenticated user (per hub ban).
@@ -95,39 +103,27 @@ class Command(BaseCommand):
                 scope='mqtt.control',
             )
             if wait > 0:
-                # Drop actions aggressively when throttled.
+                self.respond(client, user_id, request_id, ok=False, error='Rate limit exceeded')
                 return
-            if not user.is_master:
-                # Must be active on instance
-                if not InstanceUser.objects.filter(
-                    user=user, instance__uid=instance_uid, is_active=True
-                ).exists():
-                    return
-                # Must have write permission on the component
-                has_write = ComponentPermission.objects.filter(
-                    role__in=user.roles.all(),
-                    component_id=component_id,
-                    component__zone__instance__uid=instance_uid,
-                    write=True,
-                ).exists()
-                if not has_write:
-                    return
 
-            # Execute controller method
             component = Component.objects.filter(
                 id=component_id, zone__instance__uid=instance_uid
             ).first()
             if not component:
+                self.respond(client, user_id, request_id, ok=False, error='Component not found')
+                return
+
+            if not self.user_can_control_component(user, instance_uid, component):
+                self.respond(client, user_id, request_id, ok=False, error='Permission denied')
                 return
 
             with user_context(user):
-                payload = json.loads(msg.payload or '{}')
-                request_id = payload.get('request_id')
                 sub_id = payload.get('subcomponent_id')
                 method = payload.get('method')
                 args = payload.get('args', [])
                 kwargs = payload.get('kwargs', {})
                 if method in (None, 'id', 'secret') or str(method).startswith('_'):
+                    self.respond(client, user_id, request_id, ok=False, error='Method not allowed')
                     return
 
                 # Choose target component (main or subcomponent)
@@ -136,6 +132,7 @@ class Command(BaseCommand):
                     try:
                         target = component.slaves.get(pk=sub_id)
                     except Exception:
+                        self.respond(client, user_id, request_id, ok=False, error='Subcomponent not found')
                         return
 
                 # Prepare controller and call
@@ -164,7 +161,13 @@ class Command(BaseCommand):
                     self.respond(client, user_id, request_id, ok=False, error=''.join(traceback.format_exception(*sys.exc_info())))
         except Exception:
             # Never crash the consumer
-            pass
+            self.respond(
+                client,
+                user_id,
+                request_id,
+                ok=False,
+                error=''.join(traceback.format_exception(*sys.exc_info())),
+            )
 
     def on_disconnect(self, client, userdata, rc):
         # Non-zero rc means unexpected disconnect. Paho will back off and retry.
@@ -175,7 +178,7 @@ class Command(BaseCommand):
                 pass
 
     def respond(self, client, user_id, request_id, ok=True, result=None, error=None):
-        if not request_id:
+        if not user_id or not request_id:
             return
         topic = f'{CONTROL_PREFIX}/{user_id}/control-resp/{request_id}'
         payload = {'ok': ok}
@@ -183,4 +186,35 @@ class Command(BaseCommand):
             payload['result'] = result
         else:
             payload['error'] = error
-        client.publish(topic, json.dumps(payload), qos=0, retain=False)
+        client.publish(topic, json.dumps(payload), qos=1, retain=False)
+
+    def get_payload(self, msg):
+        try:
+            payload = json.loads(msg.payload or '{}')
+        except Exception:
+            return None, None
+        if not isinstance(payload, dict):
+            return None, None
+        return payload, payload.get('request_id')
+
+    def user_can_control_component(self, user, instance_uid, component):
+        if user.is_master:
+            return True
+
+        instance_user = InstanceUser.objects.select_related('role').filter(
+            user=user,
+            instance__uid=instance_uid,
+            is_active=True,
+        ).first()
+        if not instance_user:
+            return False
+
+        role = instance_user.role
+        if role.is_superuser or role.is_owner:
+            return True
+
+        return ComponentPermission.objects.filter(
+            role=role,
+            component=component,
+            write=True,
+        ).exists()
