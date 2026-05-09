@@ -1,0 +1,11 @@
+<div class="component-controller" data-ws_url="{{ obj.get_socket_url|default_if_none:"" }}">
+  <div style="display:inline-block; margin-right: 12px; vertical-align: middle;">
+    <strong>{% if obj.value %}Present{% else %}Clear{% endif %}</strong>
+    {% if not obj.alive and obj.error_msg %}
+      <span style="margin-left: 8px; color: #ba2121;">{{ obj.error_msg }}</span>
+    {% endif %}
+  </div>
+  <button class="button action" style="padding: 5px 10px" data-method="recalibrate" data-confirm="Keep room empty. Calibration may take up to 6 minutes.">
+    <i class="fas fa-sliders-h" style="color:#79aec8"></i>&nbsp;&nbsp;Calibrate
+  </button>
+</div>
