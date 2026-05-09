@@ -26,14 +26,15 @@ class FleetGatewayHandler(BaseObjectCommandsGatewayHandler):
     )
 
     def run(self, exit):
-        from simo.fleet.controllers import TTLock
+        from simo.fleet.controllers import ElectricStrikeLock, TTLock
 
         self._ensure_button_watch_state()
         self.watch_buttons()
 
 
         self.door_sensors_on_watch = set()
-        for lock in Component.objects.filter(controller_uid=TTLock.uid):
+        lock_controller_uids = (TTLock.uid, ElectricStrikeLock.uid)
+        for lock in Component.objects.filter(controller_uid__in=lock_controller_uids):
             if not lock.config.get('door_sensor'):
                 continue
             door_sensor = Component.objects.filter(
@@ -66,11 +67,16 @@ class FleetGatewayHandler(BaseObjectCommandsGatewayHandler):
             self.watch_buttons(component)
 
     def on_door_sensor(self, sensor):
-        from simo.fleet.controllers import TTLock
+        from simo.fleet.controllers import ElectricStrikeLock, TTLock
         for lock in Component.objects.filter(
             controller_uid=TTLock.uid, config__door_sensor=sensor.id
         ):
             lock.check_locked_status()
+        for lock in Component.objects.filter(
+            controller_uid=ElectricStrikeLock.uid,
+            config__door_sensor=sensor.id
+        ):
+            lock.controller.door_sensor_changed(sensor.value)
 
     def look_for_updates(self):
         from .models import Colonel
@@ -164,13 +170,14 @@ class FleetGatewayHandler(BaseObjectCommandsGatewayHandler):
 
     def _get_button_control_components(self):
         from simo.fleet.controllers import (
-            Switch, PWMOutput, RGBLight, Blinds, DALIGearGroup, DALILamp
+            Switch, PWMOutput, RGBLight, Blinds, ElectricStrikeLock,
+            DALIGearGroup, DALILamp
         )
 
         return Component.objects.filter(
             controller_uid__in=(
                 Switch.uid, PWMOutput.uid, RGBLight.uid, Blinds.uid,
-                DALIGearGroup.uid, DALILamp.uid
+                ElectricStrikeLock.uid, DALIGearGroup.uid, DALILamp.uid
             )
         )
 

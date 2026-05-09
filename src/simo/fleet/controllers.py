@@ -34,6 +34,7 @@ from .forms import (
     BME680SensorConfigForm, MCP9808SensorConfigForm, ENS160SensorConfigForm,
     DualMotorValveForm, BlindsConfigForm, GateConfigForm,
     BurglarSmokeDetectorConfigForm,
+    ElectricStrikeLockConfigForm,
     TTLockConfigForm, DALIDeviceConfigForm, DaliLampForm, DaliGearGroupForm,
     DaliSwitchConfigForm,
     DaliOccupancySensorConfigForm, DALILightSensorConfigForm,
@@ -504,6 +505,42 @@ class Gate(FleetDeviceMixin, BasicOutputMixin, BaseGate):
                 pins.append(ctrl['pin_no'])
         return pins
 
+
+
+class ElectricStrikeLock(FleetDeviceMixin, BasicOutputMixin, Lock):
+    gateway_class = FleetGatewayHandler
+    config_form = ElectricStrikeLockConfigForm
+    name = 'Electric Strike Lock'
+    default_value = 'locked'
+
+    def _get_occupied_pins(self):
+        pins = [
+            self.component.config['open_pin_no'],
+            self.component.config['status_pin_no']
+        ]
+        for ctrl in self.component.config.get('controls', []):
+            if 'pin_no' in ctrl:
+                pins.append(ctrl['pin_no'])
+        return pins
+
+    def check_locked_status(self):
+        """Ask the Colonel to read the unlock-status input immediately."""
+        GatewayObjectCommand(
+            self.component.gateway,
+            Colonel(id=self.component.config['colonel']),
+            id=self.component.id,
+            command='call', method='check_locked_status'
+        ).publish()
+
+    def door_sensor_changed(self, is_open):
+        """Forward optional door sensor changes to pulse-mode strike logic."""
+        GatewayObjectCommand(
+            self.component.gateway,
+            Colonel(id=self.component.config['colonel']),
+            id=self.component.id,
+            command='call', method='door_sensor_changed',
+            args=[bool(is_open)]
+        ).publish()
 
 
 class TTLock(FleetDeviceMixin, Lock):

@@ -195,6 +195,50 @@ class FleetControllersMoreTests(BaseSimoTestCase):
         with mock.patch('simo.fleet.controllers.get_current_instance', autospec=True, return_value=imperial_instance):
             self.assertEqual(ctrl.default_value_units, 'F')
 
+    def test_electric_strike_lock_occupied_pins_include_controls(self):
+        from simo.fleet.controllers import ElectricStrikeLock
+
+        comp = self._mk_component(
+            controller_uid=ElectricStrikeLock.uid,
+            base_type='lock',
+            config={
+                'open_pin_no': 1,
+                'status_pin_no': 5,
+                'controls': [{'pin_no': 6}, {'button': 99}],
+            },
+            value='locked',
+        )
+        ctrl = ElectricStrikeLock(comp)
+
+        self.assertEqual(ElectricStrikeLock.default_value, 'locked')
+        self.assertEqual(ctrl._get_occupied_pins(), [1, 5, 6])
+
+    def test_electric_strike_lock_publishes_status_and_door_sensor_calls(self):
+        from simo.core.events import GatewayObjectCommand
+        from simo.fleet.controllers import ElectricStrikeLock
+
+        comp = self._mk_component(
+            controller_uid=ElectricStrikeLock.uid,
+            base_type='lock',
+            config={'open_pin_no': 1, 'status_pin_no': 5},
+            value='locked',
+        )
+        ctrl = ElectricStrikeLock(comp)
+
+        GatewayObjectCommand.publish.reset_mock()
+        ctrl.check_locked_status()
+        cmd_obj = GatewayObjectCommand.publish.call_args.args[0]
+        self.assertEqual(cmd_obj.data.get('command'), 'call')
+        self.assertEqual(cmd_obj.data.get('method'), 'check_locked_status')
+        self.assertEqual(cmd_obj.data.get('id'), comp.id)
+
+        GatewayObjectCommand.publish.reset_mock()
+        ctrl.door_sensor_changed(True)
+        cmd_obj = GatewayObjectCommand.publish.call_args.args[0]
+        self.assertEqual(cmd_obj.data.get('command'), 'call')
+        self.assertEqual(cmd_obj.data.get('method'), 'door_sensor_changed')
+        self.assertEqual(cmd_obj.data.get('args'), [True])
+
     def test_room_presence_sensor_config_form_exposes_at_sens_choices(self):
         from simo.fleet.controllers import RoomPresenceSensor
 

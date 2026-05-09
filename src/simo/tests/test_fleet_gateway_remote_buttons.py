@@ -71,6 +71,26 @@ class FleetGatewayRemoteButtonTests(BaseSimoTestCase):
             value=False,
         )
 
+    def _make_electric_strike_lock(self, name, colonel, controls):
+        from simo.fleet.controllers import ElectricStrikeLock
+
+        return Component.objects.create(
+            name=name,
+            zone=self.zone,
+            category=None,
+            gateway=self.gw,
+            base_type='lock',
+            controller_uid=ElectricStrikeLock.uid,
+            config={
+                'colonel': colonel,
+                'open_pin_no': 1,
+                'status_pin_no': 5,
+                'controls': controls,
+            },
+            meta={},
+            value='locked',
+        )
+
     def test_watch_buttons_tracks_all_remote_controls_on_switch(self):
         handler = self._mk_handler()
         button_a = self._make_button('B1', 18)
@@ -118,6 +138,30 @@ class FleetGatewayRemoteButtonTests(BaseSimoTestCase):
         )
         self.assertTrue(
             all(call.args[1] == handler.on_remote_button_change for call in on_change.call_args_list)
+        )
+
+    def test_watch_buttons_tracks_remote_controls_on_electric_strike_lock(self):
+        handler = self._mk_handler()
+        button = self._make_button('B1', 18)
+        lock = self._make_electric_strike_lock(
+            'L',
+            8,
+            [
+                {
+                    'input': f'button-{button.id}',
+                    'button': button.id,
+                    'method': 'momentary',
+                    'action_method': 'down',
+                },
+            ],
+        )
+
+        with mock.patch('simo.core.events.OnChangeMixin.on_change', autospec=True):
+            handler.watch_buttons()
+
+        self.assertEqual(
+            handler.remote_button_targets,
+            {button.id: {(lock.id, 0)}},
         )
 
     def test_on_remote_button_change_routes_third_remote_control(self):

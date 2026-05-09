@@ -1434,6 +1434,136 @@ class GateConfigForm(ColonelComponentForm):
         return obj
 
 
+class ElectricStrikeLockConfigForm(ColonelComponentForm):
+    open_pin = Select2ModelChoiceField(
+        label="Opener Relay Port",
+        queryset=ColonelPin.objects.filter(output=True),
+        url='autocomplete-colonel-pins',
+        forward=[
+            forward.Self(),
+            forward.Field('colonel'),
+            forward.Const({'output': True}, 'filters')
+        ],
+        help_text="Output port used to unlock the electric strike."
+    )
+    open_action = forms.ChoiceField(
+        choices=(('HIGH', "HIGH"), ('LOW', "LOW")),
+        help_text="Signal level that unlocks the electric strike."
+    )
+    control_method = forms.ChoiceField(
+        choices=(('pulse', "Pulse"), ('hold', "Hold")), initial="pulse",
+        help_text="Pulse unlocks for 2 seconds and then waits for relock. "
+                  "Hold keeps the opener active until locked or autolocked."
+    )
+    status_pin = Select2ModelChoiceField(
+        label="Unlock status sensor port",
+        queryset=ColonelPin.objects.filter(input=True),
+        url='autocomplete-colonel-pins',
+        forward=[
+            forward.Self(),
+            forward.Field('colonel'),
+            forward.Const({'input': True}, 'filters')
+        ],
+        help_text="Input port that detects voltage applied to the strike."
+    )
+    unlocked_value = forms.ChoiceField(
+        label="Unlocked value",
+        choices=(('HIGH', "HIGH"), ('LOW', "LOW")), initial="HIGH",
+        help_text="Input value reported by the status port while the lock is unlocked."
+    )
+    door_sensor = Select2ModelChoiceField(
+        queryset=Component.objects.filter(base_type='binary-sensor'),
+        url='autocomplete-component',
+        forward=(
+            forward.Const(['binary-sensor'], 'base_type'),
+        ), required=False,
+        help_text="Optional door open/closed binary sensor. In pulse mode the "
+                  "lock returns to locked after the door opens and closes; "
+                  "without this sensor it returns to locked after 20 seconds."
+    )
+    auto_lock = forms.TypedChoiceField(
+        label="Autolock",
+        required=False, coerce=int, initial=0,
+        choices=(
+            (0, "None"),
+            (30, "After 30 s"),
+            (60, "After 1 min"),
+            (300, "After 5 min"),
+            (900, "After 15 min"),
+            (1800, "After 30 min"),
+            (3600, "After 1 h"),
+            (7200, "After 2 h"),
+            (14400, "After 4 h"),
+            (21600, "After 6 h"),
+            (28800, "After 8 h"),
+            (43200, "After 12 h"),
+            (64800, "After 18 h"),
+            (86400, "After 24 h"),
+        ),
+        help_text="Used only with Hold control method."
+    )
+    controls = FormsetField(
+        formset_factory(
+            ControlForm, can_delete=True, can_order=True, extra=0, max_num=10
+        )
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.basic_fields.append('auto_lock')
+
+    def clean(self):
+        super().clean()
+
+        if self.cleaned_data.get('open_pin'):
+            self._clean_pin('open_pin')
+        if self.cleaned_data.get('status_pin'):
+            self._clean_pin('status_pin')
+
+        if self.cleaned_data.get('open_pin') \
+        and self.cleaned_data.get('status_pin') \
+        and self.cleaned_data['open_pin'] == self.cleaned_data['status_pin']:
+            self.add_error(
+                'status_pin', "Can't be the same as opener relay port!"
+            )
+
+        if 'controls' in self.cleaned_data:
+            self._clean_controls()
+
+            for pin_field in ('open_pin', 'status_pin'):
+                if not self.cleaned_data.get(pin_field):
+                    continue
+                for ctrl in self.cleaned_data.get('controls') or []:
+                    if not ctrl['input'].startswith('pin'):
+                        continue
+                    if int(ctrl['input'][4:]) == self.cleaned_data[pin_field].id:
+                        self.add_error(
+                            pin_field,
+                            "Can't be used as control pin at the same time!"
+                        )
+
+        return self.cleaned_data
+
+    def save(self, commit=True):
+        if 'open_pin' in self.cleaned_data:
+            self.instance.config['open_pin_no'] = \
+                self.cleaned_data['open_pin'].no
+        if 'status_pin' in self.cleaned_data:
+            self.instance.config['status_pin_no'] = \
+                self.cleaned_data['status_pin'].no
+        obj = super().save(commit=commit)
+        if commit and self.cleaned_data.get('controls'):
+            GatewayObjectCommand(
+                self.instance.gateway, obj, command='watch_buttons'
+            ).publish()
+        if commit and self.cleaned_data.get('door_sensor'):
+            GatewayObjectCommand(
+                self.instance.gateway, self.cleaned_data['door_sensor'],
+                command='watch_lock_sensor'
+            ).publish()
+        return obj
+
+
 class BurglarSmokeDetectorConfigForm(ColonelComponentForm):
     power_pin = Select2ModelChoiceField(
         label="Power port",
