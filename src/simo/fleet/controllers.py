@@ -741,6 +741,14 @@ class DALIDevice(FleetDeviceMixin, ControllerBase):
         ).publish()
 
     @classmethod
+    def _cancel_discovery(cls, started_with):
+        started_with = deserialize_form_data(started_with)
+        interface = started_with.get('interface')
+        if not interface:
+            return
+        interface.cancel_discovery()
+
+    @classmethod
     @atomic
     def _process_discovery(cls, started_with, data):
         if data['discovery-result'] == 'fail':

@@ -563,6 +563,21 @@ class Interface(models.Model):
             interface=self.no
         ).publish()
 
+    def cancel_discovery(self):
+        if self.type != 'dali':
+            raise ValidationError("Only DALI interfaces support discovery cancel.")
+
+        from .gateways import FleetGatewayHandler
+        gw = Gateway.objects.filter(type=FleetGatewayHandler.uid).first()
+        if not gw:
+            return False
+
+        GatewayObjectCommand(
+            gw, self.colonel, command='cancel_discovery',
+            interface=self.no
+        ).publish()
+        return True
+
     def dali_broadcast(self, action):
         if self.type != 'dali':
             raise ValidationError("Only DALI interfaces support DALI broadcasts.")

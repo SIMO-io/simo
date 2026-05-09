@@ -215,3 +215,73 @@ class ActionsAndDiscoveriesTests(BaseSimoTestCase):
         self.assertEqual(resp.status_code, 200)
         resp = api.post(f'/api/{self.inst.slug}/core/discoveries/finish/?controller_uid=x')
         self.assertEqual(resp.status_code, 200)
+
+
+class DiscoveryHooksTests(BaseSimoTestCase):
+    def test_finish_discovery_calls_cancel_hook_and_skips_none_result(self):
+        calls = []
+
+        class DummyController:
+            @classmethod
+            def _cancel_discovery(cls, started_with):
+                calls.append(('cancel', started_with))
+
+            @classmethod
+            def _finish_discovery(cls, started_with):
+                calls.append(('finish', started_with))
+                return None
+
+        gw = Gateway.objects.create(
+            type='simo.generic.gateways.GenericGatewayHandler',
+            discovery={
+                'start': 1,
+                'timeout': 60,
+                'controller_uid': 'x',
+                'init_data': {'a': 1},
+                'result': [],
+            },
+        )
+
+        with mock.patch.dict(
+            'simo.core.utils.type_constants.CONTROLLER_TYPES_MAP',
+            {'x': DummyController},
+            clear=False,
+        ):
+            gw.finish_discovery()
+
+        gw.refresh_from_db()
+        self.assertEqual(calls, [('cancel', {'a': 1}), ('finish', {'a': 1})])
+        self.assertEqual(gw.discovery['result'], [])
+        self.assertIn('finished', gw.discovery)
+
+    def test_retry_discovery_calls_cancel_hook(self):
+        calls = []
+
+        class DummyController:
+            @classmethod
+            def _cancel_discovery(cls, started_with):
+                calls.append(started_with)
+
+        gw = Gateway.objects.create(
+            type='simo.generic.gateways.GenericGatewayHandler',
+            discovery={
+                'start': 5,
+                'timeout': 60,
+                'controller_uid': 'x',
+                'init_data': {'b': 2},
+                'result': [],
+                'finished': 6,
+            },
+        )
+
+        with mock.patch.dict(
+            'simo.core.utils.type_constants.CONTROLLER_TYPES_MAP',
+            {'x': DummyController},
+            clear=False,
+        ), mock.patch('simo.core.models.time.time', return_value=42):
+            gw.retry_discovery()
+
+        gw.refresh_from_db()
+        self.assertEqual(calls, [{'b': 2}])
+        self.assertEqual(gw.discovery['start'], 42)
+        self.assertNotIn('finished', gw.discovery)

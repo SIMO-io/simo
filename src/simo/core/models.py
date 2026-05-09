@@ -286,10 +286,26 @@ class Gateway(DirtyFieldsMixin, models.Model, SimoAdminMixin):
         }
         self.save()
 
+    def _run_discovery_hook(self, hook_name):
+        from .utils.type_constants import CONTROLLER_TYPES_MAP
+
+        ControllerClass = CONTROLLER_TYPES_MAP.get(
+            self.discovery.get('controller_uid')
+        )
+        if not ControllerClass:
+            return
+
+        hook = getattr(ControllerClass, hook_name, None)
+        if not hook:
+            return
+
+        return hook(self.discovery.get('init_data'))
+
     def retry_discovery(self):
+        self._run_discovery_hook('_cancel_discovery')
         self.discovery['start'] = time.time()
         self.discovery.pop('finished', None)
-        self.save()
+        self.save(update_fields=['discovery'])
 
     def process_discovery(self, data):
         self.refresh_from_db()
@@ -323,21 +339,18 @@ class Gateway(DirtyFieldsMixin, models.Model, SimoAdminMixin):
 
 
     def finish_discovery(self):
-        from .utils.type_constants import CONTROLLER_TYPES_MAP
         self.discovery['finished'] = time.time()
         self.save(update_fields=['discovery'])
-        ControllerClass = CONTROLLER_TYPES_MAP.get(
-            self.discovery['controller_uid']
-        )
-        if hasattr(ControllerClass, '_finish_discovery'):
-            result = ControllerClass._finish_discovery(
-                self.discovery['init_data']
-            )
+        self._run_discovery_hook('_cancel_discovery')
+        result = self._run_discovery_hook('_finish_discovery')
+        if result is not None:
             self.append_discovery_result(result)
         self.save(update_fields=['discovery'])
 
 
     def append_discovery_result(self, result):
+        if result is None:
+            return
         if not isinstance(result, dict) and isinstance(result, Iterable):
             for res in result:
                 if isinstance(res, models.Model):
