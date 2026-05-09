@@ -212,7 +212,10 @@ class ComponentViewSet(
     def get_permissions(self):
         permissions = super().get_permissions()
         permissions.append(ComponentPermission())
-        permissions.append(InstanceSuperuserCanEdit())
+        if getattr(self, 'action', None) not in (
+            'controller', 'control', 'subcomponent'
+        ):
+            permissions.append(InstanceSuperuserCanEdit())
         return permissions
 
     def get_queryset(self):

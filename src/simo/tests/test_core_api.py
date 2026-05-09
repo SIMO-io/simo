@@ -310,6 +310,74 @@ class CoreSettingsStatesComponentsTests(BaseSimoTestCase):
         ids = [row['id'] for row in _results(resp)]
         self.assertEqual(ids, [comp_allowed.id])
 
+    def test_component_control_allows_role_with_component_write_permission(self):
+        from simo.generic.controllers import SwitchGroup
+        from simo.users.models import ComponentPermission, User
+
+        comp = Component.objects.create(
+            name='Allowed',
+            zone=self.zone,
+            category=None,
+            gateway=self.gw,
+            base_type='switch',
+            controller_uid=SwitchGroup.uid,
+            config={},
+            meta={},
+            value=False,
+        )
+
+        user = mk_user('guest-write@example.com', 'Guest Write')
+        role = mk_role(self.inst, is_superuser=False)
+        mk_instance_user(user, self.inst, role, is_active=True)
+        user = User.objects.get(pk=user.pk)
+        ComponentPermission.objects.filter(role=role).delete()
+        ComponentPermission.objects.create(
+            role=role, component=comp, read=True, write=True
+        )
+
+        api = APIClient()
+        api.force_authenticate(user=user)
+        resp = api.post(
+            f'/api/{self.inst.slug}/core/components/control/',
+            data={'id': comp.id, 'turn_on': []},
+            format='json',
+        )
+        self.assertEqual(resp.status_code, 200)
+
+    def test_component_control_denies_role_without_component_write_permission(self):
+        from simo.generic.controllers import SwitchGroup
+        from simo.users.models import ComponentPermission, User
+
+        comp = Component.objects.create(
+            name='Denied',
+            zone=self.zone,
+            category=None,
+            gateway=self.gw,
+            base_type='switch',
+            controller_uid=SwitchGroup.uid,
+            config={},
+            meta={},
+            value=False,
+        )
+
+        user = mk_user('guest-read@example.com', 'Guest Read')
+        role = mk_role(self.inst, is_superuser=False)
+        mk_instance_user(user, self.inst, role, is_active=True)
+        user = User.objects.get(pk=user.pk)
+        ComponentPermission.objects.filter(role=role).delete()
+        ComponentPermission.objects.create(
+            role=role, component=comp, read=True, write=False
+        )
+
+        api = APIClient()
+        api.force_authenticate(user=user)
+        resp = api.post(
+            f'/api/{self.inst.slug}/core/components/control/',
+            data={'id': comp.id, 'turn_on': []},
+            format='json',
+        )
+        self.assertEqual(resp.status_code, 403)
+
 
 class CoreNonApiViewsTests(BaseSimoTestCase):
     def test_hub_info_includes_secret_only_without_active_instances(self):
