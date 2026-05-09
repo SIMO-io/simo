@@ -2082,11 +2082,13 @@ class SentinelDeviceConfigForm(BaseComponentForm):
 
             # Default alarm categories for Sentinel bundle components
             # RoomPresenceSensor -> security; SmokeDetector -> fire;
-            # others: no alarm category by default.
+            # VoiceAssistant -> other; others: no alarm category by default.
             if CtrlClass is RoomPresenceSensor:
                 self.cleaned_data['alarm_category'] = 'security'
             elif CtrlClass is SmokeDetector:
                 self.cleaned_data['alarm_category'] = 'fire'
+            elif CtrlClass is VoiceAssistant:
+                self.cleaned_data['alarm_category'] = 'other'
             else:
                 self.cleaned_data['alarm_category'] = None
 

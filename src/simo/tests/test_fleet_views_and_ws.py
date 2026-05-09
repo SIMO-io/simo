@@ -121,6 +121,38 @@ class FleetViewsTests(BaseSimoTestCase):
         alarm_group.refresh_from_db()
         self.assertIn(presence_sensor.id, alarm_group.config.get('components', []))
 
+    def test_sentinel_form_assigns_voice_assistant_other_alarm_category(self):
+        from simo.fleet.forms import SentinelDeviceConfigForm
+
+        inst = mk_instance('inst-c', 'C')
+        zone = Zone.objects.create(instance=inst, name='Z', order=0)
+        Gateway.objects.get_or_create(type=FleetGatewayHandler.uid)
+        colonel = Colonel.objects.create(
+            instance=inst,
+            uid='sentinel-2',
+            type='sentinel',
+            name='S',
+            firmware_version='1.0',
+            enabled=True,
+        )
+
+        form = SentinelDeviceConfigForm(data={
+            'name': 'Sentinel',
+            'zone': str(zone.id),
+            'colonel': str(colonel.id),
+            'assistant': 'alora',
+            'language': 'en',
+        })
+        self.assertTrue(form.is_valid(), form.errors)
+
+        form.save()
+
+        voice_assistant = Component.objects.get(
+            zone=zone,
+            controller_uid='simo.fleet.controllers.VoiceAssistant',
+        )
+        self.assertEqual(voice_assistant.alarm_category, 'other')
+
 
 class FleetConsumerWsTests(BaseSimoTransactionTestCase):
     def setUp(self):
