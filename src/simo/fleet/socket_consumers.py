@@ -201,50 +201,49 @@ class FleetConsumer(AsyncWebsocketConsumer):
             get_gateway, thread_sensitive=True
         )()
 
-        if self.colonel.firmware_auto_update \
-            and self.colonel.minor_upgrade_available:
-            await self.firmware_update(self.colonel.minor_upgrade_available)
-        else:
-            def on_mqtt_connect(mqtt_client, userdata, flags, rc):
-                command = GatewayObjectCommand(self.gateway)
-                TOPIC = command.get_topic()
-                print("SUBSCRIBE TO TOPIC: ", TOPIC)
-                mqtt_client.subscribe(TOPIC)
+        def on_mqtt_connect(mqtt_client, userdata, flags, rc):
+            command = GatewayObjectCommand(self.gateway)
+            TOPIC = command.get_topic()
+            print("SUBSCRIBE TO TOPIC: ", TOPIC)
+            mqtt_client.subscribe(TOPIC)
 
-            self._mqtt_stop_event = threading.Event()
-            self.mqtt_client = mqtt.Client()
-            self.mqtt_client.username_pw_set('root', settings.SECRET_KEY)
-            self.mqtt_client.on_connect = on_mqtt_connect
-            self.mqtt_client.on_message = self.on_mqtt_message
-            try:
-                self.mqtt_client.reconnect_delay_set(min_delay=1, max_delay=30)
-            except Exception:
-                pass
+        self._mqtt_stop_event = threading.Event()
+        self.mqtt_client = mqtt.Client()
+        self.mqtt_client.username_pw_set('root', settings.SECRET_KEY)
+        self.mqtt_client.on_connect = on_mqtt_connect
+        self.mqtt_client.on_message = self.on_mqtt_message
+        try:
+            self.mqtt_client.reconnect_delay_set(min_delay=1, max_delay=30)
+        except Exception:
+            pass
 
-            install_reconnect_handler(
+        install_reconnect_handler(
+            self.mqtt_client,
+            logger=logging.getLogger('simo.fleet.consumer'),
+            stop_event=self._mqtt_stop_event,
+            description=f"FleetColonel {self.colonel.id} MQTT",
+        )
+
+        loop = asyncio.get_running_loop()
+        connected = await loop.run_in_executor(
+            None,
+            lambda: connect_with_retry(
                 self.mqtt_client,
                 logger=logging.getLogger('simo.fleet.consumer'),
                 stop_event=self._mqtt_stop_event,
                 description=f"FleetColonel {self.colonel.id} MQTT",
             )
+        )
+        if not connected:
+            await self.close()
+            return
 
-            loop = asyncio.get_running_loop()
-            connected = await loop.run_in_executor(
-                None,
-                lambda: connect_with_retry(
-                    self.mqtt_client,
-                    logger=logging.getLogger('simo.fleet.consumer'),
-                    stop_event=self._mqtt_stop_event,
-                    description=f"FleetColonel {self.colonel.id} MQTT",
-                )
-            )
-            if not connected:
-                await self.close()
-                return
+        self.mqtt_client.loop_start()
 
-            self.mqtt_client.loop_start()
-
-            await self.send_data({'command': 'hello'})
+        await self.send_data({'command': 'hello'})
+        if self.colonel.firmware_auto_update \
+            and self.colonel.minor_upgrade_available:
+            await self.firmware_update(self.colonel.minor_upgrade_available)
 
         asyncio.create_task(self.watch_connection())
 

@@ -226,6 +226,20 @@ class ColonelAdmin(admin.ModelAdmin):
                     'href="{}">{}</a>',
                     url, label
                 ))
+            reset_url = reverse(
+                'admin:fleet_interface_broadcast_reset',
+                args=[interface.pk]
+            )
+            reset_url = f"{reset_url}?{urlencode({'next': change_url})}"
+            buttons.append(format_html(
+                '<a class="button" style="margin-right: 4px; '
+                'background: #ba2121; border-color: #a41515; color: #fff;" '
+                'href="{}" onclick="return confirm(\'This will RESET all DALI '
+                'gear on this line and clear their short addresses. Are you '
+                'sure?\');">{}</a>',
+                reset_url,
+                "Danger reset"
+            ))
             rows.append(format_html(
                 '<div style="margin: 6px 0;"><strong>DALI {}</strong>: {}</div>',
                 interface.no,
@@ -238,19 +252,8 @@ class ColonelAdmin(admin.ModelAdmin):
 
 @admin.register(Interface)
 class InterfaceAdmin(admin.ModelAdmin):
-    list_display = (
-        '__str__', 'colonel', 'type', 'connected', 'dali_broadcast_controls'
-    )
     list_filter = 'colonel', 'type'
-    readonly_fields = 'pin_a', 'pin_b', 'dali_broadcast_controls'
-    fields = (
-        'colonel', 'no', 'type', 'pin_a', 'pin_b',
-        'dali_broadcast_controls'
-    )
-    actions = (
-        'dali_power_off', 'dali_power_on', 'dali_recall_min',
-        'dali_level_50', 'dali_identify', 'broadcast_reset',
-    )
+    actions = ('broadcast_reset',)
 
     def get_queryset(self, request):
         return super().get_queryset(request).select_related(
@@ -263,6 +266,11 @@ class InterfaceAdmin(admin.ModelAdmin):
                 '<path:object_id>/dali-broadcast/<str:action>/',
                 self.admin_site.admin_view(self.dali_broadcast_view),
                 name='fleet_interface_dali_broadcast'
+            ),
+            path(
+                '<path:object_id>/broadcast-reset/',
+                self.admin_site.admin_view(self.broadcast_reset_view),
+                name='fleet_interface_broadcast_reset'
             ),
         ] + super().get_urls()
 
@@ -280,6 +288,32 @@ class InterfaceAdmin(admin.ModelAdmin):
 
         self._dispatch_dali_broadcast(
             request, Interface.objects.filter(pk=obj.pk), action
+        )
+        redirect_to = request.GET.get('next')
+        if redirect_to and url_has_allowed_host_and_scheme(
+            redirect_to,
+            allowed_hosts={request.get_host()},
+            require_https=request.is_secure()
+        ):
+            return HttpResponseRedirect(redirect_to)
+        return HttpResponseRedirect(
+            reverse('admin:fleet_interface_change', args=[obj.pk])
+        )
+
+    def broadcast_reset_view(self, request, object_id):
+        obj = self.get_object(request, object_id)
+        if obj is None:
+            self.message_user(
+                request, "Interface was not found.", level=messages.ERROR
+            )
+            return HttpResponseRedirect(
+                reverse('admin:fleet_interface_changelist')
+            )
+        if not self.has_change_permission(request, obj):
+            raise PermissionDenied
+
+        self._dispatch_broadcast_reset(
+            request, Interface.objects.filter(pk=obj.pk)
         )
         redirect_to = request.GET.get('next')
         if redirect_to and url_has_allowed_host_and_scheme(
@@ -333,67 +367,7 @@ class InterfaceAdmin(admin.ModelAdmin):
                 level=messages.WARNING
             )
 
-    def dali_power_off(self, request, queryset):
-        self._dispatch_dali_broadcast(request, queryset, 'off')
-
-    dali_power_off.short_description = "DALI broadcast: Power OFF"
-
-    def dali_power_on(self, request, queryset):
-        self._dispatch_dali_broadcast(request, queryset, 'on')
-
-    dali_power_on.short_description = "DALI broadcast: Power ON / max"
-
-    def dali_recall_min(self, request, queryset):
-        self._dispatch_dali_broadcast(request, queryset, 'min')
-
-    dali_recall_min.short_description = "DALI broadcast: Recall MIN"
-
-    def dali_level_50(self, request, queryset):
-        self._dispatch_dali_broadcast(request, queryset, 'level_50')
-
-    dali_level_50.short_description = "DALI broadcast: Set 50%"
-
-    def dali_identify(self, request, queryset):
-        self._dispatch_dali_broadcast(request, queryset, 'identify')
-
-    dali_identify.short_description = "DALI broadcast: Identify gear"
-
-    def connected(self, obj):
-        if obj.colonel.is_connected:
-            return mark_safe(
-                '<img src="%s" alt="True">'
-                % static('admin/img/icon-yes.svg')
-            )
-        return mark_safe(
-            '<img src="%s" alt="False">'
-            % static('admin/img/icon-no.svg')
-        )
-
-    connected.short_description = "Colonel connected"
-
-    def dali_broadcast_controls(self, obj):
-        if not obj or not obj.pk:
-            return ''
-        if obj.type != 'dali':
-            return ''
-        if not obj.colonel.is_connected:
-            return "Colonel offline"
-
-        links = []
-        for action, label in DALI_BROADCAST_ACTION_CHOICES:
-            url = reverse(
-                'admin:fleet_interface_dali_broadcast',
-                args=[obj.pk, action]
-            )
-            links.append(format_html(
-                '<a class="button" style="margin-right: 4px;" href="{}">{}</a>',
-                url, label
-            ))
-        return format_html_join('', '{}', ((link,) for link in links))
-
-    dali_broadcast_controls.short_description = "DALI diagnostics"
-
-    def broadcast_reset(self, request, queryset):
+    def _dispatch_broadcast_reset(self, request, queryset):
         broadcasted = 0
         for interface in queryset.filter(type='dali').select_related(
             'colonel', 'colonel__instance'
@@ -417,6 +391,9 @@ class InterfaceAdmin(admin.ModelAdmin):
                 f"No reset command was broadcast, "
                 f"probably because they are out of reach at the moment."
             )
+
+    def broadcast_reset(self, request, queryset):
+        self._dispatch_broadcast_reset(request, queryset)
 
     broadcast_reset.short_description = (
         "DALI danger: RESET and clear short addresses"
