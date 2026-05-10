@@ -378,6 +378,86 @@ class CoreSettingsStatesComponentsTests(BaseSimoTestCase):
         )
         self.assertEqual(resp.status_code, 403)
 
+    def test_owner_can_patch_thermostat_engagement(self):
+        from simo.generic.controllers import (
+            DummyDimmer, DummyNumericSensor, Thermostat,
+        )
+        from simo.generic.gateways import DummyGatewayHandler, GenericGatewayHandler
+        from simo.users.models import ComponentPermission, User
+
+        dev_gw, _ = Gateway.objects.get_or_create(type=DummyGatewayHandler.uid)
+        generic_gw, _ = Gateway.objects.get_or_create(type=GenericGatewayHandler.uid)
+        sensor = Component.objects.create(
+            name='Temp',
+            zone=self.zone,
+            category=None,
+            gateway=dev_gw,
+            base_type='numeric-sensor',
+            controller_uid=DummyNumericSensor.uid,
+            config={},
+            meta={},
+            value=21,
+            value_units='C',
+        )
+        cooler = Component.objects.create(
+            name='Cooler',
+            zone=self.zone,
+            category=None,
+            gateway=dev_gw,
+            base_type='dimmer',
+            controller_uid=DummyDimmer.uid,
+            config={'min': 0, 'max': 100},
+            meta={},
+            value=0,
+        )
+        thermostat = Component.objects.create(
+            name='Thermostat',
+            zone=self.zone,
+            category=None,
+            gateway=generic_gw,
+            base_type='thermostat',
+            controller_uid=Thermostat.uid,
+            config={
+                'temperature_sensor': sensor.id,
+                'heaters': [],
+                'coolers': [cooler.id],
+                'engagement': 'dynamic',
+                'min': 4,
+                'max': 36,
+                'has_real_feel': False,
+                'user_config': {},
+            },
+            meta={},
+            value={
+                'current_temp': 21,
+                'target_temp': 22,
+                'heating': False,
+                'cooling': False,
+            },
+            value_units='C',
+        )
+
+        owner = mk_user('owner@example.com', 'Owner')
+        owner_role = mk_role(self.inst, is_owner=True)
+        mk_instance_user(owner, self.inst, owner_role, is_active=True)
+        owner = User.objects.get(pk=owner.pk)
+        ComponentPermission.objects.filter(
+            role=owner_role,
+            component=thermostat,
+        ).update(read=True, write=True)
+
+        api = APIClient()
+        api.force_authenticate(user=owner)
+        resp = api.patch(
+            f'/api/{self.inst.slug}/core/components/{thermostat.id}/',
+            data={'engagement': 'static'},
+            format='json',
+        )
+
+        self.assertEqual(resp.status_code, 200)
+        thermostat.refresh_from_db()
+        self.assertEqual(thermostat.config['engagement'], 'static')
+
 
 class CoreNonApiViewsTests(BaseSimoTestCase):
     def test_hub_info_includes_secret_only_without_active_instances(self):

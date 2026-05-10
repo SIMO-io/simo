@@ -140,6 +140,7 @@ class ThermostatConfigForm(BaseComponentForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.basic_fields = [*self.basic_fields, 'engagement']
         target_instance_id = None
         if self.instance.pk and self.instance.zone_id:
             target_instance_id = self.instance.zone.instance_id
@@ -168,11 +169,14 @@ class ThermostatConfigForm(BaseComponentForm):
             sensors_qs = sensors_qs.filter(zone__instance_id=target_instance_id)
             outputs_qs = outputs_qs.filter(zone__instance_id=target_instance_id)
 
-        self.fields['temperature_sensor'].queryset = sensors_qs
-        self.fields['heaters'].queryset = outputs_qs
-        self.fields['coolers'].queryset = outputs_qs
+        if 'temperature_sensor' in self.fields:
+            self.fields['temperature_sensor'].queryset = sensors_qs
+        if 'heaters' in self.fields:
+            self.fields['heaters'].queryset = outputs_qs
+        if 'coolers' in self.fields:
+            self.fields['coolers'].queryset = outputs_qs
 
-        if self.instance.pk:
+        if self.instance.pk and 'use_real_feel' in self.fields:
             temperature_sensor = Component.all_objects.filter(
                 pk=self.instance.config.get('temperature_sensor', 0)
             ).first()
@@ -185,19 +189,28 @@ class ThermostatConfigForm(BaseComponentForm):
                 self.fields['use_real_feel'].disabled = True
 
     def save(self, commit=True):
-        self.instance.value_units = self.cleaned_data[
-            'temperature_sensor'
-        ].value_units
+        temperature_sensor = self.cleaned_data.get('temperature_sensor')
+        if temperature_sensor is None and self.instance.pk:
+            temperature_sensor = Component.all_objects.filter(
+                pk=self.instance.config.get('temperature_sensor', 0)
+            ).first()
+
         if not self.instance.config.get('user_config'):
             from .controllers import Thermostat
             self.instance.config['user_config'] = config_to_dict(
                 Thermostat(self.instance)._get_default_user_config()
             )
-        self.instance.config['has_real_feel'] = True if self.cleaned_data[
-            'temperature_sensor'
-        ].base_type == MULTI_SENSOR_BASE_TYPE else False
-        self.instance.config['user_config']['use_real_feel'] = \
-        self.cleaned_data.get('use_real_feel', False)
+
+        if temperature_sensor is not None:
+            self.instance.value_units = temperature_sensor.value_units
+            self.instance.config['has_real_feel'] = (
+                temperature_sensor.base_type == MULTI_SENSOR_BASE_TYPE
+            )
+
+        if 'use_real_feel' in self.cleaned_data:
+            self.instance.config['user_config']['use_real_feel'] = (
+                self.cleaned_data.get('use_real_feel', False)
+            )
         return super().save(commit)
 
 
