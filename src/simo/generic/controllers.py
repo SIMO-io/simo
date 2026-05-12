@@ -2,6 +2,7 @@ import pytz
 import datetime
 import json
 import time
+from django.db import transaction
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 from django.utils.functional import cached_property
@@ -9,7 +10,7 @@ from django.utils.translation import gettext_lazy as _
 from django.conf import settings
 from django.urls import reverse_lazy
 from simo.users.utils import get_system_user
-from simo.core.models import Component
+from simo.core.models import Component, ComponentHistory
 from simo.core.utils.helpers import get_random_string
 from simo.core.middleware import get_current_instance
 from simo.core.controllers import (
@@ -669,6 +670,14 @@ class IPCamera(ControllerBase):
 
 
 class Watering(ControllerBase):
+    SOIL_SETTINGS = {
+        'loamy': {'drying': 1.0, 'retention': 1.0, 'target': 50, 'watering': 1.0},
+        'silty': {'drying': 0.95, 'retention': 1.05, 'target': 55, 'watering': 1.05},
+        'sandy': {'drying': 1.35, 'retention': 0.85, 'target': 42, 'watering': 0.9},
+        'clay': {'drying': 0.75, 'retention': 1.2, 'target': 60, 'watering': 1.1},
+        'peaty': {'drying': 0.7, 'retention': 1.1, 'target': 58, 'watering': 1.05},
+        'chalky': {'drying': 1.15, 'retention': 0.9, 'target': 46, 'watering': 0.95},
+    }
     STATUS_CHOICES = (
         'stopped', 'running_program', 'running_custom',
         'paused_program', 'paused_custom'
@@ -735,13 +744,310 @@ class Watering(ControllerBase):
         """
         return super().send(value)
 
+    def _clone_json(self, value):
+        return json.loads(json.dumps(value))
 
-    def start(self):
+    def _clamp(self, value, low, high):
+        return max(low, min(high, value))
+
+    def _get_soil_settings(self):
+        return self.SOIL_SETTINGS.get(
+            self.component.config.get('soil_type', 'loamy'),
+            self.SOIL_SETTINGS['loamy']
+        )
+
+    def _can_build_program_from_contours(self):
+        contours = self.component.config.get('contours') or []
+        if not contours:
+            return False
+        for contour in contours:
+            if 'runtime' not in contour or 'occupation' not in contour:
+                return False
+        return True
+
+    def _get_base_program(self):
+        if self._can_build_program_from_contours():
+            return self._build_program(
+                self._clone_json(self.component.config.get('contours') or [])
+            )
+        return self._clone_json(
+            self.component.config.get('program') or {'flow': [], 'duration': 0}
+        )
+
+    def _clear_active_program_state(self):
+        changed = False
+        for key in (
+            'active_program_multiplier',
+            'active_program_reason',
+            'active_program_base_duration',
+            'active_program_source',
+        ):
+            if key in self.component.meta:
+                self.component.meta.pop(key, None)
+                changed = True
+        return changed
+
+    def _restore_base_program(self, save=False):
+        base_program = self._get_base_program()
+        changed_fields = []
+        if self.component.config.get('program') != base_program:
+            self.component.config['program'] = base_program
+            changed_fields.append('config')
+        if self._clear_active_program_state():
+            changed_fields.append('meta')
+        if save and changed_fields:
+            self.component.save(update_fields=tuple(changed_fields))
+        return bool(changed_fields)
+
+    def _recover_orphaned_scheduled_program(self, save=False):
+        if self.component.meta.get('active_program_source') != 'scheduled_ai':
+            return False
+        status = self.component.value.get('status')
+        progress = int(self.component.value.get('program_progress', 0) or 0)
+        if status == 'stopped' or status not in self.STATUS_CHOICES:
+            return self._restore_base_program(save=save)
+        if progress <= 0 and status in ('paused_program', 'paused_custom'):
+            return self._restore_base_program(save=save)
+        return False
+
+    def _get_weather_component(self):
+        weather_qs = Component.objects.filter(
+            zone__instance=self.component.zone.instance,
+            controller_uid=Weather.uid,
+            alive=True,
+        )
+        weather = weather_qs.filter(config__is_main=True).first()
+        if weather:
+            return weather
+        return weather_qs.first()
+
+    def _get_weather_payload_timestamp(self, payload):
+        if not isinstance(payload, dict):
+            return
+        try:
+            return int(payload.get('dt'))
+        except Exception:
+            return
+
+    def _is_payload_raining(self, payload):
+        if not isinstance(payload, dict):
+            return False
+        rain = payload.get('rain') or {}
+        if rain.get('1h'):
+            return True
+        weather_entries = payload.get('weather') or []
+        for entry in weather_entries:
+            main = str(entry.get('main', '')).lower()
+            if main in ('rain', 'drizzle', 'thunderstorm'):
+                return True
+        return False
+
+    def _normalize_weather_payload(self, payload):
+        payload_ts = self._get_weather_payload_timestamp(payload)
+        if payload_ts is None:
+            return
+        main = payload.get('main') or {}
+        wind = payload.get('wind') or {}
+        clouds = payload.get('clouds') or {}
+        sys_data = payload.get('sys') or {}
+        rain = payload.get('rain') or {}
+        sample = {
+            'dt': payload_ts,
+            'temp': float(main.get('temp', 0) or 0),
+            'humidity': float(main.get('humidity', 0) or 0),
+            'wind_speed': float(wind.get('speed', 0) or 0),
+            'clouds': float(clouds.get('all', 0) or 0),
+            'rain_1h': float(rain.get('1h', 0) or 0),
+            'is_raining': self._is_payload_raining(payload),
+            'is_daylight': False,
+        }
+        try:
+            sample['is_daylight'] = (
+                int(sys_data.get('sunrise', 0) or 0)
+                <= payload_ts
+                < int(sys_data.get('sunset', 0) or 0)
+            )
+        except Exception:
+            pass
+        return sample
+
+    def _get_unprocessed_weather_payloads(self, weather_component):
+        last_processed = int(self.component.meta.get('last_weather_dt_processed') or 0)
+        cutoff = timezone.now() - datetime.timedelta(hours=48)
+        payloads = {}
+        for item in ComponentHistory.objects.filter(
+            component=weather_component,
+            type='value',
+            date__gte=cutoff
+        ).order_by('date'):
+            payload_ts = self._get_weather_payload_timestamp(item.value)
+            if payload_ts is None:
+                continue
+            if last_processed and payload_ts <= last_processed:
+                continue
+            payloads[payload_ts] = item.value
+        current_payload = weather_component.value
+        current_ts = self._get_weather_payload_timestamp(current_payload)
+        if current_ts and (not last_processed or current_ts > last_processed):
+            payloads[current_ts] = current_payload
+        return [payloads[ts] for ts in sorted(payloads)]
+
+    def _update_estimated_moisture(self, save=True):
+        weather = self._get_weather_component()
+        if not weather:
+            return self.component.config.get('estimated_moisture', 50)
+
+        payloads = self._get_unprocessed_weather_payloads(weather)
+        if not payloads:
+            return self.component.config.get('estimated_moisture', 50)
+
+        soil = self._get_soil_settings()
+        moisture = float(self.component.config.get('estimated_moisture', 50) or 50)
+        last_processed = int(self.component.meta.get('last_weather_dt_processed') or 0)
+        first_ts = self._get_weather_payload_timestamp(payloads[0]) or 0
+        if not last_processed:
+            # Seed with one typical sample interval so the first rainy sample
+            # can influence the estimate immediately.
+            last_processed = max(0, first_ts - 10 * 60)
+
+        for payload in payloads:
+            sample = self._normalize_weather_payload(payload)
+            if not sample:
+                continue
+            elapsed_hours = max(0.0, (sample['dt'] - last_processed) / 3600.0)
+            hours_factor = min(max(elapsed_hours, 1.0 / 6.0), 1.0)
+
+            drying_rate = (
+                0.12
+                + sample['temp'] * 0.015
+                + sample['wind_speed'] * 0.06
+                + max(0.0, 60.0 - sample['humidity']) * 0.006
+            )
+            if sample['is_daylight']:
+                drying_rate += 0.10
+            if sample['clouds'] > 75:
+                drying_rate -= 0.05
+            drying_rate = max(0.05, drying_rate)
+            moisture -= drying_rate * soil['drying'] * min(max(elapsed_hours, 0.0), 6.0)
+
+            rain_mm = sample['rain_1h'] * hours_factor
+            if sample['is_raining'] and rain_mm == 0:
+                rain_mm = 0.05 * hours_factor
+            moisture += rain_mm * 12.0 * soil['retention']
+            if sample['is_raining']:
+                moisture += 1.5 * soil['retention'] * hours_factor
+
+            moisture = self._clamp(moisture, 0.0, 100.0)
+            last_processed = sample['dt']
+
+        moisture = int(round(moisture))
+        changed_fields = []
+        if self.component.config.get('estimated_moisture') != moisture:
+            self.component.config['estimated_moisture'] = moisture
+            changed_fields.append('config')
+        if self.component.meta.get('last_weather_dt_processed') != last_processed:
+            self.component.meta['last_weather_dt_processed'] = last_processed
+            changed_fields.append('meta')
+        if save and changed_fields:
+            self.component.save(update_fields=tuple(changed_fields))
+        return moisture
+
+    def _apply_watering_credit(self, delivered_minutes, save=False):
+        if delivered_minutes <= 0:
+            return self.component.config.get('estimated_moisture', 50)
+
+        soil = self._get_soil_settings()
+        base_program = self._get_base_program()
+        base_duration = max(int(base_program.get('duration') or 0), 1)
+        delivered_ratio = max(0.0, float(delivered_minutes) / float(base_duration))
+        moisture = float(self.component.config.get('estimated_moisture', 50) or 50)
+        moisture += delivered_ratio * 35.0 * soil['watering']
+        moisture = int(round(self._clamp(moisture, 0.0, 100.0)))
+
+        if self.component.config.get('estimated_moisture') != moisture:
+            self.component.config['estimated_moisture'] = moisture
+            if save:
+                self.component.save(update_fields=('config',))
+        return moisture
+
+    def _get_scheduled_runtime_multiplier(self):
+        if not self.component.config.get('ai_assist', True):
+            return 1.0, 'ai_assist_disabled'
+        if not self._can_build_program_from_contours():
+            return 1.0, 'base_program_unavailable'
+
+        weather = self._get_weather_component()
+        if not weather:
+            return 1.0, 'no_weather_component'
+        current_sample = self._normalize_weather_payload(weather.value)
+        if not current_sample:
+            return 1.0, 'invalid_weather_payload'
+        if timezone.now().timestamp() - current_sample['dt'] > 2 * 60 * 60:
+            return 1.0, 'weather_stale'
+
+        soil = self._get_soil_settings()
+        estimated_moisture = float(self.component.config.get('estimated_moisture', 50) or 50)
+        ai_level = int(self.component.config.get('ai_assist_level', 50) or 50)
+        aggressiveness = 0.5 + ai_level / 100.0
+        delta = soil['target'] - estimated_moisture
+        multiplier = 1.0 + (delta / 25.0) * aggressiveness
+        if current_sample['is_raining']:
+            multiplier -= 0.45 * aggressiveness
+        return self._clamp(round(multiplier, 2), 0.0, 2.0), 'estimated_moisture'
+
+    def _get_effective_contours(self, multiplier):
+        contours = self._clone_json(self.component.config.get('contours') or [])
+        effective_contours = []
+        for contour in contours:
+            runtime = int(contour.get('runtime', 0) or 0)
+            scaled_runtime = int(round(runtime * multiplier))
+            if scaled_runtime < 1:
+                scaled_runtime = 0
+            contour['runtime'] = min(runtime * 2, scaled_runtime)
+            effective_contours.append(contour)
+        return effective_contours
+
+    def _apply_scheduled_program(self, multiplier, reason):
+        base_program = self._get_base_program()
+        if multiplier <= 0:
+            self._restore_base_program(save=True)
+            return {'duration': 0, 'flow': []}
+        if abs(multiplier - 1.0) < 0.01:
+            self._restore_base_program(save=True)
+            return base_program
+
+        effective_contours = self._get_effective_contours(multiplier)
+        if not any(int(c.get('runtime', 0) or 0) > 0 for c in effective_contours):
+            self._restore_base_program(save=True)
+            return {'duration': 0, 'flow': []}
+        effective_program = self._build_program(effective_contours)
+        self.component.config['program'] = effective_program
+        self.component.meta['active_program_multiplier'] = multiplier
+        self.component.meta['active_program_reason'] = reason
+        self.component.meta['active_program_base_duration'] = base_program.get('duration', 0)
+        self.component.meta['active_program_source'] = 'scheduled_ai'
+        self.component.save(update_fields=('config', 'meta'))
+        return effective_program
+
+    def _complete_program_run(self, delivered_minutes, restore_base=True):
+        self._apply_watering_credit(delivered_minutes, save=True)
+        self.set({'status': 'stopped', 'program_progress': 0})
+        if restore_base:
+            self.component.refresh_from_db()
+            self._restore_base_program(save=True)
+
+    def set_program_progress(self, program_minute, run=True):
+        return self._set_program_progress(program_minute, run=run)
+
+    def start(self, scheduled=False):
         """Start the watering program at current or last progress point."""
         self.component.refresh_from_db()
         if not self.component.value.get('program_progress', 0):
+            if not scheduled:
+                self._restore_base_program(save=True)
+                self.component.refresh_from_db()
             self.component.meta['last_run'] = timezone.now().timestamp()
-            self.component.save()
+            self.component.save(update_fields=('meta',))
         self.set(
             {'status': 'running_program',
              'program_progress': self.component.value['program_progress']}
@@ -761,10 +1067,17 @@ class Watering(ControllerBase):
         )
         self.disengage_all()
 
-    def reset(self):
+    def reset(self, restore_base=True):
         """Stop the watering program and reset progress to 0."""
+        self.component.refresh_from_db()
+        delivered_minutes = int(self.component.value.get('program_progress', 0) or 0)
+        if self.component.value.get('status') in ('running_program', 'paused_program'):
+            self._apply_watering_credit(delivered_minutes, save=True)
         self.set({'status': 'stopped', 'program_progress': 0})
         self.disengage_all()
+        self.component.refresh_from_db()
+        if restore_base:
+            self._restore_base_program(save=True)
 
     def stop(self):
         """Alias for `reset()` to stop the program."""
@@ -791,7 +1104,8 @@ class Watering(ControllerBase):
                     switch.turn_off()
 
         if program_minute > self.component.config['program']['duration']:
-            self.set({'status': 'stopped', 'program_progress': 0})
+            delivered_minutes = int(self.component.config['program']['duration'] or 0)
+            self._complete_program_run(delivered_minutes)
         else:
             if run:
                 status = 'running_program'
@@ -834,12 +1148,13 @@ class Watering(ControllerBase):
         new_contours = []
         for contour_data in contours:
             assert contour_data['uid'] in current_contours
-            new_contour = current_contours[contour_data['uid']]
+            new_contour = self._clone_json(current_contours[contour_data['uid']])
             new_contour['runtime'] = contour_data['runtime']
             new_contours.append(new_contour)
         assert len(new_contours) == len(self.component.config.get('contours'))
-        self.component.config.update({'contours': contours})
-        self.component.config.update({'program': self._build_program(contours)})
+        self.component.config.update({'contours': new_contours})
+        self.component.config.update({'program': self._get_base_program()})
+        self._clear_active_program_state()
         self.component.save()
 
     def schedule_update(self, new_schedule):
@@ -850,8 +1165,10 @@ class Watering(ControllerBase):
             self.component.config['schedule'],
             self._get_default_schedule()
         )
-        self.component.config['next_run'] = self._get_next_run()
-        self.component.save()
+        next_run = self._get_next_run()
+        self.component.config['next_run'] = next_run
+        self.component.meta['next_run'] = next_run
+        self.component.save(update_fields=('config', 'meta'))
 
     def _get_default_schedule(self):
         morning_time = TimeConfigValue(['5:00'])
@@ -965,48 +1282,81 @@ class Watering(ControllerBase):
                                i*24*60*60 + minute_to_start * 60
             return
 
+    def _get_times_to_start(self, localtime):
+        if self.component.config['schedule']['mode'] == 'daily':
+            return self.component.config['schedule']['daily']
+        return self.component.config['schedule']['weekly'][
+            str(localtime.weekday() + 1)
+        ]
+
+    def _get_due_scheduled_slot(self, localtime=None, gap=30):
+        if self.component.config['schedule']['mode'] == 'off':
+            return
+
+        localtime = localtime or timezone.localtime()
+        current_ts = localtime.timestamp()
+        local_minute = localtime.hour * 60 + localtime.minute
+        local_day_timestamp = current_ts - (
+            localtime.hour * 60 * 60 + localtime.minute * 60 + localtime.second
+        )
+        candidate_days = [localtime]
+        if local_minute < gap:
+            candidate_days.insert(0, localtime - datetime.timedelta(days=1))
+
+        due_slot = None
+        for day in candidate_days:
+            day_start = local_day_timestamp
+            if day.date() < localtime.date():
+                day_start -= 24 * 60 * 60
+            times_to_start = self._get_times_to_start(day)
+            for time_str in times_to_start:
+                hour, minute = time_str.split(':')
+                slot_ts = day_start + (int(hour) * 60 + int(minute)) * 60
+                if slot_ts <= current_ts < slot_ts + gap * 60:
+                    due_slot = slot_ts
+        return due_slot
+
     def _perform_schedule(self):
         self.component.refresh_from_db()
+        self._update_estimated_moisture()
+        self.component.refresh_from_db()
+        if self._recover_orphaned_scheduled_program(save=True):
+            self.component.refresh_from_db()
         next_run = self._get_next_run()
         if self.component.meta.get('next_run') != next_run:
             self.component.meta['next_run'] = next_run
-            self.component.save()
+            self.component.save(update_fields=('meta',))
 
-        if self.component.value['status'] == 'running_program':
-            return
         if self.component.config['schedule']['mode'] == 'off':
             return
 
         localtime = timezone.localtime()
-        if self.component.config['schedule']['mode'] == 'daily':
-            times_to_start = self.component.config['schedule']['daily']
-        else:
-            times_to_start = self.component.config['schedule']['weekly'][
-                str(localtime.weekday() + 1)
-            ]
-        if not times_to_start:
-            if self.component.meta.get('next_run'):
-                self.component.meta['next_run'] = None
-                self.component.save()
+        due_slot = self._get_due_scheduled_slot(localtime=localtime, gap=30)
+        if due_slot is None:
             return
 
-        gap = 30
-        local_minute = localtime.hour * 60 + localtime.minute
+        with transaction.atomic():
+            self.component = Component.objects.select_for_update().get(
+                pk=self.component.pk
+            )
+            if self.component.meta.get('last_scheduled_slot_ts') == due_slot:
+                return
+            if self.component.value.get('status') != 'stopped':
+                self.component.meta['last_scheduled_slot_ts'] = due_slot
+                self.component.save(update_fields=('meta',))
+                return
+            self.component.meta['last_scheduled_slot_ts'] = due_slot
+            self.component.save(update_fields=('meta',))
 
-        for time_str in times_to_start:
-            hour, minute = time_str.split(':')
-            minute_to_start = int(hour) * 60 + int(minute)
-            if local_minute < gap:
-                # handling midnight
-                offset = gap*2
-                local_minute += offset
-                minute_to_start += offset
-                if minute_to_start > 24*60:
-                    minute_to_start -= 24*60
+        multiplier, reason = self._get_scheduled_runtime_multiplier()
+        program = self._apply_scheduled_program(multiplier, reason)
+        if not program.get('flow') or int(program.get('duration', 0) or 0) <= 0:
+            self.component.refresh_from_db()
+            self._restore_base_program(save=True)
+            return
 
-            if minute_to_start <= local_minute < minute_to_start + gap:
-                self.reset()
-                self.start()
+        self.reset(restore_base=False)
+        self.start(scheduled=True)
 
 
 class AlarmClock(ControllerBase):

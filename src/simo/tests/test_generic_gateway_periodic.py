@@ -1,8 +1,10 @@
+import datetime
 import json
 import time
 from types import SimpleNamespace
 from unittest import mock
 
+import pytz
 from django.contrib.contenttypes.models import ContentType
 from django.utils import timezone
 
@@ -187,6 +189,85 @@ class GenericGatewayPeriodicTests(BaseSimoTestCase):
         with mock.patch('simo.generic.controllers.Watering._perform_schedule', autospec=True) as sched:
             handler.watch_watering()
         sched.assert_called_once()
+
+    def test_generic_watch_watering_scheduled_run_restores_base_program_after_completion(self):
+        from simo.generic.controllers import Watering, SwitchGroup
+
+        s1 = Component.objects.create(
+            name='S1',
+            zone=self.zone,
+            category=None,
+            gateway=self.generic_gw,
+            base_type='switch',
+            controller_uid=SwitchGroup.uid,
+            config={},
+            meta={},
+            value=False,
+        )
+        s2 = Component.objects.create(
+            name='S2',
+            zone=self.zone,
+            category=None,
+            gateway=self.generic_gw,
+            base_type='switch',
+            controller_uid=SwitchGroup.uid,
+            config={},
+            meta={},
+            value=False,
+        )
+        watering = Component.objects.create(
+            name='W',
+            zone=self.zone,
+            category=None,
+            gateway=self.generic_gw,
+            base_type='watering',
+            controller_uid=Watering.uid,
+            config={
+                'contours': [
+                    {'uid': 'c1', 'switch': s1.id, 'runtime': 5, 'occupation': 100},
+                    {'uid': 'c2', 'switch': s2.id, 'runtime': 6, 'occupation': 100},
+                ],
+                'program': {
+                    'duration': 10,
+                    'flow': [
+                        {'minute': 0, 'contours': ['c1']},
+                        {'minute': 5, 'contours': ['c2']},
+                    ],
+                },
+                'schedule': {
+                    'mode': 'daily',
+                    'daily': ['10:00'],
+                    'weekly': {str(i): [] for i in range(1, 8)},
+                },
+                'estimated_moisture': 80,
+                'ai_assist': True,
+                'soil_type': 'loamy',
+                'ai_assist_level': 50,
+            },
+            meta={},
+            value={'status': 'stopped', 'program_progress': 0},
+        )
+        handler = self._mk_generic_handler()
+        dt = timezone.make_aware(datetime.datetime(2024, 1, 1, 10, 10, 0), pytz.utc)
+
+        with (
+            mock.patch('simo.generic.controllers.timezone.localtime', autospec=True, return_value=dt),
+            mock.patch.object(Watering, '_update_estimated_moisture', autospec=True, return_value=80),
+            mock.patch.object(Watering, '_get_scheduled_runtime_multiplier', autospec=True, return_value=(0.5, 'estimated_moisture')),
+            mock.patch('simo.core.controllers.Switch.turn_on', autospec=True),
+            mock.patch('simo.core.controllers.Switch.turn_off', autospec=True),
+            mock.patch('simo.core.controllers.Switch.timer_engaged', autospec=True, return_value=False),
+            mock.patch('simo.core.controllers.Switch.stop_timer', autospec=True),
+        ):
+            handler.watch_watering()
+            for _ in range(5):
+                handler.watch_watering()
+
+        watering.refresh_from_db()
+        self.assertEqual(watering.value, {'status': 'stopped', 'program_progress': 0})
+        self.assertEqual(watering.config['program']['duration'], 10)
+        self.assertNotIn('active_program_multiplier', watering.meta)
+        self.assertNotIn('active_program_source', watering.meta)
 
     def test_generic_low_battery_notifications_skips_early_hour(self):
         handler = self._mk_generic_handler()
