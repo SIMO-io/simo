@@ -1,4 +1,5 @@
 from simo.core.models import Gateway, Zone
+from simo.core.events import GatewayObjectCommand
 from simo.fleet.controllers import VoiceAssistant
 from simo.fleet.forms import VoiceAssistantConfigForm
 from simo.fleet.gateways import FleetGatewayHandler
@@ -57,3 +58,22 @@ class FleetColonelComponentSyncTests(BaseSimoTestCase):
         comp.save(update_fields=['config'])
         self.assertTrue(self.s2.components.filter(id=comp.id).exists())
         self.assertFalse(self.s1.components.filter(id=comp.id).exists())
+
+    def test_component_save_defers_colonel_config_push_until_commit(self):
+        comp = self._mk_va('VA4')
+
+        GatewayObjectCommand.publish.reset_mock()
+        with self.captureOnCommitCallbacks(execute=False) as callbacks:
+            comp.config['colonel'] = self.s1.id
+            comp.save(update_fields=['config'])
+            GatewayObjectCommand.publish.assert_not_called()
+
+        self.assertTrue(callbacks)
+        for callback in callbacks:
+            callback()
+
+        self.assertTrue(GatewayObjectCommand.publish.called)
+        self.assertTrue(any(
+            call.args[0].data.get('command') == 'update_config'
+            for call in GatewayObjectCommand.publish.call_args_list
+        ))

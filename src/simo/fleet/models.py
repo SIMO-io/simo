@@ -236,10 +236,13 @@ class Colonel(DirtyFieldsMixin, models.Model):
 
     def update_config(self):
         from .gateways import FleetGatewayHandler
-        for gateway in Gateway.objects.filter(type=FleetGatewayHandler.uid):
-            GatewayObjectCommand(
-                gateway, self, command='update_config'
-            ).publish()
+        def publish_update():
+            for gateway in Gateway.objects.filter(type=FleetGatewayHandler.uid):
+                GatewayObjectCommand(
+                    gateway, self, command='update_config'
+                ).publish()
+
+        transaction.on_commit(publish_update)
 
     @transaction.atomic
     def rebuild_occupied_pins(self):
