@@ -547,7 +547,10 @@ class TTLock(FleetDeviceMixin, Lock):
     gateway_class = FleetGatewayHandler
     config_form = TTLockConfigForm
     name = 'TTLock'
-    discovery_msg = _("Please activate your TTLock so it can be discovered.")
+    discovery_msg = _(
+        "Please activate your TTLock so it can be discovered by the selected "
+        "Sentinel / Colonel."
+    )
 
     @classmethod
     def _init_discovery(self, form_cleaned_data):
@@ -569,7 +572,7 @@ class TTLock(FleetDeviceMixin, Lock):
     def _process_discovery(cls, started_with, data):
         if data['discovery-result'] == 'fail':
             if data['result'] == 0:
-                return {'error': 'Internal Colonel error. See Colonel logs.'}
+                return {'error': 'Internal device error. See Fleet device logs.'}
             if data['result'] == 1:
                 return {'error': 'TTLock not found.'}
             elif data['result'] == 2:
@@ -579,16 +582,16 @@ class TTLock(FleetDeviceMixin, Lock):
                     'error': 'Unable to initialize your TTLock. '
                              'Perform full reset. '
                              'Allow the lock to rest for at least 2 min. '
-                             'Move your lock as close as possible to your SIMO.io Colonel. '
+                             'Move your lock as close as possible to your SIMO.io device. '
                              'Retry!'
                 }
             elif data['result'] == 4:
                 return {
-                    'error': 'BLE is available only on LAN connected colonels.'
+                    'error': 'BLE is available only on LAN connected Fleet devices.'
                 }
             elif data['result'] == 5:
                 return {
-                    'error': 'Single TTLock is alowed per Colonel.'
+                    'error': 'Single TTLock is allowed per Fleet device.'
                 }
             else:
                 return {'error': data['result']}

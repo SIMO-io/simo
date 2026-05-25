@@ -1638,18 +1638,26 @@ class TTLockConfigForm(ColonelComponentForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields['colonel'].label = "Sentinel / Colonel"
+        self.fields['colonel'].help_text = (
+            "Choose the nearby Fleet device that will manage this TTLock over BLE."
+        )
         self.basic_fields.extend(['auto_lock', 'inverse'])
 
     def clean(self):
+        colonel = self.cleaned_data.get('colonel')
+        if not colonel:
+            return self.cleaned_data
+
         if not self.instance or not self.instance.pk:
             from .controllers import TTLock
-            other_lock = self.cleaned_data['colonel'].components.filter(
+            other_lock = colonel.components.filter(
                 controller_uid=TTLock.uid
             ).first()
             if other_lock:
                 raise forms.ValidationError(
-                    f"Single Colonel can support single TTLock only.\n"
-                    f"You already have {other_lock} on this Colonel."
+                    f"Single Fleet device can support a single TTLock only.\n"
+                    f"You already have {other_lock} on this device."
                 )
         return self.cleaned_data
 
