@@ -777,7 +777,8 @@ class DALIDevice(FleetDeviceMixin, ControllerBase):
         GatewayObjectCommand(
             gateway, form_cleaned_data['colonel'],
             command='discover', type=self.uid,
-            i=form_cleaned_data['interface'].no
+            i=form_cleaned_data['interface'].no,
+            discovery_id=gateway.discovery.get('token')
         ).publish()
 
     @classmethod

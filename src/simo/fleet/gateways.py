@@ -119,7 +119,8 @@ class FleetGatewayHandler(BaseObjectCommandsGatewayHandler):
                     gw, colonel,
                     command=f'discover',
                     type=gw.discovery['controller_uid'],
-                    i=form_cleaned_data['interface'].no
+                    i=form_cleaned_data['interface'].no,
+                    discovery_id=gw.discovery.get('token')
                 ).publish()
             elif gw.discovery['controller_uid'] == \
             'simo.fleet.controllers.RoomZonePresenceSensor':

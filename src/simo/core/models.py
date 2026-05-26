@@ -279,6 +279,7 @@ class Gateway(DirtyFieldsMixin, models.Model, SimoAdminMixin):
             'instance_id': getattr(instance, 'id', None),
             'instance_uid': getattr(instance, 'uid', None),
             'start': time.time(),
+            'token': get_random_string(12),
             'timeout': timeout if timeout else 60,
             'controller_uid': controller_uid,
             'init_data': init_data,

@@ -577,7 +577,8 @@ class Interface(models.Model):
 
         GatewayObjectCommand(
             gw, self.colonel, command='cancel_discovery',
-            interface=self.no
+            interface=self.no,
+            discovery_id=gw.discovery.get('token')
         ).publish()
         return True
 
