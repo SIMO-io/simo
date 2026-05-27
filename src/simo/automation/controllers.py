@@ -154,6 +154,7 @@ class PresenceLighting(Script):
         self.conditions = []
         self.expected_light_values = {}
         self._watched_lights = []
+        self._watchers_unhealthy_since = None
 
         # Retry schedule is absolute offsets since the last desired-value change.
         # 1m, 2m, 5m, 10m, 20m, 40m, 80m, 160m
@@ -251,6 +252,48 @@ class PresenceLighting(Script):
                 pass
         self.condition_comps.clear()
 
+    def _ensure_watchers_alive(self):
+        all_healthy = True
+        for sensor in list(self.sensors.values()):
+            try:
+                all_healthy = sensor.ensure_on_change_transport() and all_healthy
+            except Exception:
+                all_healthy = False
+                print(traceback.format_exc(), file=sys.stderr)
+
+        for light in list(self._watched_lights):
+            try:
+                all_healthy = light.ensure_on_change_transport() and all_healthy
+            except Exception:
+                all_healthy = False
+                print(traceback.format_exc(), file=sys.stderr)
+
+        for comp in list(self.condition_comps.values()):
+            try:
+                all_healthy = comp.ensure_on_change_transport() and all_healthy
+            except Exception:
+                all_healthy = False
+                print(traceback.format_exc(), file=sys.stderr)
+
+        if all_healthy:
+            if self._watchers_unhealthy_since:
+                print("Watcher transport recovered.")
+            self._watchers_unhealthy_since = None
+            return
+
+        now = time.time()
+        if not self._watchers_unhealthy_since:
+            self._watchers_unhealthy_since = now
+            print("Watcher transport unhealthy. Waiting for automatic recovery.")
+            return
+
+        recovery_grace = 90
+        if now - self._watchers_unhealthy_since >= recovery_grace:
+            raise RuntimeError(
+                f"Watcher transport unhealthy for {recovery_grace}s; "
+                "failing script."
+            )
+
     def _run(self):
         self.hold_time = self.component.config.get('hold_time', 0) * 10
         try:
@@ -294,6 +337,7 @@ class PresenceLighting(Script):
                 self._regulate()
 
             while not self._should_stop():
+                self._ensure_watchers_alive()
                 # Resend expected values if they have failed to reach
                 # corresponding light
                 now = time.time()

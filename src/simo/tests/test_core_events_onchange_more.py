@@ -5,6 +5,7 @@ from types import SimpleNamespace
 from unittest import mock
 
 from django.contrib.contenttypes.models import ContentType
+from django.db.utils import OperationalError
 from django.utils import timezone
 
 from simo.core.models import Component, Gateway, Zone
@@ -254,6 +255,107 @@ class EventsOnChangeMoreTests(BaseSimoTestCase):
         )
         self.comp.on_mqtt_message(None, None, msg)
         self.assertEqual(called, [self.comp.id])
+
+    def test_on_mqtt_message_retries_after_db_disconnect(self):
+        called = []
+
+        def handler(obj):
+            called.append(obj.id)
+
+        self.comp._on_change_function = handler
+        self.comp._obj_ct_id = self.ct_id
+        self.comp._on_change_since = timezone.now().timestamp() - 1
+
+        msg = SimpleNamespace(
+            payload=json.dumps(
+                {
+                    'obj_pk': self.comp.id,
+                    'obj_ct_pk': self.ct_id,
+                    'dirty_fields': {'value': True},
+                    'timestamp': timezone.now().timestamp(),
+                }
+            ).encode()
+        )
+
+        with (
+            mock.patch.object(
+                self.comp,
+                'refresh_from_db',
+                autospec=True,
+                side_effect=[
+                    OperationalError(
+                        'terminating connection due to administrator command'
+                    ),
+                    None,
+                ],
+            ) as refresh,
+            mock.patch('simo.core.events.close_old_connections', autospec=True),
+            mock.patch.object(
+                self.comp.__class__,
+                '_reset_watcher_db_connection',
+                autospec=True,
+            ) as reset_db,
+        ):
+            self.comp.on_mqtt_message(None, None, msg)
+
+        self.assertEqual(called, [self.comp.id])
+        self.assertEqual(refresh.call_count, 2)
+        reset_db.assert_called_once()
+        self.assertIsNone(self.comp._watcher_last_error)
+
+    def test_on_mqtt_message_logs_failure_and_returns_when_db_stays_down(self):
+        self.comp._on_change_function = lambda _obj: None
+        self.comp._obj_ct_id = self.ct_id
+        self.comp._on_change_since = timezone.now().timestamp() - 1
+
+        msg = SimpleNamespace(
+            payload=json.dumps(
+                {
+                    'obj_pk': self.comp.id,
+                    'obj_ct_pk': self.ct_id,
+                    'dirty_fields': {'value': True},
+                    'timestamp': timezone.now().timestamp(),
+                }
+            ).encode()
+        )
+
+        with (
+            mock.patch.object(
+                self.comp,
+                'refresh_from_db',
+                autospec=True,
+                side_effect=OperationalError(
+                    'terminating connection due to administrator command'
+                ),
+            ),
+            mock.patch.object(
+                self.comp.__class__,
+                '_reset_watcher_db_connection',
+                autospec=True,
+            ),
+        ):
+            self.comp.on_mqtt_message(None, None, msg)
+
+        self.assertIn('administrator command', self.comp._watcher_last_error)
+
+    def test_ensure_on_change_transport_rebinds_dead_dedicated_client(self):
+        handler = lambda _obj: None
+        dead_thread = mock.Mock()
+        dead_thread.is_alive.return_value = False
+        healthy_thread = mock.Mock()
+        healthy_thread.is_alive.return_value = True
+
+        self.comp._on_change_function = handler
+        self.comp._mqtt_client = SimpleNamespace(_thread=dead_thread)
+
+        def _rebind(fn):
+            self.assertIs(fn, handler)
+            self.comp._mqtt_client = SimpleNamespace(_thread=healthy_thread)
+
+        with mock.patch.object(self.comp, 'on_change', side_effect=_rebind) as rebind:
+            self.assertTrue(self.comp.ensure_on_change_transport())
+
+        rebind.assert_called_once_with(handler)
 
     def test_on_mqtt_message_calls_two_arg_handler_with_instance_user_actor(self):
         inst = self.inst

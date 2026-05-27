@@ -11,10 +11,22 @@ import os
 from django.contrib.contenttypes.models import ContentType
 from django.conf import settings
 import paho.mqtt.client as mqtt
+from django.db import close_old_connections, connection as db_connection
+from django.db.utils import (
+    InterfaceError as DjangoInterfaceError,
+    OperationalError as DjangoOperationalError,
+)
 from django.utils import timezone
 from .mqtt_hub import get_mqtt_hub
 from simo.core.utils.mqtt import connect_with_retry, install_reconnect_handler
 from .utils.model_helpers import dirty_fields_to_current_values
+try:
+    from psycopg2 import (
+        InterfaceError as PsycopgInterfaceError,
+        OperationalError as PsycopgOperationalError,
+    )
+except Exception:  # pragma: no cover - defensive fallback for tests
+    PsycopgInterfaceError = PsycopgOperationalError = Exception
 
 
 _watcher_context = threading.local()
@@ -33,6 +45,41 @@ def get_current_watcher_stop_event():
     return getattr(_watcher_context, 'stop_event', None)
 
 logger = logging.getLogger(__name__)
+_WATCHER_DB_ERRORS = (
+    DjangoInterfaceError,
+    DjangoOperationalError,
+    PsycopgInterfaceError,
+    PsycopgOperationalError,
+)
+
+
+def _iter_exception_chain(exc):
+    seen = set()
+    current = exc
+    while current and id(current) not in seen:
+        seen.add(id(current))
+        yield current
+        current = current.__cause__ or current.__context__
+
+
+def _is_watcher_db_error(exc) -> bool:
+    markers = (
+        'terminating connection due to administrator command',
+        'server closed the connection unexpectedly',
+        'connection already closed',
+        'connection not open',
+        'ssl connection has been closed unexpectedly',
+    )
+    for err in _iter_exception_chain(exc):
+        if isinstance(err, _WATCHER_DB_ERRORS):
+            return True
+        try:
+            message = str(err).lower()
+        except Exception:
+            message = ''
+        if any(marker in message for marker in markers):
+            return True
+    return False
 
 
 class ObjMqttAnnouncement:
@@ -122,6 +169,8 @@ class OnChangeMixin:
     _mqtt_cleanup_registered = False
     _watcher_owner_event = None
     _on_change_since = None
+    _watcher_last_error = None
+    _watcher_last_error_at = None
 
     def _register_mqtt_cleanup(self):
         if self._mqtt_cleanup_registered:
@@ -163,14 +212,80 @@ class OnChangeMixin:
         # default for component
         return self.zone.instance
 
+    def _log_watcher(self, level, message, *args, **kwargs):
+        logger.log(level, f"Watcher {self}: {message}", *args, **kwargs)
+
+    def _reset_watcher_db_connection(self):
+        try:
+            close_old_connections()
+        except Exception:
+            pass
+        try:
+            db_connection.close()
+        except Exception:
+            pass
+        try:
+            db_connection.connect()
+        except Exception:
+            pass
+        try:
+            close_old_connections()
+        except Exception:
+            pass
+
+    def _run_with_db_recovery(self, callback, description):
+        last_error = None
+        for attempt in range(2):
+            if attempt:
+                self._log_watcher(
+                    logging.WARNING,
+                    f"{description} hit a broken DB connection; retrying once.",
+                )
+                self._reset_watcher_db_connection()
+            else:
+                try:
+                    close_old_connections()
+                except Exception:
+                    pass
+            try:
+                return callback()
+            except Exception as exc:
+                last_error = exc
+                if attempt or not _is_watcher_db_error(exc):
+                    raise
+        raise last_error
+
+    def _record_watcher_failure(self, exc, location):
+        self._watcher_last_error = str(exc)
+        try:
+            self._watcher_last_error_at = timezone.now()
+        except Exception:
+            self._watcher_last_error_at = None
+        self._log_watcher(
+            logging.ERROR,
+            f"{location} failed; keeping watcher thread alive.",
+            exc_info=True,
+        )
+
+    def _clear_watcher_failure(self):
+        self._watcher_last_error = None
+        self._watcher_last_error_at = None
+
     def on_mqtt_connect(self, mqtt_client, userdata, flags, rc):
-        event = ObjectChangeEvent(self.get_instance(), self)
-        mqtt_client.subscribe(event.get_topic())
+        try:
+            topic = self._run_with_db_recovery(
+                lambda: ObjectChangeEvent(self.get_instance(), self).get_topic(),
+                'MQTT connect subscription',
+            )
+            mqtt_client.subscribe(topic)
+            self._clear_watcher_failure()
+        except Exception as exc:
+            self._record_watcher_failure(exc, 'on_mqtt_connect')
 
     def on_mqtt_message(self, client, userdata, msg):
         try:
             payload = json.loads(msg.payload)
-        except Exception as e:
+        except Exception:
             return
         if not self._on_change_function:
             return
@@ -197,6 +312,21 @@ class OnChangeMixin:
         if payload_ts < ts_now - 10:
             return
 
+        try:
+            args = self._run_with_db_recovery(
+                lambda: self._prepare_on_change_args(payload),
+                'MQTT change handling',
+            )
+            self._clear_watcher_failure()
+        except Exception as exc:
+            self._record_watcher_failure(exc, 'on_mqtt_message')
+            return
+        try:
+            self._on_change_function(*args)
+        except Exception:
+            print(traceback.format_exc(), file=sys.stderr)
+
+    def _prepare_on_change_args(self, payload):
         tz = pytz.timezone(self.get_instance().timezone)
         timezone.activate(tz)
         self.refresh_from_db()
@@ -209,10 +339,7 @@ class OnChangeMixin:
             args = [self]
         if no_args > 1:
             args.append(self._resolve_actor_from_payload(payload))
-        try:
-            self._on_change_function(*args)
-        except Exception:
-            print(traceback.format_exc(), file=sys.stderr)
+        return args
 
     def _resolve_actor_from_payload(self, payload):
         """Resolve actor for on_change callbacks.
@@ -258,6 +385,47 @@ class OnChangeMixin:
                 return None
 
         return None
+
+    def watcher_transport_healthy(self):
+        if not getattr(self, '_on_change_function', None):
+            return True
+        if getattr(self, '_mqtt_sub_tokens', None):
+            return True
+        client = getattr(self, '_mqtt_client', None)
+        if not client:
+            return False
+        loop_thread = getattr(client, '_thread', None)
+        if loop_thread is None:
+            return True
+        is_alive = getattr(loop_thread, 'is_alive', None)
+        if not callable(is_alive):
+            return True
+        try:
+            return bool(is_alive())
+        except Exception:
+            return False
+
+    def ensure_on_change_transport(self):
+        handler = getattr(self, '_on_change_function', None)
+        if not handler:
+            return True
+        is_healthy = self.watcher_transport_healthy()
+        if is_healthy and not self._watcher_last_error:
+            return True
+        if self._watcher_last_error:
+            reason = "previous watcher error detected; rebinding watcher."
+        else:
+            reason = "transport thread is down; rebinding watcher."
+        self._log_watcher(
+            logging.WARNING,
+            reason,
+        )
+        try:
+            self.on_change(handler)
+        except Exception as exc:
+            self._record_watcher_failure(exc, 'ensure_on_change_transport')
+            return False
+        return self.watcher_transport_healthy() and not self._watcher_last_error
 
     def on_change(self, function):
         use_hub = self._use_hub_watchers()
@@ -332,6 +500,7 @@ class OnChangeMixin:
             owner_event = get_current_watcher_stop_event()
             self._watcher_owner_event = owner_event
             _register_component_watcher(self, owner_event)
+            self._clear_watcher_failure()
         else:
             # Unbind watcher
             self._on_change_since = None
@@ -356,6 +525,7 @@ class OnChangeMixin:
                 self._mqtt_cleanup_registered = False
             _unregister_component_watcher(self)
             self._on_change_function = None
+            self._clear_watcher_failure()
 
     @staticmethod
     def _bridge_stop_events(parent_event, child_event):

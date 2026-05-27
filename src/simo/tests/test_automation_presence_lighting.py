@@ -159,6 +159,55 @@ class PresenceLightingControllerTests(BaseSimoTestCase):
 
         self.assertFalse(controller.is_on)
 
+    def test_ensure_watchers_alive_rebinds_all_registered_watchers(self):
+        from simo.automation.controllers import PresenceLighting
+
+        light = Component.objects.create(
+            name='Lamp',
+            zone=self.zone,
+            category=None,
+            gateway=self.dev_gw,
+            base_type='switch',
+            controller_uid='x',
+            config={},
+            meta={},
+            value=False,
+        )
+        controller = PresenceLighting(self.script)
+        controller.sensors = {self.sensor.id: self.sensor}
+        controller._watched_lights = [light]
+        controller.condition_comps = {self.condition.id: self.condition}
+
+        with (
+            mock.patch.object(self.sensor, 'ensure_on_change_transport', autospec=True) as sensor_watch,
+            mock.patch.object(light, 'ensure_on_change_transport', autospec=True) as light_watch,
+            mock.patch.object(self.condition, 'ensure_on_change_transport', autospec=True) as cond_watch,
+        ):
+            controller._ensure_watchers_alive()
+
+        sensor_watch.assert_called_once_with()
+        light_watch.assert_called_once_with()
+        cond_watch.assert_called_once_with()
+
+    def test_ensure_watchers_alive_fails_after_recovery_grace(self):
+        from simo.automation.controllers import PresenceLighting
+
+        controller = PresenceLighting(self.script)
+        controller.sensors = {self.sensor.id: self.sensor}
+
+        with (
+            mock.patch.object(
+                self.sensor,
+                'ensure_on_change_transport',
+                autospec=True,
+                return_value=False,
+            ),
+            mock.patch('simo.automation.controllers.time.time', return_value=191),
+        ):
+            controller._watchers_unhealthy_since = 100
+            with self.assertRaises(RuntimeError):
+                controller._ensure_watchers_alive()
+
 
 class PresenceLightingConfigFormTests(BaseSimoTestCase):
     def setUp(self):
