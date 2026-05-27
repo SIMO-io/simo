@@ -499,6 +499,18 @@ class FleetConsumer(AsyncWebsocketConsumer):
                                 receive_options, thread_sensitive=True
                             )(data['options'])
 
+                        if 'config' in data:
+                            def receive_config(val):
+                                if not isinstance(val, dict):
+                                    return
+                                if not isinstance(component.config, dict):
+                                    component.config = {}
+                                component.config.update(val)
+                                component.save(update_fields=['config'])
+                            await sync_to_async(
+                                receive_config, thread_sensitive=True
+                            )(data['config'])
+
                         if 'meta' in data:
                             def receive_meta(val):
                                 if not isinstance(val, dict):
