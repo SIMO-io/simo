@@ -1987,18 +1987,21 @@ class RoomPresenceSensorConfigForm(BaseComponentForm):
         return obj
 
 
-def bind_component_to_security_alarm_group(component):
+def bind_component_to_alarm_group(component):
+    if not component.alarm_category:
+        return
+
     alarm_group = Component.objects.filter(
         zone__instance=component.zone.instance,
         base_type='alarm-group',
-        alarm_category='security',
+        alarm_category=component.alarm_category,
         config__is_main=True,
     ).first()
     if not alarm_group:
         alarm_group = Component.objects.filter(
             zone__instance=component.zone.instance,
             base_type='alarm-group',
-            alarm_category='security',
+            alarm_category=component.alarm_category,
         ).first()
     if not alarm_group:
         return
@@ -2244,8 +2247,7 @@ class SentinelDeviceConfigForm(BaseComponentForm):
                 comp.value_units = CtrlClass.default_value_units
                 comp.config['colonel'] = colonel.id
                 comp.save()
-                if CtrlClass is RoomPresenceSensor:
-                    bind_component_to_security_alarm_group(comp)
+                bind_component_to_alarm_group(comp)
                 last_comp = comp
             else:
                 raise Exception(form.errors)
