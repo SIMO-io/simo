@@ -186,3 +186,116 @@ class ThermostatEvaluateTests(BaseSimoTestCase):
             self.tstat.controller._evaluate()
         on.assert_called_once()
 
+    def test_evaluate_dynamic_does_not_restart_same_pulse(self):
+        from simo.generic.controllers import SwitchGroup
+
+        heater = Component.objects.create(
+            name='H',
+            zone=self.zone,
+            category=None,
+            gateway=self.gw,
+            base_type='switch',
+            controller_uid=SwitchGroup.uid,
+            config={},
+            meta={},
+            value=False,
+            alive=True,
+        )
+        sensor = Component.objects.create(
+            name='S',
+            zone=self.zone,
+            category=None,
+            gateway=self.gw,
+            base_type='numeric-sensor',
+            controller_uid='x',
+            config={},
+            meta={},
+            value=20.85,
+            alive=True,
+        )
+
+        self._set_user_config_target(22)
+        self.tstat.config.update(
+            {
+                'temperature_sensor': sensor.id,
+                'heaters': [heater.id],
+                'coolers': [],
+                'engagement': 'dynamic',
+                'user_config': dict(
+                    self.tstat.config.get('user_config', {}),
+                    mode='heater',
+                ),
+            }
+        )
+        self.tstat.save(update_fields=['config'])
+
+        def store_pulse(ctrl, frame_length_s, on_percentage):
+            ctrl.component.meta['pulse'] = {
+                'frame': frame_length_s,
+                'duty': round(on_percentage / 100, 6),
+            }
+            ctrl.component.save(update_fields=['meta'])
+
+        with mock.patch(
+            'simo.core.controllers.Switch.pulse',
+            autospec=True,
+            side_effect=store_pulse,
+        ) as pulse:
+            self.tstat.controller._evaluate()
+            self.tstat.controller._evaluate()
+
+        pulse.assert_called_once()
+
+    def test_evaluate_dynamic_clamps_short_switch_phase_to_off_state(self):
+        from simo.generic.controllers import SwitchGroup
+
+        heater = Component.objects.create(
+            name='H',
+            zone=self.zone,
+            category=None,
+            gateway=self.gw,
+            base_type='switch',
+            controller_uid=SwitchGroup.uid,
+            config={},
+            meta={'pulse': {'frame': 300, 'duty': 0.5}},
+            value=True,
+            alive=True,
+        )
+        sensor = Component.objects.create(
+            name='S',
+            zone=self.zone,
+            category=None,
+            gateway=self.gw,
+            base_type='numeric-sensor',
+            controller_uid='x',
+            config={},
+            meta={},
+            value=22.45,
+            alive=True,
+        )
+
+        self._set_user_config_target(22)
+        self.tstat.config.update(
+            {
+                'temperature_sensor': sensor.id,
+                'heaters': [heater.id],
+                'coolers': [],
+                'engagement': 'dynamic',
+                'user_config': dict(
+                    self.tstat.config.get('user_config', {}),
+                    mode='heater',
+                ),
+            }
+        )
+        self.tstat.save(update_fields=['config'])
+
+        with (
+            mock.patch('simo.core.controllers.Switch.turn_off', autospec=True) as off,
+            mock.patch('simo.core.controllers.Switch.pulse', autospec=True) as pulse,
+        ):
+            self.tstat.controller._evaluate()
+
+        off.assert_called_once()
+        pulse.assert_not_called()
+        self.tstat.refresh_from_db()
+        self.assertFalse(self.tstat.value['heating'])

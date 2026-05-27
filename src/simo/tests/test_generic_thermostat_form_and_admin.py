@@ -167,3 +167,10 @@ class ThermostatFormAndAdminTests(BaseSimoTestCase):
 
         self.assertEqual(response, 'ok')
         self.assertEqual(request.session['instance_id'], self.inst.id)
+
+    def test_component_admin_has_show_in_app_filter(self):
+        from simo.core.admin import ComponentAdmin
+
+        admin_obj = ComponentAdmin(Component, AdminSite())
+
+        self.assertIn('show_in_app', admin_obj.list_filter)

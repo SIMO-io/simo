@@ -1464,6 +1464,7 @@ class ElectricStrikeLockConfigForm(ColonelComponentForm):
             forward.Field('colonel'),
             forward.Const({'input': True}, 'filters')
         ],
+        required=False,
         help_text="Input port that detects voltage applied to the strike."
     )
     unlocked_value = forms.ChoiceField(
@@ -1548,9 +1549,11 @@ class ElectricStrikeLockConfigForm(ColonelComponentForm):
         if 'open_pin' in self.cleaned_data:
             self.instance.config['open_pin_no'] = \
                 self.cleaned_data['open_pin'].no
-        if 'status_pin' in self.cleaned_data:
+        if self.cleaned_data.get('status_pin'):
             self.instance.config['status_pin_no'] = \
                 self.cleaned_data['status_pin'].no
+        else:
+            self.instance.config.pop('status_pin_no', None)
         obj = super().save(commit=commit)
         if commit and self.cleaned_data.get('controls'):
             GatewayObjectCommand(

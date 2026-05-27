@@ -269,7 +269,7 @@ class ComponentAdmin(EasyObjectsDeleteMixin, admin.ModelAdmin):
         'gateway', 'base_type', ('zone', ZonesFilter), 'category',
         #'controller_uid',
         ('controller_uid', AvailableChoicesFilter),
-        'alive', 'alarm_category', 'arm_status',
+        'alive', 'alarm_category', 'arm_status', 'show_in_app',
     )
 
     search_fields = 'id', 'name', 'value', 'config', 'meta', 'notes'

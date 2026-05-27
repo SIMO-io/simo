@@ -514,10 +514,9 @@ class ElectricStrikeLock(FleetDeviceMixin, BasicOutputMixin, Lock):
     default_value = 'locked'
 
     def _get_occupied_pins(self):
-        pins = [
-            self.component.config['open_pin_no'],
-            self.component.config['status_pin_no']
-        ]
+        pins = [self.component.config['open_pin_no']]
+        if self.component.config.get('status_pin_no') is not None:
+            pins.append(self.component.config['status_pin_no'])
         for ctrl in self.component.config.get('controls', []):
             if 'pin_no' in ctrl:
                 pins.append(ctrl['pin_no'])

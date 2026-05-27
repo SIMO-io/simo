@@ -614,6 +614,12 @@ class GenericGatewayHandler(
 
 
     def start_pulse(self, comp, pulse):
+        tracked = self.pulsing_switches.get(comp.id)
+        if tracked:
+            tracked['comp'] = comp
+            tracked['pulse'] = pulse
+            return
+
         comp.send(True)
         self.pulsing_switches[comp.id] = {
             'comp': comp, 'last_toggle': time.time(), 'value': True,

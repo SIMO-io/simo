@@ -192,3 +192,34 @@ class GenericGatewayGroupsAndPulseTests(BaseSimoTestCase):
         self.assertTrue(handler.pulsing_switches[comp.id]['value'])
         self.assertLessEqual(handler.pulsing_switches[comp.id]['last_toggle'], time.time())
 
+    def test_start_pulse_updates_existing_switch_without_restart(self):
+        from simo.generic.controllers import SwitchGroup
+
+        handler = self._mk_handler()
+        comp = Component.objects.create(
+            name='S',
+            zone=self.zone,
+            category=None,
+            gateway=self.gw,
+            base_type='switch',
+            controller_uid=SwitchGroup.uid,
+            config={},
+            meta={},
+            value=False,
+        )
+
+        handler.pulsing_switches[comp.id] = {
+            'comp': comp,
+            'last_toggle': 123.0,
+            'value': False,
+            'pulse': {'frame': 300, 'duty': 0.4},
+        }
+        pulse = {'frame': 300, 'duty': 0.45}
+
+        with mock.patch('simo.core.controllers.Switch.send', autospec=True) as send:
+            handler.start_pulse(comp, pulse)
+
+        send.assert_not_called()
+        self.assertEqual(handler.pulsing_switches[comp.id]['pulse'], pulse)
+        self.assertEqual(handler.pulsing_switches[comp.id]['last_toggle'], 123.0)
+        self.assertFalse(handler.pulsing_switches[comp.id]['value'])

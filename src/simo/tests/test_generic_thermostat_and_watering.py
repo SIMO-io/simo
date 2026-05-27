@@ -87,7 +87,7 @@ class ThermostatControllerTests(BaseSimoTestCase):
 
     def test_engage_devices_switch_and_dimmer_routing(self):
         dimmer = mock.Mock(base_type='dimmer')
-        switch = mock.Mock(base_type='switch')
+        switch = mock.Mock(base_type='switch', meta={}, value=False)
 
         self.comp.controller._engage_devices([dimmer, switch], 100)
         dimmer.output_percent.assert_called_once_with(100)
@@ -104,6 +104,39 @@ class ThermostatControllerTests(BaseSimoTestCase):
         self.comp.controller._engage_devices([dimmer, switch], 55)
         dimmer.output_percent.assert_called_once_with(55)
         switch.pulse.assert_called_once_with(300, 55)
+
+    def test_engage_devices_switch_clamps_short_on_phase_to_off(self):
+        switch = mock.Mock(
+            base_type='switch',
+            meta={'pulse': {'frame': 300, 'duty': 0.5}},
+            value=True,
+        )
+
+        self.comp.controller._engage_devices([switch], 3)
+
+        switch.turn_off.assert_called_once()
+        switch.pulse.assert_not_called()
+
+    def test_engage_devices_switch_clamps_short_off_phase_to_on(self):
+        switch = mock.Mock(base_type='switch', meta={}, value=False)
+
+        self.comp.controller._engage_devices([switch], 97)
+
+        switch.turn_on.assert_called_once()
+        switch.pulse.assert_not_called()
+
+    def test_engage_devices_switch_does_not_restart_same_pulse(self):
+        switch = mock.Mock(
+            base_type='switch',
+            meta={'pulse': {'frame': 300, 'duty': 0.55}},
+            value=True,
+        )
+
+        self.comp.controller._engage_devices([switch], 55)
+
+        switch.turn_on.assert_not_called()
+        switch.turn_off.assert_not_called()
+        switch.pulse.assert_not_called()
 
 
 class WateringControllerTests(BaseSimoTestCase):

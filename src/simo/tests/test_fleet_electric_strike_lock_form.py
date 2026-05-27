@@ -54,3 +54,26 @@ class ElectricStrikeLockConfigFormTests(BaseSimoTestCase):
             [0, 30, 60, 300, 900, 1800, 3600, 7200, 14400, 21600,
              28800, 43200, 64800, 86400],
         )
+
+    def test_status_pin_is_optional(self):
+        form = ElectricStrikeLockConfigForm(
+            controller_uid=ElectricStrikeLock.uid,
+            data={
+                'name': 'Front Door',
+                'zone': self.zone.id,
+                'colonel': self.colonel.id,
+                'open_pin': self.open_pin.id,
+                'open_action': 'HIGH',
+                'control_method': 'pulse',
+                'status_pin': '',
+                'unlocked_value': 'HIGH',
+                'auto_lock': '0',
+            },
+        )
+
+        self.assertFalse(form.fields['status_pin'].required)
+        self.assertTrue(form.is_valid(), form.errors)
+        component = form.save()
+
+        self.assertEqual(component.config['open_pin_no'], self.open_pin.no)
+        self.assertNotIn('status_pin_no', component.config)

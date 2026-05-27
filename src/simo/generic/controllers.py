@@ -75,6 +75,9 @@ class Thermostat(ControllerBase):
         'heating': False, 'cooling': False
     }
     accepts_value = False
+    DYNAMIC_SWITCH_FRAME_S = 300
+    DYNAMIC_SWITCH_MIN_PHASE_S = 10
+    DYNAMIC_SWITCH_DUTY_PRECISION = 6
 
     @property
     def default_config(self):
@@ -290,9 +293,7 @@ class Thermostat(ControllerBase):
                         direction='heat',
                         window=window,
                     )
-                    if reaction_force:
-                        heating = True
-                    self._engage_devices(heaters, reaction_force)
+                    heating = self._engage_devices(heaters, reaction_force)
                 cooling = False
             elif mode == 'cooler':
                 if coolers:
@@ -308,9 +309,7 @@ class Thermostat(ControllerBase):
                         direction='cool',
                         window=window,
                     )
-                    if reaction_force:
-                        cooling = True
-                    self._engage_devices(coolers, reaction_force)
+                    cooling = self._engage_devices(coolers, reaction_force)
                 heating = False
             else:  # auto
                 if prefer_heating and heaters:
@@ -326,9 +325,7 @@ class Thermostat(ControllerBase):
                         direction='heat',
                         window=window,
                     )
-                    if reaction_force:
-                        heating = True
-                    self._engage_devices(heaters, reaction_force)
+                    heating = self._engage_devices(heaters, reaction_force)
                 elif coolers and not heating:
                     low = target_temp - 1
                     high = target_temp + 2
@@ -342,9 +339,7 @@ class Thermostat(ControllerBase):
                         direction='cool',
                         window=window,
                     )
-                    if reaction_force:
-                        cooling = True
-                    self._engage_devices(coolers, reaction_force)
+                    cooling = self._engage_devices(coolers, reaction_force)
 
         self.component.set({
             'mode': mode,
@@ -490,17 +485,82 @@ class Thermostat(ControllerBase):
         return adjusted
 
 
+    def _get_switch_pulse_for_reaction_force(self, reaction_force):
+        reaction_force = max(0.0, min(float(reaction_force), 100.0))
+        if reaction_force == 0:
+            return 0
+        if reaction_force == 100:
+            return 100
+
+        frame = self.DYNAMIC_SWITCH_FRAME_S
+        on_interval = frame * reaction_force / 100
+        off_interval = frame - on_interval
+        min_phase = self.DYNAMIC_SWITCH_MIN_PHASE_S
+
+        # Protect physical relays from chatter when the computed PWM phase
+        # would be too short to be meaningful.
+        if on_interval + 1e-9 < min_phase:
+            return 0
+        if off_interval + 1e-9 < min_phase:
+            return 100
+
+        return {
+            'frame': frame,
+            'duty': round(
+                reaction_force / 100,
+                self.DYNAMIC_SWITCH_DUTY_PRECISION
+            )
+        }
+
+
+    def _pulse_matches(self, current_pulse, desired_pulse):
+        if not isinstance(current_pulse, dict):
+            return False
+        if current_pulse.get('frame') != desired_pulse['frame']:
+            return False
+        try:
+            duty = float(current_pulse.get('duty'))
+        except (TypeError, ValueError):
+            return False
+        return abs(duty - desired_pulse['duty']) < (
+            10 ** -self.DYNAMIC_SWITCH_DUTY_PRECISION
+        )
+
+
+    def _engage_switch_device(self, device, reaction_force):
+        desired = self._get_switch_pulse_for_reaction_force(reaction_force)
+        meta = getattr(device, 'meta', {}) or {}
+        current_pulse = meta.get('pulse') if isinstance(meta, dict) else None
+        current_value = bool(getattr(device, 'value', False))
+
+        if desired == 100:
+            if current_pulse or not current_value:
+                device.turn_on()
+            return True
+
+        if desired == 0:
+            if current_pulse or current_value:
+                device.turn_off()
+            return False
+
+        if self._pulse_matches(current_pulse, desired):
+            return True
+
+        device.pulse(desired['frame'], desired['duty'] * 100)
+        return True
+
+
     def _engage_devices(self, devices, reaction_force):
+        engaged = False
         for device in devices:
             if device.base_type == 'dimmer':
                 device.output_percent(reaction_force)
+                if reaction_force > 0:
+                    engaged = True
             elif device.base_type == 'switch':
-                if reaction_force == 100:
-                    device.turn_on()
-                elif reaction_force == 0:
-                    device.turn_off()
-                else:
-                    device.pulse(300, reaction_force)
+                if self._engage_switch_device(device, reaction_force):
+                    engaged = True
+        return engaged
 
 
     def update_user_conf(self, new_conf):

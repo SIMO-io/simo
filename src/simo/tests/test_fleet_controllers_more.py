@@ -213,6 +213,22 @@ class FleetControllersMoreTests(BaseSimoTestCase):
         self.assertEqual(ElectricStrikeLock.default_value, 'locked')
         self.assertEqual(ctrl._get_occupied_pins(), [1, 5, 6])
 
+    def test_electric_strike_lock_occupied_pins_allow_missing_status_pin(self):
+        from simo.fleet.controllers import ElectricStrikeLock
+
+        comp = self._mk_component(
+            controller_uid=ElectricStrikeLock.uid,
+            base_type='lock',
+            config={
+                'open_pin_no': 1,
+                'controls': [{'pin_no': 6}, {'button': 99}],
+            },
+            value='locked',
+        )
+        ctrl = ElectricStrikeLock(comp)
+
+        self.assertEqual(ctrl._get_occupied_pins(), [1, 6])
+
     def test_electric_strike_lock_publishes_status_and_door_sensor_calls(self):
         from simo.core.events import GatewayObjectCommand
         from simo.fleet.controllers import ElectricStrikeLock
