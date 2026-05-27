@@ -266,11 +266,13 @@ class DiscoveryHooksTests(BaseSimoTestCase):
             type='simo.generic.gateways.GenericGatewayHandler',
             discovery={
                 'start': 5,
+                'token': 'old-token',
                 'timeout': 60,
                 'controller_uid': 'x',
                 'init_data': {'b': 2},
-                'result': [],
+                'result': [123],
                 'finished': 6,
+                'last_check': 7,
             },
         )
 
@@ -278,10 +280,17 @@ class DiscoveryHooksTests(BaseSimoTestCase):
             'simo.core.utils.type_constants.CONTROLLER_TYPES_MAP',
             {'x': DummyController},
             clear=False,
-        ), mock.patch('simo.core.models.time.time', return_value=42):
+        ), mock.patch('simo.core.models.time.time', return_value=42), \
+            mock.patch(
+                'simo.core.models.get_random_string',
+                return_value='new-token'
+            ):
             gw.retry_discovery()
 
         gw.refresh_from_db()
         self.assertEqual(calls, [{'b': 2}])
         self.assertEqual(gw.discovery['start'], 42)
+        self.assertEqual(gw.discovery['token'], 'new-token')
+        self.assertEqual(gw.discovery['last_check'], 42)
+        self.assertEqual(gw.discovery['result'], [])
         self.assertNotIn('finished', gw.discovery)

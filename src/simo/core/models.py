@@ -305,6 +305,9 @@ class Gateway(DirtyFieldsMixin, models.Model, SimoAdminMixin):
     def retry_discovery(self):
         self._run_discovery_hook('_cancel_discovery')
         self.discovery['start'] = time.time()
+        self.discovery['token'] = get_random_string(12)
+        self.discovery['last_check'] = time.time()
+        self.discovery['result'] = []
         self.discovery.pop('finished', None)
         self.save(update_fields=['discovery'])
 

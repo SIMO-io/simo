@@ -127,4 +127,4 @@ def finish_discovery(request):
                 result = comp
     if result:
         return redirect(result.get_admin_url())
-    return reverse('admin:core_component_changelist')
+    return redirect(reverse('admin:core_component_changelist'))
