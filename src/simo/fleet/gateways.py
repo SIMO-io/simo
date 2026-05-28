@@ -172,13 +172,14 @@ class FleetGatewayHandler(BaseObjectCommandsGatewayHandler):
     def _get_button_control_components(self):
         from simo.fleet.controllers import (
             Switch, PWMOutput, RGBLight, Blinds, ElectricStrikeLock,
-            DALIGearGroup, DALILamp
+            DALIBusDimmer, DALIGearGroup, DALILamp
         )
 
         return Component.objects.filter(
             controller_uid__in=(
                 Switch.uid, PWMOutput.uid, RGBLight.uid, Blinds.uid,
-                ElectricStrikeLock.uid, DALIGearGroup.uid, DALILamp.uid
+                ElectricStrikeLock.uid, DALIBusDimmer.uid,
+                DALIGearGroup.uid, DALILamp.uid
             )
         )
 

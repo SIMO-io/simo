@@ -411,13 +411,15 @@ def post_component_save(sender, instance, created, *args, **kwargs):
         raise
 
     from .controllers import (
-        TTLock, DALILamp, DALIGearGroup, DALIRelay, DALIOccupancySensor,
+        TTLock, DALIBusDimmer, DALILamp, DALIGearGroup, DALIRelay,
+        DALIOccupancySensor,
         DALILightSensor, DALIButton,
         AirQualitySensor, TempHumSensor, AmbientLightSensor,
         RoomPresenceSensor, RoomZonePresenceSensor
     )
     if instance.controller and instance.controller_cls in (
-        TTLock, DALILamp, DALIGearGroup, DALIRelay, DALIOccupancySensor,
+        TTLock, DALIBusDimmer, DALILamp, DALIGearGroup, DALIRelay,
+        DALIOccupancySensor,
         DALILightSensor, DALIButton,
         AirQualitySensor, TempHumSensor, AmbientLightSensor,
         RoomPresenceSensor, RoomZonePresenceSensor

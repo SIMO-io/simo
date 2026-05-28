@@ -1786,6 +1786,58 @@ class DaliLampForm(DALIDeviceConfigForm, BaseComponentForm):
         return obj
 
 
+class DaliBusDimmerForm(DALIDeviceConfigForm, BaseComponentForm):
+    on_value = forms.FloatField(
+        required=True, initial=100,
+        help_text="ON value when used with toggle switch"
+    )
+    auto_off = forms.FloatField(
+        required=False, min_value=0.01, max_value=1000000000,
+        help_text="If provided, bus will be turned off after "
+                  "given amount of seconds after last turn on event."
+    )
+    controls = FormsetField(
+        formset_factory(
+            ControlForm, can_delete=True, can_order=True, extra=0, max_num=999
+        )
+    )
+
+    def clean(self):
+        if 'controls' in self.cleaned_data:
+            self._clean_controls()
+        return self.cleaned_data
+
+    def save(self, commit=True):
+        is_new = not self.instance.pk
+        obj = super().save(commit=commit)
+        if commit:
+            if is_new:
+                GatewayObjectCommand(
+                    obj.gateway, self.cleaned_data['colonel'],
+                    command='finalize',
+                    data={
+                        'temp_id': 'none',
+                        'permanent_id': obj.id,
+                        'comp_config': {
+                            'type': obj.controller_uid.split('.')[-1],
+                            'family': self.controller.family,
+                            'config': obj.config
+                        }
+                    }
+                ).publish()
+            if self.cleaned_data.get('controls'):
+                GatewayObjectCommand(
+                    self.instance.gateway, obj, command='watch_buttons'
+                ).publish()
+            if self.instance.pk:
+                old_controls = Component.objects.get(
+                    pk=self.instance.pk
+                ).config.get('controls')
+                if old_controls != self.cleaned_data.get('controls'):
+                    self.cleaned_data['colonel'].update_config()
+        return obj
+
+
 class DaliSwitchConfigForm(DALIDeviceConfigForm, BaseComponentForm):
     auto_off = forms.FloatField(
         required=False, min_value=0.01, max_value=1000000000,

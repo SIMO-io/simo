@@ -35,7 +35,8 @@ from .forms import (
     DualMotorValveForm, BlindsConfigForm, GateConfigForm,
     BurglarSmokeDetectorConfigForm,
     ElectricStrikeLockConfigForm,
-    TTLockConfigForm, DALIDeviceConfigForm, DaliLampForm, DaliGearGroupForm,
+    TTLockConfigForm, DALIDeviceConfigForm, DaliLampForm,
+    DaliBusDimmerForm, DaliGearGroupForm,
     DaliSwitchConfigForm,
     DaliOccupancySensorConfigForm, DALILightSensorConfigForm,
     DALIButtonConfigForm, SentinelDeviceConfigForm,
@@ -880,6 +881,14 @@ class DALILamp(FadeMixin, BaseDimmer, DALIDevice):
     manual_add = False
     name = 'DALI Lamp'
     config_form = DaliLampForm
+
+
+class DALIBusDimmer(FadeMixin, FleetDeviceMixin, BaseDimmer):
+    gateway_class = FleetGatewayHandler
+    family = 'dali'
+    manual_add = True
+    name = 'DALI Bus Dimmer'
+    config_form = DaliBusDimmerForm
 
 
 class DALIGearGroup(FadeMixin, FleetDeviceMixin, BaseDimmer):

@@ -1,9 +1,9 @@
 from simo.core.models import Gateway, Zone
 from simo.core.events import GatewayObjectCommand
-from simo.fleet.controllers import VoiceAssistant
-from simo.fleet.forms import VoiceAssistantConfigForm
+from simo.fleet.controllers import DALIBusDimmer, VoiceAssistant
+from simo.fleet.forms import DaliBusDimmerForm, VoiceAssistantConfigForm
 from simo.fleet.gateways import FleetGatewayHandler
-from simo.fleet.models import Colonel
+from simo.fleet.models import Colonel, Interface
 
 from .base import BaseSimoTestCase, mk_instance
 
@@ -77,3 +77,53 @@ class FleetColonelComponentSyncTests(BaseSimoTestCase):
             call.args[0].data.get('command') == 'update_config'
             for call in GatewayObjectCommand.publish.call_args_list
         ))
+
+    def test_dali_bus_dimmer_manual_add_finalizes_on_colonel(self):
+        colonel = Colonel.objects.create(
+            instance=self.inst, uid='dali-1', name='D1'
+        )
+        interface = Interface.objects.create(
+            colonel=colonel, no=1, type='dali'
+        )
+
+        form = DaliBusDimmerForm(
+            controller_uid=DALIBusDimmer.uid,
+            data={
+                'name': 'Bus Dimmer',
+                'zone': self.zone.id,
+                'colonel': colonel.id,
+                'interface': interface.id,
+                'on_value': 100,
+            },
+        )
+        self.assertTrue(form.is_valid(), form.errors)
+
+        GatewayObjectCommand.publish.reset_mock()
+        comp = form.save()
+
+        self.assertEqual(comp.controller_uid, DALIBusDimmer.uid)
+        self.assertEqual(comp.base_type, 'dimmer')
+        self.assertEqual(comp.config['colonel'], colonel.id)
+        self.assertEqual(comp.config['interface'], interface.id)
+        self.assertEqual(comp.config['dali_interface'], interface.no)
+
+        finalize_calls = [
+            call.args[0].data
+            for call in GatewayObjectCommand.publish.call_args_list
+            if call.args[0].data.get('command') == 'finalize'
+        ]
+        self.assertTrue(finalize_calls)
+        finalize = finalize_calls[-1]
+        self.assertEqual(finalize['data']['permanent_id'], comp.id)
+        self.assertEqual(
+            finalize['data']['comp_config']['type'],
+            'DALIBusDimmer'
+        )
+        self.assertEqual(
+            finalize['data']['comp_config']['family'],
+            'dali'
+        )
+        self.assertEqual(
+            finalize['data']['comp_config']['config']['dali_interface'],
+            1
+        )
