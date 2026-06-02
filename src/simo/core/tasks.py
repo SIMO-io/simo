@@ -20,7 +20,7 @@ from simo.conf import dynamic_settings
 from simo.core.utils.helpers import get_self_ip
 from simo.core.utils.version import get_simo_version
 from simo.core.middleware import introduce_instance, drop_current_instance
-from simo.users.models import PermissionsRole, InstanceUser
+from simo.users.models import PermissionsRole, InstanceUser, User
 from .models import Instance, Component, ComponentHistory, HistoryAggregate
 
 
@@ -37,6 +37,42 @@ def component_action(comp_id, method, args=None, kwargs=None):
     if not isinstance(kwargs, dict):
         raise TypeError('kwargs must be a dict')
     getattr(component, method)(*args, **kwargs)
+
+
+@celery_app.task
+def promote_component_breach(component_id, breach_token):
+    from simo.users.utils import get_device_user
+
+    drop_current_instance()
+    with transaction.atomic():
+        component = Component.objects.select_for_update().filter(
+            id=component_id
+        ).first()
+        if not component:
+            return
+        if component.meta.get('pending_breach_token') != breach_token:
+            return
+        if component.arm_status != 'armed' or not component.alarm_category:
+            component._clear_pending_breach()
+            component.save(update_fields=['meta'])
+            return
+        if not component.is_in_alarm():
+            component._clear_pending_breach()
+            component.save(update_fields=['meta'])
+            return
+
+        actor_id = component.meta.get('pending_breach_actor_id')
+        component._clear_pending_breach()
+        component.arm_status = 'breached'
+        actor = User.objects.filter(id=actor_id).first() if actor_id else None
+        component.change_user = actor or get_device_user()
+        try:
+            component.save(update_fields=['arm_status', 'meta'])
+        finally:
+            try:
+                delattr(component, 'change_user')
+            except Exception:
+                pass
 
 
 @celery_app.task

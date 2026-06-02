@@ -80,6 +80,113 @@ class SmokeDetectorAlarmFlowTests(BaseSimoTestCase):
             side_effect=_side_effect,
         )
 
+    def _capture_breach_promotion(self):
+        return mock.patch(
+            'simo.core.tasks.promote_component_breach.apply_async',
+            autospec=True,
+        )
+
+    def test_zero_breach_delay_keeps_immediate_breach_path(self):
+        with self._capture_breach_promotion() as apply_async:
+            with self.captureOnCommitCallbacks(execute=True):
+                self.smoke.controller._receive_from_device([True, True])
+
+        self.smoke.refresh_from_db()
+        self.alarm_group.refresh_from_db()
+        self.assertEqual(self.smoke.arm_status, 'breached')
+        self.assertEqual(self.alarm_group.value, 'breached')
+        apply_async.assert_not_called()
+
+    def test_breach_delay_schedules_single_deferred_promotion(self):
+        self.smoke.breach_delay = 5
+        self.smoke.save(update_fields=['breach_delay'])
+
+        with self._capture_breach_promotion() as apply_async:
+            with self.captureOnCommitCallbacks(execute=False) as callbacks:
+                self.smoke.controller._receive_from_device([True, True])
+
+                self.smoke.refresh_from_db()
+                self.alarm_group.refresh_from_db()
+                self.assertEqual(self.smoke.arm_status, 'armed')
+                self.assertEqual(self.alarm_group.value, 'armed')
+                self.assertIn('pending_breach_token', self.smoke.meta)
+                self.assertEqual(Notification.objects.count(), 0)
+
+            for callback in callbacks:
+                callback()
+
+            with self.captureOnCommitCallbacks(execute=False) as callbacks:
+                self.smoke.controller._receive_from_device([True, True])
+
+            for callback in callbacks:
+                callback()
+
+        apply_async.assert_called_once()
+        self.assertEqual(apply_async.call_args.kwargs['countdown'], 5)
+        task_component_id, task_token = apply_async.call_args.kwargs['args']
+        self.assertEqual(task_component_id, self.smoke.id)
+        self.assertEqual(task_token, self.smoke.meta['pending_breach_token'])
+
+    def test_delayed_breach_task_promotes_component_and_alarm_group(self):
+        from simo.core.tasks import promote_component_breach
+
+        self.smoke.breach_delay = 5
+        self.smoke.save(update_fields=['breach_delay'])
+
+        with self._capture_breach_promotion() as apply_async:
+            with self.captureOnCommitCallbacks(execute=False) as callbacks:
+                self.smoke.controller._receive_from_device([True, True])
+
+            for callback in callbacks:
+                callback()
+
+        task_args = apply_async.call_args.kwargs['args']
+
+        with self.captureOnCommitCallbacks(execute=True):
+            promote_component_breach(*task_args)
+
+        self.smoke.refresh_from_db()
+        self.alarm_group.refresh_from_db()
+        self.assertEqual(self.smoke.arm_status, 'breached')
+        self.assertNotIn('pending_breach_token', self.smoke.meta)
+        self.assertEqual(self.alarm_group.value, 'breached')
+        self.assertEqual(self.alarm_group.arm_status, 'breached')
+        self.assertEqual(Notification.objects.count(), 1)
+        self.assertEqual(UserNotification.objects.count(), 1)
+
+    def test_delayed_breach_task_cancels_when_alarm_clears_first(self):
+        from simo.core.tasks import promote_component_breach
+
+        self.smoke.breach_delay = 5
+        self.smoke.save(update_fields=['breach_delay'])
+
+        with self._capture_breach_promotion() as apply_async:
+            with self.captureOnCommitCallbacks(execute=False) as callbacks:
+                self.smoke.controller._receive_from_device([True, True])
+
+            for callback in callbacks:
+                callback()
+
+        task_args = apply_async.call_args.kwargs['args']
+
+        with self.captureOnCommitCallbacks(execute=True):
+            self.smoke.controller._receive_from_device([False, True])
+
+        self.smoke.refresh_from_db()
+        self.alarm_group.refresh_from_db()
+        self.assertEqual(self.smoke.arm_status, 'armed')
+        self.assertNotIn('pending_breach_token', self.smoke.meta)
+        self.assertEqual(self.alarm_group.value, 'armed')
+
+        with self.captureOnCommitCallbacks(execute=True):
+            promote_component_breach(*task_args)
+
+        self.smoke.refresh_from_db()
+        self.alarm_group.refresh_from_db()
+        self.assertEqual(self.smoke.arm_status, 'armed')
+        self.assertEqual(self.alarm_group.value, 'armed')
+        self.assertEqual(Notification.objects.count(), 0)
+
     def test_duplicate_active_packets_keep_detector_and_group_breached(self):
         with self._run_notification_tasks_inline():
             with self.captureOnCommitCallbacks(execute=True):

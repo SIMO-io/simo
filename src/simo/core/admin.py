@@ -342,7 +342,7 @@ class ComponentAdmin(EasyObjectsDeleteMixin, admin.ModelAdmin):
                 def pop_fields_from_form(form):
                     for field_neme in (
                         'value_units', 'custom_methods',
-                        'alarm_category', 'arm_status'
+                        'alarm_category', 'breach_delay', 'arm_status'
                     ):
                         if field_neme in form.fields:
                             form.fields.pop(field_neme, None)

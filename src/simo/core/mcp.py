@@ -324,6 +324,7 @@ def _build_query_component_summary(component) -> dict:
         'alive': component.alive,
         'value': component.value,
         'value_units': component.value_units,
+        'breach_delay': component.breach_delay,
         'actions': _build_component_actions(component),
     }
 
@@ -337,6 +338,7 @@ def _build_main_component_summary(component) -> dict:
         'base_type': component.base_type,
         'value': component.value,
         'alive': component.alive,
+        'breach_delay': component.breach_delay,
     }
 
 

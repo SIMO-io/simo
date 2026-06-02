@@ -38,6 +38,7 @@ class Command(BaseCommand):
                     'value': comp.value,
                     'last_change': comp.last_change,
                     'arm_status': comp.arm_status,
+                    'breach_delay': comp.breach_delay,
                     'battery_level': comp.battery_level,
                     'alive': comp.alive,
                     'meta': comp.meta,
@@ -57,4 +58,3 @@ class Command(BaseCommand):
                 count += 1
 
         self.stdout.write(self.style.SUCCESS(f"Republished {count} retained messages."))
-

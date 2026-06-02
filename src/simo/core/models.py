@@ -1,12 +1,15 @@
 import inspect
-import time
 import os
+import time
+import uuid
 from collections.abc import Iterable
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.utils.text import slugify
 from django.utils.functional import cached_property
 from django.urls import reverse_lazy
+from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
-from django.db import models
+from django.db import models, transaction
 from django.db.models.signals import post_delete
 from django.dispatch import receiver
 from django.template.loader import render_to_string
@@ -466,6 +469,15 @@ class Component(DirtyFieldsMixin, models.Model, SimoAdminMixin, OnChangeMixin):
             "Enable alarm properties by choosing one of alarm categories."
         )
     )
+    breach_delay = models.PositiveSmallIntegerField(
+        default=0,
+        blank=True,
+        validators=[MinValueValidator(0), MaxValueValidator(600)],
+        help_text=_(
+            "Delay breach transition by this many seconds. "
+            "Leave empty or use 0 for immediate breach."
+        ),
+    )
     arm_status = models.CharField(
         max_length=20, db_index=True, default='disarmed', choices=(
             ('disarmed', _("Disarmed")), ('pending-arm', _("Pending Arm")),
@@ -560,22 +572,33 @@ class Component(DirtyFieldsMixin, models.Model, SimoAdminMixin, OnChangeMixin):
 
     def save(self, *args, **kwargs):
         from simo.users.utils import get_current_user
+        actor = getattr(self, 'change_user', None) or get_current_user()
+        schedule_pending_breach = None
+        self.breach_delay = 0 if self.breach_delay in (None, '') else self.breach_delay
         if self.alarm_category is not None:
             if self.arm_status == 'pending-arm':
+                self._clear_pending_breach()
                 if not self.is_in_alarm():
                     self.arm_status = 'armed'
             elif self.arm_status == 'armed':
                 if self.is_in_alarm():
-                    self.arm_status = 'breached'
+                    if self.breach_delay:
+                        schedule_pending_breach = self._ensure_pending_breach(actor)
+                    else:
+                        self._clear_pending_breach()
+                        self.arm_status = 'breached'
+                else:
+                    self._clear_pending_breach()
+            else:
+                self._clear_pending_breach()
         else:
+            self._clear_pending_breach()
             self.arm_status = 'disarmed'
 
         self._pending_change_event = None
         dirty_fields_initial = self.get_dirty_fields(check_relationship=True)
 
         if self.pk:
-            actor = getattr(self, 'change_user', None) or get_current_user()
-
             if 'arm_status' in dirty_fields_initial:
                 ComponentHistory.objects.create(
                     component=self, type='security',
@@ -603,7 +626,8 @@ class Component(DirtyFieldsMixin, models.Model, SimoAdminMixin, OnChangeMixin):
 
             modifying_fields = (
                 'name', 'icon', 'zone', 'category', 'config',
-                'value_units', 'slaves', 'show_in_app', 'alarm_category'
+                'value_units', 'slaves', 'show_in_app', 'alarm_category',
+                'breach_delay'
             )
             if any(f in dirty_fields_initial for f in modifying_fields):
                 self.last_modified = timezone.now()
@@ -626,7 +650,52 @@ class Component(DirtyFieldsMixin, models.Model, SimoAdminMixin, OnChangeMixin):
 
         obj = super().save(*args, **kwargs)
 
+        if schedule_pending_breach:
+            from .tasks import promote_component_breach
+
+            using = getattr(getattr(self, '_state', None), 'db', None) or 'default'
+
+            def _enqueue():
+                promote_component_breach.apply_async(
+                    args=[self.id, schedule_pending_breach],
+                    countdown=int(self.breach_delay or 0),
+                )
+
+            transaction.on_commit(_enqueue, using=using)
+
         return obj
+
+    def _clear_pending_breach(self):
+        changed = False
+        meta = self.meta if isinstance(self.meta, dict) else {}
+        for key in (
+            'pending_breach_token',
+            'pending_breach_deadline',
+            'pending_breach_actor_id',
+        ):
+            if key in meta:
+                meta.pop(key, None)
+                changed = True
+        if changed:
+            self.meta = meta
+        return changed
+
+    def _ensure_pending_breach(self, actor=None):
+        meta = self.meta if isinstance(self.meta, dict) else {}
+        if meta.get('pending_breach_token'):
+            self.meta = meta
+            return None
+
+        token = uuid.uuid4().hex
+        meta['pending_breach_token'] = token
+        meta['pending_breach_deadline'] = time.time() + int(self.breach_delay or 0)
+        actor_id = getattr(actor, 'id', None)
+        if actor_id:
+            meta['pending_breach_actor_id'] = actor_id
+        else:
+            meta.pop('pending_breach_actor_id', None)
+        self.meta = meta
+        return token
 
     def _build_change_event_context(self, dirty_fields_prev):
         dirty_current = dirty_fields_to_current_values(self, dirty_fields_prev)
@@ -635,6 +704,7 @@ class Component(DirtyFieldsMixin, models.Model, SimoAdminMixin, OnChangeMixin):
             'last_change': dirty_current.get('last_change', self.last_change),
             'last_modified': dirty_current.get('last_modified', self.last_modified),
             'arm_status': self.arm_status,
+            'breach_delay': self.breach_delay,
             'battery_level': self.battery_level,
             'alive': self.alive,
             'meta': self.meta,
@@ -676,6 +746,7 @@ class Component(DirtyFieldsMixin, models.Model, SimoAdminMixin, OnChangeMixin):
                     'last_change': master.last_change,
                     'last_modified': master.last_modified,
                     'arm_status': master.arm_status,
+                    'breach_delay': master.breach_delay,
                     'battery_level': master.battery_level,
                     'alive': master.alive,
                     'meta': master.meta,

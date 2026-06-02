@@ -705,7 +705,8 @@ class MCPBasicComponentSerializer(serializers.ModelSerializer):
             'id', 'name', 'icon', 'category', 'gateway', 'base_type', 'value',
             'value_units',
             'slave_components', 'last_change', 'alive', 'error_msg',
-            'battery_level', 'show_in_app', 'alarm_category', 'arm_status'
+            'battery_level', 'show_in_app', 'alarm_category', 'breach_delay',
+            'arm_status'
         )
 
     def get_gateway(self, obj):
@@ -744,7 +745,8 @@ class MCPFullComponentSerializer(serializers.ModelSerializer):
             'id', 'name', 'icon', 'zone', 'category', 'gateway',
             'base_type', 'controller_uid', 'config', 'meta', 'value',
             'value_units', 'alive', 'error_msg',
-            'battery_level', 'show_in_app', 'alarm_category', 'arm_status',
+            'battery_level', 'show_in_app', 'alarm_category', 'breach_delay',
+            'arm_status',
             'info', 'controller_methods', 'slave_components', 'last_change',
             'unix_timestamp'
         )

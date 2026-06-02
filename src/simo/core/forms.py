@@ -276,7 +276,7 @@ class ComponentAdminForm(forms.ModelForm):
         fields = (
             'name', 'icon', 'zone', 'category', 'show_in_app',
             'value_units', 'custom_methods',
-            'notes', 'alarm_category'
+            'notes', 'alarm_category', 'breach_delay'
         )
         widgets = {
             'icon': autocomplete.ModelSelect2(
@@ -363,7 +363,7 @@ class ComponentAdminForm(forms.ModelForm):
             'name', 'icon', 'zone', 'category',
             'show_in_app', 'battery_level',
             'value_units',
-            'alarm_category', 'arm_status',
+            'alarm_category', 'breach_delay', 'arm_status',
             'notes'
         )
         base_fields = ['id', 'gateway', 'base_type', 'controller_uid', 'info', 'name']
@@ -404,7 +404,7 @@ class ComponentAdminForm(forms.ModelForm):
             fieldsets.append(
                 (_("Alarm"), {
                     'fields': (
-                        'alarm_category', 'arm_status'
+                        'alarm_category', 'breach_delay', 'arm_status'
                     ),
                     'classes': ('collapse',),
                 })
@@ -458,6 +458,11 @@ class ComponentAdminForm(forms.ModelForm):
             error = error.replace('\n', '<br>').replace(' ', '&nbsp;')
             raise forms.ValidationError(mark_safe(error))
         return self.cleaned_data['custom_methods']
+
+    def clean_breach_delay(self):
+        if 'breach_delay' not in self.cleaned_data:
+            return
+        return self.cleaned_data['breach_delay'] or 0
 
 
 class BaseComponentForm(ConfigFieldsMixin, ComponentAdminForm):
