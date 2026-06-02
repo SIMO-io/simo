@@ -359,26 +359,24 @@ def _build_weather_summary(component) -> dict:
     }
 
 
+def _format_component_map_item(component) -> str:
+    icon_slug = component.icon.slug if component.icon_id and component.icon else ''
+    return f"#{component.id}|{icon_slug}|{component.name}"
+
+
 def _build_zone_overview(zone) -> dict:
-    base_type_counts = {}
-    category_counts = {}
-    controllable_component_count = 0
+    component_map = {}
     components = list(zone.components.all())
 
     for component in components:
-        base_type_counts[component.base_type] = base_type_counts.get(component.base_type, 0) + 1
-        if component.category_id:
-            category_counts[component.category.name] = category_counts.get(component.category.name, 0) + 1
-        if _build_component_actions(component):
-            controllable_component_count += 1
+        component_map.setdefault(component.base_type, []).append(
+            _format_component_map_item(component)
+        )
 
     return {
         'id': zone.id,
         'name': zone.name,
-        'component_count': len(components),
-        'base_type_counts': base_type_counts,
-        'category_counts': category_counts,
-        'controllable_component_count': controllable_component_count,
+        'components': component_map,
     }
 
 @mcp.tool(name="core.get_home_overview")
@@ -401,7 +399,7 @@ async def get_home_overview() -> dict:
 
         zones = list(
             Zone.objects.filter(instance=current_instance)
-            .prefetch_related('components', 'components__category')
+            .prefetch_related('components', 'components__icon')
             .order_by('order', 'id')
         )
 
@@ -435,6 +433,7 @@ async def get_home_overview() -> dict:
             'ai_memory': current_instance.ai_memory,
             'weather': _build_weather_summary(weather_component) if weather_component else None,
             'main_house_state': _build_main_component_summary(main_house_state) if main_house_state else None,
+            'component_map_item_format': '#component_id|icon_slug|component_name',
             'zones': [_build_zone_overview(zone) for zone in zones],
         }
 

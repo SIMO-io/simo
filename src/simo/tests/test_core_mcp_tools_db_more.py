@@ -13,10 +13,11 @@ from .base import BaseSimoTransactionTestCase, mk_instance, mk_user
 
 
 class TestMcpCoreToolsDb(BaseSimoTransactionTestCase):
-    def test_get_home_overview_returns_compact_weather_main_state_and_zone_counts(self):
+    def test_get_home_overview_returns_compact_weather_main_state_and_component_map(self):
         from simo.core.mcp import get_home_overview
         from simo.generic.controllers import MainState, Weather, SwitchGroup
         from simo.generic.gateways import GenericGatewayHandler
+        from simo.core.models import Icon
 
         inst = mk_instance('inst-overview', 'Overview')
         inst.ai_memory = 'remember this'
@@ -27,6 +28,7 @@ class TestMcpCoreToolsDb(BaseSimoTransactionTestCase):
         zone_common = Zone.objects.create(instance=inst, name='Bendra', order=0)
         zone_living = Zone.objects.create(instance=inst, name='Svetainė', order=1)
         cat_lights = Category.objects.create(instance=inst, name='Apšvietimas', all=False, icon=None)
+        icon_lamp = Icon.objects.create(slug='lamp-street')
         gw, _ = Gateway.objects.get_or_create(type=GenericGatewayHandler.uid)
 
         weather = Component.objects.create(
@@ -60,6 +62,7 @@ class TestMcpCoreToolsDb(BaseSimoTransactionTestCase):
         )
         lamp = Component.objects.create(
             name='Virtuvės lempa',
+            icon=icon_lamp,
             zone=zone_living,
             category=cat_lights,
             gateway=gw,
@@ -77,16 +80,23 @@ class TestMcpCoreToolsDb(BaseSimoTransactionTestCase):
 
         self.assertEqual(out['ai_memory'], 'remember this')
         self.assertEqual(out['timezone'], 'Europe/Vilnius')
+        self.assertEqual(out['component_map_item_format'], '#component_id|icon_slug|component_name')
         self.assertEqual(out['weather']['component_id'], weather.id)
         self.assertEqual(out['weather']['summary'], 'broken clouds')
         self.assertEqual(out['main_house_state']['id'], main_state.id)
         zones = {item['id']: item for item in out['zones']}
-        self.assertEqual(zones[zone_common.id]['component_count'], 2)
-        self.assertEqual(zones[zone_common.id]['base_type_counts']['weather'], 1)
-        self.assertEqual(zones[zone_common.id]['base_type_counts']['state-select'], 1)
-        self.assertEqual(zones[zone_living.id]['component_count'], 1)
-        self.assertEqual(zones[zone_living.id]['category_counts']['Apšvietimas'], 1)
-        self.assertEqual(zones[zone_living.id]['base_type_counts']['switch'], 1)
+        self.assertEqual(
+            zones[zone_common.id]['components']['weather'],
+            [f'#{weather.id}||Weather'],
+        )
+        self.assertEqual(
+            zones[zone_common.id]['components']['state-select'],
+            [f'#{main_state.id}||Režimas'],
+        )
+        self.assertEqual(
+            zones[zone_living.id]['components']['switch'],
+            [f'#{lamp.id}|lamp-street|Virtuvės lempa'],
+        )
 
     def test_query_components_returns_actionable_contracts(self):
         from simo.core.mcp import query_components
