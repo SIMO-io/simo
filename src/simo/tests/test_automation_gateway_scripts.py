@@ -1,4 +1,5 @@
 import multiprocessing
+import logging
 import threading
 from unittest import mock
 
@@ -149,6 +150,43 @@ class AutomationGatewayScriptsTests(BaseSimoTestCase):
 
         handler.run_code()
         self.assertFalse(handler.exit_in_use.is_set())
+
+    def test_script_run_handler_logs_traceback_to_script_log_on_error(self):
+        from simo.automation import gateways as gw_mod
+
+        handler = gw_mod.ScriptRunHandler(1, multiprocessing.Event())
+        component = mock.Mock()
+        component.zone.instance.timezone = 'UTC'
+        component.zone.instance = mock.Mock(timezone='UTC')
+        component.meta = {}
+        component.refresh_from_db = mock.Mock()
+
+        logger = mock.Mock()
+        logger.handlers = []
+
+        with (
+            mock.patch.object(gw_mod.db_connection, 'connect', autospec=True),
+            mock.patch.object(gw_mod.Component.objects, 'get', autospec=True, return_value=component),
+            mock.patch.object(gw_mod.timezone, 'activate', autospec=True),
+            mock.patch.object(gw_mod, 'introduce_instance', autospec=True),
+            mock.patch.object(gw_mod, 'get_component_logger', autospec=True, return_value=logger),
+            mock.patch.object(gw_mod, 'cleanup_watchers_for_event', autospec=True),
+            mock.patch.object(gw_mod, 'clear_current_watcher_stop_event', autospec=True),
+            mock.patch.object(gw_mod.os, 'getpid', autospec=True, return_value=111),
+            mock.patch.object(gw_mod.os, 'getppid', autospec=True, return_value=22),
+            mock.patch.object(handler, 'run_code', autospec=True, side_effect=RuntimeError('boom')),
+        ):
+            with self.assertRaisesRegex(RuntimeError, 'boom'):
+                handler.run()
+
+        self.assertEqual(component.set.call_args_list[0], mock.call('running'))
+        self.assertEqual(component.set.call_args_list[-1], mock.call('error'))
+        self.assertTrue(
+            any(
+                call.args == (logging.ERROR, 'RuntimeError: boom')
+                for call in logger.log.call_args_list
+            )
+        )
 
     def test_start_script_tracks_new_process(self):
         from simo.automation import gateways as gw_mod

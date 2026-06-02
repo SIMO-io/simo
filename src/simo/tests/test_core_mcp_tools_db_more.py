@@ -13,57 +13,55 @@ from .base import BaseSimoTransactionTestCase, mk_instance, mk_user
 
 
 class TestMcpCoreToolsDb(BaseSimoTransactionTestCase):
-    def test_get_state_is_instance_scoped(self):
-        from simo.core.mcp import get_state
-        from simo.generic.controllers import SwitchGroup
+    def test_get_home_overview_returns_compact_weather_main_state_and_zone_counts(self):
+        from simo.core.mcp import get_home_overview
+        from simo.generic.controllers import MainState, Weather, SwitchGroup
+        from simo.generic.gateways import GenericGatewayHandler
 
-        inst_a = mk_instance('inst-a', 'A')
-        inst_b = mk_instance('inst-b', 'B')
-        inst_a.ai_memory = 'mem-a'
-        inst_a.save(update_fields=['ai_memory'])
+        inst = mk_instance('inst-overview', 'Overview')
+        inst.ai_memory = 'remember this'
+        inst.timezone = 'Europe/Vilnius'
+        inst.units_of_measure = 'metric'
+        inst.save(update_fields=['ai_memory', 'timezone', 'units_of_measure'])
 
-        zone_a = Zone.objects.create(instance=inst_a, name='ZA', order=0)
-        Zone.objects.create(instance=inst_b, name='ZB', order=0)
+        zone_common = Zone.objects.create(instance=inst, name='Bendra', order=0)
+        zone_living = Zone.objects.create(instance=inst, name='Svetainė', order=1)
+        cat_lights = Category.objects.create(instance=inst, name='Apšvietimas', all=False, icon=None)
+        gw, _ = Gateway.objects.get_or_create(type=GenericGatewayHandler.uid)
 
-        cat_a = Category.objects.create(instance=inst_a, name='CA', all=False, icon=None)
-        gw, _ = Gateway.objects.get_or_create(type='simo.generic.gateways.GenericGatewayHandler')
-        comp_a = Component.objects.create(
-            name='Lamp',
-            zone=zone_a,
-            category=cat_a,
+        weather = Component.objects.create(
+            name='Weather',
+            zone=zone_common,
+            category=None,
             gateway=gw,
-            base_type='switch',
-            controller_uid=SwitchGroup.uid,
-            config={},
+            base_type='weather',
+            controller_uid=Weather.uid,
+            config={'is_main': True},
             meta={},
-            value=False,
+            value={
+                'main': {'temp': 17.3, 'feels_like': 16.9},
+                'wind': {'speed': 3.8},
+                'weather': [{'description': 'broken clouds'}],
+            },
         )
-
-        introduce_instance(inst_a)
-        fixed_now = timezone.make_aware(datetime.datetime(2025, 1, 1, 0, 0, 0))
-        with mock.patch('simo.core.mcp.timezone.now', return_value=fixed_now):
-            out = asyncio.run(get_state.fn())
-
-        self.assertEqual(out['ai_memory'], 'mem-a')
-        self.assertEqual(out['unix_timestamp'], int(fixed_now.timestamp()))
-        zones = out['zones']
-        self.assertEqual(len(zones), 1)
-        self.assertEqual(zones[0]['id'], zone_a.id)
-        comp_ids = [c['id'] for c in zones[0]['components']]
-        self.assertEqual(comp_ids, [comp_a.id])
-
-    def test_get_component_returns_data_for_current_instance(self):
-        from simo.core.mcp import get_component
-        from simo.generic.controllers import SwitchGroup
-
-        inst = mk_instance('inst-a', 'A')
-        zone = Zone.objects.create(instance=inst, name='Z', order=0)
-        cat = Category.objects.create(instance=inst, name='C', all=False, icon=None)
-        gw, _ = Gateway.objects.get_or_create(type='simo.generic.gateways.GenericGatewayHandler')
-        comp = Component.objects.create(
-            name='Lamp',
-            zone=zone,
-            category=cat,
+        main_state = Component.objects.create(
+            name='Režimas',
+            zone=zone_common,
+            category=None,
+            gateway=gw,
+            base_type='state-select',
+            controller_uid=MainState.uid,
+            config={
+                'is_main': True,
+                'states': [{'slug': 'day'}, {'slug': 'night'}],
+            },
+            meta={},
+            value='day',
+        )
+        lamp = Component.objects.create(
+            name='Virtuvės lempa',
+            zone=zone_living,
+            category=cat_lights,
             gateway=gw,
             base_type='switch',
             controller_uid=SwitchGroup.uid,
@@ -73,34 +71,97 @@ class TestMcpCoreToolsDb(BaseSimoTransactionTestCase):
         )
 
         introduce_instance(inst)
-        out = asyncio.run(get_component.fn(str(comp.id)))
-        self.assertEqual(out['id'], comp.id)
-        self.assertEqual(out['name'], 'Lamp')
+        fixed_now = timezone.make_aware(datetime.datetime(2025, 1, 2, 3, 4, 5))
+        with mock.patch('simo.core.mcp.timezone.now', return_value=fixed_now):
+            out = asyncio.run(get_home_overview.fn())
 
-    def test_get_component_returns_empty_for_other_instance(self):
-        from simo.core.mcp import get_component
-        from simo.generic.controllers import SwitchGroup
+        self.assertEqual(out['ai_memory'], 'remember this')
+        self.assertEqual(out['timezone'], 'Europe/Vilnius')
+        self.assertEqual(out['weather']['component_id'], weather.id)
+        self.assertEqual(out['weather']['summary'], 'broken clouds')
+        self.assertEqual(out['main_house_state']['id'], main_state.id)
+        zones = {item['id']: item for item in out['zones']}
+        self.assertEqual(zones[zone_common.id]['component_count'], 2)
+        self.assertEqual(zones[zone_common.id]['base_type_counts']['weather'], 1)
+        self.assertEqual(zones[zone_common.id]['base_type_counts']['state-select'], 1)
+        self.assertEqual(zones[zone_living.id]['component_count'], 1)
+        self.assertEqual(zones[zone_living.id]['category_counts']['Apšvietimas'], 1)
+        self.assertEqual(zones[zone_living.id]['base_type_counts']['switch'], 1)
 
-        inst_a = mk_instance('inst-a', 'A')
-        inst_b = mk_instance('inst-b', 'B')
-        zone_b = Zone.objects.create(instance=inst_b, name='ZB', order=0)
-        cat_b = Category.objects.create(instance=inst_b, name='CB', all=False, icon=None)
-        gw, _ = Gateway.objects.get_or_create(type='simo.generic.gateways.GenericGatewayHandler')
-        comp_b = Component.objects.create(
-            name='Secret',
-            zone=zone_b,
-            category=cat_b,
+    def test_query_components_returns_actionable_contracts(self):
+        from simo.core.mcp import query_components
+        from simo.generic.controllers import DimmableLightsGroup, MainState
+        from simo.generic.gateways import GenericGatewayHandler
+
+        inst = mk_instance('inst-query', 'Query')
+        zone_common = Zone.objects.create(instance=inst, name='Bendra', order=0)
+        zone_living = Zone.objects.create(instance=inst, name='Svetainė', order=1)
+        cat_lights = Category.objects.create(instance=inst, name='Apšvietimas', all=False, icon=None)
+        gw, _ = Gateway.objects.get_or_create(type=GenericGatewayHandler.uid)
+
+        state = Component.objects.create(
+            name='Režimas',
+            zone=zone_common,
+            category=None,
             gateway=gw,
-            base_type='switch',
-            controller_uid=SwitchGroup.uid,
-            config={},
+            base_type='state-select',
+            controller_uid=MainState.uid,
+            config={
+                'is_main': True,
+                'states': [{'slug': 'day'}, {'slug': 'night'}, {'slug': 'away'}],
+            },
             meta={},
-            value=False,
+            value='day',
+        )
+        dimmer = Component.objects.create(
+            name='Pritemdoma lempa',
+            zone=zone_living,
+            category=cat_lights,
+            gateway=gw,
+            base_type='dimmer',
+            controller_uid=DimmableLightsGroup.uid,
+            config={'min': 10.0, 'max': 90.0, 'inverse': False},
+            meta={},
+            value=20,
+            value_units='%',
+            alive=True,
         )
 
-        introduce_instance(inst_a)
-        out = asyncio.run(get_component.fn(str(comp_b.id)))
-        self.assertEqual(out, {})
+        introduce_instance(inst)
+        out = asyncio.run(
+            query_components.fn(
+                zone_ids=[zone_common.id, zone_living.id],
+                base_types=['state-select', 'dimmer'],
+                category_names=['Apšvietimas'],
+                alive=True,
+            )
+        )
+
+        self.assertEqual(out['component_count'], 1)
+        self.assertEqual(out['components'][0]['id'], dimmer.id)
+        send_action = next(
+            action for action in out['components'][0]['actions']
+            if action['method_name'] == 'send'
+        )
+        self.assertEqual(send_action['args'][0]['min'], 10.0)
+        self.assertEqual(send_action['args'][0]['max'], 90.0)
+
+        out2 = asyncio.run(
+            query_components.fn(
+                zone_ids=[zone_common.id],
+                base_types=['state-select'],
+            )
+        )
+        self.assertEqual(out2['component_count'], 1)
+        self.assertEqual(out2['components'][0]['id'], state.id)
+        state_send = next(
+            action for action in out2['components'][0]['actions']
+            if action['method_name'] == 'send'
+        )
+        self.assertEqual(
+            state_send['args'][0]['allowed_values'],
+            ['day', 'night', 'away'],
+        )
 
     def test_get_component_value_change_history_filters_by_ids_and_formats_time(self):
         from simo.core.mcp import get_component_value_change_history

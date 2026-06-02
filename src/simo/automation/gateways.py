@@ -2,6 +2,7 @@ import os
 import sys
 import logging
 import signal
+import traceback
 import pytz
 import json
 import time
@@ -96,6 +97,7 @@ class ScriptRunHandler(multiprocessing.Process):
             self.run_code()
         except:
             print("------ERROR------")
+            traceback.print_exc(file=sys.stderr)
             self.component.set('error')
             raise
         else:
