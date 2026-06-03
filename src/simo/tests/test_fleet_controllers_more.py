@@ -229,6 +229,40 @@ class FleetControllersMoreTests(BaseSimoTestCase):
 
         self.assertEqual(ctrl._get_occupied_pins(), [1, 6])
 
+    def test_gate_occupied_pins_use_current_pin_fields(self):
+        from simo.fleet.controllers import Gate
+
+        comp = self._mk_component(
+            controller_uid=Gate.uid,
+            base_type='gate',
+            config={
+                'open_pin_no': 1,
+                'close_pin_no': 2,
+                'sensor_pin_no': 5,
+                'controls': [{'pin_no': 6}, {'button': 99}],
+            },
+            value=0,
+        )
+        ctrl = Gate(comp)
+
+        self.assertEqual(ctrl._get_occupied_pins(), [1, 2, 5, 6])
+
+    def test_gate_occupied_pins_support_legacy_control_pin(self):
+        from simo.fleet.controllers import Gate
+
+        comp = self._mk_component(
+            controller_uid=Gate.uid,
+            base_type='gate',
+            config={
+                'control_pin_no': 1,
+                'controls': [{'pin_no': 6}, {'button': 99}],
+            },
+            value=0,
+        )
+        ctrl = Gate(comp)
+
+        self.assertEqual(ctrl._get_occupied_pins(), [1, 6])
+
     def test_electric_strike_lock_publishes_status_and_door_sensor_calls(self):
         from simo.core.events import GatewayObjectCommand
         from simo.fleet.controllers import ElectricStrikeLock

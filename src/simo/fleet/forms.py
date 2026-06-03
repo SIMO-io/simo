@@ -1375,7 +1375,7 @@ class GateConfigForm(ColonelComponentForm):
             if not self.cleaned_data.get(pin):
                 continue
             for p in check_pins:
-                if pin == pin:
+                if pin == p:
                     continue
                 if not self.cleaned_data.get(p):
                     continue
@@ -1394,30 +1394,26 @@ class GateConfigForm(ColonelComponentForm):
         if 'controls' in self.cleaned_data:
 
             self._clean_controls()
+            controls = self.cleaned_data.get('controls') or []
 
-            if self.cleaned_data.get('control_pin') and self.cleaned_data.get('controls'):
-                for ctrl in self.cleaned_data['controls']:
+            for field_name in check_pins:
+                pin = self.cleaned_data.get(field_name)
+                if not pin:
+                    continue
+                for ctrl in controls:
                     if not ctrl['input'].startswith('pin'):
                         continue
-                    if int(ctrl['input'][4:]) == self.cleaned_data['control_pin'].id:
+                    if int(ctrl['input'][4:]) == pin.id:
                         self.add_error(
-                            "control_pin",
-                            "Can't be used as control pin at the same time!"
-                        )
-
-            if self.cleaned_data.get('sensor_pin') and self.cleaned_data.get('controls'):
-                for ctrl in self.cleaned_data['controls']:
-                    if not ctrl['input'].startswith('pin'):
-                        continue
-                    if int(ctrl['input'][4:]) == self.cleaned_data['sensor_pin'].id:
-                        self.add_error(
-                            "sensor_pin",
+                            field_name,
                             "Can't be used as control pin at the same time!"
                         )
         return self.cleaned_data
 
     def save(self, commit=True):
         if self.cleaned_data.get('open_pin'):
+            self.instance.config.pop('control_pin', None)
+            self.instance.config.pop('control_pin_no', None)
             self.instance.config['open_pin_no'] = \
                 self.cleaned_data['open_pin'].no
         if self.cleaned_data.get('close_pin'):

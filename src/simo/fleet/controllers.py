@@ -497,12 +497,23 @@ class Gate(FleetDeviceMixin, BasicOutputMixin, BaseGate):
     config_form = GateConfigForm
 
     def _get_occupied_pins(self):
-        pins = [
-            self.component.config['control_pin_no'],
-            self.component.config['sensor_pin_no']
-        ]
+        pins = []
+        open_pin_no = self.component.config.get('open_pin_no')
+        if open_pin_no is None:
+            open_pin_no = self.component.config.get('control_pin_no')
+        if open_pin_no is not None:
+            pins.append(open_pin_no)
+
+        close_pin_no = self.component.config.get('close_pin_no')
+        if close_pin_no is not None and close_pin_no not in pins:
+            pins.append(close_pin_no)
+
+        sensor_pin_no = self.component.config.get('sensor_pin_no')
+        if sensor_pin_no is not None and sensor_pin_no not in pins:
+            pins.append(sensor_pin_no)
+
         for ctrl in self.component.config.get('controls', []):
-            if 'pin_no' in ctrl:
+            if 'pin_no' in ctrl and ctrl['pin_no'] not in pins:
                 pins.append(ctrl['pin_no'])
         return pins
 

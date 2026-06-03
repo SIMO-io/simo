@@ -9,6 +9,34 @@ from .base import BaseSimoTestCase, mk_instance, mk_user, mk_role
 
 
 class SSOBackendTests(BaseSimoTestCase):
+    def test_user_email_is_lowercased_on_save(self):
+        user = User.objects.create(
+            email='MiXeD.User@Example.COM',
+            name='Mixed',
+            is_master=True,
+        )
+
+        user.refresh_from_db()
+
+        self.assertEqual(user.email, 'mixed.user@example.com')
+
+    def test_existing_user_lookup_is_case_insensitive(self):
+        user = User.objects.create(
+            email='existing.user@example.com',
+            name='Existing',
+            is_master=True,
+        )
+
+        backend = SSOBackend()
+        found = backend.authenticate(
+            None,
+            user_data={'email': 'Existing.User@Example.COM', 'name': 'Existing'},
+        )
+
+        self.assertIsNotNone(found)
+        self.assertEqual(found.pk, user.pk)
+        self.assertEqual(User.objects.count(), 1)
+
     def test_system_user_emails_are_rejected(self):
         backend = SSOBackend()
         for email in settings.SYSTEM_USERS:
@@ -26,7 +54,11 @@ class SSOBackendTests(BaseSimoTestCase):
     def test_invitation_token_creates_user_and_assigns_role(self):
         inst = mk_instance('inst-a', 'A')
         role = mk_role(inst, is_default=True)
-        inv = InstanceInvitation.objects.create(instance=inst, role=role, to_email='x@example.com')
+        inv = InstanceInvitation.objects.create(
+            instance=inst,
+            role=role,
+            to_email='Invitee@Example.COM',
+        )
 
         backend = SSOBackend()
         user = backend.authenticate(
@@ -39,6 +71,7 @@ class SSOBackendTests(BaseSimoTestCase):
         )
         self.assertIsNotNone(user)
         inv.refresh_from_db()
+        self.assertEqual(inv.to_email, 'invitee@example.com')
         self.assertEqual(inv.taken_by_id, user.id)
         self.assertTrue(InstanceUser.objects.filter(user=user, instance=inst, role=role).exists())
 

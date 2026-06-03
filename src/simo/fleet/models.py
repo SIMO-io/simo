@@ -372,7 +372,10 @@ def after_colonel_save(sender, instance, created, *args, **kwargs):
 def post_component_save(sender, instance, created, *args, **kwargs):
     if not instance.controller_uid.startswith('simo.fleet'):
         return
-    if 'config' not in instance.get_dirty_fields():
+    if (
+        'config' not in instance.get_dirty_fields()
+        and instance.controller_uid != 'simo.fleet.controllers.Gate'
+    ):
         return
 
     colonel_id = instance.config.get('colonel')

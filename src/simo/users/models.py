@@ -23,6 +23,7 @@ from django.utils import timezone
 from easy_thumbnails.fields import ThumbnailerImageField
 from location_field.models.plain import PlainLocationField
 from simo.conf import dynamic_settings
+from simo.core.model_fields import LowercaseEmailField
 from simo.core.utils.mixins import SimoAdminMixin
 from simo.core.utils.helpers import get_random_string
 from simo.core.media_paths import get_user_media_uid, user_avatar_upload_to
@@ -92,7 +93,8 @@ class UserManager(DefaultUserManager):
         extra_fields.pop('first_name', None)
         extra_fields.pop('last_name', None)
         extra_fields.pop('is_staff', None)
-        user = self.model(name=name, **extra_fields)
+        email = self.normalize_email(email)
+        user = self.model(name=name, email=email, **extra_fields)
         user.set_password(password)
         user.save(using=self._db)
         return user
@@ -251,7 +253,7 @@ def post_instance_user_delete(sender, instance, **kwargs):
 # when saving, so do not ever use it!!!!
 class User(AbstractBaseUser, SimoAdminMixin):
     name = models.CharField(_('name'), max_length=150)
-    email = models.EmailField(_('email address'), unique=True)
+    email = LowercaseEmailField(_('email address'), unique=True)
     avatar = ThumbnailerImageField(
         upload_to=user_avatar_upload_to, null=True, blank=True,
         help_text=_("Comes from SIMO.io"),
@@ -694,7 +696,7 @@ class InstanceInvitation(models.Model):
         User, blank=True, null=True, on_delete=models.CASCADE,
         related_name='issued_hub_invitations'
     )
-    to_email = models.EmailField(blank=True, null=True)
+    to_email = LowercaseEmailField(blank=True, null=True)
     last_sent = models.DateTimeField(null=True, blank=True)
     taken_by = models.ForeignKey(
         User, blank=True, null=True, on_delete=models.CASCADE,
