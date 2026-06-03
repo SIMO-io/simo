@@ -258,6 +258,29 @@ def post_save_change_events(sender, instance, created, **kwargs):
         transaction.on_commit(clear_api_cache)
 
 
+@receiver(post_save)
+def sync_service_suspension_preference(sender, instance, **kwargs):
+    meta = getattr(instance, '_meta', None)
+    if not meta or meta.app_label != 'dynamic_preferences':
+        return
+    if getattr(sender, '__name__', '') != 'GlobalPreferenceModel':
+        return
+    if getattr(instance, 'section', None) != 'core':
+        return
+    if getattr(instance, 'name', None) != 'service_suspended':
+        return
+
+    raw_value = getattr(instance, 'value', None)
+    if isinstance(raw_value, str):
+        suspended = raw_value.strip().lower() in ('1', 'true', 'yes', 'on')
+    else:
+        suspended = bool(raw_value)
+
+    from .service_suspension import sync_service_suspension
+
+    transaction.on_commit(lambda: sync_service_suspension(suspended))
+
+
 @receiver(post_save, sender=Gateway)
 def gateway_post_save(sender, instance, created, *args, **kwargs):
     def start_gw():

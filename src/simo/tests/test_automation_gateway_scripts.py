@@ -200,6 +200,20 @@ class AutomationGatewayScriptsTests(BaseSimoTestCase):
         proc.start.assert_called_once()
         self.assertIn(self.script.id, handler.running_scripts)
 
+    def test_start_script_skips_when_service_suspended(self):
+        from simo.automation import gateways as gw_mod
+
+        handler = self._mk_gateway()
+
+        with (
+            mock.patch('simo.core.service_suspension.dynamic_settings', {'core__service_suspended': True}),
+            mock.patch.object(gw_mod, 'ScriptRunHandler', autospec=True) as run_handler,
+        ):
+            handler.start_script(self.script)
+
+        run_handler.assert_not_called()
+        self.assertNotIn(self.script.id, handler.running_scripts)
+
     def test_start_script_does_nothing_if_running_and_not_terminating(self):
         handler = self._mk_gateway()
 

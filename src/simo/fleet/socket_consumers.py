@@ -21,6 +21,7 @@ from simo.core.utils import adpcm4
 from simo.core.events import GatewayObjectCommand, get_event_obj
 from simo.core.models import Gateway, Instance, Component
 from simo.conf import dynamic_settings
+from simo.core.service_suspension import is_service_suspended
 from simo.users.models import Fingerprint
 
 from .gateways import FleetGatewayHandler
@@ -341,6 +342,10 @@ class FleetConsumer(AsyncWebsocketConsumer):
                     comp_config['slaves'] = slaves
                 if comp.meta.get('options'):
                     comp_config['options'] = comp.meta['options']
+                if is_service_suspended():
+                    options = dict(comp_config.get('options') or {})
+                    options['controls_enabled'] = False
+                    comp_config['options'] = options
 
                 config_data['devices'][str(comp.id)] = comp_config
             except:
@@ -366,6 +371,10 @@ class FleetConsumer(AsyncWebsocketConsumer):
                 comp_config['slaves'] = slaves
             if component.meta.get('options'):
                 comp_config['options'] = component.meta['options']
+            if is_service_suspended():
+                options = dict(comp_config.get('options') or {})
+                options['controls_enabled'] = False
+                comp_config['options'] = options
 
             config_data['devices'][str(component.id)] = comp_config
 
@@ -568,54 +577,62 @@ class FleetConsumer(AsyncWebsocketConsumer):
                     va_component = await sync_to_async(
                         update_wake_stats, thread_sensitive=True
                     )()
-                    if not self._va:
-                        self._va = VoiceAssistantSession(self)
-                    from .assistant import (
-                        assistant_from_voice,
-                        assistant_from_wake_word_id,
-                        normalize_assistant,
-                        voice_from_assistant,
-                    )
-                    va_conf = getattr(va_component, 'config', None) or {}
-                    assistant = normalize_assistant(va_conf.get('assistant'))
-                    if not assistant:
-                        assistant = assistant_from_voice(va_conf.get('voice'))
-                    if not assistant:
-                        assistant = normalize_assistant(data.get('assistant'))
-                    if not assistant:
-                        assistant = assistant_from_voice(data.get('voice'))
-                    if not assistant:
-                        assistant = assistant_from_wake_word_id(
-                            (data.get('wake-stats') or {}).get('wake_word_id')
+                    if not is_service_suspended():
+                        if not self._va:
+                            self._va = VoiceAssistantSession(self)
+                        from .assistant import (
+                            assistant_from_voice,
+                            assistant_from_wake_word_id,
+                            normalize_assistant,
+                            voice_from_assistant,
                         )
-                    if not assistant:
-                        assistant = 'alora'
-                    self._va.assistant = assistant
-                    # Website still expects `voice` for TTS choice.
-                    self._va.voice = voice_from_assistant(assistant) or 'female'
-                    self._va.zone = va_component.zone.id
-                    try:
-                        self._va.language = (va_component.config or {}).get('language')
-                    except Exception:
-                        self._va.language = None
+                        va_conf = getattr(va_component, 'config', None) or {}
+                        assistant = normalize_assistant(va_conf.get('assistant'))
+                        if not assistant:
+                            assistant = assistant_from_voice(va_conf.get('voice'))
+                        if not assistant:
+                            assistant = normalize_assistant(data.get('assistant'))
+                        if not assistant:
+                            assistant = assistant_from_voice(data.get('voice'))
+                        if not assistant:
+                            assistant = assistant_from_wake_word_id(
+                                (data.get('wake-stats') or {}).get('wake_word_id')
+                            )
+                        if not assistant:
+                            assistant = 'alora'
+                        self._va.assistant = assistant
+                        # Website still expects `voice` for TTS choice.
+                        self._va.voice = voice_from_assistant(assistant) or 'female'
+                        self._va.zone = va_component.zone.id
+                        try:
+                            self._va.language = (va_component.config or {}).get('language')
+                        except Exception:
+                            self._va.language = None
 
             elif bytes_data:
                 if self.colonel.type == 'sentinel':
                     if bytes_data[0] == 32:
                         await self.capture_logs(bytes_data[1:])
                     else:
-                        audio = self._decode_device_audio(bytes_data)
-                        if not audio:
-                            return
-                        if not self._va:
-                            self._va = VoiceAssistantSession(self)
-                        if not self._arb:
-                            self._arb = VoiceAssistantArbitrator(self, self._va)
-                        await self._va.prewarm_on_first_audio()
-                        if await self._arb.maybe_reject_busy():
-                            return
-                        self._arb.start_window_if_needed()
-                        await self._va.on_audio_chunk(audio)
+                        if is_service_suspended():
+                            try:
+                                if self._va and self._va.active:
+                                    await self._va._end_session(cloud_also=True)
+                            except Exception:
+                                pass
+                        else:
+                            audio = self._decode_device_audio(bytes_data)
+                            if not audio:
+                                return
+                            if not self._va:
+                                self._va = VoiceAssistantSession(self)
+                            if not self._arb:
+                                self._arb = VoiceAssistantArbitrator(self, self._va)
+                            await self._va.prewarm_on_first_audio()
+                            if await self._arb.maybe_reject_busy():
+                                return
+                            self._arb.start_window_if_needed()
+                            await self._va.on_audio_chunk(audio)
                 else:
                     if bytes_data[0] == 32:
                         await self.capture_logs(bytes_data[1:])

@@ -245,6 +245,102 @@ class ManagementMqttControlCommandTests(BaseSimoTestCase):
         payload = self._publish_payload(client)
         self.assertTrue(payload['ok'])
 
+    def test_on_message_non_master_cannot_control_fleet_component_when_service_suspended(self):
+        from simo.fleet.controllers import Switch
+        from simo.fleet.gateways import FleetGatewayHandler
+        from simo.fleet.models import Colonel
+
+        user = mk_user('fleet-user@example.com', 'Fleet User', is_master=False)
+        role = mk_role(self.inst, is_superuser=True)
+        mk_instance_user(user, self.inst, role, is_active=True)
+        fleet_gw, _ = Gateway.objects.get_or_create(type=FleetGatewayHandler.uid)
+        colonel = Colonel.objects.create(
+            instance=self.inst,
+            uid='mqtt-fleet-1',
+            type='sentinel',
+            firmware_version='1.0',
+            enabled=True,
+        )
+        comp = Component.objects.create(
+            name='Fleet',
+            zone=self.zone,
+            category=None,
+            gateway=fleet_gw,
+            base_type='switch',
+            controller_uid=Switch.uid,
+            config={
+                'colonel': colonel.id,
+                'inverse': True,
+                'output_pin': 1,
+                'output_pin_no': 1,
+                'controls': [],
+            },
+            meta={},
+            value=False,
+        )
+
+        cmd = self._mk_cmd()
+        client = mock.Mock()
+        msg = SimpleNamespace(
+            topic=f'SIMO/user/{user.id}/control/{self.inst.uid}/Component/{comp.id}',
+            payload=json.dumps({'request_id': 'r', 'method': 'toggle'}).encode(),
+        )
+        with (
+            mock.patch('simo.core.management.commands.run_app_mqtt_control.check_throttle', autospec=True, return_value=0),
+            mock.patch('simo.core.service_suspension.dynamic_settings', {'core__service_suspended': True}),
+        ):
+            cmd.on_message(client, None, msg)
+
+        self._assert_error_response(client, 'Direct Colonel control is disabled')
+
+    def test_on_message_master_can_control_fleet_component_when_service_suspended(self):
+        from simo.fleet.controllers import Switch
+        from simo.fleet.gateways import FleetGatewayHandler
+        from simo.fleet.models import Colonel
+
+        user = mk_user('fleet-master@example.com', 'Fleet Master', is_master=True)
+        fleet_gw, _ = Gateway.objects.get_or_create(type=FleetGatewayHandler.uid)
+        colonel = Colonel.objects.create(
+            instance=self.inst,
+            uid='mqtt-fleet-2',
+            type='sentinel',
+            firmware_version='1.0',
+            enabled=True,
+        )
+        comp = Component.objects.create(
+            name='Fleet',
+            zone=self.zone,
+            category=None,
+            gateway=fleet_gw,
+            base_type='switch',
+            controller_uid=Switch.uid,
+            config={
+                'colonel': colonel.id,
+                'inverse': True,
+                'output_pin': 1,
+                'output_pin_no': 1,
+                'controls': [],
+            },
+            meta={},
+            value=False,
+        )
+
+        cmd = self._mk_cmd()
+        client = mock.Mock()
+        msg = SimpleNamespace(
+            topic=f'SIMO/user/{user.id}/control/{self.inst.uid}/Component/{comp.id}',
+            payload=json.dumps({'request_id': 'r', 'method': 'toggle'}).encode(),
+        )
+        with (
+            mock.patch('simo.core.management.commands.run_app_mqtt_control.check_throttle', autospec=True, return_value=0),
+            mock.patch('simo.core.service_suspension.dynamic_settings', {'core__service_suspended': True}),
+            mock.patch('simo.fleet.controllers.Switch.toggle', autospec=True, return_value=None),
+        ):
+            cmd.on_message(client, None, msg)
+
+        payload = self._publish_payload(client)
+        self.assertTrue(payload['ok'])
+
     def test_on_message_non_master_with_write_permission_can_control(self):
         from simo.generic.controllers import SwitchGroup
 

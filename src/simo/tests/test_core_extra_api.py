@@ -2,6 +2,7 @@ import datetime
 import time
 from unittest import mock
 
+from asgiref.sync import async_to_sync
 from django.utils import timezone
 from rest_framework.test import APIClient
 from actstream import action
@@ -93,6 +94,156 @@ class ComponentControllerEndpointsTests(BaseSimoTestCase):
             format='json',
         )
         self.assertEqual(resp.status_code, 404)
+
+    def test_non_master_cannot_control_fleet_component_when_service_suspended(self):
+        from simo.fleet.controllers import Switch
+        from simo.fleet.gateways import FleetGatewayHandler
+        from simo.fleet.models import Colonel
+
+        fleet_gw, _ = Gateway.objects.get_or_create(type=FleetGatewayHandler.uid)
+        colonel = Colonel.objects.create(
+            instance=self.inst,
+            uid='fleet-1',
+            type='sentinel',
+            firmware_version='1.0',
+            enabled=True,
+        )
+        fleet_comp = Component.objects.create(
+            name='Fleet',
+            zone=self.zone,
+            category=None,
+            gateway=fleet_gw,
+            base_type='switch',
+            controller_uid=Switch.uid,
+            config={
+                'colonel': colonel.id,
+                'inverse': True,
+                'output_pin': 1,
+                'output_pin_no': 1,
+                'controls': [],
+            },
+            meta={},
+            value=False,
+        )
+
+        user = mk_user('user@example.com', 'User')
+        role = mk_role(self.inst, is_superuser=True)
+        mk_instance_user(user, self.inst, role, is_active=True)
+        user = User.objects.get(pk=user.pk)
+        api = APIClient()
+        api.force_authenticate(user=user)
+
+        with mock.patch(
+            'simo.core.service_suspension.dynamic_settings',
+            {'core__service_suspended': True},
+        ):
+            resp = api.post(
+                f'/api/{self.inst.slug}/core/components/{fleet_comp.id}/controller/',
+                data={'toggle': []},
+                format='json',
+            )
+
+        self.assertEqual(resp.status_code, 403)
+
+    def test_master_can_control_fleet_component_when_service_suspended(self):
+        from simo.fleet.controllers import Switch
+        from simo.fleet.gateways import FleetGatewayHandler
+        from simo.fleet.models import Colonel
+
+        fleet_gw, _ = Gateway.objects.get_or_create(type=FleetGatewayHandler.uid)
+        colonel = Colonel.objects.create(
+            instance=self.inst,
+            uid='fleet-2',
+            type='sentinel',
+            firmware_version='1.0',
+            enabled=True,
+        )
+        fleet_comp = Component.objects.create(
+            name='Fleet',
+            zone=self.zone,
+            category=None,
+            gateway=fleet_gw,
+            base_type='switch',
+            controller_uid=Switch.uid,
+            config={
+                'colonel': colonel.id,
+                'inverse': True,
+                'output_pin': 1,
+                'output_pin_no': 1,
+                'controls': [],
+            },
+            meta={},
+            value=False,
+        )
+
+        master = mk_user('master@example.com', 'Master', is_master=True)
+        role = mk_role(self.inst, is_superuser=True)
+        mk_instance_user(master, self.inst, role, is_active=True)
+        master = User.objects.get(pk=master.pk)
+        api = APIClient()
+        api.force_authenticate(user=master)
+
+        with mock.patch(
+            'simo.core.service_suspension.dynamic_settings',
+            {'core__service_suspended': True},
+        ):
+            resp = api.post(
+                f'/api/{self.inst.slug}/core/components/{fleet_comp.id}/controller/',
+                data={'toggle': []},
+                format='json',
+            )
+
+        self.assertEqual(resp.status_code, 200)
+
+
+class FleetConsumerServiceSuspensionTests(BaseSimoTestCase):
+    def test_get_config_data_forces_controls_disabled(self):
+        from simo.fleet.controllers import Switch
+        from simo.fleet.gateways import FleetGatewayHandler
+        from simo.fleet.models import Colonel, InstanceOptions
+        from simo.fleet.socket_consumers import FleetConsumer
+
+        inst = mk_instance('inst-b', 'B')
+        InstanceOptions.objects.get_or_create(instance=inst)
+        zone = Zone.objects.create(instance=inst, name='Z', order=0)
+        fleet_gw, _ = Gateway.objects.get_or_create(type=FleetGatewayHandler.uid)
+        colonel = Colonel.objects.create(
+            instance=inst,
+            uid='fleet-config-1',
+            type='sentinel',
+            firmware_version='1.0',
+            enabled=True,
+        )
+        Component.objects.create(
+            name='Fleet',
+            zone=zone,
+            category=None,
+            gateway=fleet_gw,
+            base_type='switch',
+            controller_uid=Switch.uid,
+            config={
+                'colonel': colonel.id,
+                'inverse': True,
+                'output_pin': 1,
+                'output_pin_no': 1,
+                'controls': [],
+            },
+            meta={},
+            value=False,
+        )
+
+        consumer = FleetConsumer()
+        consumer.colonel = colonel
+        consumer.instance = inst
+
+        with mock.patch(
+            'simo.core.service_suspension.dynamic_settings',
+            {'core__service_suspended': True, 'core__hub_uid': 'hub-1'},
+        ):
+            config = async_to_sync(consumer.get_config_data)()
+
+        device = next(iter(config['devices'].values()))
+        self.assertEqual(device['options']['controls_enabled'], False)
 
 
 class ComponentHistoryAggregationTests(BaseSimoTestCase):

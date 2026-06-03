@@ -78,6 +78,14 @@ class AllowAdminDisabling(BooleanPreference):
 
 
 @global_preferences_registry.register
+class ServiceSuspended(BooleanPreference):
+    section = core
+    name = 'service_suspended'
+    default = False
+    help_text = "Disables non-master direct Colonel control and automation scripts."
+
+
+@global_preferences_registry.register
 class NeedsMqttAclsRebuild(BooleanPreference):
     section = core
     name = 'needs_mqtt_acls_rebuild'

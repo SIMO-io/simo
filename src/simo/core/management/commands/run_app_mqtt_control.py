@@ -10,6 +10,12 @@ from django.conf import settings
 from simo.users.models import User, InstanceUser, ComponentPermission
 from simo.users.utils import user_context
 from simo.core.models import Component
+from simo.core.service_suspension import (
+    CONTROL_BLOCKED_ERROR,
+    AUTOMATION_BLOCKED_ERROR,
+    is_direct_colonel_control_blocked,
+    is_script_start_blocked,
+)
 from simo.core.utils.mqtt import connect_with_retry, install_reconnect_handler
 from simo.core.throttling import check_throttle, SimpleRequest
 
@@ -142,6 +148,12 @@ class Command(BaseCommand):
                     return
                 if method not in set(target.get_controller_methods()):
                     self.respond(client, user_id, request_id, ok=False, error=f'Method {method} not allowed')
+                    return
+                if is_script_start_blocked(target, method):
+                    self.respond(client, user_id, request_id, ok=False, error=str(AUTOMATION_BLOCKED_ERROR))
+                    return
+                if is_direct_colonel_control_blocked(user, target):
+                    self.respond(client, user_id, request_id, ok=False, error=str(CONTROL_BLOCKED_ERROR))
                     return
                 if not hasattr(target, method):
                     self.respond(client, user_id, request_id, ok=False, error=f'Method {method} not found')

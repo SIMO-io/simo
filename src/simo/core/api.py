@@ -21,6 +21,12 @@ from rest_framework.exceptions import ValidationError as APIValidationError
 from rest_framework.exceptions import PermissionDenied
 from simo.core.utils.config_values import ConfigException
 from simo.core.utils.json import restore_json
+from simo.core.service_suspension import (
+    CONTROL_BLOCKED_ERROR,
+    AUTOMATION_BLOCKED_ERROR,
+    is_direct_colonel_control_blocked,
+    is_script_start_blocked,
+)
 from .models import (
     Instance, Category, Zone, Component, Icon, ComponentHistory,
     HistoryAggregate, Gateway
@@ -256,6 +262,12 @@ class ComponentViewSet(
             allowed_methods = set(component.get_controller_methods())
             if method_name not in allowed_methods:
                 raise PermissionDenied(_('"%s" method is not allowed') % method_name)
+
+            if is_script_start_blocked(component, method_name):
+                raise PermissionDenied(AUTOMATION_BLOCKED_ERROR)
+
+            if is_direct_colonel_control_blocked(self.request.user, component):
+                raise PermissionDenied(CONTROL_BLOCKED_ERROR)
 
             if not hasattr(component, method_name):
                 raise APIValidationError(

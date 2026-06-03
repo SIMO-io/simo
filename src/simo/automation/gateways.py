@@ -25,6 +25,7 @@ from simo.core.events import (
     cleanup_watchers_for_event
 )
 from simo.core.loggers import get_gw_logger, get_component_logger
+from simo.core.service_suspension import is_service_suspended
 from simo.users.models import InstanceUser
 from .helpers import haversine_distance
 from simo.core.utils.mqtt import connect_with_retry, install_reconnect_handler
@@ -516,6 +517,9 @@ class AutomationsGatewayHandler(GatesHandler, BaseObjectCommandsGatewayHandler):
                 except Exception:
                     pass
 
+        if is_service_suspended():
+            return
+
         for script in Component.objects.filter(
             base_type='script', config__keep_alive=True
         ).exclude(value__in=('running', 'stopped', 'finished')):
@@ -645,6 +649,10 @@ class AutomationsGatewayHandler(GatesHandler, BaseObjectCommandsGatewayHandler):
 
 
     def start_script(self, component):
+        if is_service_suspended():
+            self._log_info(f"SKIP SCRIPT {component}: service suspension active")
+            return
+
         self._log_info(f"START SCRIPT {component}")
 
         with self._scripts_lock:

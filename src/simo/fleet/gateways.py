@@ -8,6 +8,7 @@ from simo.core.gateways import BaseObjectCommandsGatewayHandler
 from simo.core.forms import BaseGatewayForm
 from simo.core.models import Gateway
 from simo.core.events import GatewayObjectCommand, get_event_obj
+from simo.core.service_suspension import is_service_suspended
 from simo.core.utils.serialization import deserialize_form_data
 
 
@@ -268,6 +269,9 @@ class FleetGatewayHandler(BaseObjectCommandsGatewayHandler):
         return False
 
     def on_remote_button_change(self, btn):
+        if is_service_suspended():
+            return
+
         self._ensure_button_watch_state()
         with self.remote_button_lock:
             raw_targets = self.remote_button_targets.get(btn.id, set())

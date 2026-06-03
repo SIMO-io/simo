@@ -241,6 +241,26 @@ class FleetGatewayRemoteButtonTests(BaseSimoTestCase):
             [(0, 'down', 'momentary'), (1, 'down', 'momentary')],
         )
 
+    def test_on_remote_button_change_is_ignored_when_service_suspended(self):
+        handler = self._mk_handler()
+        shared = self._make_button('Shared', 18, value='down')
+        self._make_switch(
+            'S1',
+            8,
+            [{'button': shared.id, 'method': 'momentary'}],
+        )
+
+        with mock.patch('simo.core.events.OnChangeMixin.on_change', autospec=True):
+            handler.watch_buttons()
+
+        with (
+            mock.patch('simo.core.service_suspension.dynamic_settings', {'core__service_suspended': True}),
+            mock.patch('simo.fleet.controllers.BasicOutputMixin._ctrl', autospec=True) as ctrl,
+        ):
+            handler.on_remote_button_change(shared)
+
+        ctrl.assert_not_called()
+
     def test_watch_buttons_unbinds_removed_remote_buttons(self):
         handler = self._mk_handler()
         button = self._make_button('B', 18)
