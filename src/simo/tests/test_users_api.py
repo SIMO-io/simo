@@ -1,3 +1,5 @@
+from unittest import mock
+
 from rest_framework.test import APIClient
 
 from simo.core.models import Zone, Gateway, Component
@@ -76,6 +78,78 @@ class UsersViewSetTests(BaseSimoTestCase):
             format='multipart',
         )
         self.assertIn(resp.status_code, (400, 403))
+
+    def test_master_user_cannot_be_deactivated_when_admin_disabling_is_off(self):
+        master = mk_user('master@example.com', 'Master', is_master=True)
+        master_role = mk_role(self.inst, is_superuser=True)
+        mk_instance_user(master, self.inst, master_role, is_active=True)
+        master = User.objects.get(pk=master.pk)
+
+        with mock.patch(
+            'simo.users.api.dynamic_settings',
+            {'core__allow_admin_disabling': False},
+        ):
+            resp = self.api.patch(
+                f'/api/{self.inst.slug}/users/users/{master.id}/',
+                data={'is_active': False},
+                format='json',
+            )
+
+        self.assertIn(resp.status_code, (400, 403))
+        self.assertTrue(User.objects.get(pk=master.pk).is_active)
+
+    def test_master_user_cannot_be_deleted_when_admin_disabling_is_off(self):
+        master = mk_user('master-delete@example.com', 'Master Delete', is_master=True)
+        master_role = mk_role(self.inst, is_superuser=True)
+        mk_instance_user(master, self.inst, master_role, is_active=True)
+        master = User.objects.get(pk=master.pk)
+
+        with mock.patch(
+            'simo.users.api.dynamic_settings',
+            {'core__allow_admin_disabling': False},
+        ):
+            resp = self.api.delete(
+                f'/api/{self.inst.slug}/users/users/{master.id}/'
+            )
+
+        self.assertIn(resp.status_code, (400, 403))
+        self.assertTrue(User.objects.filter(pk=master.pk).exists())
+
+    def test_master_user_can_be_deactivated_when_admin_disabling_is_on(self):
+        master = mk_user('master-on@example.com', 'Master On', is_master=True)
+        master_role = mk_role(self.inst, is_superuser=True)
+        mk_instance_user(master, self.inst, master_role, is_active=True)
+        master = User.objects.get(pk=master.pk)
+
+        with mock.patch(
+            'simo.users.api.dynamic_settings',
+            {'core__allow_admin_disabling': True},
+        ):
+            resp = self.api.patch(
+                f'/api/{self.inst.slug}/users/users/{master.id}/',
+                data={'is_active': False},
+                format='json',
+            )
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertFalse(User.objects.get(pk=master.pk).is_active)
+
+    def test_master_user_can_be_deleted_when_admin_disabling_is_on(self):
+        master = mk_user('master-delete-on@example.com', 'Master Delete On', is_master=True)
+        master_role = mk_role(self.inst, is_superuser=True)
+        mk_instance_user(master, self.inst, master_role, is_active=True)
+        master = User.objects.get(pk=master.pk)
+
+        with mock.patch(
+            'simo.users.api.dynamic_settings',
+            {'core__allow_admin_disabling': True},
+        ):
+            resp = self.api.delete(
+                f'/api/{self.inst.slug}/users/users/{master.id}/'
+            )
+
+        self.assertEqual(resp.status_code, 204)
+        self.assertFalse(User.objects.filter(pk=master.pk).exists())
 
 
 class ComponentPermissionsViewSetTests(BaseSimoTestCase):

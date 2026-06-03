@@ -56,6 +56,27 @@ class UsersViewSet(mixins.RetrieveModelMixin,
         print(msg, file=sys.stderr)
         raise ValidationError(msg, code=403)
 
+    def _admin_disabling_allowed(self):
+        try:
+            return bool(dynamic_settings['core__allow_admin_disabling'])
+        except Exception:
+            return False
+
+    def _assert_master_can_be_disabled(self, target_user):
+        if target_user.is_master and not self._admin_disabling_allowed():
+            msg = 'Admin disabling is not allowed on this hub.'
+            print(msg, file=sys.stderr)
+            raise ValidationError(msg, code=403)
+
+    @staticmethod
+    def _wants_inactive(value):
+        if isinstance(value, bool):
+            return value is False
+        if isinstance(value, (int, float)):
+            return bool(value) is False
+        if value is None:
+            return False
+        return str(value).strip().lower() in ('0', 'false', 'off', 'no')
 
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop('partial', False)
@@ -65,6 +86,11 @@ class UsersViewSet(mixins.RetrieveModelMixin,
         for key, val in request.data.items():
             if key not in ('role', 'is_active'):
                 request.data.pop(key)
+
+        if 'is_active' in request.data and self._wants_inactive(
+            request.data.get('is_active')
+        ):
+            self._assert_master_can_be_disabled(target_user)
 
         serializer = self.get_serializer(
             target_user, data=request.data, partial=partial
@@ -119,6 +145,7 @@ class UsersViewSet(mixins.RetrieveModelMixin,
             raise ValidationError(
                 'Deleting yourself is not allowed!', code=403
             )
+        self._assert_master_can_be_disabled(user)
         if request.user.is_superuser:
             pass
         else:

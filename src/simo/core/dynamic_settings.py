@@ -70,6 +70,14 @@ class AutoUpdate(BooleanPreference):
 
 
 @global_preferences_registry.register
+class AllowAdminDisabling(BooleanPreference):
+    section = core
+    name = 'allow_admin_disabling'
+    default = False
+    help_text = "Allows mobile-app users to disable or remove hub master users."
+
+
+@global_preferences_registry.register
 class NeedsMqttAclsRebuild(BooleanPreference):
     section = core
     name = 'needs_mqtt_acls_rebuild'
