@@ -1,6 +1,8 @@
-from simo.core.models import Gateway, Zone
+from unittest import mock
+
+from simo.core.models import Component, Gateway, Zone
 from simo.core.events import GatewayObjectCommand
-from simo.fleet.controllers import DALIBusDimmer, VoiceAssistant
+from simo.fleet.controllers import DALIBusDimmer, Gate, VoiceAssistant
 from simo.fleet.forms import DaliBusDimmerForm, VoiceAssistantConfigForm
 from simo.fleet.gateways import FleetGatewayHandler
 from simo.fleet.models import Colonel, Interface
@@ -77,6 +79,38 @@ class FleetColonelComponentSyncTests(BaseSimoTestCase):
             call.args[0].data.get('command') == 'update_config'
             for call in GatewayObjectCommand.publish.call_args_list
         ))
+
+    def test_gate_value_save_does_not_trigger_colonel_config_push(self):
+        fleet_gw = Gateway.objects.get(type=FleetGatewayHandler.uid)
+        gate = Component.objects.create(
+            name='Gate',
+            zone=self.zone,
+            category=None,
+            gateway=fleet_gw,
+            base_type='gate',
+            controller_uid=Gate.uid,
+            config={
+                'colonel': self.s1.id,
+                'open_pin_no': 1,
+                'open_action': 'HIGH',
+                'close_action': 'HIGH',
+                'control_method': 'pulse',
+                'closed_value': 'LOW',
+                'open_duration': 30,
+                'auto_open_distance': '',
+                'location': '0,0',
+            },
+            meta={},
+            value='closed',
+        )
+
+        with mock.patch(
+            'simo.fleet.models.Colonel.update_config', autospec=True
+        ) as update_config:
+            gate.value = 'open'
+            gate.save(update_fields=['value'])
+
+        update_config.assert_not_called()
 
     def test_dali_bus_dimmer_manual_add_finalizes_on_colonel(self):
         colonel = Colonel.objects.create(
