@@ -1097,6 +1097,16 @@ class Watering(ControllerBase):
             self._restore_base_program(save=True)
 
     def set_program_progress(self, program_minute, run=True):
+        # Manual app starts use set_program_progress(0, run=True) instead of
+        # start(), so mirror start()'s last_run update for that specific case.
+        self.component.refresh_from_db()
+        if run:
+            current_status = self.component.value.get('status')
+            current_progress = int(self.component.value.get('program_progress', 0) or 0)
+            requested_progress = int(program_minute or 0)
+            if current_status != 'running_program' and current_progress == 0 and requested_progress == 0:
+                self.component.meta['last_run'] = timezone.now().timestamp()
+                self.component.save(update_fields=('meta',))
         return self._set_program_progress(program_minute, run=run)
 
     def start(self, scheduled=False):

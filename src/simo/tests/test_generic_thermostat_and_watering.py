@@ -257,6 +257,36 @@ class WateringControllerTests(BaseSimoTestCase):
         self.assertEqual([c.args[0].component.id for c in turn_on.call_args_list], [self.s2.id])
         self.assertEqual([c.args[0].component.id for c in turn_off.call_args_list], [self.s1.id])
 
+    def test_set_program_progress_sets_last_run_for_fresh_manual_start(self):
+        now_dt = timezone.make_aware(datetime.datetime(2024, 1, 1, 10, 15, 0), pytz.utc)
+
+        with (
+            mock.patch('simo.generic.controllers.timezone.now', autospec=True, return_value=now_dt),
+            mock.patch('simo.core.controllers.Switch.turn_on', autospec=True),
+            mock.patch('simo.core.controllers.Switch.turn_off', autospec=True),
+        ):
+            self.comp.controller.set_program_progress(0, run=True)
+
+        self.comp.refresh_from_db()
+        self.assertEqual(self.comp.meta['last_run'], now_dt.timestamp())
+
+    def test_set_program_progress_resume_does_not_reset_last_run(self):
+        last_run = timezone.make_aware(datetime.datetime(2024, 1, 1, 8, 0, 0), pytz.utc).timestamp()
+        self.comp.meta['last_run'] = last_run
+        self.comp.value = {'status': 'paused_program', 'program_progress': 6}
+        self.comp.save(update_fields=['meta', 'value'])
+
+        now_dt = timezone.make_aware(datetime.datetime(2024, 1, 1, 10, 15, 0), pytz.utc)
+        with (
+            mock.patch('simo.generic.controllers.timezone.now', autospec=True, return_value=now_dt),
+            mock.patch('simo.core.controllers.Switch.turn_on', autospec=True),
+            mock.patch('simo.core.controllers.Switch.turn_off', autospec=True),
+        ):
+            self.comp.controller.set_program_progress(6, run=True)
+
+        self.comp.refresh_from_db()
+        self.assertEqual(self.comp.meta['last_run'], last_run)
+
     def test_set_program_progress_past_duration_stops_program(self):
         with (
             mock.patch('simo.core.controllers.Switch.turn_on', autospec=True),
