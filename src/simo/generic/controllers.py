@@ -78,6 +78,8 @@ class Thermostat(ControllerBase):
     DYNAMIC_SWITCH_FRAME_S = 300
     DYNAMIC_SWITCH_MIN_PHASE_S = 10
     DYNAMIC_SWITCH_DUTY_PRECISION = 6
+    ECO_DYNAMIC_HEAT_WINDOW = 2.5
+    ECO_DYNAMIC_COOL_WINDOW = 2.0
 
     @property
     def default_config(self):
@@ -104,10 +106,14 @@ class Thermostat(ControllerBase):
             target_temp = 70
             low_target = 60
             high_target = 75
+            eco_lower_limit = 57
+            eco_upper_limit = 86
         else:
             target_temp = 21
             low_target = 17
             high_target = 22
+            eco_lower_limit = 14
+            eco_upper_limit = 30
 
         day_options = {
             '24h': {
@@ -121,6 +127,11 @@ class Thermostat(ControllerBase):
         user_config = {
             'mode': ThermostatModeConfigValue('auto'),
             'use_real_feel': BooleanConfigValue(False),
+            'eco': {
+                'active': BooleanConfigValue(False),
+                'lower_limit': FloatConfigValue(eco_lower_limit),
+                'upper_limit': FloatConfigValue(eco_upper_limit),
+            },
             'hard': {
                 'active': BooleanConfigValue(True),
                 'target': FloatConfigValue(target_temp)
@@ -136,6 +147,68 @@ class Thermostat(ControllerBase):
             }
         }
         return user_config
+
+    def _get_current_temperature_from_sensor(self, temperature_sensor):
+        current_temp = temperature_sensor.value
+        if temperature_sensor.base_type == MULTI_SENSOR_BASE_TYPE:
+            value_dict = {}
+            for val in temperature_sensor.value:
+                value_dict[val[0]] = val[1]
+
+            current_temp = value_dict.get('temperature', 0)
+            if self.component.config['user_config'].get('use_real_feel'):
+                current_temp = value_dict.get('real_feel', 0)
+        return current_temp
+
+    def _get_active_preset(self):
+        data = self.component.config['user_config']
+        if data.get('eco', {}).get('active'):
+            return 'eco', data['eco']
+        if data['hard']['active']:
+            return 'hard', data['hard']
+        if data['daily']['active']:
+            return 'daily', data['daily']['options']
+        localtime = timezone.localtime()
+        return 'weekly', data['weekly'][str(localtime.weekday() + 1)]
+
+    def _get_eco_target_temperature(self, eco_conf, current_temp=None):
+        midpoint = (
+            float(eco_conf['lower_limit']) + float(eco_conf['upper_limit'])
+        ) / 2
+        if current_temp is not None and current_temp < midpoint:
+            return float(eco_conf['lower_limit'])
+        return float(eco_conf['upper_limit'])
+
+    def _validate_eco_conf(self, eco_conf):
+        errors = {}
+        lower = float(eco_conf['lower_limit'])
+        upper = float(eco_conf['upper_limit'])
+        min_temp = float(self.component.config.get('min', lower))
+        max_temp = float(self.component.config.get('max', upper))
+
+        if lower >= upper:
+            errors['upper_limit'] = "Upper limit must be higher than lower limit."
+        if lower < min_temp:
+            errors['lower_limit'] = (
+                f"Lower limit must be at or above thermostat minimum ({min_temp:g})."
+            )
+        if upper > max_temp:
+            errors['upper_limit'] = (
+                f"Upper limit must be at or below thermostat maximum ({max_temp:g})."
+            )
+
+        if errors:
+            raise ConfigException({'eco': errors})
+
+    def _normalize_user_config(self, new_conf=None):
+        current_conf = self.component.config.get('user_config', {})
+        if new_conf is None:
+            new_conf = current_conf
+        return validate_new_conf(
+            new_conf,
+            current_conf,
+            self._get_default_user_config()
+        )
 
     def _get_target_from_options(self, options):
         if options['24h']['active']:
@@ -159,21 +232,28 @@ class Thermostat(ControllerBase):
                     target_temp = target
             return target_temp
 
-    def get_current_target_temperature(self):
+    def get_current_target_temperature(self, current_temp=None):
         """Return active target temperature from user config.
 
-        Computes the target based on hard/daily/weekly schedules and the
+        Computes the target based on eco/hard/daily/weekly schedules and the
         current local time.
         Returns: float temperature.
         """
-        data = self.component.config['user_config']
-        if data['hard']['active']:
-            return data['hard']['target']
-        if data['daily']['active']:
-            return self._get_target_from_options(data['daily']['options'])
-        localtime = timezone.localtime()
-        return self._get_target_from_options(
-            data['weekly'][str(localtime.weekday() + 1)])
+        preset, conf = self._get_active_preset()
+        if preset == 'eco':
+            if current_temp is None:
+                temperature_sensor = Component.objects.filter(
+                    pk=self.component.config.get('temperature_sensor'),
+                    alive=True
+                ).first()
+                if temperature_sensor:
+                    current_temp = self._get_current_temperature_from_sensor(
+                        temperature_sensor
+                    )
+            return self._get_eco_target_temperature(conf, current_temp)
+        if preset == 'hard':
+            return conf['target']
+        return self._get_target_from_options(conf)
 
     def _evaluate(self):
         from simo.core.models import Component
@@ -210,17 +290,12 @@ class Thermostat(ControllerBase):
             self.component.alive = True
             self.component.save()
 
-        current_temp = temperature_sensor.value
-        if temperature_sensor.base_type == MULTI_SENSOR_BASE_TYPE:
-            value_dict = {}
-            for val in temperature_sensor.value:
-                value_dict[val[0]] = val[1]
-
-            current_temp = value_dict.get('temperature', 0)
-            if self.component.config['user_config'].get('use_real_feel'):
-                current_temp = value_dict.get('real_feel', 0)
-
-        target_temp = self.get_current_target_temperature()
+        current_temp = self._get_current_temperature_from_sensor(
+            temperature_sensor
+        )
+        preset, preset_conf = self._get_active_preset()
+        eco_conf = preset_conf if preset == 'eco' else None
+        target_temp = self.get_current_target_temperature(current_temp)
         mode = self.component.config['user_config'].get('mode', 'auto')
         prefer_heating = True
 
@@ -243,8 +318,26 @@ class Thermostat(ControllerBase):
         heating = False
         cooling = False
 
+        if eco_conf:
+            if self.component.config.get('engagement', 'static') == 'static':
+                heating, cooling = self._evaluate_eco_static(
+                    heaters,
+                    coolers,
+                    current_temp,
+                    eco_conf,
+                    mode,
+                )
+            else:
+                heating, cooling = self._evaluate_eco_dynamic(
+                    heaters,
+                    coolers,
+                    current_temp,
+                    eco_conf,
+                    mode,
+                )
+
         # Respect explicit mode first; fall back to existing auto logic.
-        if self.component.config.get('engagement', 'static') == 'static':
+        elif self.component.config.get('engagement', 'static') == 'static':
             low = target_temp - 0.25
             high = target_temp + 0.25
 
@@ -351,6 +444,139 @@ class Thermostat(ControllerBase):
         self.component.error_msg = None
         self.component.alive = True
         self.component.save()
+
+    def _engage_static_eco_heating(self, heaters, current_temp, lower_limit):
+        heating = False
+        for heater in heaters:
+            if current_temp <= lower_limit:
+                if heater.base_type == 'dimmer':
+                    heater.max_out()
+                else:
+                    heater.turn_on()
+                heating = True
+            else:
+                heater.turn_off()
+        return heating
+
+    def _engage_static_eco_cooling(self, coolers, current_temp, upper_limit):
+        cooling = False
+        for cooler in coolers:
+            if current_temp > upper_limit:
+                if cooler.base_type == 'dimmer':
+                    cooler.max_out()
+                else:
+                    cooler.turn_on()
+                cooling = True
+            else:
+                cooler.turn_off()
+        return cooling
+
+    def _evaluate_eco_static(
+        self,
+        heaters,
+        coolers,
+        current_temp,
+        eco_conf,
+        mode,
+    ):
+        lower_limit = float(eco_conf['lower_limit'])
+        upper_limit = float(eco_conf['upper_limit'])
+        heating = False
+        cooling = False
+
+        if mode == 'heater':
+            if heaters:
+                heating = self._engage_static_eco_heating(
+                    heaters, current_temp, lower_limit
+                )
+            if coolers:
+                self._engage_static_eco_cooling(
+                    coolers, upper_limit, upper_limit
+                )
+        elif mode == 'cooler':
+            if coolers:
+                cooling = self._engage_static_eco_cooling(
+                    coolers, current_temp, upper_limit
+                )
+            if heaters:
+                self._engage_static_eco_heating(
+                    heaters, lower_limit + 1, lower_limit
+                )
+        else:
+            if heaters:
+                heating = self._engage_static_eco_heating(
+                    heaters, current_temp, lower_limit
+                )
+            if coolers:
+                cooling = self._engage_static_eco_cooling(
+                    coolers, current_temp, upper_limit
+                )
+
+        return heating, cooling
+
+    def _get_eco_reaction_force(self, direction, current_temp, limit):
+        if direction == 'heat':
+            if current_temp > limit:
+                return 0
+            window = self.ECO_DYNAMIC_HEAT_WINDOW
+            reach = limit - current_temp
+        else:
+            if current_temp <= limit:
+                return 0
+            window = self.ECO_DYNAMIC_COOL_WINDOW
+            reach = current_temp - limit
+
+        reaction_force = self._get_reaction_force(window, reach)
+        return self._apply_dynamic_integral(
+            reaction_force,
+            target_temp=limit,
+            current_temp=current_temp,
+            direction=direction,
+            window=window,
+        )
+
+    def _evaluate_eco_dynamic(
+        self,
+        heaters,
+        coolers,
+        current_temp,
+        eco_conf,
+        mode,
+    ):
+        lower_limit = float(eco_conf['lower_limit'])
+        upper_limit = float(eco_conf['upper_limit'])
+        heating = False
+        cooling = False
+
+        if mode == 'heater':
+            if heaters:
+                reaction_force = self._get_eco_reaction_force(
+                    'heat', current_temp, lower_limit
+                )
+                heating = self._engage_devices(heaters, reaction_force)
+            if coolers:
+                self._engage_devices(coolers, 0)
+        elif mode == 'cooler':
+            if coolers:
+                reaction_force = self._get_eco_reaction_force(
+                    'cool', current_temp, upper_limit
+                )
+                cooling = self._engage_devices(coolers, reaction_force)
+            if heaters:
+                self._engage_devices(heaters, 0)
+        else:
+            if heaters:
+                reaction_force = self._get_eco_reaction_force(
+                    'heat', current_temp, lower_limit
+                )
+                heating = self._engage_devices(heaters, reaction_force)
+            if coolers:
+                reaction_force = self._get_eco_reaction_force(
+                    'cool', current_temp, upper_limit
+                )
+                cooling = self._engage_devices(coolers, reaction_force)
+
+        return heating, cooling
 
 
     def _engage_heating(self, heaters, current_temp, low, high):
@@ -571,11 +797,27 @@ class Thermostat(ControllerBase):
           with defaults. Triggers re-evaluation after save.
         """
         self.component.refresh_from_db()
-        self.component.config['user_config'] = validate_new_conf(
-            new_conf,
-            self.component.config['user_config'],
-            self._get_default_user_config()
-        )
+        user_config = self._normalize_user_config(new_conf)
+        self._validate_eco_conf(user_config['eco'])
+        self.component.config['user_config'] = user_config
+        self.component.save()
+        self._evaluate()
+
+    def enable_eco_mode(self):
+        """Enable eco mode using the configured lower/upper limits."""
+        self.component.refresh_from_db()
+        self.component.config['user_config'] = self._normalize_user_config()
+        self._validate_eco_conf(self.component.config['user_config']['eco'])
+        self.component.config['user_config']['eco']['active'] = True
+        self.component.save()
+        self._evaluate()
+
+    def disable_eco_mode(self):
+        """Disable eco mode and reveal the previous preset underneath."""
+        self.component.refresh_from_db()
+        self.component.config['user_config'] = self._normalize_user_config()
+        self._validate_eco_conf(self.component.config['user_config']['eco'])
+        self.component.config['user_config']['eco']['active'] = False
         self.component.save()
         self._evaluate()
 

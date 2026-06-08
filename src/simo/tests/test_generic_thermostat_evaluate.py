@@ -38,9 +38,24 @@ class ThermostatEvaluateTests(BaseSimoTestCase):
         self.tstat.config['user_config'] = {
             'mode': 'auto',
             'use_real_feel': False,
+            'eco': {'active': False, 'lower_limit': 14, 'upper_limit': 30},
             'hard': {'active': True, 'target': target},
             'daily': {'active': False, 'options': {'24h': {'active': True, 'target': target}, 'custom': []}},
             'weekly': {str(i): {'24h': {'active': True, 'target': target}, 'custom': []} for i in range(1, 8)},
+        }
+
+    def _set_user_config_eco(self, *, lower_limit=14, upper_limit=30, mode='auto'):
+        self.tstat.config['user_config'] = {
+            'mode': mode,
+            'use_real_feel': False,
+            'eco': {
+                'active': True,
+                'lower_limit': lower_limit,
+                'upper_limit': upper_limit,
+            },
+            'hard': {'active': True, 'target': 22},
+            'daily': {'active': True, 'options': {'24h': {'active': True, 'target': 21}, 'custom': []}},
+            'weekly': {str(i): {'24h': {'active': True, 'target': 20}, 'custom': []} for i in range(1, 8)},
         }
 
     def test_evaluate_sets_error_when_no_heaters_or_coolers(self):
@@ -299,3 +314,230 @@ class ThermostatEvaluateTests(BaseSimoTestCase):
         pulse.assert_not_called()
         self.tstat.refresh_from_db()
         self.assertFalse(self.tstat.value['heating'])
+
+    def test_evaluate_static_eco_heats_below_lower_limit(self):
+        from simo.generic.controllers import SwitchGroup
+
+        heater = Component.objects.create(
+            name='H',
+            zone=self.zone,
+            category=None,
+            gateway=self.gw,
+            base_type='switch',
+            controller_uid=SwitchGroup.uid,
+            config={},
+            meta={},
+            value=False,
+            alive=True,
+        )
+        sensor = Component.objects.create(
+            name='S',
+            zone=self.zone,
+            category=None,
+            gateway=self.gw,
+            base_type='numeric-sensor',
+            controller_uid='x',
+            config={},
+            meta={},
+            value=13,
+            alive=True,
+        )
+
+        self._set_user_config_eco(mode='auto')
+        self.tstat.config.update(
+            {
+                'temperature_sensor': sensor.id,
+                'heaters': [heater.id],
+                'coolers': [],
+                'engagement': 'static',
+                'min': 4,
+                'max': 36,
+            }
+        )
+        self.tstat.save(update_fields=['config'])
+
+        with mock.patch('simo.core.controllers.Switch.turn_on', autospec=True) as on:
+            self.tstat.controller._evaluate()
+
+        on.assert_called_once()
+        self.tstat.refresh_from_db()
+        self.assertEqual(self.tstat.value['target_temp'], 14)
+        self.assertTrue(self.tstat.value['heating'])
+
+    def test_evaluate_static_eco_cools_above_upper_limit_and_uses_upper_display_target(self):
+        from simo.generic.controllers import SwitchGroup
+
+        cooler = Component.objects.create(
+            name='C',
+            zone=self.zone,
+            category=None,
+            gateway=self.gw,
+            base_type='switch',
+            controller_uid=SwitchGroup.uid,
+            config={},
+            meta={},
+            value=False,
+            alive=True,
+        )
+        sensor = Component.objects.create(
+            name='S',
+            zone=self.zone,
+            category=None,
+            gateway=self.gw,
+            base_type='numeric-sensor',
+            controller_uid='x',
+            config={},
+            meta={},
+            value=31,
+            alive=True,
+        )
+
+        self._set_user_config_eco(mode='auto')
+        self.tstat.config.update(
+            {
+                'temperature_sensor': sensor.id,
+                'heaters': [],
+                'coolers': [cooler.id],
+                'engagement': 'static',
+                'min': 4,
+                'max': 36,
+            }
+        )
+        self.tstat.save(update_fields=['config'])
+
+        with mock.patch('simo.core.controllers.Switch.turn_on', autospec=True) as on:
+            self.tstat.controller._evaluate()
+
+        on.assert_called_once()
+        self.tstat.refresh_from_db()
+        self.assertEqual(self.tstat.value['target_temp'], 30)
+        self.assertTrue(self.tstat.value['cooling'])
+
+    def test_evaluate_static_eco_turns_devices_off_inside_range(self):
+        from simo.generic.controllers import SwitchGroup
+
+        heater = Component.objects.create(
+            name='H',
+            zone=self.zone,
+            category=None,
+            gateway=self.gw,
+            base_type='switch',
+            controller_uid=SwitchGroup.uid,
+            config={},
+            meta={},
+            value=True,
+            alive=True,
+        )
+        cooler = Component.objects.create(
+            name='C',
+            zone=self.zone,
+            category=None,
+            gateway=self.gw,
+            base_type='switch',
+            controller_uid=SwitchGroup.uid,
+            config={},
+            meta={},
+            value=True,
+            alive=True,
+        )
+        sensor = Component.objects.create(
+            name='S',
+            zone=self.zone,
+            category=None,
+            gateway=self.gw,
+            base_type='numeric-sensor',
+            controller_uid='x',
+            config={},
+            meta={},
+            value=20,
+            alive=True,
+        )
+
+        self._set_user_config_eco(mode='auto')
+        self.tstat.config.update(
+            {
+                'temperature_sensor': sensor.id,
+                'heaters': [heater.id],
+                'coolers': [cooler.id],
+                'engagement': 'static',
+                'min': 4,
+                'max': 36,
+            }
+        )
+        self.tstat.save(update_fields=['config'])
+
+        with (
+            mock.patch('simo.core.controllers.Switch.turn_off', autospec=True) as off,
+            mock.patch('simo.core.controllers.Switch.turn_on', autospec=True) as on,
+        ):
+            self.tstat.controller._evaluate()
+
+        self.assertEqual(off.call_count, 2)
+        on.assert_not_called()
+        self.tstat.refresh_from_db()
+        self.assertFalse(self.tstat.value['heating'])
+        self.assertFalse(self.tstat.value['cooling'])
+        self.assertEqual(self.tstat.value['target_temp'], 14)
+
+    def test_evaluate_dynamic_eco_respects_heater_only_mode(self):
+        from simo.generic.controllers import SwitchGroup
+
+        heater = Component.objects.create(
+            name='H',
+            zone=self.zone,
+            category=None,
+            gateway=self.gw,
+            base_type='switch',
+            controller_uid=SwitchGroup.uid,
+            config={},
+            meta={},
+            value=False,
+            alive=True,
+        )
+        cooler = Component.objects.create(
+            name='C',
+            zone=self.zone,
+            category=None,
+            gateway=self.gw,
+            base_type='switch',
+            controller_uid=SwitchGroup.uid,
+            config={},
+            meta={},
+            value=True,
+            alive=True,
+        )
+        sensor = Component.objects.create(
+            name='S',
+            zone=self.zone,
+            category=None,
+            gateway=self.gw,
+            base_type='numeric-sensor',
+            controller_uid='x',
+            config={},
+            meta={},
+            value=12,
+            alive=True,
+        )
+
+        self._set_user_config_eco(mode='heater')
+        self.tstat.config.update(
+            {
+                'temperature_sensor': sensor.id,
+                'heaters': [heater.id],
+                'coolers': [cooler.id],
+                'engagement': 'dynamic',
+            }
+        )
+        self.tstat.save(update_fields=['config'])
+
+        with (
+            mock.patch('simo.core.controllers.Switch.turn_on', autospec=True) as on,
+            mock.patch('simo.core.controllers.Switch.turn_off', autospec=True) as off,
+        ):
+            self.tstat.controller._evaluate()
+
+        on.assert_called_once()
+        off.assert_called_once()
+        self.tstat.refresh_from_db()
+        self.assertTrue(self.tstat.value['heating'])
+        self.assertFalse(self.tstat.value['cooling'])

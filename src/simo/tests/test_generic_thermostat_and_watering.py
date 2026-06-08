@@ -8,6 +8,7 @@ from django.utils import timezone
 from simo.core.controllers import BEFORE_SEND
 from simo.core.models import Component, ComponentHistory, Gateway, Zone
 from simo.core.middleware import introduce_instance
+from simo.core.utils.config_values import ConfigException
 from simo.users.utils import get_system_user
 
 from .base import BaseSimoTestCase, mk_instance
@@ -52,6 +53,8 @@ class ThermostatControllerTests(BaseSimoTestCase):
         cfg_metric = Thermostat(self.comp).default_config
         self.assertEqual(cfg_metric['min'], 4)
         self.assertEqual(cfg_metric['max'], 36)
+        self.assertEqual(cfg_metric['user_config']['eco']['lower_limit'], 14)
+        self.assertEqual(cfg_metric['user_config']['eco']['upper_limit'], 30)
 
         self.inst.units_of_measure = 'imperial'
         self.inst.save(update_fields=['units_of_measure'])
@@ -59,6 +62,8 @@ class ThermostatControllerTests(BaseSimoTestCase):
         cfg_imp = Thermostat(self.comp).default_config
         self.assertEqual(cfg_imp['min'], 40)
         self.assertEqual(cfg_imp['max'], 95)
+        self.assertEqual(cfg_imp['user_config']['eco']['lower_limit'], 57)
+        self.assertEqual(cfg_imp['user_config']['eco']['upper_limit'], 86)
 
     def test_get_target_from_custom_options_uses_localtime(self):
         options = {
@@ -76,6 +81,7 @@ class ThermostatControllerTests(BaseSimoTestCase):
 
     def test_get_current_target_temperature_prefers_hard_hold(self):
         self.comp.config['user_config'] = {
+            'eco': {'active': False, 'lower_limit': 14, 'upper_limit': 30},
             'hard': {'active': True, 'target': 99},
             'daily': {'active': True, 'options': {'24h': {'active': True, 'target': 21}, 'custom': []}},
             'weekly': {'1': {'24h': {'active': True, 'target': 22}, 'custom': []}},
@@ -84,6 +90,61 @@ class ThermostatControllerTests(BaseSimoTestCase):
         self.comp.refresh_from_db()
 
         self.assertEqual(self.comp.controller.get_current_target_temperature(), 99)
+
+    def test_get_current_target_temperature_prefers_eco_over_hard(self):
+        self.comp.config['user_config'] = {
+            'eco': {'active': True, 'lower_limit': 14, 'upper_limit': 30},
+            'hard': {'active': True, 'target': 99},
+            'daily': {'active': True, 'options': {'24h': {'active': True, 'target': 21}, 'custom': []}},
+            'weekly': {'1': {'24h': {'active': True, 'target': 22}, 'custom': []}},
+        }
+        self.comp.save(update_fields=['config'])
+        self.comp.refresh_from_db()
+
+        self.assertEqual(
+            self.comp.controller.get_current_target_temperature(current_temp=13),
+            14,
+        )
+        self.assertEqual(
+            self.comp.controller.get_current_target_temperature(current_temp=24),
+            30,
+        )
+
+    def test_enable_and_disable_eco_mode_preserves_underlying_hold(self):
+        self.comp.config['user_config'] = {
+            'mode': 'auto',
+            'use_real_feel': False,
+            'eco': {'active': False, 'lower_limit': 14, 'upper_limit': 30},
+            'hard': {'active': True, 'target': 23},
+            'daily': {'active': True, 'options': {'24h': {'active': True, 'target': 21}, 'custom': []}},
+            'weekly': {str(i): {'24h': {'active': True, 'target': 22}, 'custom': []} for i in range(1, 8)},
+        }
+        self.comp.save(update_fields=['config'])
+
+        with mock.patch.object(self.comp.controller, '_evaluate', autospec=True):
+            self.comp.controller.enable_eco_mode()
+
+        self.comp.refresh_from_db()
+        self.assertTrue(self.comp.config['user_config']['eco']['active'])
+        self.assertTrue(self.comp.config['user_config']['hard']['active'])
+
+        with mock.patch.object(self.comp.controller, '_evaluate', autospec=True):
+            self.comp.controller.disable_eco_mode()
+
+        self.comp.refresh_from_db()
+        self.assertFalse(self.comp.config['user_config']['eco']['active'])
+        self.assertTrue(self.comp.config['user_config']['hard']['active'])
+
+    def test_update_user_conf_rejects_invalid_eco_limits(self):
+        self.comp.config['user_config'] = self.comp.controller._get_default_user_config()
+        self.comp.config['min'] = 4
+        self.comp.config['max'] = 36
+        self.comp.save(update_fields=['config'])
+
+        with self.assertRaises(ConfigException):
+            self.comp.controller.update_user_conf({
+                'eco': {'active': True, 'lower_limit': 30, 'upper_limit': 14}
+            })
 
     def test_engage_devices_switch_and_dimmer_routing(self):
         dimmer = mock.Mock(base_type='dimmer')
