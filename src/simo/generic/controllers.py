@@ -346,30 +346,49 @@ class Thermostat(ControllerBase):
                     heating = self._engage_heating(
                         heaters, current_temp, low, high
                     )
+                if coolers:
+                    self._engage_devices(coolers, 0)
                 cooling = False
             elif mode == 'cooler':
                 if coolers:
                     cooling = self._engage_cooling(
                         coolers, current_temp, low, high
                     )
+                if heaters:
+                    self._engage_devices(heaters, 0)
                 heating = False
             else:  # auto
+                heaters_evaluated = False
+                coolers_evaluated = False
                 if prefer_heating and heaters:
+                    heaters_evaluated = True
                     heating = self._engage_heating(
                         heaters, current_temp, low, high
                     )
                     if not heating:
+                        coolers_evaluated = True
                         cooling = self._engage_cooling(
                             coolers, current_temp, low, high
                         )
                 else:
+                    coolers_evaluated = True
                     cooling = self._engage_cooling(
                         coolers, current_temp, low, high
                     )
                     if not cooling:
+                        heaters_evaluated = True
                         heating = self._engage_heating(
                             heaters, current_temp, low, high
                         )
+
+                self._finalize_auto_devices(
+                    heaters,
+                    coolers,
+                    heating=heating,
+                    cooling=cooling,
+                    heaters_evaluated=heaters_evaluated,
+                    coolers_evaluated=coolers_evaluated,
+                )
 
         else:
             if mode == 'heater':
@@ -387,6 +406,8 @@ class Thermostat(ControllerBase):
                         window=window,
                     )
                     heating = self._engage_devices(heaters, reaction_force)
+                if coolers:
+                    self._engage_devices(coolers, 0)
                 cooling = False
             elif mode == 'cooler':
                 if coolers:
@@ -403,36 +424,69 @@ class Thermostat(ControllerBase):
                         window=window,
                     )
                     cooling = self._engage_devices(coolers, reaction_force)
+                if heaters:
+                    self._engage_devices(heaters, 0)
                 heating = False
             else:  # auto
+                heaters_evaluated = False
+                coolers_evaluated = False
                 if prefer_heating and heaters:
-                    low = target_temp - 2.5
-                    high = target_temp + 0.5
-                    window = high - low
-                    reach = high - current_temp
-                    reaction_force = self._get_reaction_force(window, reach)
-                    reaction_force = self._apply_dynamic_integral(
-                        reaction_force,
-                        target_temp=target_temp,
-                        current_temp=current_temp,
-                        direction='heat',
-                        window=window,
+                    reaction_force = self._get_dynamic_heating_reaction_force(
+                        current_temp,
+                        target_temp,
                     )
-                    heating = self._engage_devices(heaters, reaction_force)
-                elif coolers and not heating:
-                    low = target_temp - 1
-                    high = target_temp + 2
-                    window = high - low
-                    reach = current_temp - low
-                    reaction_force = self._get_reaction_force(window, reach)
-                    reaction_force = self._apply_dynamic_integral(
-                        reaction_force,
-                        target_temp=target_temp,
-                        current_temp=current_temp,
-                        direction='cool',
-                        window=window,
-                    )
-                    cooling = self._engage_devices(coolers, reaction_force)
+                    if reaction_force > 0:
+                        heaters_evaluated = True
+                        heating = self._engage_devices(heaters, reaction_force)
+                    if not heating and coolers:
+                        reaction_force = (
+                            self._get_dynamic_cooling_reaction_force(
+                                current_temp,
+                                target_temp,
+                            )
+                        )
+                        if reaction_force > 0:
+                            coolers_evaluated = True
+                            cooling = self._engage_devices(
+                                coolers,
+                                reaction_force,
+                            )
+                else:
+                    if coolers:
+                        reaction_force = (
+                            self._get_dynamic_cooling_reaction_force(
+                                current_temp,
+                                target_temp,
+                            )
+                        )
+                        if reaction_force > 0:
+                            coolers_evaluated = True
+                            cooling = self._engage_devices(
+                                coolers,
+                                reaction_force,
+                            )
+                    if not cooling and heaters:
+                        reaction_force = (
+                            self._get_dynamic_heating_reaction_force(
+                                current_temp,
+                                target_temp,
+                            )
+                        )
+                        if reaction_force > 0:
+                            heaters_evaluated = True
+                            heating = self._engage_devices(
+                                heaters,
+                                reaction_force,
+                            )
+
+                self._finalize_auto_devices(
+                    heaters,
+                    coolers,
+                    heating=heating,
+                    cooling=cooling,
+                    heaters_evaluated=heaters_evaluated,
+                    coolers_evaluated=coolers_evaluated,
+                )
 
         self.component.set({
             'mode': mode,
@@ -444,6 +498,64 @@ class Thermostat(ControllerBase):
         self.component.error_msg = None
         self.component.alive = True
         self.component.save()
+
+    def _finalize_auto_devices(
+        self,
+        heaters,
+        coolers,
+        *,
+        heating,
+        cooling,
+        heaters_evaluated,
+        coolers_evaluated,
+    ):
+        if heating:
+            if not coolers_evaluated:
+                self._engage_devices(coolers, 0)
+        elif cooling:
+            if not heaters_evaluated:
+                self._engage_devices(heaters, 0)
+        else:
+            if not heaters_evaluated:
+                self._engage_devices(heaters, 0)
+            if not coolers_evaluated:
+                self._engage_devices(coolers, 0)
+
+    def _get_dynamic_heating_reaction_force(
+        self,
+        current_temp,
+        target_temp,
+    ):
+        low = target_temp - 2.5
+        high = target_temp + 0.5
+        window = high - low
+        reach = high - current_temp
+        reaction_force = self._get_reaction_force(window, reach)
+        return self._apply_dynamic_integral(
+            reaction_force,
+            target_temp=target_temp,
+            current_temp=current_temp,
+            direction='heat',
+            window=window,
+        )
+
+    def _get_dynamic_cooling_reaction_force(
+        self,
+        current_temp,
+        target_temp,
+    ):
+        low = target_temp - 1
+        high = target_temp + 2
+        window = high - low
+        reach = current_temp - low
+        reaction_force = self._get_reaction_force(window, reach)
+        return self._apply_dynamic_integral(
+            reaction_force,
+            target_temp=target_temp,
+            current_temp=current_temp,
+            direction='cool',
+            window=window,
+        )
 
     def _engage_static_eco_heating(self, heaters, current_temp, lower_limit):
         heating = False
