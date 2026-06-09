@@ -476,9 +476,16 @@ class FleetConsumerUnitMoreTests(BaseSimoTestCase):
         payload = {'obj_ct_pk': ct_id, 'obj_pk': comp.id, 'set_val': True}
         msg = SimpleNamespace(payload=json.dumps(payload).encode())
 
-        consumer.on_mqtt_message(None, None, msg)
+        with mock.patch('simo.fleet.socket_consumers.uuid.uuid4') as uuid4:
+            uuid4.return_value.hex = 'abc123'
+            consumer.on_mqtt_message(None, None, msg)
 
-        consumer.send_data.assert_called_once_with({'command': 'set_val', 'id': comp.id, 'val': True})
+        consumer.send_data.assert_called_once_with({
+            'command': 'set_val',
+            'id': comp.id,
+            'val': True,
+            'cmd_id': f'{comp.id}:abc123',
+        })
 
     def test_on_mqtt_message_colonel_update_config_sends_set_config(self):
         from simo.fleet.socket_consumers import FleetConsumer

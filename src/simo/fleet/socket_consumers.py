@@ -7,6 +7,7 @@ import sys
 import zlib
 import time
 import threading
+import uuid
 from logging.handlers import RotatingFileHandler
 from django.utils import timezone
 from django.conf import settings
@@ -435,7 +436,8 @@ class FleetConsumer(AsyncWebsocketConsumer):
                     asyncio.run(self.send_data({
                         'command': 'set_val',
                         'id': obj.id,
-                        'val': payload['set_val']
+                        'val': payload['set_val'],
+                        'cmd_id': f'{obj.id}:{uuid.uuid4().hex}',
                     }))
                 if 'update_options' in payload:
                     asyncio.run(self.send_data({
