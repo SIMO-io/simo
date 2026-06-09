@@ -1,4 +1,5 @@
 from unittest import mock
+import json
 
 from simo.core.models import Component, Gateway, Zone
 
@@ -84,3 +85,77 @@ class AutomationAiAssistantTests(BaseSimoTestCase):
 
         self.assertEqual(out, {'status': 'success', 'result': 'print(1)', 'description': 'desc'})
         post.assert_called_once()
+
+    def test_ai_assistant_payload_exposes_thermostat_controller_methods(self):
+        from simo.generic.controllers import Thermostat
+
+        generic_gw, _ = Gateway.objects.get_or_create(
+            type='simo.generic.gateways.GenericGatewayHandler'
+        )
+        thermostat = Component.objects.create(
+            name='T',
+            zone=self.zone,
+            category=None,
+            gateway=generic_gw,
+            base_type='thermostat',
+            controller_uid=Thermostat.uid,
+            config={
+                'temperature_sensor': 0,
+                'heaters': [],
+                'coolers': [],
+                'engagement': 'dynamic',
+                'min': 4,
+                'max': 36,
+                'has_real_feel': False,
+                'user_config': {},
+            },
+            meta={},
+            value={
+                'current_temp': 21,
+                'target_temp': 22,
+                'heating': False,
+                'cooling': False,
+            },
+            value_units='C',
+        )
+
+        resp = mock.Mock(status_code=200)
+        resp.json.return_value = {'script': 'print(1)', 'description': 'desc'}
+
+        with (
+            mock.patch(
+                'simo.automation.controllers.dynamic_settings',
+                {'core__hub_uid': 'h', 'core__hub_secret': 's'},
+            ),
+            mock.patch(
+                'simo.automation.controllers.get_current_instance',
+                autospec=True,
+                return_value=self.inst,
+            ),
+            mock.patch(
+                'simo.automation.controllers.get_current_user',
+                autospec=True,
+                return_value=None,
+            ),
+            mock.patch(
+                'simo.automation.controllers.requests.post',
+                return_value=resp,
+            ) as post,
+        ):
+            out = self.comp.controller.ai_assistant('wish')
+
+        self.assertEqual(out['status'], 'success')
+        payload = post.call_args.kwargs['json']
+        system_data = json.loads(payload['system_data'])
+        thermostat_payload = next(
+            comp for comp in system_data['component']
+            if comp['id'] == thermostat.id
+        )
+        self.assertIn(
+            'enable_eco_mode',
+            thermostat_payload['controller_methods'],
+        )
+        self.assertIn(
+            'disable_eco_mode',
+            thermostat_payload['controller_methods'],
+        )

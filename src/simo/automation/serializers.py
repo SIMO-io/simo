@@ -27,12 +27,13 @@ class ComponentSerializer(serializers.ModelSerializer):
     value = serializers.SerializerMethodField()
     meta = serializers.SerializerMethodField()
     config = serializers.SerializerMethodField()
+    controller_methods = serializers.SerializerMethodField()
 
     class Meta:
         model = Component
         fields = (
             'id', 'name', 'icon', 'zone', 'category', 'base_type',
-            'value', 'value_units', 'meta', 'config'
+            'value', 'value_units', 'meta', 'config', 'controller_methods'
         )
 
     def get_value(self, obj):
@@ -52,6 +53,12 @@ class ComponentSerializer(serializers.ModelSerializer):
         if len(str(obj.config)) > self.MAX_LENGTH:
             return str(obj.config)[:self.MAX_LENGTH] + "...TRUNCATED!"
         return obj.config
+
+    def get_controller_methods(self, obj):
+        try:
+            return obj.get_controller_methods()
+        except Exception:
+            return []
 
 
 class UserSerializer(serializers.ModelSerializer):
