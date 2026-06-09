@@ -1,0 +1,114 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block extrastyle %}
+  {{ block.super }}
+  <style>
+    .components-export-meta {
+      margin: 0 0 24px;
+      padding: 16px 20px;
+      border: 1px solid #d7d7d7;
+      background: #fff;
+    }
+
+    .components-export-meta p {
+      margin: 0 0 8px;
+      font-size: 14px;
+    }
+
+    .components-export-meta p:last-child {
+      margin-bottom: 0;
+    }
+
+    .components-export-zone {
+      margin-bottom: 24px;
+    }
+
+    .components-export-zone h2 {
+      margin: 0;
+      padding: 10px 14px;
+      color: #fff;
+      background: #2f5470;
+    }
+
+    .components-export-table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #fff;
+    }
+
+    .components-export-table th,
+    .components-export-table td {
+      padding: 10px 12px;
+      border: 1px solid #d7d7d7;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    .components-export-table th {
+      background: #f2f2f2;
+    }
+
+    @media print {
+      #header,
+      .breadcrumbs,
+      #footer {
+        display: none;
+      }
+
+      #content {
+        margin: 0;
+        padding: 0;
+      }
+
+      .components-export-zone {
+        break-inside: avoid;
+      }
+    }
+  </style>
+{% endblock %}
+
+{% block content %}
+  <div id="content-main">
+    <h1>{% translate "Export Components List" %}</h1>
+
+    <div class="components-export-meta">
+      <p>
+        <strong>{% translate "Instance" %}:</strong>
+        {{ current_instance.name|default:"-" }}
+      </p>
+      <p>
+        <strong>{% translate "Total number of components" %}:</strong>
+        {{ total_components }}
+      </p>
+    </div>
+
+    {% for group in grouped_components %}
+      <section class="components-export-zone">
+        <h2>{{ group.zone.name }}</h2>
+        <table class="components-export-table">
+          <thead>
+            <tr>
+              <th>{% translate "ID" %}</th>
+              <th>{% translate "Name" %}</th>
+              <th>{% translate "Type" %}</th>
+              <th>{% translate "Show in App" %}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for component in group.components %}
+              <tr>
+                <td>{{ component.id }}</td>
+                <td>{{ component.name }}</td>
+                <td>{{ component.controller_type }}</td>
+                <td>{{ component.show_in_app|yesno:"Yes,No" }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </section>
+    {% empty %}
+      <p>{% translate "No components found for the current filters." %}</p>
+    {% endfor %}
+  </div>
+{% endblock %}

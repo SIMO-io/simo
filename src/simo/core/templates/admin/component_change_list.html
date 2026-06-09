@@ -42,6 +42,13 @@
     {% block object-tools %}
         <ul class="object-tools">
           {% block object-tools-items %}
+            {% if export_components_url %}
+              <li>
+                <a href="{{ export_components_url }}" target="_blank" rel="noopener">
+                  {% translate "Export Components List" %}
+                </a>
+              </li>
+            {% endif %}
             {% change_list_object_tools %}
           {% endblock %}
         </ul>

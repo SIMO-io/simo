@@ -1,7 +1,8 @@
 import markdown
 from django.utils.translation import gettext_lazy as _
 from django.contrib import admin
-from django.urls import reverse
+from django.core.exceptions import PermissionDenied
+from django.urls import path, reverse
 from django.utils.safestring import mark_safe
 from easy_thumbnails.fields import ThumbnailerField
 from adminsortable2.admin import SortableAdminMixin
@@ -13,7 +14,7 @@ from django.shortcuts import redirect, render
 from simo.users.models import ComponentPermission
 from simo.core.utils.admin import EasyObjectsDeleteMixin
 from .utils.type_constants import (
-    ALL_BASE_TYPES, GATEWAYS_MAP, CONTROLLERS_BY_GATEWAY
+    ALL_BASE_TYPES, GATEWAYS_MAP, CONTROLLERS_BY_GATEWAY, CONTROLLER_TYPES_MAP
 )
 from .models import Instance, Icon, Gateway, Component, Zone, Category
 from .forms import (
@@ -24,6 +25,7 @@ from .forms import (
     BaseComponentForm
 )
 from .filters import ZonesFilter, AvailableChoicesFilter
+from .middleware import get_current_instance
 from .widgets import AdminImageWidget
 from simo.conf import dynamic_settings
 
@@ -280,6 +282,15 @@ class ComponentAdmin(EasyObjectsDeleteMixin, admin.ModelAdmin):
     # for displaying component controller info.
     #change_form_template = 'admin/core/component_change_form.html'
 
+    def get_urls(self):
+        return [
+            path(
+                'export-components-list/',
+                self.admin_site.admin_view(self.export_components_list_view),
+                name='core_component_export_components_list',
+            ),
+        ] + super().get_urls()
+
     def has_change_permission(self, request, obj=None):
         if not obj or not obj.controller or not obj.controller.masters_only:
             return True
@@ -447,7 +458,64 @@ class ComponentAdmin(EasyObjectsDeleteMixin, admin.ModelAdmin):
             request.session.pop('add_comp_type')
         elif request.session.get('add_comp_gateway'):
             request.session.pop('add_comp_gateway')
+        extra_context = extra_context or {}
+        export_url = reverse('admin:core_component_export_components_list')
+        query_params = request.GET.copy()
+        query_params.pop('p', None)
+        query_params.pop('all', None)
+        if query_params:
+            export_url = f'{export_url}?{query_params.urlencode()}'
+        extra_context['export_components_url'] = export_url
         return super().changelist_view(request, extra_context=extra_context)
+
+    def export_components_list_view(self, request):
+        if not self.has_view_permission(request):
+            raise PermissionDenied
+
+        cl = self.get_changelist_instance(request)
+        components = list(
+            cl.queryset.select_related('zone', 'zone__instance', 'gateway')
+            .order_by('zone__order', 'zone__id', 'base_type', 'name', 'id')
+        )
+
+        grouped_components = []
+        current_zone = None
+        current_items = []
+        for component in components:
+            row = {
+                'id': component.id,
+                'name': component.name,
+                'controller_type': self.controller_type_display(component),
+                'show_in_app': component.show_in_app,
+            }
+            if component.zone_id != current_zone:
+                if current_items:
+                    grouped_components.append({
+                        'zone': current_items[0]['zone'],
+                        'components': current_items,
+                    })
+                current_zone = component.zone_id
+                current_items = [{
+                    'zone': component.zone,
+                    **row,
+                }]
+            else:
+                current_items.append(row)
+        if current_items:
+            grouped_components.append({
+                'zone': current_items[0]['zone'],
+                'components': current_items,
+            })
+
+        context = {
+            **self.admin_site.each_context(request),
+            'opts': self.model._meta,
+            'title': _('Export Components List'),
+            'current_instance': get_current_instance(request),
+            'grouped_components': grouped_components,
+            'total_components': len(components),
+        }
+        return render(request, 'admin/components_export.html', context)
 
     def get_form(self, request, obj=None, change=False, **kwargs):
         # For existing objects, return the controller's config form class
@@ -501,6 +569,13 @@ class ComponentAdmin(EasyObjectsDeleteMixin, admin.ModelAdmin):
             }
         )
     name_display.short_description = _("name")
+
+    def controller_type_display(self, obj):
+        controller_cls = CONTROLLER_TYPES_MAP.get(obj.controller_uid)
+        if not controller_cls:
+            return obj.controller_uid
+        return f'{controller_cls.gateway_class.name} | {controller_cls.name}'
+    controller_type_display.short_description = _("type")
 
     def control(self, obj):
         ctx = {'obj': obj, 'global_preferences': dynamic_settings}
