@@ -214,7 +214,7 @@ class FleetConsumerServiceSuspensionTests(BaseSimoTestCase):
             firmware_version='1.0',
             enabled=True,
         )
-        Component.objects.create(
+        component = Component.objects.create(
             name='Fleet',
             zone=zone,
             category=None,
@@ -231,6 +231,7 @@ class FleetConsumerServiceSuspensionTests(BaseSimoTestCase):
             meta={},
             value=False,
         )
+        colonel.components.add(component)
 
         consumer = FleetConsumer()
         consumer.colonel = colonel
@@ -244,6 +245,56 @@ class FleetConsumerServiceSuspensionTests(BaseSimoTestCase):
 
         device = next(iter(config['devices'].values()))
         self.assertEqual(device['options']['controls_enabled'], False)
+
+    def test_get_config_data_reenables_controls_when_service_suspension_is_off(self):
+        from simo.fleet.controllers import Switch
+        from simo.fleet.gateways import FleetGatewayHandler
+        from simo.fleet.models import Colonel, InstanceOptions
+        from simo.fleet.socket_consumers import FleetConsumer
+
+        inst = mk_instance('inst-c', 'C')
+        InstanceOptions.objects.get_or_create(instance=inst)
+        zone = Zone.objects.create(instance=inst, name='Z', order=0)
+        fleet_gw, _ = Gateway.objects.get_or_create(type=FleetGatewayHandler.uid)
+        colonel = Colonel.objects.create(
+            instance=inst,
+            uid='fleet-config-2',
+            type='sentinel',
+            firmware_version='1.0',
+            enabled=True,
+        )
+        component = Component.objects.create(
+            name='Fleet',
+            zone=zone,
+            category=None,
+            gateway=fleet_gw,
+            base_type='switch',
+            controller_uid=Switch.uid,
+            config={
+                'colonel': colonel.id,
+                'inverse': True,
+                'output_pin': 1,
+                'output_pin_no': 1,
+                'controls': [],
+            },
+            meta={'options': {'custom_flag': 'kept'}},
+            value=False,
+        )
+        colonel.components.add(component)
+
+        consumer = FleetConsumer()
+        consumer.colonel = colonel
+        consumer.instance = inst
+
+        with mock.patch(
+            'simo.core.service_suspension.dynamic_settings',
+            {'core__service_suspended': False, 'core__hub_uid': 'hub-1'},
+        ):
+            config = async_to_sync(consumer.get_config_data)()
+
+        device = next(iter(config['devices'].values()))
+        self.assertEqual(device['options']['controls_enabled'], True)
+        self.assertEqual(device['options']['custom_flag'], 'kept')
 
 
 class ComponentHistoryAggregationTests(BaseSimoTestCase):

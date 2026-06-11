@@ -324,6 +324,13 @@ class FleetConsumer(AsyncWebsocketConsumer):
             get_components, thread_sensitive=True
         )(self.colonel)
 
+        service_suspended = is_service_suspended()
+
+        def get_comp_options(comp):
+            options = dict((comp.meta or {}).get('options') or {})
+            options['controls_enabled'] = not service_suspended
+            return options
+
         def get_comp_config(comp):
             try:
                 comp_config = {
@@ -341,12 +348,7 @@ class FleetConsumer(AsyncWebsocketConsumer):
                 ]
                 if slaves:
                     comp_config['slaves'] = slaves
-                if comp.meta.get('options'):
-                    comp_config['options'] = comp.meta['options']
-                if is_service_suspended():
-                    options = dict(comp_config.get('options') or {})
-                    options['controls_enabled'] = False
-                    comp_config['options'] = options
+                comp_config['options'] = get_comp_options(comp)
 
                 config_data['devices'][str(comp.id)] = comp_config
             except:
@@ -370,12 +372,7 @@ class FleetConsumer(AsyncWebsocketConsumer):
             ]
             if slaves:
                 comp_config['slaves'] = slaves
-            if component.meta.get('options'):
-                comp_config['options'] = component.meta['options']
-            if is_service_suspended():
-                options = dict(comp_config.get('options') or {})
-                options['controls_enabled'] = False
-                comp_config['options'] = options
+            comp_config['options'] = get_comp_options(component)
 
             config_data['devices'][str(component.id)] = comp_config
 
