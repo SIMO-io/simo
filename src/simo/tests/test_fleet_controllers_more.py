@@ -304,6 +304,10 @@ class FleetControllersMoreTests(BaseSimoTestCase):
         self.assertEqual(form.fields['range'].initial, 3.0)
         self.assertEqual(form.fields['range'].min_value, 1.0)
         self.assertEqual(form.fields['range'].max_value, 10.0)
+        self.assertIn('mounting_height', form.fields)
+        self.assertEqual(form.fields['mounting_height'].initial, 3.2)
+        self.assertEqual(form.fields['mounting_height'].min_value, 1.0)
+        self.assertEqual(form.fields['mounting_height'].max_value, 3.2)
 
     def test_room_presence_sensor_config_form_pushes_live_update_config(self):
         from simo.core.events import GatewayObjectCommand
@@ -313,25 +317,35 @@ class FleetControllersMoreTests(BaseSimoTestCase):
         comp = self._mk_component(
             controller_uid=RoomPresenceSensor.uid,
             base_type='binary-sensor',
-            config={'colonel': self.colonel.id, 'sens': 10, 'range': 3.0},
+            config={
+                'colonel': self.colonel.id,
+                'sens': 10,
+                'range': 3.0,
+                'mounting_height': 3.2,
+            },
             value=False,
         )
 
         GatewayObjectCommand.publish.reset_mock()
         form = RoomPresenceSensorConfigForm(
             instance=comp,
-            data={'sens': '14', 'range': '5.3'},
+            data={'sens': '14', 'range': '5.3', 'mounting_height': '2.7'},
         )
         self.assertTrue(form.is_valid(), form.errors)
         obj = form.save()
 
         self.assertEqual(obj.config.get('sens'), 14)
         self.assertEqual(obj.config.get('range'), 5.3)
+        self.assertEqual(obj.config.get('mounting_height'), 2.7)
         GatewayObjectCommand.publish.assert_called_once()
         cmd_obj = GatewayObjectCommand.publish.call_args.args[0]
         self.assertEqual(cmd_obj.data.get('command'), 'call')
         self.assertEqual(cmd_obj.data.get('method'), 'update_config')
         self.assertEqual(cmd_obj.data.get('id'), comp.id)
+        self.assertEqual(
+            cmd_obj.data.get('args'),
+            [{'sens': 14, 'range': 5.3, 'mounting_height': 2.7}],
+        )
 
     def test_room_presence_sensor_config_form_does_not_trigger_full_colonel_update(self):
         from simo.fleet.controllers import RoomPresenceSensor
@@ -340,13 +354,18 @@ class FleetControllersMoreTests(BaseSimoTestCase):
         comp = self._mk_component(
             controller_uid=RoomPresenceSensor.uid,
             base_type='binary-sensor',
-            config={'colonel': self.colonel.id, 'sens': 10, 'range': 3.0},
+            config={
+                'colonel': self.colonel.id,
+                'sens': 10,
+                'range': 3.0,
+                'mounting_height': 3.2,
+            },
             value=False,
         )
 
         form = RoomPresenceSensorConfigForm(
             instance=comp,
-            data={'sens': '12', 'range': '6.5'},
+            data={'sens': '12', 'range': '6.5', 'mounting_height': '2.9'},
         )
         self.assertTrue(form.is_valid(), form.errors)
 

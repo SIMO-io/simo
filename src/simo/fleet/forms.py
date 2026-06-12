@@ -2024,6 +2024,13 @@ class RoomPresenceSensorConfigForm(BaseComponentForm):
         initial=3.0,
         help_text="Presence detection range in meters."
     )
+    mounting_height = forms.FloatField(
+        label="Mounting height",
+        min_value=1.0,
+        max_value=3.2,
+        initial=3.2,
+        help_text="Sentinel mounting height in meters. Accepted values: 1.0-3.2."
+    )
 
     def save(self, commit=True):
         is_new = not self.instance.pk

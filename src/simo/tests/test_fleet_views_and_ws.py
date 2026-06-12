@@ -117,6 +117,7 @@ class FleetViewsTests(BaseSimoTestCase):
             controller_uid='simo.fleet.controllers.RoomPresenceSensor',
         )
         self.assertEqual(presence_sensor.config.get('sens'), 10)
+        self.assertEqual(presence_sensor.config.get('mounting_height'), 3.2)
 
         alarm_group.refresh_from_db()
         self.assertIn(presence_sensor.id, alarm_group.config.get('components', []))

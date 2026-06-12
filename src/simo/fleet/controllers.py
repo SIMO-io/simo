@@ -1149,7 +1149,7 @@ class RoomPresenceSensor(FleetDeviceMixin, BaseBinarySensor):
     admin_widget_template = 'fleet/admin/controller_widgets/room_presence_sensor.html'
     name = "Human presence sensor"
     manual_add = False
-    default_config = {'sens': 10, 'range': 3.0}
+    default_config = {'sens': 10, 'range': 3.0, 'mounting_height': 3.2}
 
     def recalibrate(self):
         user = get_current_user()
