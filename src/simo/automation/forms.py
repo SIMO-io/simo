@@ -53,7 +53,7 @@ class ScriptConfigForm(AutomationComponentForm):
         help_text="Restart the script if it fails. "
     )
     assistant_request = forms.CharField(
-        label="Request for AI assistant", required=False, max_length=1000,
+        label="Request for AI assistant", required=False, max_length=3000,
         widget=forms.Textarea(
             attrs={'placeholder':
                     "Close the blind and turn on the main light "
