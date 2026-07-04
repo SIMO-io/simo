@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+import tempfile
 from types import SimpleNamespace
 from unittest import mock
 
@@ -105,6 +107,7 @@ class TestOnHttpStartCommand(SimpleTestCase):
 
         cmd = on_http_start.Command()
         with (
+            mock.patch.object(on_http_start, 'ensure_timesyncd_config', autospec=True),
             mock.patch.object(on_http_start, 'prepare_mosquitto', autospec=True),
             mock.patch.object(on_http_start, 'update_auto_update', autospec=True),
             mock.patch('simo.core.tasks.maybe_update_to_latest.delay', autospec=True),
@@ -122,3 +125,66 @@ class TestOnHttpStartCommand(SimpleTestCase):
 
         get_or_create.assert_called_once()
         gw_obj.start.assert_called_once()
+
+    def test_ensure_timesyncd_config_creates_file_and_restarts_when_missing(self):
+        from simo.core.management.commands import on_http_start
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = os.path.join(tmpdir, 'ntp.conf')
+
+            with (
+                mock.patch.object(on_http_start, 'TIMESYNCD_DROPIN_DIR', tmpdir),
+                mock.patch.object(on_http_start, 'TIMESYNCD_DROPIN_PATH', config_path),
+                mock.patch('simo.core.management.commands.on_http_start.os.geteuid', return_value=0),
+                mock.patch('simo.core.management.commands.on_http_start.subprocess.run', autospec=True) as run,
+            ):
+                changed = on_http_start.ensure_timesyncd_config()
+
+            self.assertTrue(changed)
+            with open(config_path, 'r') as f:
+                self.assertEqual(f.read(), on_http_start.TIMESYNCD_DROPIN_CONTENT)
+            run.assert_called_once_with(
+                ['/usr/bin/systemctl', 'restart', 'systemd-timesyncd.service']
+            )
+
+    def test_ensure_timesyncd_config_skips_restart_when_config_matches(self):
+        from simo.core.management.commands import on_http_start
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = os.path.join(tmpdir, 'ntp.conf')
+            with open(config_path, 'w') as f:
+                f.write(on_http_start.TIMESYNCD_DROPIN_CONTENT)
+
+            with (
+                mock.patch.object(on_http_start, 'TIMESYNCD_DROPIN_DIR', tmpdir),
+                mock.patch.object(on_http_start, 'TIMESYNCD_DROPIN_PATH', config_path),
+                mock.patch('simo.core.management.commands.on_http_start.os.geteuid', return_value=0),
+                mock.patch('simo.core.management.commands.on_http_start.subprocess.run', autospec=True) as run,
+            ):
+                changed = on_http_start.ensure_timesyncd_config()
+
+            self.assertFalse(changed)
+            run.assert_not_called()
+
+    def test_ensure_timesyncd_config_rewrites_drifted_config(self):
+        from simo.core.management.commands import on_http_start
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = os.path.join(tmpdir, 'ntp.conf')
+            with open(config_path, 'w') as f:
+                f.write('[Time]\nNTP=bad.example.com\n')
+
+            with (
+                mock.patch.object(on_http_start, 'TIMESYNCD_DROPIN_DIR', tmpdir),
+                mock.patch.object(on_http_start, 'TIMESYNCD_DROPIN_PATH', config_path),
+                mock.patch('simo.core.management.commands.on_http_start.os.geteuid', return_value=0),
+                mock.patch('simo.core.management.commands.on_http_start.subprocess.run', autospec=True) as run,
+            ):
+                changed = on_http_start.ensure_timesyncd_config()
+
+            self.assertTrue(changed)
+            with open(config_path, 'r') as f:
+                self.assertEqual(f.read(), on_http_start.TIMESYNCD_DROPIN_CONTENT)
+            run.assert_called_once_with(
+                ['/usr/bin/systemctl', 'restart', 'systemd-timesyncd.service']
+            )

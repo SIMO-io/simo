@@ -12,6 +12,41 @@ from django.conf import settings
 from django.template.loader import render_to_string
 from django.db import transaction
 
+TIMESYNCD_DROPIN_DIR = '/etc/systemd/timesyncd.conf.d'
+TIMESYNCD_DROPIN_PATH = os.path.join(TIMESYNCD_DROPIN_DIR, 'ntp.conf')
+TIMESYNCD_DROPIN_CONTENT = (
+    '[Time]\n'
+    'NTP=time.cloudflare.com time.google.com\n'
+    'FallbackNTP=pool.ntp.org\n'
+)
+
+
+def ensure_timesyncd_config():
+    if os.geteuid() != 0:
+        return False
+
+    try:
+        os.makedirs(TIMESYNCD_DROPIN_DIR, exist_ok=True)
+
+        current_content = ''
+        if os.path.exists(TIMESYNCD_DROPIN_PATH):
+            with open(TIMESYNCD_DROPIN_PATH, 'r') as f:
+                current_content = f.read()
+
+        if current_content == TIMESYNCD_DROPIN_CONTENT:
+            return False
+
+        with open(TIMESYNCD_DROPIN_PATH, 'w') as f:
+            f.write(TIMESYNCD_DROPIN_CONTENT)
+
+        subprocess.run(
+            ['/usr/bin/systemctl', 'restart', 'systemd-timesyncd.service']
+        )
+        return True
+    except Exception:
+        print(traceback.format_exc(), file=sys.stderr)
+        return False
+
 
 def prepare_mosquitto():
     if os.geteuid() != 0:
@@ -81,6 +116,7 @@ def update_auto_update():
 class Command(BaseCommand):
 
     def handle(self, *args, **options):
+        ensure_timesyncd_config()
         prepare_mosquitto()
         from simo.core.tasks import maybe_update_to_latest
         maybe_update_to_latest.delay()

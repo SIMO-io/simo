@@ -88,6 +88,7 @@ class OnHttpStartCommandTests(BaseSimoTestCase):
             config_form = F
 
         with (
+            mock.patch('simo.core.management.commands.on_http_start.ensure_timesyncd_config', autospec=True),
             mock.patch('simo.core.management.commands.on_http_start.prepare_mosquitto', autospec=True),
             mock.patch('simo.core.management.commands.on_http_start.update_auto_update', autospec=True),
             mock.patch('simo.core.tasks.maybe_update_to_latest.delay', autospec=True),
@@ -116,6 +117,7 @@ class OnHttpStartCommandTests(BaseSimoTestCase):
 
         Gateway.objects.filter(type='x.H2').delete()
         with (
+            mock.patch('simo.core.management.commands.on_http_start.ensure_timesyncd_config', autospec=True),
             mock.patch('simo.core.management.commands.on_http_start.prepare_mosquitto', autospec=True),
             mock.patch('simo.core.management.commands.on_http_start.update_auto_update', autospec=True),
             mock.patch('simo.core.tasks.maybe_update_to_latest.delay', autospec=True),
