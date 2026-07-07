@@ -11,7 +11,7 @@ import os
 from django.contrib.contenttypes.models import ContentType
 from django.conf import settings
 import paho.mqtt.client as mqtt
-from django.db import close_old_connections, connection as db_connection
+from django.db import close_old_connections, connection as db_connection, transaction
 from django.db.utils import (
     InterfaceError as DjangoInterfaceError,
     OperationalError as DjangoOperationalError,
@@ -138,6 +138,17 @@ class GatewayObjectCommand(ObjMqttAnnouncement):
 
     def get_topic(self):
         return f'{self.TOPIC}/{self.gateway.id}'
+
+    def publish(self, retain=False):
+        using = getattr(getattr(self.gateway, '_state', None), 'db', None) or 'default'
+        connection = transaction.get_connection(using=using)
+        if connection.in_atomic_block:
+            transaction.on_commit(
+                lambda: super(GatewayObjectCommand, self).publish(retain=retain),
+                using=using,
+            )
+            return
+        return super().publish(retain=retain)
 
 
 def get_event_obj(payload, model_class=None, gateway=None):

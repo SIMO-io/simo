@@ -11,7 +11,9 @@ from django.utils import timezone
 from django.template.loader import render_to_string
 from django.utils.translation import gettext_lazy as _
 from django.db import transaction, connections, router
-from simo.users.utils import introduce_user, get_current_user, get_device_user
+from simo.users.utils import (
+    introduce_user, get_current_user, get_device_user, touch_last_action
+)
 from .utils.helpers import is_hex_color, classproperty
 # from django.utils.functional import classproperty
 from .gateways import BaseGatewayHandler
@@ -438,8 +440,7 @@ class ControllerBase(ABC, metaclass=ControllerMeta):
                     instance_id=self.component.zone.instance.id,
                     action_type='comp_value', value=value
                 )
-                actor.last_action = timezone.now()
-                actor.save()
+                touch_last_action(actor)
             elif value_changed:
                 self.component.value_previous = self.component.value
 

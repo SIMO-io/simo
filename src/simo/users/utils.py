@@ -60,6 +60,15 @@ def get_script_user():
     return user
 
 
+def touch_last_action(user, when=None):
+    if not getattr(user, 'pk', None):
+        return
+    when = when or timezone.now()
+    from .models import User
+    User.objects.filter(pk=user.pk).update(last_action=when)
+    user.last_action = when
+
+
 def rebuild_authorized_keys():
     from .models import User
     try:

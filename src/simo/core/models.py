@@ -311,12 +311,13 @@ class Gateway(DirtyFieldsMixin, models.Model, SimoAdminMixin):
         self.discovery['token'] = get_random_string(12)
         self.discovery['last_check'] = time.time()
         self.discovery['result'] = []
+        self.discovery.pop('finishing', None)
         self.discovery.pop('finished', None)
         self.save(update_fields=['discovery'])
 
     def process_discovery(self, data):
         self.refresh_from_db()
-        if self.discovery.get('finished'):
+        if self.discovery.get('finished') or self.discovery.get('finishing'):
             print(
                 f"Gateway is not in pairing mode at the moment!"
             )
@@ -345,11 +346,66 @@ class Gateway(DirtyFieldsMixin, models.Model, SimoAdminMixin):
         self.save(update_fields=['discovery'])
 
 
-    def finish_discovery(self):
-        self.discovery['finished'] = time.time()
+    def _claim_discovery_finish(self):
+        self.refresh_from_db(fields=['discovery'])
+        discovery = dict(self.discovery or {})
+        if discovery.get('finished') or discovery.get('finishing'):
+            self.discovery = discovery
+            return
+
+        token = get_random_string(12)
+        claimed_discovery = dict(discovery)
+        claimed_discovery['finishing'] = {
+            'token': token,
+            'started': time.time(),
+        }
+        claimed = self.__class__.objects.filter(
+            pk=self.pk,
+            discovery=discovery,
+        ).exclude(
+            discovery__has_key='finished'
+        ).exclude(
+            discovery__has_key='finishing'
+        ).update(discovery=claimed_discovery)
+        if not claimed:
+            self.refresh_from_db(fields=['discovery'])
+            return
+
+        self.discovery = claimed_discovery
+        return token
+
+    def _clear_discovery_finish_claim(self, token):
+        self.refresh_from_db(fields=['discovery'])
+        discovery = dict(self.discovery or {})
+        finishing = discovery.get('finishing') or {}
+        if discovery.get('finished') or finishing.get('token') != token:
+            return
+        discovery.pop('finishing', None)
+        self.discovery = discovery
         self.save(update_fields=['discovery'])
-        self._run_discovery_hook('_cancel_discovery')
-        result = self._run_discovery_hook('_finish_discovery')
+
+    def finish_discovery(self):
+        token = self._claim_discovery_finish()
+        if not token:
+            return
+
+        try:
+            self._run_discovery_hook('_cancel_discovery')
+            result = self._run_discovery_hook('_finish_discovery')
+        except Exception:
+            self._clear_discovery_finish_claim(token)
+            raise
+
+        self.refresh_from_db(fields=['discovery'])
+        discovery = dict(self.discovery or {})
+        finishing = discovery.get('finishing') or {}
+        if discovery.get('finished') or finishing.get('token') != token:
+            self.discovery = discovery
+            return
+
+        discovery.pop('finishing', None)
+        discovery['finished'] = time.time()
+        self.discovery = discovery
         if result is not None:
             self.append_discovery_result(result)
         self.save(update_fields=['discovery'])
@@ -611,8 +667,8 @@ class Component(DirtyFieldsMixin, models.Model, SimoAdminMixin, OnChangeMixin):
                     action_type='security', value=self.value
                 )
                 action_performed = True
-                actor.last_action = timezone.now()
-                actor.save()
+                from simo.users.utils import touch_last_action
+                touch_last_action(actor)
 
             changing_fields = ['value', 'arm_status', 'battery_level', 'alive', 'meta']
             if any(f in dirty_fields_initial for f in changing_fields):

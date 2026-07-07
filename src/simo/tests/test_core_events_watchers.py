@@ -2,12 +2,50 @@ import json
 from unittest import mock
 
 from django.contrib.contenttypes.models import ContentType
+from django.db import transaction
+from django.test import TransactionTestCase
 from django.utils import timezone
 
-from simo.core.events import ObjectChangeEvent
+from simo.core.events import GatewayObjectCommand, ObjectChangeEvent
 from simo.core.models import Component, Gateway, Zone
 
 from .base import BaseSimoTestCase, mk_instance
+
+
+class GatewayObjectCommandPublishTests(TransactionTestCase):
+    def test_publish_outside_transaction_publishes_immediately(self):
+        gw = Gateway.objects.create(type='simo.generic.gateways.GenericGatewayHandler')
+        hub = mock.Mock()
+
+        with mock.patch('simo.core.events.get_mqtt_hub', autospec=True, return_value=hub):
+            GatewayObjectCommand(gw, command='ping').publish()
+
+        hub.publish.assert_called_once()
+
+    def test_publish_inside_transaction_waits_until_commit(self):
+        gw = Gateway.objects.create(type='simo.generic.gateways.GenericGatewayHandler')
+        hub = mock.Mock()
+
+        with mock.patch('simo.core.events.get_mqtt_hub', autospec=True, return_value=hub):
+            with transaction.atomic():
+                GatewayObjectCommand(gw, command='ping').publish()
+                hub.publish.assert_not_called()
+
+        hub.publish.assert_called_once()
+
+    def test_publish_inside_rolled_back_transaction_does_not_publish(self):
+        gw = Gateway.objects.create(type='simo.generic.gateways.GenericGatewayHandler')
+        hub = mock.Mock()
+
+        with mock.patch('simo.core.events.get_mqtt_hub', autospec=True, return_value=hub):
+            try:
+                with transaction.atomic():
+                    GatewayObjectCommand(gw, command='ping').publish()
+                    raise RuntimeError()
+            except RuntimeError:
+                pass
+
+        hub.publish.assert_not_called()
 
 
 class EventsAndWatchersTests(BaseSimoTestCase):

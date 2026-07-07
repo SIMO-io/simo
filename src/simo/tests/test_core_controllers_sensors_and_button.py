@@ -184,6 +184,22 @@ class ButtonControllerTests(BaseSimoTestCase):
         self.assertEqual(last_event.value, 'down')
         self.assertEqual(last_event.user, user2)
 
+    def test_tracking_last_action_does_not_call_user_save(self):
+        role = mk_role(self.inst)
+        user = mk_user('last-action@example.com', 'Last Action')
+        mk_instance_user(user, self.inst, role)
+        original_last_action = user.last_action
+
+        self.button.track_history = True
+        self.button.save(update_fields=['track_history'])
+
+        with mock.patch('simo.users.models.User.save', autospec=True) as save:
+            self.Button(self.button).set('down', actor=user)
+
+        save.assert_not_called()
+        user.refresh_from_db()
+        self.assertGreater(user.last_action, original_last_action)
+
 
 class OnOffPokerMixinTests(BaseSimoTestCase):
     def setUp(self):

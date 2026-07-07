@@ -455,6 +455,119 @@ class DiscoveryHooksTests(BaseSimoTestCase):
         self.assertEqual(calls, [('cancel', {'a': 1}), ('finish', {'a': 1})])
         self.assertEqual(gw.discovery['result'], [])
         self.assertIn('finished', gw.discovery)
+        self.assertNotIn('finishing', gw.discovery)
+
+    def test_finish_discovery_skips_already_finished_or_finishing(self):
+        calls = []
+
+        class DummyController:
+            @classmethod
+            def _cancel_discovery(cls, started_with):
+                calls.append(('cancel', started_with))
+
+            @classmethod
+            def _finish_discovery(cls, started_with):
+                calls.append(('finish', started_with))
+
+        finished = Gateway.objects.create(
+            type='simo.generic.gateways.GenericGatewayHandler',
+            discovery={
+                'start': 1,
+                'timeout': 60,
+                'controller_uid': 'x',
+                'init_data': {'a': 1},
+                'result': [],
+                'finished': 2,
+            },
+        )
+        finishing = Gateway.objects.create(
+            type='simo.generic.gateways.GenericGatewayHandler',
+            discovery={
+                'start': 1,
+                'timeout': 60,
+                'controller_uid': 'x',
+                'init_data': {'b': 2},
+                'result': [],
+                'finishing': {'token': 'other', 'started': 2},
+            },
+        )
+
+        with mock.patch.dict(
+            'simo.core.utils.type_constants.CONTROLLER_TYPES_MAP',
+            {'x': DummyController},
+            clear=False,
+        ):
+            finished.finish_discovery()
+            finishing.finish_discovery()
+
+        self.assertEqual(calls, [])
+
+    def test_finish_discovery_is_reentrant_safe(self):
+        calls = []
+        gw = Gateway.objects.create(
+            type='simo.generic.gateways.GenericGatewayHandler',
+            discovery={
+                'start': 1,
+                'timeout': 60,
+                'controller_uid': 'x',
+                'init_data': {'a': 1},
+                'result': [],
+            },
+        )
+        duplicate = Gateway.objects.get(pk=gw.pk)
+
+        class DummyController:
+            @classmethod
+            def _cancel_discovery(cls, started_with):
+                calls.append(('cancel', started_with))
+
+            @classmethod
+            def _finish_discovery(cls, started_with):
+                calls.append(('finish', started_with))
+                duplicate.finish_discovery()
+                return {'ok': True}
+
+        with mock.patch.dict(
+            'simo.core.utils.type_constants.CONTROLLER_TYPES_MAP',
+            {'x': DummyController},
+            clear=False,
+        ):
+            gw.finish_discovery()
+
+        gw.refresh_from_db()
+        self.assertEqual(calls, [('cancel', {'a': 1}), ('finish', {'a': 1})])
+        self.assertEqual(gw.discovery['result'], [{'ok': True}])
+        self.assertIn('finished', gw.discovery)
+        self.assertNotIn('finishing', gw.discovery)
+
+    def test_finish_discovery_exception_clears_finish_claim(self):
+        class DummyController:
+            @classmethod
+            def _finish_discovery(cls, started_with):
+                raise RuntimeError('boom')
+
+        gw = Gateway.objects.create(
+            type='simo.generic.gateways.GenericGatewayHandler',
+            discovery={
+                'start': 1,
+                'timeout': 60,
+                'controller_uid': 'x',
+                'init_data': {'a': 1},
+                'result': [],
+            },
+        )
+
+        with mock.patch.dict(
+            'simo.core.utils.type_constants.CONTROLLER_TYPES_MAP',
+            {'x': DummyController},
+            clear=False,
+        ):
+            with self.assertRaises(RuntimeError):
+                gw.finish_discovery()
+
+        gw.refresh_from_db()
+        self.assertNotIn('finishing', gw.discovery)
+        self.assertNotIn('finished', gw.discovery)
 
     def test_retry_discovery_calls_cancel_hook(self):
         calls = []
@@ -495,4 +608,5 @@ class DiscoveryHooksTests(BaseSimoTestCase):
         self.assertEqual(gw.discovery['token'], 'new-token')
         self.assertEqual(gw.discovery['last_check'], 42)
         self.assertEqual(gw.discovery['result'], [])
+        self.assertNotIn('finishing', gw.discovery)
         self.assertNotIn('finished', gw.discovery)
