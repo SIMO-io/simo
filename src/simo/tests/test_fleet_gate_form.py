@@ -1,11 +1,13 @@
+from types import SimpleNamespace
+
 from simo.core.models import Component, Gateway, Zone
 from simo.core.middleware import introduce_instance
-from simo.fleet.controllers import Gate
-from simo.fleet.forms import GateConfigForm
+from simo.fleet.controllers import Blinds, Gate
+from simo.fleet.forms import BlindsConfigForm, GateConfigForm
 from simo.fleet.gateways import FleetGatewayHandler
 from simo.fleet.models import Colonel
 
-from .base import BaseSimoTestCase, mk_instance
+from .base import BaseSimoTestCase, mk_instance, mk_instance_user, mk_role, mk_user
 
 
 class GateConfigFormTests(BaseSimoTestCase):
@@ -40,6 +42,7 @@ class GateConfigFormTests(BaseSimoTestCase):
             'open_action': 'HIGH',
             'close_action': 'HIGH',
             'control_method': 'pulse',
+            'control_layout': 'directional',
             'closed_value': 'LOW',
             'open_duration': '30',
             'auto_open_distance': '',
@@ -121,6 +124,48 @@ class GateConfigFormTests(BaseSimoTestCase):
             pin.refresh_from_db()
             self.assertEqual(pin.occupied_by_id, component.id)
 
+    def test_save_persists_parallel_control_layout(self):
+        form = GateConfigForm(
+            controller_uid=Gate.uid,
+            data=self._data(control_layout='parallel'),
+        )
+
+        self.assertTrue(form.is_valid(), form.errors)
+        component = form.save()
+
+        self.assertEqual(component.config['control_layout'], 'parallel')
+
+    def test_regular_user_can_edit_auto_open_distance_only(self):
+        user = mk_user('regular@simo.io', 'Regular User')
+        role = mk_role(self.inst, is_superuser=False)
+        mk_instance_user(user, self.inst, role)
+        component = Component.objects.create(
+            name='Gate 1',
+            zone=self.zone,
+            category=None,
+            gateway=self.fleet_gw,
+            base_type='gate',
+            controller_uid=Gate.uid,
+            config={
+                'colonel': self.colonel.id,
+                'auto_open_distance': '100 m',
+            },
+            meta={},
+            value='closed',
+        )
+        request = SimpleNamespace(user=user, path='/', build_absolute_uri=lambda p: p)
+
+        from simo.core.serializers import ComponentSerializer
+
+        serializer = ComponentSerializer(
+            instance=component,
+            context={'request': request, 'instance': self.inst},
+        )
+        form = serializer.get_form(instance=component)
+
+        self.assertIn('auto_open_distance', form.fields)
+        self.assertNotIn('open_pin', form.fields)
+
     def test_edit_form_save_repairs_missing_gate_pin_occupancy(self):
         form = GateConfigForm(
             controller_uid=Gate.uid,
@@ -149,3 +194,41 @@ class GateConfigFormTests(BaseSimoTestCase):
 
         self.open_pin.refresh_from_db()
         self.assertEqual(self.open_pin.occupied_by_id, component.id)
+
+
+class BlindsConfigFormTests(BaseSimoTestCase):
+    def setUp(self):
+        super().setUp()
+        self.inst = mk_instance('inst-a', 'A')
+        self.zone = Zone.objects.create(instance=self.inst, name='Z', order=0)
+        Gateway.objects.get_or_create(type=FleetGatewayHandler.uid)
+        self.colonel = Colonel.objects.create(
+            instance=self.inst, uid='c-2', type='sentinel', name='C2'
+        )
+        output_pins = list(self.colonel.pins.filter(output=True)[:2])
+        self.open_pin, self.close_pin = output_pins
+
+    def test_save_persists_parallel_control_layout(self):
+        form = BlindsConfigForm(
+            controller_uid=Blinds.uid,
+            data={
+                'name': 'Blind 1',
+                'zone': self.zone.id,
+                'colonel': self.colonel.id,
+                'open_pin': self.open_pin.id,
+                'open_action': 'HIGH',
+                'close_pin': self.close_pin.id,
+                'close_action': 'HIGH',
+                'open_direction': 'up',
+                'open_duration': '30',
+                'close_duration': '30',
+                'control_type': 'hold',
+                'control_mode': 'click',
+                'control_layout': 'parallel',
+            },
+        )
+
+        self.assertTrue(form.is_valid(), form.errors)
+        component = form.save()
+
+        self.assertEqual(component.config['control_layout'], 'parallel')

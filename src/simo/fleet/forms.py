@@ -1177,6 +1177,18 @@ class BlindsConfigForm(ColonelComponentForm):
             ('click', "Click"), ('hold', "Hold"), ('slide', "Slide")
         ),
     )
+    control_layout = forms.ChoiceField(
+        label="Physical control layout",
+        required=True,
+        initial='directional',
+        choices=(
+            ('directional', "Directional"),
+            ('parallel', "Parallel single-button"),
+        ),
+        help_text="Directional: the first control opens and the second closes. "
+                  "Parallel single-button: either control toggles the blinds "
+                  "and stops them while moving.",
+    )
     controls = FormsetField(
         formset_factory(
             ControlForm, can_delete=True, can_order=True, extra=0, max_num=2
@@ -1259,6 +1271,8 @@ class BlindsConfigForm(ColonelComponentForm):
 
 
 class GateConfigForm(ColonelComponentForm):
+    basic_fields = [*BaseComponentForm.basic_fields, 'auto_open_distance']
+
     open_pin = Select2ModelChoiceField(
         label="Open Relay Port",
         queryset=ColonelPin.objects.filter(output=True),
@@ -1312,6 +1326,19 @@ class GateConfigForm(ColonelComponentForm):
         initial=30, min_value=1, max_value=600,
         help_text="How much time in seconds does it take for your gate "
                   "to go from fully closed to fully open?"
+    )
+
+    control_layout = forms.ChoiceField(
+        label="Physical control layout",
+        required=True,
+        initial='directional',
+        choices=(
+            ('directional', "Directional"),
+            ('parallel', "Parallel single-button"),
+        ),
+        help_text="Directional: the first control opens and the second closes. "
+                  "Parallel single-button: either control toggles the gate "
+                  "and stops it while moving.",
     )
 
     controls = FormsetField(
