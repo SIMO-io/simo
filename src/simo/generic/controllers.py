@@ -346,16 +346,12 @@ class Thermostat(ControllerBase):
                     heating = self._engage_heating(
                         heaters, current_temp, low, high
                     )
-                if coolers:
-                    self._engage_devices(coolers, 0)
                 cooling = False
             elif mode == 'cooler':
                 if coolers:
                     cooling = self._engage_cooling(
                         coolers, current_temp, low, high
                     )
-                if heaters:
-                    self._engage_devices(heaters, 0)
                 heating = False
             else:  # auto
                 heaters_evaluated = False
@@ -406,8 +402,6 @@ class Thermostat(ControllerBase):
                         window=window,
                     )
                     heating = self._engage_devices(heaters, reaction_force)
-                if coolers:
-                    self._engage_devices(coolers, 0)
                 cooling = False
             elif mode == 'cooler':
                 if coolers:
@@ -424,8 +418,6 @@ class Thermostat(ControllerBase):
                         window=window,
                     )
                     cooling = self._engage_devices(coolers, reaction_force)
-                if heaters:
-                    self._engage_devices(heaters, 0)
                 heating = False
             else:  # auto
                 heaters_evaluated = False
@@ -601,18 +593,10 @@ class Thermostat(ControllerBase):
                 heating = self._engage_static_eco_heating(
                     heaters, current_temp, lower_limit
                 )
-            if coolers:
-                self._engage_static_eco_cooling(
-                    coolers, upper_limit, upper_limit
-                )
         elif mode == 'cooler':
             if coolers:
                 cooling = self._engage_static_eco_cooling(
                     coolers, current_temp, upper_limit
-                )
-            if heaters:
-                self._engage_static_eco_heating(
-                    heaters, lower_limit + 1, lower_limit
                 )
         else:
             if heaters:
@@ -666,16 +650,12 @@ class Thermostat(ControllerBase):
                     'heat', current_temp, lower_limit
                 )
                 heating = self._engage_devices(heaters, reaction_force)
-            if coolers:
-                self._engage_devices(coolers, 0)
         elif mode == 'cooler':
             if coolers:
                 reaction_force = self._get_eco_reaction_force(
                     'cool', current_temp, upper_limit
                 )
                 cooling = self._engage_devices(coolers, reaction_force)
-            if heaters:
-                self._engage_devices(heaters, 0)
         else:
             if heaters:
                 reaction_force = self._get_eco_reaction_force(

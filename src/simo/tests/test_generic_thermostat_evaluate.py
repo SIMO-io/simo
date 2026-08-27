@@ -479,7 +479,7 @@ class ThermostatEvaluateTests(BaseSimoTestCase):
         self.assertFalse(self.tstat.value['cooling'])
         self.assertEqual(self.tstat.value['target_temp'], 14)
 
-    def test_evaluate_dynamic_eco_respects_heater_only_mode(self):
+    def test_evaluate_dynamic_eco_heater_mode_leaves_coolers_unchanged(self):
         from simo.generic.controllers import SwitchGroup
 
         heater = Component.objects.create(
@@ -540,21 +540,21 @@ class ThermostatEvaluateTests(BaseSimoTestCase):
         ):
             self.tstat.controller._evaluate()
 
-        self.assertIn(
-            ([cooler.id], 0),
+        self.assertNotIn(
+            cooler.id,
             [
-                (
-                    list(call.args[1].values_list('id', flat=True)),
-                    call.args[2],
-                )
+                device_id
                 for call in engage_devices.call_args_list
+                for device_id in call.args[1].values_list('id', flat=True)
             ],
         )
         self.tstat.refresh_from_db()
+        cooler.refresh_from_db()
         self.assertTrue(self.tstat.value['heating'])
         self.assertFalse(self.tstat.value['cooling'])
+        self.assertTrue(cooler.value)
 
-    def test_evaluate_static_cooler_mode_turns_heaters_off(self):
+    def test_evaluate_static_cooler_mode_leaves_heaters_unchanged(self):
         from simo.generic.controllers import SwitchGroup
 
         heater = Component.objects.create(
@@ -620,17 +620,14 @@ class ThermostatEvaluateTests(BaseSimoTestCase):
             self.tstat.controller._evaluate()
 
         on.assert_called_once()
-        engage_devices.assert_called_once()
-        self.assertEqual(
-            list(engage_devices.call_args.args[1].values_list('id', flat=True)),
-            [heater.id],
-        )
-        self.assertEqual(engage_devices.call_args.args[2], 0)
+        engage_devices.assert_not_called()
         self.tstat.refresh_from_db()
+        heater.refresh_from_db()
         self.assertFalse(self.tstat.value['heating'])
         self.assertTrue(self.tstat.value['cooling'])
+        self.assertTrue(heater.value)
 
-    def test_evaluate_static_heater_mode_turns_coolers_off(self):
+    def test_evaluate_static_heater_mode_leaves_coolers_unchanged(self):
         from simo.generic.controllers import SwitchGroup
 
         heater = Component.objects.create(
@@ -696,17 +693,14 @@ class ThermostatEvaluateTests(BaseSimoTestCase):
             self.tstat.controller._evaluate()
 
         on.assert_called_once()
-        engage_devices.assert_called_once()
-        self.assertEqual(
-            list(engage_devices.call_args.args[1].values_list('id', flat=True)),
-            [cooler.id],
-        )
-        self.assertEqual(engage_devices.call_args.args[2], 0)
+        engage_devices.assert_not_called()
         self.tstat.refresh_from_db()
+        cooler.refresh_from_db()
         self.assertTrue(self.tstat.value['heating'])
         self.assertFalse(self.tstat.value['cooling'])
+        self.assertTrue(cooler.value)
 
-    def test_evaluate_dynamic_cooler_mode_turns_heaters_off(self):
+    def test_evaluate_dynamic_cooler_mode_leaves_heaters_unchanged(self):
         from simo.generic.controllers import SwitchGroup
 
         heater = Component.objects.create(
@@ -768,12 +762,14 @@ class ThermostatEvaluateTests(BaseSimoTestCase):
             self.tstat.controller._evaluate()
 
         on.assert_called_once()
-        off.assert_called_once()
+        off.assert_not_called()
         self.tstat.refresh_from_db()
+        heater.refresh_from_db()
         self.assertFalse(self.tstat.value['heating'])
         self.assertTrue(self.tstat.value['cooling'])
+        self.assertTrue(heater.value)
 
-    def test_evaluate_dynamic_heater_mode_turns_coolers_off(self):
+    def test_evaluate_dynamic_heater_mode_leaves_coolers_unchanged(self):
         from simo.generic.controllers import SwitchGroup
 
         heater = Component.objects.create(
@@ -835,10 +831,12 @@ class ThermostatEvaluateTests(BaseSimoTestCase):
             self.tstat.controller._evaluate()
 
         on.assert_called_once()
-        off.assert_called_once()
+        off.assert_not_called()
         self.tstat.refresh_from_db()
+        cooler.refresh_from_db()
         self.assertTrue(self.tstat.value['heating'])
         self.assertFalse(self.tstat.value['cooling'])
+        self.assertTrue(cooler.value)
 
     def test_evaluate_static_auto_turns_off_opposite_side(self):
         from simo.generic.controllers import SwitchGroup
