@@ -599,6 +599,12 @@ class MainStateSelectForm(BaseComponentForm):
             ).count():
                 raise forms.ValidationError("Main state already exists!")
 
+        # Owners can edit the schedule fields without access to the state list.
+        # The API removes unavailable fields before validation, so do not try to
+        # attach a state-list error when that field is absent.
+        if 'states' not in self.fields:
+            return self.cleaned_data
+
         formset_errors = {}
         required_states = {
             'morning', 'day', 'evening', 'night', 'sleep', 'away', 'vacation'

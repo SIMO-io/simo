@@ -76,3 +76,19 @@ class MainStateTests(BaseSimoTestCase):
             mock.patch('simo.generic.controllers.timezone.localtime', autospec=True, return_value=localtime),
         ):
             self.assertEqual(self.component.controller._get_day_evening_night_morning(), 'morning')
+
+    def test_schedule_only_update_does_not_validate_unavailable_states(self):
+        from simo.generic.forms import MainStateSelectForm
+
+        form = MainStateSelectForm(
+            instance=self.component,
+            data={
+                'weekdays_morning_hour': 6,
+                'weekends_morning_hour': 6,
+                'sunday_thursday_night_hour': 21,
+                'friday_saturday_night_hour': 21,
+            },
+        )
+
+        self.assertNotIn('states', form.fields)
+        self.assertTrue(form.is_valid(), form.errors)
