@@ -601,11 +601,19 @@ class ComponentPermission(models.Model):
 def rebuild_mqtt_acls_on_create(sender, instance, created, **kwargs):
     # ACLs are per-user prefix; permission changes don't require ACL rebuilds.
 
+    # get_role() caches a role together with its prefetched component
+    # permissions.  Clear that cache before the MQTT notification asks the
+    # app to fetch a fresh component snapshot.
+    role = instance.role
+    for iu in role.instance.instance_users.filter(role=role).only('user_id'):
+        cache.delete(
+            f'user-{iu.user_id}_instance-{role.instance_id}_role'
+        )
+
     # Notify affected users to re-sync their subscriptions
     def _notify():
         from simo.core.mqtt_hub import get_mqtt_hub
         hub = get_mqtt_hub()
-        role = instance.role
         for iu in role.instance.instance_users.filter(role=role, is_active=True).select_related('user'):
             topic = f"SIMO/user/{iu.user.id}/perms-changed"
             payload = json.dumps({

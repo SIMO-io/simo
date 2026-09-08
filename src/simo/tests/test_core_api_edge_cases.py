@@ -1,6 +1,7 @@
 import datetime
 from unittest import mock
 
+from django.core.cache import cache
 from django.utils import timezone
 from rest_framework.test import APIClient
 
@@ -65,6 +66,39 @@ class ComponentControllerEdgeCasesTests(BaseSimoTestCase):
         )
         self.assertEqual(resp.status_code, 400)
 
+
+class ComponentCreationSyncTests(BaseSimoTestCase):
+    def test_creation_invalidates_role_cache_and_publishes_topology_event(self):
+        inst = mk_instance('component-sync', 'Component sync')
+        zone = Zone.objects.create(instance=inst, name='Z', order=0)
+        gw, _ = Gateway.objects.get_or_create(
+            type='simo.generic.gateways.GenericGatewayHandler'
+        )
+        user = mk_user('member@example.com', 'Member')
+        role = mk_role(inst, is_superuser=True)
+        mk_instance_user(user, inst, role, is_active=True)
+
+        role_cache_key = f'user-{user.id}_instance-{inst.id}_role'
+        cache.set(role_cache_key, 'stale role', 60)
+        cache.set(f'main-components-{inst.id}', [999], 30)
+
+        with mock.patch('simo.core.events.ObjectChangeEvent.publish') as publish, \
+                self.captureOnCommitCallbacks(execute=True):
+            Component.objects.create(
+                name='New component',
+                zone=zone,
+                category=None,
+                gateway=gw,
+                base_type='switch',
+                controller_uid='test.switch',
+                config={},
+                meta={},
+                value=False,
+            )
+            self.assertIsNone(cache.get(role_cache_key))
+            self.assertIsNone(cache.get(f'main-components-{inst.id}'))
+
+        publish.assert_called_once()
 
 class ComponentValueHistoryTests(BaseSimoTestCase):
     def test_value_history_returns_metadata_and_entries(self):

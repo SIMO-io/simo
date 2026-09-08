@@ -204,6 +204,26 @@ def post_save_change_events(sender, instance, created, **kwargs):
     if isinstance(target, Component):
         context = getattr(target, '_pending_change_event', None)
         target._pending_change_event = None
+
+        if created:
+            # Non-master component lists are based on a cached role with
+            # prefetched component permissions.  This must happen during the
+            # signal, before the permission-change MQTT notification is sent.
+            cache.delete(f"main-components-{target.zone.instance.id}")
+            from simo.users.models import User
+            for user in User.objects.all():
+                cache.delete(
+                    f'user-{user.id}_instance-{target.zone.instance.id}_role'
+                )
+
+            # A new component has no dirty fields, so it otherwise produces no
+            # object-state event at all.  Clients use this event to refresh
+            # their component topology.
+            def post_create_component():
+                ObjectChangeEvent(target.zone.instance, target).publish()
+
+            transaction.on_commit(post_create_component)
+
         if not context:
             return
 
@@ -246,16 +266,6 @@ def post_save_change_events(sender, instance, created, **kwargs):
             ).publish()
 
     transaction.on_commit(post_update)
-
-    if created and isinstance(instance, Component):
-        def clear_api_cache():
-            cache.delete(f"main-components-{instance.zone.instance.id}")
-            from simo.users.models import User
-            for user in User.objects.all():
-                role_cache_key = f'user-{user.id}_instance-' \
-                                 f'{instance.zone.instance.id}_role'
-                cache.delete(role_cache_key)
-        transaction.on_commit(clear_api_cache)
 
 
 @receiver(post_save)
