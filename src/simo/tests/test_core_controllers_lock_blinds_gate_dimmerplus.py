@@ -196,7 +196,7 @@ class BlindsControllerTests(BaseSimoTestCase):
             value={'target': 0, 'position': 0, 'angle': 30},
         )
 
-    def test_validate_before_send_supports_legacy_numeric_targets(self):
+    def test_validate_before_send_accepts_percentage_targets(self):
         ctrl = self.Blinds(self.comp)
         out = ctrl._validate_val(100.9, occasion=BEFORE_SEND)
         self.assertEqual(out['target'], 100)
@@ -231,15 +231,28 @@ class BlindsControllerTests(BaseSimoTestCase):
         with self.assertRaises(ValidationError):
             ctrl._validate_val({'position': 999999}, occasion=BEFORE_SET)
 
-    def test_validate_before_send_rejects_too_large_target(self):
+    def test_validate_before_send_rejects_out_of_range_target(self):
         ctrl = self.Blinds(self.comp)
         with self.assertRaises(ValidationError):
-            ctrl._validate_val({'target': 999999}, occasion=BEFORE_SEND)
+            ctrl._validate_val({'target': 101}, occasion=BEFORE_SEND)
+        with self.assertRaises(ValidationError):
+            ctrl._validate_val({'target': -2}, occasion=BEFORE_SEND)
 
     def test_validate_before_send_rejects_bad_target_type(self):
         ctrl = self.Blinds(self.comp)
         with self.assertRaises(ValidationError):
             ctrl._validate_val({'target': 'x'}, occasion=BEFORE_SEND)
+
+    def test_mcp_send_contract_uses_closed_to_open_percentages(self):
+        from simo.core.mcp import _get_action_value_contract
+
+        contract = _get_action_value_contract(self.comp, 'send')
+        target = contract['properties']['target']
+
+        self.assertEqual(target['min'], 0)
+        self.assertEqual(target['max'], 100)
+        self.assertIn('0 is fully closed', target['description'])
+        self.assertIn('100 is fully open', target['description'])
 
     def test_open_close_stop_include_angle_when_valid(self):
         ctrl = self.Blinds(self.comp)
@@ -253,8 +266,8 @@ class BlindsControllerTests(BaseSimoTestCase):
             ctrl.close()
             ctrl.stop()
 
-        self.assertEqual(sent[0], {'target': 0, 'angle': 30})
-        self.assertEqual(sent[1], {'target': 5000, 'angle': 30})
+        self.assertEqual(sent[0], {'target': 100, 'angle': 30})
+        self.assertEqual(sent[1], {'target': 0, 'angle': 30})
         self.assertEqual(sent[2], {'target': -1, 'angle': 30})
 
     def test_open_close_stop_omit_angle_when_invalid(self):
@@ -272,8 +285,8 @@ class BlindsControllerTests(BaseSimoTestCase):
             ctrl.close()
             ctrl.stop()
 
-        self.assertEqual(sent[0], {'target': 0})
-        self.assertEqual(sent[1], {'target': 5000})
+        self.assertEqual(sent[0], {'target': 100})
+        self.assertEqual(sent[1], {'target': 0})
         self.assertEqual(sent[2], {'target': -1})
 
 

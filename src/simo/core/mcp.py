@@ -207,7 +207,6 @@ def _get_action_value_contract(component, method_name: str) -> dict | None:
         }
 
     if base_type == 'blinds':
-        open_duration_ms = int((config.get('open_duration') or 0) * 1000)
         return {
             'type': 'object',
             'properties': {
@@ -215,8 +214,11 @@ def _get_action_value_contract(component, method_name: str) -> dict | None:
                     'type': 'integer',
                     'allowed_values': [-1],
                     'min': 0,
-                    'max': open_duration_ms,
-                    'description': '-1 means stop immediately.',
+                    'max': 100,
+                    'description': (
+                        '-1 means stop immediately; 0 is fully closed and '
+                        '100 is fully open.'
+                    ),
                 },
                 'angle': {
                     'type': 'integer',

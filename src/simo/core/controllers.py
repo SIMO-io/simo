@@ -1349,7 +1349,8 @@ class Blinds(ControllerBase, TimerMixin):
 
     @property
     def default_value(self):
-        # target and current positions in milliseconds, angle in degrees (0 - 180)
+        # Position is a percentage: 0 is fully closed and 100 is fully open.
+        # Angle is expressed in degrees (0 - 180).
         return {'target': 0, 'position': 0, 'angle': 0}
 
     def _validate_val(self, value, occasion=None):
@@ -1365,11 +1366,10 @@ class Blinds(ControllerBase, TimerMixin):
                 raise ValidationError(
                     "Bad target position for blinds to go."
                 )
-            if target > self.component.config.get('open_duration') * 1000:
+            if target < -1 or target > 100:
                 raise ValidationError(
-                    "Target value lower than %d expected, "
-                    "%d received instead" % (
-                        self.component.config['open_duration'] * 1000,
+                    "Target value between -1 and 100 expected, "
+                    "%s received instead" % (
                         target
                     )
                 )
@@ -1396,16 +1396,9 @@ class Blinds(ControllerBase, TimerMixin):
                         "'target', 'position' or 'angle' parameters are expected."
                     )
                 if key == 'position':
-                    if val < 0:
+                    if val < 0 or val > 100:
                         raise ValidationError(
-                            "Positive integer expected for blind position"
-                        )
-                    if val > self.component.config.get('open_duration') * 1000:
-                        raise ValidationError(
-                            "Positive value is to big. Must be lower than %d, "
-                            "but you have provided %d" % (
-                                self.component.config.get('open_duration') * 1000, val
-                            )
+                            "Blind position between 0 and 100 expected"
                         )
 
             self.component.refresh_from_db()
@@ -1421,9 +1414,9 @@ class Blinds(ControllerBase, TimerMixin):
     def open(self):
         """Open blinds fully.
 
-        Sends {'target': 0} and preserves current angle if present.
+        Sends {'target': 100} and preserves current angle if present.
         """
-        send_val = {'target': 0}
+        send_val = {'target': 100}
         angle = self.component.value.get('angle')
         if angle is not None and 0 <= angle <= 180:
             send_val['angle'] = angle
@@ -1432,9 +1425,9 @@ class Blinds(ControllerBase, TimerMixin):
     def close(self):
         """Close blinds fully.
 
-        Sends {'target': open_duration_ms} and preserves current angle.
+        Sends {'target': 0} and preserves current angle.
         """
-        send_val = {'target': self.component.config['open_duration'] * 1000}
+        send_val = {'target': 0}
         angle = self.component.value.get('angle')
         if angle is not None and 0 <= angle <= 180:
             send_val['angle'] = angle
