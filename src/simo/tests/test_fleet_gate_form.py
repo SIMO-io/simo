@@ -195,6 +195,72 @@ class GateConfigFormTests(BaseSimoTestCase):
         self.open_pin.refresh_from_db()
         self.assertEqual(self.open_pin.occupied_by_id, component.id)
 
+    def test_editing_component_can_select_any_of_its_occupied_pins(self):
+        form = GateConfigForm(
+            controller_uid=Gate.uid,
+            data=self._data(
+                close_pin=self.close_pin.id,
+                sensor_pin=self.sensor_pin.id,
+            ),
+        )
+        self.assertTrue(form.is_valid(), form.errors)
+        component = form.save()
+
+        other_pin = self.colonel.pins.exclude(
+            id__in=(self.open_pin.id, self.close_pin.id, self.sensor_pin.id)
+        ).first()
+        other_component = Component.objects.create(
+            name='Other',
+            zone=self.zone,
+            category=None,
+            gateway=self.fleet_gw,
+            base_type='switch',
+            controller_uid='other',
+            config={'colonel': self.colonel.id},
+            meta={},
+            value=False,
+        )
+        other_pin.occupied_by = other_component
+        other_pin.save()
+
+        from simo.fleet.views import (
+            _component_being_edited,
+            _pins_available_for_component,
+        )
+
+        available = _pins_available_for_component(
+            self.colonel.pins.all(), component
+        )
+        available_ids = set(available.values_list('id', flat=True))
+        self.assertTrue({
+            self.open_pin.id, self.close_pin.id, self.sensor_pin.id,
+        }.issubset(available_ids))
+        self.assertNotIn(other_pin.id, available_ids)
+        self.assertEqual(
+            _component_being_edited(
+                {'component': component.id}, self.inst, self.colonel
+            ),
+            component,
+        )
+        self.assertEqual(
+            _component_being_edited(
+                {'self': self.open_pin.id}, self.inst, self.colonel
+            ),
+            component,
+        )
+
+        edit_form = GateConfigForm(instance=component, data=self._data())
+        self.assertEqual(edit_form.fields['component_id'].initial, component.id)
+        self.assertTrue(any(
+            getattr(item, 'src', None) == 'component_id'
+            for item in edit_form.fields['open_pin'].widget.forward
+        ))
+        self.assertTrue(any(
+            getattr(item, 'src', None) == 'component_id'
+            for item in edit_form.fields['controls'].widget.formset_cls
+            .form.base_fields['input'].widget.forward
+        ))
+
 
 class BlindsConfigFormTests(BaseSimoTestCase):
     def setUp(self):

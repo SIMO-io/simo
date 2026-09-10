@@ -93,10 +93,34 @@ class InterfaceAdminForm(forms.ModelForm):
 
 
 class ColonelComponentForm(BaseComponentForm):
+    # Forwarded to pin autocompletes while editing.  It is intentionally not a
+    # config field: it only tells the picker which already-claimed pins belong
+    # to this component and may therefore participate in a swap.
+    component_id = forms.IntegerField(required=False, widget=forms.HiddenInput)
     colonel = Select2ModelChoiceField(
         label="Colonel", queryset=Colonel.objects.all(),
         url='autocomplete-colonels',
     )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        try:
+            self.config_fields.remove('component_id')
+        except ValueError:
+            pass
+
+        if self.instance.pk:
+            self.fields['component_id'].initial = self.instance.pk
+
+        # Add the edit context to every normal Colonel-pin picker without
+        # repeating the same forward declaration in every component form.
+        for field in self.fields.values():
+            widget = getattr(field, 'widget', None)
+            if getattr(widget, 'url', None) != 'autocomplete-colonel-pins':
+                continue
+            widget.forward = list(getattr(widget, 'forward', ()) or ()) + [
+                forward.Field('component_id', 'component')
+            ]
 
     def clean_colonel(self):
         if not self.instance.pk:
@@ -183,6 +207,9 @@ class ControlForm(forms.Form):
         choices=get_all_control_input_choices,
         url='autocomplete-control_inputs', forward=[
             forward.Self(), forward.Field('colonel'),
+            # The field lives on the parent component form. DAL resolves it
+            # after trying the formset row's prefix.
+            forward.Field('component_id', 'component'),
             forward.Const({'input': True}, 'pin_filters')
         ]
     )

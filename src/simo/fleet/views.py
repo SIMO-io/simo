@@ -5,6 +5,7 @@ import uuid
 from django.db import DatabaseError, IntegrityError, transaction
 from django.http import Http404, HttpResponse, JsonResponse
 from django.db.models import Q
+from django.contrib.contenttypes.models import ContentType
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 from django.core.cache import cache
@@ -19,6 +20,59 @@ from .forms import SentinelDeviceConfigForm
 
 def colonels_ping(request):
     return HttpResponse('pong')
+
+
+def _component_being_edited(forwarded, instance, colonel):
+    """Return the component whose own pins may be offered for a swap."""
+    try:
+        component_id = int(forwarded.get('component'))
+    except (TypeError, ValueError):
+        component_id = None
+
+    if component_id:
+        component = Component.objects.filter(
+            pk=component_id,
+            zone__instance=instance,
+            config__colonel=colonel.id,
+        ).first()
+        if component:
+            return component
+
+    # Keep existing editors working if their form was rendered before the
+    # component context was added: their current selected pin identifies the
+    # component that owns it.
+    selected = forwarded.get('self')
+    if isinstance(selected, str) and selected.startswith('pin-'):
+        selected = selected[4:]
+    try:
+        selected = int(selected)
+    except (TypeError, ValueError):
+        return None
+
+    component_type = ContentType.objects.get_for_model(Component)
+    pin = ColonelPin.objects.filter(
+        pk=selected,
+        colonel=colonel,
+        occupied_by_content_type=component_type,
+    ).first()
+    if not pin:
+        return None
+    return Component.objects.filter(
+        pk=pin.occupied_by_id,
+        zone__instance=instance,
+        config__colonel=colonel.id,
+    ).first()
+
+
+def _pins_available_for_component(queryset, component):
+    available = Q(occupied_by_id=None)
+    if component:
+        component_type = ContentType.objects.get_for_model(Component)
+        available |= Q(
+            occupied_by_content_type=component_type,
+            occupied_by_id=component.id,
+        )
+    return queryset.filter(available)
 
 
 def _json_error(status, message, http_status=400, extra=None):
@@ -283,14 +337,10 @@ class PinsSelectAutocomplete(autocomplete.Select2QuerySetView):
 
         qs = ColonelPin.objects.filter(colonel=colonel)
 
-        if self.forwarded.get('self'):
-            qs = qs.filter(
-                Q(occupied_by_id=None) | Q(
-                    id=int(self.forwarded['self'])
-                )
-            )
-        else:
-            qs = qs.filter(occupied_by_id=None)
+        component = _component_being_edited(
+            self.forwarded, instance, colonel
+        )
+        qs = _pins_available_for_component(qs, component)
 
         if self.forwarded.get('filters'):
             qs = qs.filter(**self.forwarded.get('filters'))
@@ -330,21 +380,24 @@ class ControlInputSelectAutocomplete(autocomplete.Select2ListView):
         if not self.request.user.is_authenticated:
             raise Http404()
 
+        instance = get_current_instance(self.request)
+        colonel = None
         try:
             colonel = Colonel.objects.get(
                 pk=self.forwarded.get("colonel"),
-                instance=get_current_instance(self.request)
+                instance=instance,
             )
             pins_qs = ColonelPin.objects.filter(colonel=colonel)
         except:
             pins_qs = ColonelPin.objects.filter(
-                colonel__instance=get_current_instance(self.request)
+                colonel__instance=instance
             )
 
-        if self.forwarded.get('self') and self.forwarded['self'].startswith('pin-'):
-            pins_qs = pins_qs.filter(
-                Q(occupied_by_id=None) | Q(id=int(self.forwarded['self'][4:]))
+        if colonel and 'value' not in self.request.GET:
+            component = _component_being_edited(
+                self.forwarded, instance, colonel
             )
+            pins_qs = _pins_available_for_component(pins_qs, component)
         elif 'value' not in self.request.GET:
             pins_qs = pins_qs.filter(occupied_by_id=None)
 
