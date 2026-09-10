@@ -1,6 +1,7 @@
 import json
 import os
 import threading
+import time
 from types import SimpleNamespace
 from unittest import mock
 
@@ -104,6 +105,29 @@ class EventsOnChangeMoreTests(BaseSimoTestCase):
         self.assertEqual(cli.loop_stopped, 1)
         self.assertEqual(cli.disconnected, 1)
         self.assertIsNone(self.comp._on_change_function)
+
+    def test_dedicated_mqtt_shutdown_does_not_wait_for_stuck_loop(self):
+        from simo.core.events import _shutdown_dedicated_mqtt_client
+
+        class StuckClient:
+            def __init__(self):
+                self.disconnected = False
+                self.release_loop = threading.Event()
+
+            def disconnect(self):
+                self.disconnected = True
+
+            def loop_stop(self):
+                self.release_loop.wait()
+
+        client = StuckClient()
+        started = time.monotonic()
+        _shutdown_dedicated_mqtt_client(client, timeout=0.01)
+        elapsed = time.monotonic() - started
+        client.release_loop.set()
+
+        self.assertTrue(client.disconnected)
+        self.assertLess(elapsed, 0.2)
 
     def test_on_mqtt_message_ignored_without_handler(self):
         msg = SimpleNamespace(

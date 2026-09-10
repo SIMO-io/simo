@@ -1,4 +1,5 @@
 import time
+import multiprocessing
 from unittest import mock
 
 from simo.core.models import Gateway, Zone, Component
@@ -15,6 +16,10 @@ class _StuckProc:
 
     def kill(self):
         self.killed = True
+
+
+class _FailedProc(_StuckProc):
+    pass
 
 
 class AutomationGatewayScriptWatchdogTests(BaseSimoTestCase):
@@ -78,3 +83,42 @@ class AutomationGatewayScriptWatchdogTests(BaseSimoTestCase):
             handler.watch_scripts()
 
         stop_pid.assert_called_once()
+
+    def test_failure_report_restarts_keep_alive_script_with_live_process(self):
+        inst = mk_instance('inst-c', 'C')
+        zone = Zone.objects.create(instance=inst, name='Z', order=0)
+        gw, _ = Gateway.objects.get_or_create(type='simo.automation.gateways.AutomationsGatewayHandler')
+
+        from simo.automation.controllers import PresenceLighting
+
+        script = Component.objects.create(
+            name='S3',
+            zone=zone,
+            category=None,
+            gateway=gw,
+            base_type='script',
+            controller_uid=PresenceLighting.uid,
+            config={'keep_alive': True},
+            meta={},
+            value='running',
+        )
+        handler = gw.handler
+        proc = _FailedProc()
+        failure_event = multiprocessing.Event()
+        failure_event.set()
+        handler.running_scripts[script.id] = {
+            'proc': proc,
+            'start_time': time.time(),
+            'failure_event': failure_event,
+        }
+
+        with (
+            mock.patch.object(handler, '_mark_script_error', autospec=True) as mark_error,
+            mock.patch.object(handler, 'start_script', autospec=True) as start_script,
+        ):
+            handler.watch_scripts()
+
+        self.assertTrue(proc.killed)
+        self.assertNotIn(script.id, handler.running_scripts)
+        mark_error.assert_called_once()
+        start_script.assert_called_once_with(script)

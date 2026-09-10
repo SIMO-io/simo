@@ -10,7 +10,7 @@ import multiprocessing
 import threading
 from django.conf import settings
 from django.utils import timezone
-from django.db import connection as db_connection
+from django.db import close_old_connections, connection as db_connection
 from django.db.models import Q
 import paho.mqtt.client as mqtt
 from simo.core.models import Component
@@ -54,32 +54,46 @@ class ScriptRunHandler(multiprocessing.Process):
     component = None
     logger = None
 
-    def __init__(self, component_id, exit_event, *args, **kwargs):
+    def __init__(self, component_id, exit_event, failure_event=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.component_id = component_id
         self.exit_event = exit_event
+        # This is deliberately independent from the database.  The parent must
+        # learn about a failed script even when recording the error cannot.
+        self.failure_event = failure_event or multiprocessing.Event()
         self.exit_in_use = multiprocessing.Event()
         self.exin_in_use_fail = multiprocessing.Event()
         self.watchers_cleaned = multiprocessing.Event()
 
     def run(self):
-        db_connection.connect()
-        self.component = Component.objects.get(id=self.component_id)
-        tz = pytz.timezone(self.component.zone.instance.timezone)
-        timezone.activate(tz)
-        introduce_instance(self.component.zone.instance)
-        self.logger = get_component_logger(self.component)
-
-        original_stdout, original_stderr = sys.stdout, sys.stderr
-        stdout_logger = StreamToLogger(self.logger, logging.INFO)
-        stderr_logger = StreamToLogger(self.logger, logging.ERROR)
-        sys.stdout = stdout_logger
-        sys.stderr = stderr_logger
-        self.component.meta['pid'] = os.getpid()
-        self.component.meta['ppid'] = os.getppid()
-        self.component.set('running')
-        print("------START-------")
+        original_stdout = original_stderr = None
         try:
+            db_connection.connect()
+            self.component = Component.objects.get(id=self.component_id)
+            tz = pytz.timezone(self.component.zone.instance.timezone)
+            timezone.activate(tz)
+            introduce_instance(self.component.zone.instance)
+            self.logger = get_component_logger(self.component)
+
+            original_stdout, original_stderr = sys.stdout, sys.stderr
+            stdout_logger = StreamToLogger(self.logger, logging.INFO)
+            stderr_logger = StreamToLogger(self.logger, logging.ERROR)
+            sys.stdout = stdout_logger
+            sys.stderr = stderr_logger
+
+            # Component.set() reloads the row under a transaction, so save the
+            # runtime identity before changing its value.
+            meta = dict(self.component.meta or {})
+            meta.update({
+                'pid': os.getpid(),
+                'ppid': os.getppid(),
+                'started_at': timezone.now().isoformat(),
+            })
+            self.component.meta = meta
+            self.component.save(update_fields=['meta'])
+            self.component.set('running')
+            print("------START-------")
+
             set_current_watcher_stop_event(self.exit_event)
             def _await_exit_cleanup():
                 try:
@@ -96,21 +110,41 @@ class ScriptRunHandler(multiprocessing.Process):
                 target=_await_exit_cleanup, daemon=True
             ).start()
             self.run_code()
-        except:
+        except BaseException:
+            # Set this before logging, PostgreSQL writes, or watcher cleanup.
+            # Any of those operations may be blocked by the same outage that
+            # caused the script failure.
+            self.failure_event.set()
             print("------ERROR------")
             traceback.print_exc(file=sys.stderr)
-            self.component.set('error')
+            if self.component:
+                try:
+                    self.component.set('error')
+                except BaseException:
+                    traceback.print_exc(file=sys.stderr)
             raise
         else:
-            if not self.exit_event.is_set():
-                print("------FINISH-----")
-                self.component.set('finished')
+            try:
+                if not self.exit_event.is_set():
+                    print("------FINISH-----")
+                    self.component.set('finished')
+            except BaseException:
+                # An otherwise completed script still failed if its terminal
+                # state cannot be persisted; do not leave it as "running".
+                self.failure_event.set()
+                raise
             return
         finally:
-            cleanup_watchers_for_event(self.exit_event)
+            try:
+                cleanup_watchers_for_event(self.exit_event)
+            except BaseException:
+                # The failure signal above is authoritative; never mask it
+                # with an error while tearing down a watcher.
+                pass
             clear_current_watcher_stop_event()
-            sys.stdout = original_stdout
-            sys.stderr = original_stderr
+            if original_stdout is not None:
+                sys.stdout = original_stdout
+                sys.stderr = original_stderr
             try:
                 self.component.refresh_from_db()
                 meta = dict(self.component.meta or {})
@@ -350,7 +384,7 @@ class AutomationsGatewayHandler(GatesHandler, BaseObjectCommandsGatewayHandler):
         except Exception:
             return
         changed = False
-        for key in ('pid', 'ppid'):
+        for key in ('pid', 'ppid', 'started_at'):
             if key in meta:
                 meta.pop(key, None)
                 changed = True
@@ -403,6 +437,24 @@ class AutomationsGatewayHandler(GatesHandler, BaseObjectCommandsGatewayHandler):
             return True
         return False
 
+    @staticmethod
+    def _process_reported_failure(data):
+        failure_event = data.get('failure_event')
+        if failure_event is None:
+            return False
+        try:
+            return failure_event.is_set()
+        except Exception:
+            return False
+
+    @staticmethod
+    def _mark_script_error(component):
+        """Best-effort state persistence after a worker failure."""
+        close_old_connections()
+        component.refresh_from_db()
+        component.value = 'error'
+        component.save(update_fields=['value'])
+
     def watch_scripts(self):
         drop_current_instance()
         with self._scripts_lock:
@@ -416,11 +468,37 @@ class AutomationsGatewayHandler(GatesHandler, BaseObjectCommandsGatewayHandler):
 
         # observe running scripts and drop the ones that are no longer alive
         for id, data in running_snapshot:
-            if time.time() - data['start_time'] < 5:
-                continue
             process = data['proc']
 
-            comp = Component.objects.filter(id=id).first()
+            try:
+                comp = Component.objects.filter(id=id).first()
+            except Exception:
+                comp = None
+            if self._process_reported_failure(data):
+                # A failure report is more trustworthy than PID existence or
+                # the last value successfully written to PostgreSQL.
+                try:
+                    if process.is_alive():
+                        process.kill()
+                except Exception:
+                    pass
+                self.last_death = time.time()
+                with self._scripts_lock:
+                    self.running_scripts.pop(id, None)
+                if comp and id not in self.terminating_scripts:
+                    try:
+                        self._mark_script_error(comp)
+                    except Exception:
+                        pass
+                    # Do not wait for a stale DB value to change before
+                    # restoring a keep-alive script.
+                    if comp.config.get('keep_alive') and not is_service_suspended():
+                        self.start_script(comp)
+                continue
+
+            if time.time() - data['start_time'] < 5:
+                continue
+
             if comp and comp.value == 'finished':
                 if process.is_alive():
                     process.kill()
@@ -466,8 +544,7 @@ class AutomationsGatewayHandler(GatesHandler, BaseObjectCommandsGatewayHandler):
                     timezone.activate(tz)
                     logger = get_component_logger(comp)
                     logger.log(logging.INFO, "-------DEAD!-------")
-                    comp.value = 'error'
-                    comp.save()
+                    self._mark_script_error(comp)
                 except Exception:
                     # Leave entry in running_scripts to retry on next tick
                     continue
@@ -672,12 +749,15 @@ class AutomationsGatewayHandler(GatesHandler, BaseObjectCommandsGatewayHandler):
                     pass
                 self.running_scripts.pop(component.id, None)
 
+            failure_event = multiprocessing.Event()
             process = ScriptRunHandler(
-                component.id, multiprocessing.Event(), daemon=True
+                component.id, multiprocessing.Event(), failure_event, daemon=True
             )
             process.start()
             self.running_scripts[component.id] = {
-                'proc': process, 'start_time': time.time()
+                'proc': process,
+                'start_time': time.time(),
+                'failure_event': failure_event,
             }
 
 

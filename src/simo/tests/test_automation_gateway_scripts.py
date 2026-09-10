@@ -188,6 +188,25 @@ class AutomationGatewayScriptsTests(BaseSimoTestCase):
             )
         )
 
+    def test_script_run_handler_reports_failure_before_error_persistence(self):
+        from simo.automation import gateways as gw_mod
+
+        failure_event = multiprocessing.Event()
+        handler = gw_mod.ScriptRunHandler(
+            1, multiprocessing.Event(), failure_event
+        )
+
+        with (
+            mock.patch.object(
+                gw_mod.db_connection, 'connect', autospec=True,
+                side_effect=RuntimeError('database unavailable'),
+            ),
+            self.assertRaisesRegex(RuntimeError, 'database unavailable'),
+        ):
+            handler.run()
+
+        self.assertTrue(failure_event.is_set())
+
     def test_start_script_tracks_new_process(self):
         from simo.automation import gateways as gw_mod
 

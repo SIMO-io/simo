@@ -53,6 +53,29 @@ _WATCHER_DB_ERRORS = (
 )
 
 
+def _shutdown_dedicated_mqtt_client(client, timeout=1):
+    """Stop a Paho loop without allowing its thread join to wedge a worker."""
+    try:
+        # In Paho 1.6.x loop_stop() joins without a timeout.  Disconnect first
+        # so the selector has a chance to wake, then bound the join itself.
+        client.disconnect()
+    except Exception:
+        pass
+
+    stopped = threading.Event()
+
+    def _stop_loop():
+        try:
+            client.loop_stop()
+        except Exception:
+            pass
+        finally:
+            stopped.set()
+
+    threading.Thread(target=_stop_loop, daemon=True).start()
+    stopped.wait(timeout)
+
+
 def _iter_exception_chain(exc):
     seen = set()
     current = exc
@@ -198,14 +221,7 @@ class OnChangeMixin:
             if stop_event:
                 stop_event.set()
             if client:
-                try:
-                    client.loop_stop()
-                except Exception:
-                    pass
-                try:
-                    client.disconnect()
-                except Exception:
-                    pass
+                _shutdown_dedicated_mqtt_client(client)
 
         atexit.register(_cleanup)
 
@@ -452,11 +468,7 @@ class OnChangeMixin:
                     pass
                 self._mqtt_sub_tokens = None
             if getattr(self, '_mqtt_client', None):
-                try:
-                    self._mqtt_client.loop_stop()
-                    self._mqtt_client.disconnect()
-                except Exception:
-                    pass
+                _shutdown_dedicated_mqtt_client(self._mqtt_client)
                 self._mqtt_client = None
 
             # Set handler context before any message may arrive
@@ -527,10 +539,9 @@ class OnChangeMixin:
                 try:
                     if self._mqtt_stop_event:
                         self._mqtt_stop_event.set()
-                    self._mqtt_client.loop_stop()
-                    self._mqtt_client.disconnect()
                 except Exception:
                     pass
+                _shutdown_dedicated_mqtt_client(self._mqtt_client)
                 self._mqtt_client = None
                 self._mqtt_stop_event = None
                 self._mqtt_cleanup_registered = False
