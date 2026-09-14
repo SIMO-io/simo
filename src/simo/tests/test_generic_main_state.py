@@ -5,7 +5,9 @@ import pytz
 
 from simo.core.models import Component, Gateway, Zone
 
-from .base import BaseSimoTestCase, mk_instance
+from .base import (
+    BaseSimoTestCase, mk_instance, mk_instance_user, mk_role, mk_user,
+)
 
 
 class MainStateTests(BaseSimoTestCase):
@@ -92,3 +94,31 @@ class MainStateTests(BaseSimoTestCase):
 
         self.assertNotIn('states', form.fields)
         self.assertTrue(form.is_valid(), form.errors)
+
+    def test_sleep_requires_an_owner_at_home_with_a_phone_on_charge(self):
+        self.component.config['sleeping_phones_hour'] = 21
+        self.component.save(update_fields=['config'])
+
+        # An empty set of owners at home must not satisfy the "all phones"
+        # condition.
+        self.assertFalse(self.component.controller._owner_phones_on_charge(True))
+
+        role = mk_role(self.inst, is_owner=True)
+        home_owner = mk_instance_user(
+            mk_user('home-owner@example.com', 'Home Owner'), self.inst, role,
+        )
+        home_owner.at_home = True
+        home_owner.phone_on_charge = True
+        home_owner.save(update_fields=['at_home', 'phone_on_charge'])
+
+        away_owner = mk_instance_user(
+            mk_user('away-owner@example.com', 'Away Owner'), self.inst, role,
+        )
+        away_owner.phone_on_charge = False
+        away_owner.save(update_fields=['phone_on_charge'])
+
+        self.assertTrue(self.component.controller._owner_phones_on_charge(True))
+
+        home_owner.phone_on_charge = False
+        home_owner.save(update_fields=['phone_on_charge'])
+        self.assertFalse(self.component.controller._owner_phones_on_charge(True))

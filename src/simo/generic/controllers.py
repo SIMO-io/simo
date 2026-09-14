@@ -2401,7 +2401,9 @@ class MainState(StateSelect):
 
 
         if all_phones:
-            return all(phones_on_charge)
+            # ``all([])`` is True, but no owners at home must not trigger
+            # automatic Sleep mode.
+            return bool(phones_on_charge) and all(phones_on_charge)
         else:
             return any(phones_on_charge)
 
