@@ -107,6 +107,7 @@ class GateConfigFormTests(BaseSimoTestCase):
         )
 
         self.assertNotIn('location', form.fields)
+        self.assertNotIn('component_id', form.fields)
 
     def test_save_claims_gate_pins_on_colonel(self):
         form = GateConfigForm(
@@ -165,6 +166,31 @@ class GateConfigFormTests(BaseSimoTestCase):
 
         self.assertIn('auto_open_distance', form.fields)
         self.assertNotIn('open_pin', form.fields)
+
+    def test_component_id_is_not_exposed_in_mobile_forms(self):
+        user = mk_user('master@simo.io', 'Master User', is_master=True)
+        component = Component.objects.create(
+            name='Gate 1',
+            zone=self.zone,
+            category=None,
+            gateway=self.fleet_gw,
+            base_type='gate',
+            controller_uid=Gate.uid,
+            config={'colonel': self.colonel.id},
+            meta={},
+            value='closed',
+        )
+        request = SimpleNamespace(user=user, path='/', build_absolute_uri=lambda p: p)
+
+        from simo.core.serializers import ComponentSerializer
+
+        serializer = ComponentSerializer(
+            instance=component,
+            context={'request': request, 'instance': self.inst},
+        )
+        form = serializer.get_form(instance=component)
+
+        self.assertNotIn('component_id', form.fields)
 
     def test_edit_form_save_repairs_missing_gate_pin_occupancy(self):
         form = GateConfigForm(

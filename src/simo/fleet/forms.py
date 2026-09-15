@@ -97,6 +97,9 @@ class ColonelComponentForm(BaseComponentForm):
     # config field: it only tells the picker which already-claimed pins belong
     # to this component and may therefore participate in a swap.
     component_id = forms.IntegerField(required=False, widget=forms.HiddenInput)
+    # This is an Admin-only autocomplete helper.  The mobile API performs
+    # partial updates and has no use for this implementation detail.
+    app_exclude_fields = [*BaseComponentForm.app_exclude_fields, 'component_id']
     colonel = Select2ModelChoiceField(
         label="Colonel", queryset=Colonel.objects.all(),
         url='autocomplete-colonels',
@@ -109,8 +112,9 @@ class ColonelComponentForm(BaseComponentForm):
         except ValueError:
             pass
 
-        if self.instance.pk:
-            self.fields['component_id'].initial = self.instance.pk
+        component_id_field = self.fields.get('component_id')
+        if self.instance.pk and component_id_field is not None:
+            component_id_field.initial = self.instance.pk
 
         # Add the edit context to every normal Colonel-pin picker without
         # repeating the same forward declaration in every component form.
