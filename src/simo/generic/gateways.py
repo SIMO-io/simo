@@ -187,6 +187,7 @@ class GenericGatewayHandler(
         ('watch_thermostats', 60),
         ('watch_alarm_clocks', 30),
         ('watch_watering', 60),
+        ('watch_outdoor_light_indices', 60),
         ('low_battery_notifications', 60 * 60),
         ('watch_main_states', 60),
         ('watch_groups', 60)
@@ -251,6 +252,47 @@ class GenericGatewayHandler(
             else:
                 watering.controller._perform_schedule()
 
+    def ensure_outdoor_light_indices(self):
+        """Backfill the built-in index for instances created before upgrade."""
+        drop_current_instance()
+        from .controllers import OutdoorLightIndex, Weather
+
+        weather_components = Component.objects.filter(
+            controller_uid=Weather.uid,
+            config__is_main=True,
+        ).select_related('zone', 'category', 'icon')
+        for weather in weather_components:
+            instance = weather.zone.instance
+            if Component.objects.filter(
+                zone__instance=instance,
+                controller_uid=OutdoorLightIndex.uid,
+            ).exists():
+                continue
+            Component.objects.create(
+                name='Outdoor Light Index',
+                icon=weather.icon,
+                zone=weather.zone,
+                category=weather.category,
+                gateway=self.gateway_instance,
+                base_type='numeric-sensor',
+                controller_uid=OutdoorLightIndex.uid,
+                value=OutdoorLightIndex.default_value,
+                value_units='%',
+                config={},
+            )
+
+    def watch_outdoor_light_indices(self):
+        drop_current_instance()
+        from .controllers import OutdoorLightIndex
+
+        for component in Component.objects.filter(
+            controller_uid=OutdoorLightIndex.uid,
+        ).select_related('zone', 'zone__instance'):
+            try:
+                component.controller.refresh_status()
+            except Exception:
+                print(traceback.format_exc(), file=sys.stderr)
+
     def low_battery_notifications(self):
         from simo.notifications.utils import notify_users
         from simo.automation.helpers import be_or_not_to_be
@@ -290,6 +332,7 @@ class GenericGatewayHandler(
         drop_current_instance()
         self.exit = exit
         self.logger = get_gw_logger(self.gateway_instance.id)
+        self.ensure_outdoor_light_indices()
         for task, period in self.periodic_tasks:
             threading.Thread(
                 target=self._run_periodic_task, args=(exit, task, period),

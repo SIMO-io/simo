@@ -1,6 +1,7 @@
 import pytz
 import datetime
 import json
+import math
 import time
 from django.db import transaction
 from django.core.exceptions import ValidationError
@@ -1039,6 +1040,134 @@ class Weather(ControllerBase):
 
     def _validate_val(self, value, occasion=None):
         return value
+
+
+class OutdoorLightIndex(NumericSensor):
+    """Estimated outdoor daylight from solar position and weather conditions."""
+
+    name = _("Outdoor Light Index")
+    gateway_class = GenericGatewayHandler
+    default_value = 0
+    manual_add = False
+
+    @staticmethod
+    def _coordinates(location, weather_payload=None):
+        try:
+            latitude, longitude = str(location).split(',', 1)
+            return float(latitude), float(longitude)
+        except (TypeError, ValueError):
+            pass
+        try:
+            coord = weather_payload.get('coord') or {}
+            return float(coord['lat']), float(coord['lon'])
+        except (AttributeError, KeyError, TypeError, ValueError):
+            return None
+
+    @staticmethod
+    def _solar_elevation(latitude, longitude, current_time):
+        """Return the sun elevation in degrees using the NOAA approximation."""
+        current_time = current_time.astimezone(datetime.timezone.utc)
+        day_of_year = current_time.timetuple().tm_yday
+        decimal_hour = (
+            current_time.hour + current_time.minute / 60 +
+            current_time.second / 3600
+        )
+        gamma = 2 * math.pi / 365 * (day_of_year - 1 + (decimal_hour - 12) / 24)
+        equation_of_time = 229.18 * (
+            0.000075 + 0.001868 * math.cos(gamma) -
+            0.032077 * math.sin(gamma) - 0.014615 * math.cos(2 * gamma) -
+            0.040849 * math.sin(2 * gamma)
+        )
+        declination = (
+            0.006918 - 0.399912 * math.cos(gamma) +
+            0.070257 * math.sin(gamma) - 0.006758 * math.cos(2 * gamma) +
+            0.000907 * math.sin(2 * gamma) - 0.002697 * math.cos(3 * gamma) +
+            0.00148 * math.sin(3 * gamma)
+        )
+        solar_minutes = (decimal_hour * 60 + equation_of_time + 4 * longitude) % 1440
+        hour_angle = math.radians(solar_minutes / 4 - 180)
+        latitude_radians = math.radians(latitude)
+        elevation = math.asin(
+            math.sin(latitude_radians) * math.sin(declination) +
+            math.cos(latitude_radians) * math.cos(declination) * math.cos(hour_angle)
+        )
+        return math.degrees(elevation)
+
+    @staticmethod
+    def _weather_adjustment(weather_payload):
+        cloud_cover = None
+        raining = False
+        if isinstance(weather_payload, dict):
+            try:
+                cloud_cover = float((weather_payload.get('clouds') or {}).get('all'))
+                cloud_cover = max(0.0, min(100.0, cloud_cover))
+            except (TypeError, ValueError):
+                cloud_cover = None
+            weather_entries = weather_payload.get('weather') or []
+            raining = bool((weather_payload.get('rain') or {}).get('1h'))
+            raining = raining or any(
+                str(entry.get('main', '')).lower() in (
+                    'rain', 'drizzle', 'thunderstorm', 'snow',
+                )
+                for entry in weather_entries if isinstance(entry, dict)
+            )
+
+        # Full cloud cover still has substantial diffuse daylight.  Weather
+        # data is an estimate, not an on/off darkness switch.
+        adjustment = 1.0 if cloud_cover is None else 1.0 - 0.65 * cloud_cover / 100
+        if raining:
+            adjustment *= 0.85
+        return adjustment
+
+    @classmethod
+    def calculate_index(cls, location, weather_payload=None, current_time=None):
+        current_time = current_time or timezone.now()
+        coordinates = cls._coordinates(location, weather_payload)
+        if not coordinates:
+            return None
+
+        elevation = cls._solar_elevation(*coordinates, current_time)
+        if elevation <= -6:
+            clear_sky_index = 0.0
+        elif elevation < 0:
+            # Civil twilight remains visibly brighter for a while after sunset.
+            clear_sky_index = 25 * ((elevation + 6) / 6) ** 1.3
+        else:
+            clear_sky_index = 25 + 75 * math.sin(math.radians(elevation)) ** 0.55
+
+        return int(round(max(
+            0.0,
+            min(100.0, clear_sky_index * cls._weather_adjustment(weather_payload)),
+        )))
+
+    def _weather_payload(self):
+        instance = self.component.zone.instance
+        weather_qs = Component.objects.filter(
+            zone__instance=instance,
+            controller_uid=Weather.uid,
+        )
+        weather_component = weather_qs.filter(config__is_main=True).first()
+        if not weather_component:
+            weather_component = weather_qs.first()
+        if weather_component and isinstance(weather_component.value, dict):
+            return weather_component.value
+        return None
+
+    def refresh_status(self, current_time=None):
+        index = self.calculate_index(
+            self.component.zone.instance.location,
+            self._weather_payload(),
+            current_time=current_time,
+        )
+        if index is None or index == self.component.value:
+            return index
+
+        # This is a live automation input, not a physical lux sensor; avoid
+        # generating a minute-by-minute history record indefinitely.
+        self.component.value_previous = self.component.value
+        self.component.value = index
+        self.component.save(update_fields=['value', 'value_previous'])
+        return index
 
 
 class IPCamera(ControllerBase):

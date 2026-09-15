@@ -81,7 +81,7 @@ def create_instance_defaults(sender, instance, created, **kwargs):
     )
     weather_icon = Icon.objects.get(slug='cloud-bolt-sun')
 
-    from simo.generic.controllers import Weather, MainState
+    from simo.generic.controllers import Weather, MainState, OutdoorLightIndex
     Component.objects.create(
         name='Weather', icon=weather_icon,
         zone=other_zone,
@@ -89,6 +89,16 @@ def create_instance_defaults(sender, instance, created, **kwargs):
         gateway=generic, base_type='weather',
         controller_uid=Weather.uid,
         config={'is_main': True}
+    )
+
+    Component.objects.create(
+        name='Outdoor Light Index', icon=weather_icon,
+        zone=other_zone,
+        category=climate_category,
+        gateway=generic, base_type='numeric-sensor',
+        controller_uid=OutdoorLightIndex.uid,
+        value=OutdoorLightIndex.default_value,
+        value_units='%', config={},
     )
 
     Component.objects.create(
