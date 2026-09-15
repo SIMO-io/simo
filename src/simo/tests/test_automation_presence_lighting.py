@@ -159,6 +159,57 @@ class PresenceLightingControllerTests(BaseSimoTestCase):
 
         self.assertFalse(controller.is_on)
 
+    def test_latched_condition_does_not_turn_lights_off_when_it_stops_matching(self):
+        controller = self._controller(True)
+        controller.conditions = [{
+            'component': self.condition,
+            'op': '==',
+            'condition_value': True,
+            'value': 'ON',
+            'disengagement': 'latch_until_off',
+        }]
+
+        controller._on_condition(self.condition)
+
+        self.assertTrue(controller.is_on)
+
+    def test_latched_condition_still_prevents_turning_lights_on(self):
+        controller = self._controller(True, is_on=False)
+        controller.conditions = [{
+            'component': self.condition,
+            'op': '==',
+            'condition_value': True,
+            'value': 'ON',
+            'disengagement': 'latch_until_off',
+        }]
+
+        controller._on_sensor(self.sensor)
+
+        self.assertFalse(controller.is_on)
+
+    def test_immediate_condition_still_turns_off_with_failed_latched_condition(self):
+        controller = self._controller(True)
+        controller.conditions = [
+            {
+                'component': self.condition,
+                'op': '==',
+                'condition_value': True,
+                'value': 'ON',
+                'disengagement': 'latch_until_off',
+            },
+            {
+                'component': self.sensor,
+                'op': '==',
+                'condition_value': False,
+                'value': 'OFF',
+                'disengagement': 'immediate',
+            },
+        ]
+
+        controller._regulate()
+
+        self.assertFalse(controller.is_on)
+
     def test_ensure_watchers_alive_rebinds_all_registered_watchers(self):
         from simo.automation.controllers import PresenceLighting
 
@@ -322,6 +373,9 @@ class PresenceLightingConfigFormTests(BaseSimoTestCase):
         form = PresenceLightingConfigForm(data=data, instance=self.script)
 
         self.assertTrue(form.is_valid(), form.errors)
+        self.assertEqual(
+            form.cleaned_data['conditions'][0]['disengagement'], 'immediate'
+        )
 
     def test_sensorless_mode_save_clears_existing_sensors_when_post_omits_field(self):
         from simo.automation.forms import PresenceLightingConfigForm

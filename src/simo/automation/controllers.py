@@ -413,9 +413,10 @@ class PresenceLighting(Script):
         if must_on and not sensorless_mode:
             self.last_presence = 0
 
-        additional_conditions_met = True
+        activation_conditions_met = True
+        maintenance_conditions_met = True
         if sensorless_mode and not self.conditions:
-            additional_conditions_met = False
+            activation_conditions_met = False
 
         for condition in self.conditions:
 
@@ -425,29 +426,25 @@ class PresenceLighting(Script):
             if not op:
                 continue
 
-            if condition['op'] == 'in':
-                if comp.value not in condition['condition_value']:
-                    if must_on and on_sensor:
-                        print(
-                            f"Condition not met: [{comp} value:{comp.value} "
-                            f"{condition['op']} {condition['condition_value']}]"
-                        )
-                    additional_conditions_met = False
-                    break
-
-            if not op(comp.value, condition['condition_value']):
+            condition_met = (
+                comp.value in condition['condition_value']
+                if condition['op'] == 'in'
+                else op(comp.value, condition['condition_value'])
+            )
+            if not condition_met:
                 if must_on and on_sensor:
                     print(
                         f"Condition not met: [{comp} value:{comp.value} "
                         f"{condition['op']} {condition['condition_value']}]"
                     )
-                additional_conditions_met = False
-                break
+                activation_conditions_met = False
+                if condition.get('disengagement', 'immediate') == 'immediate':
+                    maintenance_conditions_met = False
 
         if not self.is_on:
             if not must_on:
                 return
-            if not additional_conditions_met:
+            if not activation_conditions_met:
                 return
             if on_condition_change and not sensorless_mode:
                 return
@@ -473,7 +470,7 @@ class PresenceLighting(Script):
             return
 
         else:
-            if not additional_conditions_met:
+            if not maintenance_conditions_met:
                 print(
                     "Turning lights OFF because additional conditions are no "
                     f"longer met. Sensors: {sensor_states}"

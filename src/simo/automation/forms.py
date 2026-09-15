@@ -147,9 +147,26 @@ class ConditionForm(forms.Form):
         )
     )
     value = forms.CharField()
+    disengagement = forms.ChoiceField(
+        required=False,
+        initial='immediate',
+        choices=(
+            ('immediate', 'Immediate'),
+            ('latch_until_off', 'Latch until off'),
+        ),
+        help_text=(
+            'Immediate turns the lights off when this condition is no longer '
+            'met. Latch until off only prevents turning the lights on.'
+        ),
+    )
     prefix = 'breach_events'
 
     def clean(self):
+        # Existing automations have no value for this newly introduced field.
+        # Treat a missing value as the historical, immediately-enforced mode.
+        self.cleaned_data['disengagement'] = (
+            self.cleaned_data.get('disengagement') or 'immediate'
+        )
         if not self.cleaned_data.get('component'):
             return self.cleaned_data
         if not self.cleaned_data.get('op'):
