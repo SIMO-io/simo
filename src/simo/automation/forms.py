@@ -281,6 +281,19 @@ class PresenceLightingConfigForm(AutomationComponentForm):
             ConditionForm, can_delete=True, can_order=True, extra=0
         ), label='Additional conditions'
     )
+    conditions_match = forms.ChoiceField(
+        label='Match',
+        initial='all',
+        required=False,
+        choices=(
+            ('all', 'All conditions'),
+            ('any', 'Any condition'),
+        ),
+        help_text=(
+            'Choose whether every additional condition or at least one must '
+            'match.'
+        )
+    )
 
     lights = FormsetField(
         formset_factory(
@@ -312,8 +325,17 @@ class PresenceLightingConfigForm(AutomationComponentForm):
         self.app_exclude_fields.extend(['alarm_category', 'code', 'log'])
         self.basic_fields.extend(
             ['lights', 'on_value', 'off_value', 'presence_sensors',
-             'act_on', 'hold_time', 'conditions', 'autostart', 'keep_alive']
+             'act_on', 'hold_time', 'conditions', 'conditions_match',
+             'autostart', 'keep_alive']
         )
+        # Keep the match selector immediately below the conditions list in
+        # every consumer of this form, including the app's generic editor.
+        field_names = list(self.fields)
+        field_names.remove('conditions_match')
+        field_names.insert(
+            field_names.index('conditions') + 1, 'conditions_match'
+        )
+        self.order_fields(field_names)
         if self.instance.pk and 'log' in self.fields:
             prefix = get_script_prefix()
             if prefix == '/':
@@ -327,6 +349,10 @@ class PresenceLightingConfigForm(AutomationComponentForm):
 
     def clean(self):
         cleaned_data = super().clean()
+        # Older app versions do not submit this newly added field.
+        cleaned_data['conditions_match'] = (
+            cleaned_data.get('conditions_match') or 'all'
+        )
         presence_sensors = cleaned_data.get('presence_sensors')
         conditions = cleaned_data.get('conditions') or []
 

@@ -192,6 +192,9 @@ class PresenceLighting(Script):
     def _is_sensorless_mode(self):
         return not self._configured_presence_sensor_ids()
 
+    def _conditions_match_mode(self):
+        return self.component.config.get('conditions_match', 'all')
+
     def _presence_requirements_met(self, presence_values):
         if self._is_sensorless_mode():
             return True
@@ -413,10 +416,12 @@ class PresenceLighting(Script):
         if must_on and not sensorless_mode:
             self.last_presence = 0
 
-        activation_conditions_met = True
-        maintenance_conditions_met = True
+        condition_results = []
+        immediate_condition_results = []
         if sensorless_mode and not self.conditions:
             activation_conditions_met = False
+        else:
+            activation_conditions_met = True
 
         for condition in self.conditions:
 
@@ -431,15 +436,31 @@ class PresenceLighting(Script):
                 if condition['op'] == 'in'
                 else op(comp.value, condition['condition_value'])
             )
-            if not condition_met:
-                if must_on and on_sensor:
-                    print(
-                        f"Condition not met: [{comp} value:{comp.value} "
-                        f"{condition['op']} {condition['condition_value']}]"
-                    )
-                activation_conditions_met = False
-                if condition.get('disengagement', 'immediate') == 'immediate':
-                    maintenance_conditions_met = False
+            condition_results.append(condition_met)
+            if condition.get('disengagement', 'immediate') == 'immediate':
+                immediate_condition_results.append(condition_met)
+
+        if condition_results:
+            if self._conditions_match_mode() == 'any':
+                activation_conditions_met = any(condition_results)
+            else:
+                activation_conditions_met = all(condition_results)
+
+        # Latching conditions only gate activation. Once lights are on, only
+        # immediate conditions can turn them off, using the same match mode.
+        if immediate_condition_results:
+            if self._conditions_match_mode() == 'any':
+                maintenance_conditions_met = any(immediate_condition_results)
+            else:
+                maintenance_conditions_met = all(immediate_condition_results)
+        else:
+            maintenance_conditions_met = True
+
+        if must_on and on_sensor and not activation_conditions_met:
+            print(
+                "Additional conditions are not met "
+                f"(match: {self._conditions_match_mode()})."
+            )
 
         if not self.is_on:
             if not must_on:

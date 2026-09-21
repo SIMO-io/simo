@@ -187,6 +187,97 @@ class PresenceLightingControllerTests(BaseSimoTestCase):
 
         self.assertFalse(controller.is_on)
 
+    def test_any_conditions_mode_turns_on_when_one_condition_matches(self):
+        self.script.config['conditions_match'] = 'any'
+        self.condition.value = True
+        controller = self._controller(True, is_on=False)
+        controller.conditions = [
+            {
+                'component': self.condition,
+                'op': '==',
+                'condition_value': True,
+                'value': 'ON',
+            },
+            {
+                'component': self.sensor,
+                'op': '==',
+                'condition_value': False,
+                'value': 'OFF',
+            },
+        ]
+
+        controller._on_sensor(self.sensor)
+
+        self.assertTrue(controller.is_on)
+
+    def test_any_conditions_mode_does_not_turn_on_when_none_match(self):
+        self.script.config['conditions_match'] = 'any'
+        self.condition.value = False
+        controller = self._controller(True, is_on=False)
+        controller.conditions = [
+            {
+                'component': self.condition,
+                'op': '==',
+                'condition_value': True,
+                'value': 'ON',
+            },
+            {
+                'component': self.sensor,
+                'op': '==',
+                'condition_value': False,
+                'value': 'OFF',
+            },
+        ]
+
+        controller._on_sensor(self.sensor)
+
+        self.assertFalse(controller.is_on)
+
+    def test_any_conditions_mode_turns_off_when_none_match(self):
+        self.script.config['conditions_match'] = 'any'
+        self.condition.value = False
+        controller = self._controller(True)
+        controller.conditions = [
+            {
+                'component': self.condition,
+                'op': '==',
+                'condition_value': True,
+                'value': 'ON',
+            },
+            {
+                'component': self.sensor,
+                'op': '==',
+                'condition_value': False,
+                'value': 'OFF',
+            },
+        ]
+
+        controller._regulate()
+
+        self.assertFalse(controller.is_on)
+
+    def test_missing_match_mode_keeps_existing_all_conditions_behavior(self):
+        self.condition.value = True
+        controller = self._controller(True, is_on=False)
+        controller.conditions = [
+            {
+                'component': self.condition,
+                'op': '==',
+                'condition_value': True,
+                'value': 'ON',
+            },
+            {
+                'component': self.sensor,
+                'op': '==',
+                'condition_value': False,
+                'value': 'OFF',
+            },
+        ]
+
+        controller._on_sensor(self.sensor)
+
+        self.assertFalse(controller.is_on)
+
     def test_immediate_condition_still_turns_off_with_failed_latched_condition(self):
         controller = self._controller(True)
         controller.conditions = [
@@ -314,6 +405,15 @@ class PresenceLightingConfigFormTests(BaseSimoTestCase):
             form.fields['presence_sensors'].help_text,
         )
 
+    def test_conditions_match_defaults_to_all_and_follows_conditions(self):
+        from simo.automation.forms import PresenceLightingConfigForm
+
+        form = PresenceLightingConfigForm(instance=self.script)
+        fields = list(form.fields)
+
+        self.assertEqual(form.fields['conditions_match'].initial, 'all')
+        self.assertEqual(fields[fields.index('conditions') + 1], 'conditions_match')
+
     def test_sensorless_mode_requires_at_least_one_condition(self):
         from simo.automation.forms import PresenceLightingConfigForm
 
@@ -360,6 +460,7 @@ class PresenceLightingConfigFormTests(BaseSimoTestCase):
         data.update({
             'act_on': '0',
             'hold_time': '0',
+            'conditions_match': 'any',
             'conditions-TOTAL_FORMS': '1',
             'conditions-INITIAL_FORMS': '0',
             'conditions-MIN_NUM_FORMS': '0',
@@ -373,6 +474,9 @@ class PresenceLightingConfigFormTests(BaseSimoTestCase):
         form = PresenceLightingConfigForm(data=data, instance=self.script)
 
         self.assertTrue(form.is_valid(), form.errors)
+        self.assertEqual(form.cleaned_data['conditions_match'], 'any')
+        saved = form.save(commit=False)
+        self.assertEqual(saved.config['conditions_match'], 'any')
         self.assertEqual(
             form.cleaned_data['conditions'][0]['disengagement'], 'immediate'
         )
@@ -399,3 +503,4 @@ class PresenceLightingConfigFormTests(BaseSimoTestCase):
         self.assertTrue(form.is_valid(), form.errors)
         saved = form.save(commit=False)
         self.assertEqual(saved.config['presence_sensors'], [])
+        self.assertEqual(saved.config['conditions_match'], 'all')
