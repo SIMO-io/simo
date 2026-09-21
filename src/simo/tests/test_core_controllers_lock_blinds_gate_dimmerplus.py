@@ -289,6 +289,52 @@ class BlindsControllerTests(BaseSimoTestCase):
         self.assertEqual(sent[1], {'target': 0})
         self.assertEqual(sent[2], {'target': -1})
 
+    def test_progress_reports_keep_command_actor_until_target_is_reached(self):
+        from simo.users.utils import user_context
+
+        actor = mk_user('alice@example.com', 'Alice')
+        ctrl = self.Blinds(self.comp)
+        with user_context(actor):
+            ctrl.send({'target': 100})
+
+        self.comp.refresh_from_db()
+        self.assertEqual(self.comp.change_init_by_id, actor.id)
+        self.assertEqual(self.comp.change_init_to['target'], 100)
+
+        ctrl = self.Blinds(self.comp)
+        for position in (20, 60):
+            ctrl._receive_from_device({'position': position})
+            self.comp.refresh_from_db()
+            self.assertEqual(self.comp.change_init_by_id, actor.id)
+            self.assertEqual(self.comp.change_init_to['last_position'], position)
+
+        ctrl._receive_from_device({'position': 100})
+        self.comp.refresh_from_db()
+        self.assertIsNone(self.comp.change_init_by_id)
+        self.assertIsNone(self.comp.change_init_to)
+        self.assertEqual(
+            list(self.comp.history.filter(type='value').values_list('user_id', flat=True)),
+            [actor.id, actor.id, actor.id],
+        )
+
+    def test_reverse_position_report_cancels_pending_command_actor(self):
+        from simo.users.utils import user_context
+
+        actor = mk_user('alice@example.com', 'Alice')
+        ctrl = self.Blinds(self.comp)
+        with user_context(actor):
+            ctrl.send({'target': 100})
+
+        ctrl._receive_from_device({'position': 20})
+        ctrl._receive_from_device({'position': 10})
+
+        self.comp.refresh_from_db()
+        history = self.comp.history.filter(type='value').order_by('date', 'id')
+        self.assertEqual(history[0].user_id, actor.id)
+        self.assertEqual(history[1].user.email, 'device@simo.io')
+        self.assertIsNone(self.comp.change_init_by_id)
+        self.assertIsNone(self.comp.change_init_to)
+
 
 class GateControllerTests(BaseSimoTestCase):
     def setUp(self):

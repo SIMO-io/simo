@@ -5,7 +5,7 @@ from unittest import mock
 
 from simo.core.models import Component, Gateway, Zone
 
-from .base import BaseSimoTestCase, mk_instance
+from .base import BaseSimoTestCase, mk_instance, mk_user
 
 
 class FakeMqttClient:
@@ -187,6 +187,40 @@ class AutomationGatewayScriptsTests(BaseSimoTestCase):
                 for call in logger.log.call_args_list
             )
         )
+
+    def test_script_run_handler_does_not_inherit_starter_user_context(self):
+        from simo.automation import gateways as gw_mod
+        from simo.users.utils import get_current_user, user_context
+
+        handler = gw_mod.ScriptRunHandler(1, multiprocessing.Event())
+        component = mock.Mock()
+        component.zone.instance = mock.Mock(timezone='UTC')
+        component.meta = {}
+        component.refresh_from_db = mock.Mock()
+        starter = mk_user('starter@example.com', 'Starter')
+        observed_actors = []
+
+        def run_code():
+            observed_actors.append(get_current_user().email)
+
+        with (
+            mock.patch.object(gw_mod.db_connection, 'connect', autospec=True),
+            mock.patch.object(gw_mod.Component.objects, 'get', autospec=True, return_value=component),
+            mock.patch.object(gw_mod.timezone, 'activate', autospec=True),
+            mock.patch.object(gw_mod, 'introduce_instance', autospec=True),
+            mock.patch.object(gw_mod, 'get_component_logger', autospec=True, return_value=mock.Mock()),
+            mock.patch.object(gw_mod, 'cleanup_watchers_for_event', autospec=True),
+            mock.patch.object(gw_mod, 'clear_current_watcher_stop_event', autospec=True),
+            mock.patch.object(gw_mod.threading, 'Thread', autospec=True),
+            mock.patch.object(gw_mod.os, 'getpid', autospec=True, return_value=111),
+            mock.patch.object(gw_mod.os, 'getppid', autospec=True, return_value=22),
+            mock.patch.object(handler, 'run_code', autospec=True, side_effect=run_code),
+        ):
+            with user_context(starter):
+                handler.run()
+                self.assertEqual(get_current_user().id, starter.id)
+
+        self.assertEqual(observed_actors, ['system@simo.io'])
 
     def test_script_run_handler_reports_failure_before_error_persistence(self):
         from simo.automation import gateways as gw_mod

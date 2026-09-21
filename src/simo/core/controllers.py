@@ -1339,6 +1339,8 @@ class Blinds(ControllerBase, TimerMixin):
     base_type = BlindsType
     admin_widget_template = 'admin/controller_widgets/blinds.html'
     default_config = {}
+    _movement_grace_seconds = 5
+    _position_tolerance = 2
 
     @property
     def app_widget(self):
@@ -1352,6 +1354,65 @@ class Blinds(ControllerBase, TimerMixin):
         # Position is a percentage: 0 is fully closed and 100 is fully open.
         # Angle is expressed in degrees (0 - 180).
         return {'target': 0, 'position': 0, 'angle': 0}
+
+    def _get_pending_movement(self):
+        pending = self.component.change_init_to
+        if not isinstance(pending, dict):
+            return None
+        if pending.get('kind') != 'blinds-movement':
+            return None
+        return pending
+
+    def _clear_pending_movement(self):
+        self.component.change_init_by = None
+        self.component.change_init_date = None
+        self.component.change_init_to = None
+        self.component.save(update_fields=[
+            'change_init_by', 'change_init_date', 'change_init_to'
+        ])
+
+    def _is_expected_movement_update(self, pending, value):
+        if not isinstance(value, dict):
+            return False
+        try:
+            position = float(value['position'])
+            target = float(pending['target'])
+            previous = float(pending['last_position'])
+        except (KeyError, TypeError, ValueError):
+            return False
+
+        tolerance = self._position_tolerance
+        if target > previous:
+            return previous - tolerance <= position <= target + tolerance
+        if target < previous:
+            return target - tolerance <= position <= previous + tolerance
+        return abs(position - target) <= tolerance
+
+    def _movement_is_complete(self, pending, value):
+        try:
+            return abs(
+                float(value['position']) - float(pending['target'])
+            ) <= self._position_tolerance
+        except (KeyError, TypeError, ValueError):
+            return False
+
+    def _get_actor(self, to_value):
+        pending = self._get_pending_movement()
+        if not pending:
+            return super()._get_actor(to_value)
+
+        actor = self.component.change_init_by
+        try:
+            expires_at = float(pending['expires_at'])
+        except (KeyError, TypeError, ValueError):
+            expires_at = 0
+        if not actor or expires_at < time.time() \
+        or not self._is_expected_movement_update(pending, to_value):
+            self._clear_pending_movement()
+            return None
+
+        self._blind_movement_actor = actor
+        return actor
 
     def _validate_val(self, value, occasion=None):
 
@@ -1451,7 +1512,64 @@ class Blinds(ControllerBase, TimerMixin):
         - value (dict): {'target': milliseconds or -1 for stop,
                          'angle': optional 0-180}
         """
+        self.component.refresh_from_db()
+        value = self._validate_val(value, BEFORE_SEND)
+
+        target = value['target']
+        if target == -1:
+            # Stopping has one acknowledgement, not a continuing movement.
+            self.component.change_init_to = None
+        else:
+            try:
+                start = float(self.component.value.get('position', 0))
+            except (AttributeError, TypeError, ValueError):
+                start = 0
+            duration_key = 'open_duration' if target >= start else 'close_duration'
+            try:
+                full_duration = float(self.component.config.get(duration_key, 30))
+            except (TypeError, ValueError):
+                full_duration = 30
+            full_duration = max(full_duration, 1)
+            movement_duration = abs(float(target) - start) * full_duration / 100
+            self.component.change_init_to = {
+                'kind': 'blinds-movement',
+                'target': target,
+                'last_position': start,
+                'expires_at': time.time() + movement_duration
+                + self._movement_grace_seconds,
+            }
+        self.component.save(update_fields=['change_init_to'])
         return super().send(value)
+
+    def set(self, value, actor=None, alive=None, error_msg=None):
+        """Keep a command actor while reported position moves to its target."""
+        pending = self._get_pending_movement()
+        pending_actor_id = getattr(self.component, 'change_init_by_id', None)
+        if pending and isinstance(value, dict) and 'target' not in value:
+            # Device position reports commonly omit the commanded target.
+            value = {**value, 'target': pending['target']}
+
+        self._blind_movement_actor = None
+        try:
+            super().set(value, actor=actor, alive=alive, error_msg=error_msg)
+            effective_actor = actor or self._blind_movement_actor
+        finally:
+            self._blind_movement_actor = None
+
+        if not pending or not effective_actor \
+        or effective_actor.id != pending_actor_id:
+            return
+        if not self._is_expected_movement_update(pending, self.component.value) \
+        or self._movement_is_complete(pending, self.component.value):
+            return
+
+        pending['last_position'] = self.component.value['position']
+        self.component.change_init_by = effective_actor
+        self.component.change_init_date = timezone.now()
+        self.component.change_init_to = pending
+        self.component.save(update_fields=[
+            'change_init_by', 'change_init_date', 'change_init_to'
+        ])
 
 
 class Gate(ControllerBase, TimerMixin):

@@ -66,6 +66,16 @@ class ScriptRunHandler(multiprocessing.Process):
         self.watchers_cleaned = multiprocessing.Event()
 
     def run(self):
+        # A script is an automation execution boundary.  In particular, on
+        # Linux this process is forked from the MQTT command handler, which
+        # may currently be scoped to the user who started the script.  Never
+        # let that request context become the actor of later script actions.
+        from simo.users.utils import get_system_user, user_context
+
+        with user_context(get_system_user()):
+            return self._run()
+
+    def _run(self):
         original_stdout = original_stderr = None
         try:
             db_connection.connect()
