@@ -70,15 +70,17 @@ class ScriptRunHandler(multiprocessing.Process):
         # Linux this process is forked from the MQTT command handler, which
         # may currently be scoped to the user who started the script.  Never
         # let that request context become the actor of later script actions.
-        from simo.users.utils import get_system_user, user_context
+        #
+        # Do this after reconnecting the child process to the database.  A
+        # fork inherits the parent's database connection, so looking up the
+        # system user before that reconnect can prevent the worker starting.
+        from simo.users.utils import get_system_user, introduce_user, reset_user
 
-        with user_context(get_system_user()):
-            return self._run()
-
-    def _run(self):
         original_stdout = original_stderr = None
+        user_token = None
         try:
             db_connection.connect()
+            user_token = introduce_user(get_system_user())
             self.component = Component.objects.get(id=self.component_id)
             tz = pytz.timezone(self.component.zone.instance.timezone)
             timezone.activate(tz)
@@ -166,6 +168,8 @@ class ScriptRunHandler(multiprocessing.Process):
             except Exception:
                 pass
             self.watchers_cleaned.set()
+            if user_token is not None:
+                reset_user(user_token)
 
     def run_code(self):
         controller = self.component.controller

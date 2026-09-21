@@ -190,7 +190,9 @@ class AutomationGatewayScriptsTests(BaseSimoTestCase):
 
     def test_script_run_handler_does_not_inherit_starter_user_context(self):
         from simo.automation import gateways as gw_mod
-        from simo.users.utils import get_current_user, user_context
+        from simo.users.utils import (
+            get_current_user, get_system_user, user_context,
+        )
 
         handler = gw_mod.ScriptRunHandler(1, multiprocessing.Event())
         component = mock.Mock()
@@ -198,13 +200,29 @@ class AutomationGatewayScriptsTests(BaseSimoTestCase):
         component.meta = {}
         component.refresh_from_db = mock.Mock()
         starter = mk_user('starter@example.com', 'Starter')
+        system_user = get_system_user()
         observed_actors = []
+        db_connected = {'value': False}
+
+        def connect():
+            db_connected['value'] = True
+
+        def system_user_after_connect():
+            self.assertTrue(db_connected['value'])
+            return system_user
 
         def run_code():
             observed_actors.append(get_current_user().email)
 
         with (
-            mock.patch.object(gw_mod.db_connection, 'connect', autospec=True),
+            mock.patch.object(
+                gw_mod.db_connection, 'connect', autospec=True,
+                side_effect=connect,
+            ),
+            mock.patch(
+                'simo.users.utils.get_system_user',
+                side_effect=system_user_after_connect,
+            ),
             mock.patch.object(gw_mod.Component.objects, 'get', autospec=True, return_value=component),
             mock.patch.object(gw_mod.timezone, 'activate', autospec=True),
             mock.patch.object(gw_mod, 'introduce_instance', autospec=True),
