@@ -1649,6 +1649,90 @@ class Watering(ControllerBase):
                 {'program_progress': program_minute, 'status': status}
             )
 
+    def _get_contour_switch(self, contour_uid):
+        """Return the configured switch for a contour owned by this program."""
+        if not isinstance(contour_uid, str):
+            raise ValidationError("A contour uid string is expected.")
+        for contour in self.component.config.get('contours') or []:
+            if contour.get('uid') != contour_uid:
+                continue
+            try:
+                return contour, Component.objects.get(pk=contour['switch'])
+            except (KeyError, TypeError, ValueError, Component.DoesNotExist):
+                raise ValidationError("Contour '%s' has no available switch." % contour_uid)
+        raise ValidationError("Unknown contour '%s'." % contour_uid)
+
+    def start_contour(self, contour_uid, request_id=None):
+        """Start a contour manually through its owning watering component.
+
+        The timer is armed before the device command.  It is a safety fallback
+        while the app waits for the hub's actual state report and lets the user
+        adjust the duration in the timer dialog.
+        """
+        self.component.refresh_from_db()
+        if self.component.value.get('status') in ('running_program', 'paused_program'):
+            raise ValidationError(
+                "Contours cannot be started while the program is active."
+            )
+        if request_id is not None and not isinstance(request_id, str):
+            raise ValidationError("A request id string is expected.")
+
+        contour, switch = self._get_contour_switch(contour_uid)
+        try:
+            runtime_minutes = int(contour.get('runtime', 0) or 0)
+        except (TypeError, ValueError):
+            raise ValidationError("Contour runtime must be a whole number of minutes.")
+        if runtime_minutes < 1:
+            raise ValidationError("Contour runtime must be at least one minute.")
+
+        switch.stop_timer()
+        switch.set_timer(
+            time.time() + runtime_minutes * 60,
+            event='turn_off',
+        )
+        switch.refresh_from_db()
+        switch.meta['manual_watering_request'] = {
+            'id': request_id,
+            'contour_uid': contour_uid,
+            'requested_at': time.time(),
+        }
+        switch.save(update_fields=('meta',))
+        switch.turn_on()
+
+        pending = self.component.meta.get('manual_contour_requests', {})
+        pending[contour_uid] = {
+            'id': request_id,
+            'requested_at': time.time(),
+        }
+        self.component.meta['manual_contour_requests'] = pending
+        self.component.save(update_fields=('meta',))
+        return {'contour_uid': contour_uid, 'request_id': request_id}
+
+    def set_contour_timer(self, contour_uid, to_timestamp):
+        """Set a contour's automatic turn-off time through this controller."""
+        _, switch = self._get_contour_switch(contour_uid)
+        try:
+            to_timestamp = float(to_timestamp)
+        except (TypeError, ValueError):
+            raise ValidationError("A future timer timestamp is expected.")
+        switch.set_timer(to_timestamp, event='turn_off')
+
+    def pause_contour_timer(self, contour_uid):
+        """Pause a manually started contour's timer."""
+        _, switch = self._get_contour_switch(contour_uid)
+        switch.pause_timer()
+
+    def resume_contour_timer(self, contour_uid):
+        """Resume a manually started contour's timer."""
+        _, switch = self._get_contour_switch(contour_uid)
+        switch.resume_timer()
+
+    def stop_contour(self, contour_uid):
+        """Turn a manually started contour off and clear its timer."""
+        _, switch = self._get_contour_switch(contour_uid)
+        switch.stop_timer()
+        switch.turn_off()
+
     def ai_assist_update(self, data):
         """Update AI-assistant computed watering parameters.
 

@@ -358,6 +358,53 @@ class WateringControllerTests(BaseSimoTestCase):
         self.comp.refresh_from_db()
         self.assertEqual(self.comp.value, {'status': 'stopped', 'program_progress': 0})
 
+    def test_start_contour_routes_through_watering_and_arms_default_timer(self):
+        with (
+            mock.patch('simo.generic.controllers.time.time', return_value=1000),
+            mock.patch('simo.core.controllers.Switch.stop_timer', autospec=True) as stop_timer,
+            mock.patch('simo.core.controllers.Switch.set_timer', autospec=True) as set_timer,
+            mock.patch('simo.core.controllers.Switch.turn_on', autospec=True) as turn_on,
+        ):
+            result = self.comp.controller.start_contour('c1', 'request-1')
+
+        self.assertEqual(result, {'contour_uid': 'c1', 'request_id': 'request-1'})
+        stop_timer.assert_called_once()
+        set_timer.assert_called_once_with(
+            mock.ANY, 1300, event='turn_off'
+        )
+        self.assertEqual(set_timer.call_args.args[0].component.id, self.s1.id)
+        self.assertEqual(turn_on.call_args.args[0].component.id, self.s1.id)
+        self.comp.refresh_from_db()
+        self.s1.refresh_from_db()
+        self.assertEqual(
+            self.comp.meta['manual_contour_requests']['c1']['id'], 'request-1'
+        )
+        self.assertEqual(self.s1.meta['manual_watering_request']['id'], 'request-1')
+
+    def test_start_contour_rejects_unknown_contour_and_active_program(self):
+        with self.assertRaises(ValidationError):
+            self.comp.controller.start_contour('missing')
+
+        self.comp.value = {'status': 'running_program', 'program_progress': 0}
+        self.comp.save(update_fields=['value'])
+        with self.assertRaises(ValidationError):
+            self.comp.controller.start_contour('c1')
+
+    def test_contour_timer_and_stop_actions_target_only_the_owned_switch(self):
+        with (
+            mock.patch('simo.core.controllers.Switch.set_timer', autospec=True) as set_timer,
+            mock.patch('simo.core.controllers.Switch.stop_timer', autospec=True) as stop_timer,
+            mock.patch('simo.core.controllers.Switch.turn_off', autospec=True) as turn_off,
+        ):
+            self.comp.controller.set_contour_timer('c2', 1234)
+            self.comp.controller.stop_contour('c2')
+
+        self.assertEqual(set_timer.call_args.args[0].component.id, self.s2.id)
+        self.assertEqual(set_timer.call_args.args[1], 1234.0)
+        self.assertEqual(set_timer.call_args.kwargs['event'], 'turn_off')
+        self.assertEqual(stop_timer.call_args.args[0].component.id, self.s2.id)
+        self.assertEqual(turn_off.call_args.args[0].component.id, self.s2.id)
+
     def test_update_estimated_moisture_uses_weather_history(self):
         from simo.generic.controllers import Weather
 
