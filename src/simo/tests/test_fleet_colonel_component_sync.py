@@ -161,3 +161,100 @@ class FleetColonelComponentSyncTests(BaseSimoTestCase):
             finalize['data']['comp_config']['config']['dali_interface'],
             1
         )
+
+    def test_dali_bus_dimmer_control_change_syncs_colonel_config(self):
+        colonel = Colonel.objects.create(
+            instance=self.inst, uid='dali-controls-1', name='D1'
+        )
+        interface = Interface.objects.create(
+            colonel=colonel, no=1, type='dali'
+        )
+        component = Component.objects.create(
+            name='Bus Dimmer',
+            zone=self.zone,
+            gateway=Gateway.objects.get(type=FleetGatewayHandler.uid),
+            base_type='dimmer',
+            controller_uid=DALIBusDimmer.uid,
+            config={
+                'colonel': colonel.id,
+                'interface': interface.id,
+                'dali_interface': interface.no,
+                'on_value': 100,
+                'controls': [{
+                    'input': 'button-123', 'button': 123,
+                    'method': 'momentary', 'action_method': 'down',
+                }],
+            },
+            meta={},
+        )
+        form = DaliBusDimmerForm(
+            instance=component,
+            controller_uid=DALIBusDimmer.uid,
+            data={
+                'name': component.name,
+                'zone': self.zone.id,
+                'colonel': colonel.id,
+                'interface': interface.id,
+                'on_value': 100,
+                'auto_off': '',
+                'controls-TOTAL_FORMS': 0,
+                'controls-INITIAL_FORMS': 1,
+                'controls-MIN_NUM_FORMS': 0,
+                'controls-MAX_NUM_FORMS': 999,
+            },
+        )
+        self.assertTrue(form.is_valid(), form.errors)
+
+        with mock.patch(
+            'simo.fleet.models.Colonel.update_config', autospec=True
+        ) as update_config:
+            form.save()
+
+        update_config.assert_called_once_with(colonel)
+
+    def test_dali_bus_dimmer_unchanged_controls_do_not_sync_colonel_config(self):
+        colonel = Colonel.objects.create(
+            instance=self.inst, uid='dali-controls-2', name='D2'
+        )
+        interface = Interface.objects.create(
+            colonel=colonel, no=1, type='dali'
+        )
+        component = Component.objects.create(
+            name='Bus Dimmer',
+            zone=self.zone,
+            gateway=Gateway.objects.get(type=FleetGatewayHandler.uid),
+            base_type='dimmer',
+            controller_uid=DALIBusDimmer.uid,
+            config={
+                'colonel': colonel.id,
+                'interface': interface.id,
+                'dali_interface': interface.no,
+                'on_value': 100,
+                'controls': [],
+            },
+            meta={},
+        )
+        form = DaliBusDimmerForm(
+            instance=component,
+            controller_uid=DALIBusDimmer.uid,
+            data={
+                'name': component.name,
+                'zone': self.zone.id,
+                'colonel': colonel.id,
+                'interface': interface.id,
+                'on_value': 100,
+                'auto_off': '',
+                'controls-TOTAL_FORMS': 0,
+                'controls-INITIAL_FORMS': 0,
+                'controls-MIN_NUM_FORMS': 0,
+                'controls-MAX_NUM_FORMS': 999,
+            },
+        )
+        self.assertTrue(form.is_valid(), form.errors)
+
+        with mock.patch(
+            'simo.fleet.models.Colonel.update_config', autospec=True
+        ) as update_config:
+            form.save()
+
+        update_config.assert_not_called()

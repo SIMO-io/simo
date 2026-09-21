@@ -1,5 +1,6 @@
 import time
 import datetime
+from copy import deepcopy
 from django import forms
 from django.utils.translation import gettext_lazy as _
 from django.forms import formset_factory
@@ -1825,18 +1826,16 @@ class DaliLampForm(DALIDeviceConfigForm, BaseComponentForm):
         return self.cleaned_data
 
     def save(self, commit=True):
+        is_new = not self.instance.pk
+        previous_controls = deepcopy(self.instance.config.get('controls', []))
         obj = super().save(commit=commit)
         if commit:
             if self.cleaned_data.get('controls'):
                 GatewayObjectCommand(
                     self.instance.gateway, obj, command='watch_buttons'
                 ).publish()
-            if self.instance.pk:
-                old_controls = Component.objects.get(
-                    pk=self.instance.pk
-                ).config.get('controls')
-                if old_controls != self.cleaned_data.get('controls'):
-                    self.cleaned_data['colonel'].update_config()
+            if not is_new and previous_controls != obj.config.get('controls', []):
+                self.cleaned_data['colonel'].update_config()
         return obj
 
 
@@ -1863,6 +1862,7 @@ class DaliBusDimmerForm(DALIDeviceConfigForm, BaseComponentForm):
 
     def save(self, commit=True):
         is_new = not self.instance.pk
+        previous_controls = deepcopy(self.instance.config.get('controls', []))
         obj = super().save(commit=commit)
         if commit:
             if is_new:
@@ -1883,12 +1883,8 @@ class DaliBusDimmerForm(DALIDeviceConfigForm, BaseComponentForm):
                 GatewayObjectCommand(
                     self.instance.gateway, obj, command='watch_buttons'
                 ).publish()
-            if self.instance.pk:
-                old_controls = Component.objects.get(
-                    pk=self.instance.pk
-                ).config.get('controls')
-                if old_controls != self.cleaned_data.get('controls'):
-                    self.cleaned_data['colonel'].update_config()
+            if not is_new and previous_controls != obj.config.get('controls', []):
+                self.cleaned_data['colonel'].update_config()
         return obj
 
 
@@ -1910,18 +1906,16 @@ class DaliSwitchConfigForm(DALIDeviceConfigForm, BaseComponentForm):
         return self.cleaned_data
 
     def save(self, commit=True):
+        is_new = not self.instance.pk
+        previous_controls = deepcopy(self.instance.config.get('controls', []))
         obj = super().save(commit=commit)
         if commit:
             if self.cleaned_data.get('controls'):
                 GatewayObjectCommand(
                     self.instance.gateway, obj, command='watch_buttons'
                 ).publish()
-            if self.instance.pk:
-                old_controls = Component.objects.get(
-                    pk=self.instance.pk
-                ).config.get('controls')
-                if old_controls != self.cleaned_data.get('controls'):
-                    self.cleaned_data['colonel'].update_config()
+            if not is_new and previous_controls != obj.config.get('controls', []):
+                self.cleaned_data['colonel'].update_config()
         return obj
 
 
@@ -1989,6 +1983,7 @@ class DaliGearGroupForm(DALIDeviceConfigForm, BaseComponentForm):
 
     def save(self, commit=True):
         old_members = self.instance.config.get('members', [])
+        previous_controls = deepcopy(self.instance.config.get('controls', []))
         self.instance.config['da'] = self.group_addr
         is_new = not self.instance.pk
         obj = super().save(commit)
@@ -2029,12 +2024,8 @@ class DaliGearGroupForm(DALIDeviceConfigForm, BaseComponentForm):
                 GatewayObjectCommand(
                     self.instance.gateway, obj, command='watch_buttons'
                 ).publish()
-            if self.instance.pk:
-                old_controls = Component.objects.get(
-                    pk=self.instance.pk
-                ).config.get('controls')
-                if old_controls != self.cleaned_data.get('controls'):
-                    self.cleaned_data['colonel'].update_config()
+            if not is_new and previous_controls != obj.config.get('controls', []):
+                self.cleaned_data['colonel'].update_config()
         return obj
 
 
