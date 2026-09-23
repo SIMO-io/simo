@@ -234,6 +234,14 @@ class Colonel(DirtyFieldsMixin, models.Model):
                 gateway, self, command='restart'
             ).publish()
 
+    def force_close_socket(self):
+        """Close this Colonel's live Fleet websocket, if it has one."""
+        from .gateways import FleetGatewayHandler
+        for gateway in Gateway.objects.filter(type=FleetGatewayHandler.uid):
+            GatewayObjectCommand(
+                gateway, self, command='close_socket'
+            ).publish()
+
     def update_config(self):
         from .gateways import FleetGatewayHandler
         def publish_update():
@@ -271,12 +279,48 @@ class Colonel(DirtyFieldsMixin, models.Model):
 
 
     def move_to(self, other_colonel):
-        self.restart()
-        other_colonel.restart()
+        if self.pk == other_colonel.pk or self.type != other_colonel.type:
+            raise ValidationError("Colonel replacement must be of the same type.")
+        if other_colonel.type != 'sentinel' and other_colonel.components.exists():
+            raise ValidationError(
+                "Only Sentinel Colonels may replace a Colonel with components."
+            )
+
+        # This must happen outside the database transaction: gateway commands
+        # are otherwise held until commit, after the target has been deleted.
+        other_colonel.force_close_socket()
         time.sleep(1)
-        self.uid = other_colonel.uid
-        other_colonel.delete()
-        self.save()
+
+        with transaction.atomic():
+            self._move_to(other_colonel)
+
+    def _move_to(self, other_colonel):
+        locked_colonels = {
+            colonel.pk: colonel
+            for colonel in Colonel.objects.select_for_update().filter(
+                pk__in=(self.pk, other_colonel.pk)
+            ).order_by('pk')
+        }
+        source = locked_colonels[self.pk]
+        target = locked_colonels[other_colonel.pk]
+
+        if source.pk == target.pk or source.type != target.type:
+            raise ValidationError("Colonel replacement must be of the same type.")
+        if target.type != 'sentinel' and target.components.exists():
+            raise ValidationError(
+                "Only Sentinel Colonels may replace a Colonel with components."
+            )
+
+        # A paired Sentinel creates its own components.  They belong to the
+        # replacement hardware and must not survive the swap.
+        if target.type == 'sentinel':
+            target.components.all().delete()
+
+        target_uid = target.uid
+        target.delete()
+        source.uid = target_uid
+        source.save(update_fields=['uid'])
+        self.uid = source.uid
 
 
 class ColonelPin(models.Model):

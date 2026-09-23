@@ -70,12 +70,14 @@ class ColonelsViewSet(InstanceMixin, viewsets.ModelViewSet):
         colonel = self.get_object()
         data = json.loads(request.body)
 
-        target = Colonel.objects.annotate(
-            components_count=Count('components')
-        ).filter(
-            pk=data.get('target'), instance=self.instance,
-            components_count=0, type=colonel.type
-        ).first()
+        target_queryset = Colonel.objects.filter(
+            pk=data.get('target'), instance=self.instance, type=colonel.type,
+        )
+        if colonel.type != 'sentinel':
+            target_queryset = target_queryset.annotate(
+                components_count=Count('components')
+            ).filter(components_count=0)
+        target = target_queryset.first()
         if not target:
             raise APIValidationError(_('Invalid target.'), code=400)
         colonel.move_to(target)

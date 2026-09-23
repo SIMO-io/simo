@@ -94,9 +94,10 @@ class FleetConsumer(AsyncWebsocketConsumer):
 
         def save_disconect():
             if self.colonel:
-                self.colonel.socket_connected = False
-                self.colonel.is_vo_active = False
-                self.colonel.save(update_fields=['socket_connected', 'is_vo_active'])
+                Colonel.objects.filter(pk=self.colonel.pk).update(
+                    socket_connected=False,
+                    is_vo_active=False,
+                )
         await sync_to_async(save_disconect, thread_sensitive=True)()
 
 
@@ -251,9 +252,14 @@ class FleetConsumer(AsyncWebsocketConsumer):
 
     async def watch_connection(self):
         while self.connected:
-            await sync_to_async(
-                self.colonel.refresh_from_db, thread_sensitive=True
-            )()
+            try:
+                await sync_to_async(
+                    self.colonel.refresh_from_db, thread_sensitive=True
+                )()
+            except Colonel.DoesNotExist:
+                self.connected = False
+                await self.close()
+                return
 
             if self.colonel.firmware_auto_update \
             and self.colonel.minor_upgrade_available:
@@ -278,9 +284,14 @@ class FleetConsumer(AsyncWebsocketConsumer):
         await self.send_data({'command': 'ota_update', 'version': to_version})
 
     async def get_config_data(self):
-        self.colonel = await sync_to_async(
-            Colonel.objects.get, thread_sensitive=True
-        )(id=self.colonel.id)
+        try:
+            self.colonel = await sync_to_async(
+                Colonel.objects.get, thread_sensitive=True
+            )(id=self.colonel.id)
+        except Colonel.DoesNotExist:
+            self.connected = False
+            await self.close()
+            return None
         hub_uid = await sync_to_async(
             lambda: dynamic_settings['core__hub_uid'], thread_sensitive=True
         )()
@@ -405,11 +416,15 @@ class FleetConsumer(AsyncWebsocketConsumer):
             obj = get_event_obj(payload)
 
             if obj == self.colonel:
-                if payload.get('command') == 'update_firmware':
+                if payload.get('command') == 'close_socket':
+                    asyncio.run(self.close())
+                elif payload.get('command') == 'update_firmware':
                     asyncio.run(self.firmware_update(payload['to_version']))
                 elif payload.get('command') == 'update_config':
                     async def send_config():
                         config = await self.get_config_data()
+                        if config is None:
+                            return
                         await self.send_data({
                             'command': 'set_config', 'data': config
                         }, compress=self.colonel.type != 'sentinel')
@@ -456,6 +471,8 @@ class FleetConsumer(AsyncWebsocketConsumer):
                     print(f"{self.colonel}: {text_data}")
                 if 'get_config' in data:
                     config = await self.get_config_data()
+                    if config is None:
+                        return
                     print("Send config: ", config)
                     await self.send_data({
                         'command': 'set_config', 'data': config

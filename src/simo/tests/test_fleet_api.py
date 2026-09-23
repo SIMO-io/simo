@@ -86,6 +86,32 @@ class FleetColonelsApiTests(BaseSimoTestCase):
         self.assertEqual(resp.status_code, 400)
         move_to.assert_not_called()
 
+        # A non-Sentinel target must still be empty.
+        busy = Colonel.objects.create(
+            instance=self.inst, uid='c-busy', name='Busy', type=self.colonel.type
+        )
+        busy.components.add(Component.objects.create(
+            name='Generated',
+            zone=Zone.objects.create(instance=self.inst, name='Z', order=0),
+            category=None,
+            gateway=Gateway.objects.get_or_create(
+                type='simo.generic.gateways.GenericGatewayHandler'
+            )[0],
+            base_type='switch',
+            controller_uid='simo.generic.controllers.SwitchGroup',
+            config={'colonel': busy.id},
+            meta={},
+            value=False,
+        ))
+        with mock.patch.object(Colonel, 'move_to', autospec=True) as move_to:
+            resp = api.post(
+                f'/api/{self.inst.slug}/fleet/colonels/{self.colonel.id}/move_to/',
+                data=json.dumps({'target': busy.id}).encode(),
+                content_type='application/json',
+            )
+        self.assertEqual(resp.status_code, 400)
+        move_to.assert_not_called()
+
         # Valid target.
         target = Colonel.objects.create(instance=self.inst, uid='c-2', name='C2', type=self.colonel.type)
         with mock.patch.object(Colonel, 'move_to', autospec=True) as move_to:
@@ -96,6 +122,81 @@ class FleetColonelsApiTests(BaseSimoTestCase):
             )
         self.assertEqual(resp.status_code, 200)
         move_to.assert_called_once()
+
+    def test_sentinel_move_deletes_target_components(self):
+        from simo.generic.controllers import SwitchGroup
+
+        source = Colonel.objects.create(
+            instance=self.inst, uid='sentinel-old', name='Old', type='sentinel'
+        )
+        target = Colonel.objects.create(
+            instance=self.inst, uid='sentinel-new', name='New', type='sentinel'
+        )
+        zone = Zone.objects.create(instance=self.inst, name='Z', order=0)
+        gateway, _ = Gateway.objects.get_or_create(
+            type='simo.generic.gateways.GenericGatewayHandler'
+        )
+        source_component = Component.objects.create(
+            name='Keep', zone=zone, category=None, gateway=gateway,
+            base_type='switch', controller_uid=SwitchGroup.uid,
+            config={'colonel': source.id}, meta={}, value=False,
+        )
+        target_component = Component.objects.create(
+            name='Remove', zone=zone, category=None, gateway=gateway,
+            base_type='switch', controller_uid=SwitchGroup.uid,
+            config={'colonel': target.id}, meta={}, value=False,
+        )
+        source.components.add(source_component)
+        target.components.add(target_component)
+
+        api = APIClient()
+        api.force_authenticate(user=self.superuser)
+        with (
+            mock.patch.object(Colonel, 'force_close_socket', autospec=True) as close_socket,
+            mock.patch('simo.fleet.models.time.sleep', autospec=True),
+        ):
+            resp = api.post(
+                f'/api/{self.inst.slug}/fleet/colonels/{source.id}/move_to/',
+                data=json.dumps({'target': target.id}).encode(),
+                content_type='application/json',
+            )
+
+        self.assertEqual(resp.status_code, 200)
+        close_socket.assert_called_once_with(target)
+        source.refresh_from_db()
+        self.assertEqual(source.uid, 'sentinel-new')
+        self.assertFalse(Colonel.objects.filter(id=target.id).exists())
+        self.assertTrue(Component.objects.filter(id=source_component.id).exists())
+        self.assertFalse(Component.objects.filter(id=target_component.id).exists())
+        self.assertTrue(source.components.filter(id=source_component.id).exists())
+
+    def test_move_admin_form_offers_sentinel_target_with_components(self):
+        from simo.fleet.forms import MoveColonelForm
+
+        source = Colonel.objects.create(
+            instance=self.inst, uid='sentinel-old', name='Old', type='sentinel'
+        )
+        target = Colonel.objects.create(
+            instance=self.inst, uid='sentinel-new', name='New', type='sentinel'
+        )
+        target.components.add(Component.objects.create(
+            name='Generated',
+            zone=Zone.objects.create(instance=self.inst, name='Z', order=0),
+            category=None,
+            gateway=Gateway.objects.get_or_create(
+                type='simo.generic.gateways.GenericGatewayHandler'
+            )[0],
+            base_type='switch',
+            controller_uid='simo.generic.controllers.SwitchGroup',
+            config={'colonel': target.id},
+            meta={},
+            value=False,
+        ))
+
+        form = MoveColonelForm(
+            mock.Mock(), mock.Mock(), Colonel.objects.filter(pk=source.id),
+        )
+        self.assertIn(target, form.fields['colonel'].queryset)
 
     def test_colonel_delete_denied_when_has_components(self):
         zone = Zone.objects.create(instance=self.inst, name='Z', order=0)
@@ -119,4 +220,3 @@ class FleetColonelsApiTests(BaseSimoTestCase):
         api.force_authenticate(user=self.superuser)
         resp = api.delete(f'/api/{self.inst.slug}/fleet/colonels/{self.colonel.id}/')
         self.assertEqual(resp.status_code, 400)
-

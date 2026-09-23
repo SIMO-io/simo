@@ -2,6 +2,7 @@ import time
 import datetime
 from copy import deepcopy
 from django import forms
+from django.db.models import Q
 from django.utils.translation import gettext_lazy as _
 from django.forms import formset_factory
 from django.urls.base import get_script_prefix
@@ -68,8 +69,31 @@ class ColonelAdminForm(forms.ModelForm):
 
 class MoveColonelForm(AdminFormActionForm):
     colonel = forms.ModelChoiceField(
-        label="Move to:", queryset=Colonel.objects.filter(components=None),
+        label="Move to:", queryset=Colonel.objects.none(),
     )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        queryset = Colonel.objects.filter(
+            Q(components=None) | Q(type='sentinel')
+        ).distinct()
+        source_types = set(self.queryset.values_list('type', flat=True))
+        if len(source_types) == 1:
+            queryset = queryset.filter(type=source_types.pop())
+        self.fields['colonel'].queryset = queryset
+
+    def clean_colonel(self):
+        target = self.cleaned_data['colonel']
+        for source in self.queryset:
+            if source.pk == target.pk or source.type != target.type:
+                raise forms.ValidationError(
+                    "Colonel replacement must be of the same type."
+                )
+            if target.type != 'sentinel' and target.components.exists():
+                raise forms.ValidationError(
+                    "Only an empty Colonel can be used as a replacement."
+                )
+        return target
 
 
 class InterfaceAdminForm(forms.ModelForm):

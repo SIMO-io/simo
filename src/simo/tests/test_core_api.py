@@ -458,6 +458,59 @@ class CoreSettingsStatesComponentsTests(BaseSimoTestCase):
         thermostat.refresh_from_db()
         self.assertEqual(thermostat.config['engagement'], 'static')
 
+    def test_name_only_patch_preserves_main_alarm_group(self):
+        from simo.generic.controllers import AlarmGroup
+
+        alarm_group = Component.objects.create(
+            name='Main alarm group',
+            zone=self.zone,
+            category=None,
+            gateway=self.gw,
+            base_type='alarm-group',
+            controller_uid=AlarmGroup.uid,
+            alarm_category='security',
+            config={'is_main': True, 'components': [], 'breach_events': []},
+            meta={},
+            value='disarmed',
+        )
+
+        resp = self.api.patch(
+            f'/api/{self.inst.slug}/core/components/{alarm_group.id}/',
+            data={'name': 'Renamed main alarm group'},
+            format='json',
+        )
+
+        self.assertEqual(resp.status_code, 200)
+        alarm_group.refresh_from_db()
+        self.assertEqual(alarm_group.name, 'Renamed main alarm group')
+        self.assertTrue(alarm_group.config['is_main'])
+
+    def test_name_only_patch_preserves_main_weather(self):
+        from simo.generic.controllers import Weather
+
+        weather = Component.objects.create(
+            name='Main weather',
+            zone=self.zone,
+            category=None,
+            gateway=self.gw,
+            base_type='weather',
+            controller_uid=Weather.uid,
+            config={'is_main': True},
+            meta={},
+            value={},
+        )
+
+        resp = self.api.patch(
+            f'/api/{self.inst.slug}/core/components/{weather.id}/',
+            data={'name': 'Renamed main weather'},
+            format='json',
+        )
+
+        self.assertEqual(resp.status_code, 200)
+        weather.refresh_from_db()
+        self.assertEqual(weather.name, 'Renamed main weather')
+        self.assertTrue(weather.config['is_main'])
+
 
 class CoreNonApiViewsTests(BaseSimoTestCase):
     def test_hub_info_includes_secret_only_without_active_instances(self):

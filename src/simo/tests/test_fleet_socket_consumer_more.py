@@ -165,6 +165,41 @@ class FleetConsumerWsMoreTests(BaseSimoTransactionTestCase):
         # After disconnect, server clears the flag.
         self.assertFalse(Colonel.objects.get(uid='c-1').socket_connected)
 
+    def test_close_socket_command_closes_live_socket(self):
+        from simo.fleet.socket_consumers import FleetConsumer
+
+        consumer = FleetConsumer()
+        consumer.colonel = Colonel.objects.create(
+            instance=self.inst, uid='c-close', type='sentinel'
+        )
+        consumer.close = mock.AsyncMock()
+        message = SimpleNamespace(
+            payload=json.dumps({'command': 'close_socket'}).encode()
+        )
+
+        with mock.patch(
+            'simo.fleet.socket_consumers.get_event_obj',
+            return_value=consumer.colonel,
+        ):
+            consumer.on_mqtt_message(None, None, message)
+
+        consumer.close.assert_awaited_once()
+
+    def test_watch_connection_closes_when_colonel_is_deleted(self):
+        from simo.fleet.socket_consumers import FleetConsumer
+
+        consumer = FleetConsumer()
+        consumer.colonel = Colonel.objects.create(
+            instance=self.inst, uid='c-deleted', type='sentinel'
+        )
+        consumer.connected = True
+        consumer.close = mock.AsyncMock()
+        consumer.colonel.delete()
+
+        async_to_sync(consumer.watch_connection)()
+
+        consumer.close.assert_awaited_once()
+
     def test_connect_firmware_auto_update_sends_ota_update(self):
         from simo.fleet.socket_consumers import FleetConsumer
 

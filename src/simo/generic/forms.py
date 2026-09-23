@@ -345,7 +345,7 @@ class AlarmGroupConfigForm(BaseComponentForm):
                 if first_alarm_group:
                     self.fields['is_main'].widget.attrs['disabled'] = 'disabled'
         else:
-            if self.instance.config.get('is_main'):
+            if self.instance.config.get('is_main') and 'is_main' in self.fields:
                 self.fields['is_main'].widget.attrs['disabled'] = 'disabled'
 
 
@@ -411,11 +411,12 @@ class WeatherForm(BaseComponentForm):
                     config__is_main=True
                 ).count()
             )
-            self.fields['is_main'].initial = first_weather
-            if first_weather:
-                self.fields['is_main'].widget.attrs['disabled'] = 'disabled'
+            if 'is_main' in self.fields:
+                self.fields['is_main'].initial = first_weather
+                if first_weather:
+                    self.fields['is_main'].widget.attrs['disabled'] = 'disabled'
         else:
-            if self.instance.config.get('is_main'):
+            if self.instance.config.get('is_main') and 'is_main' in self.fields:
                 self.fields['is_main'].widget.attrs['disabled'] = 'disabled'
 
 
