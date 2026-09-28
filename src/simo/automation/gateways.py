@@ -26,6 +26,7 @@ from simo.core.events import (
 )
 from simo.core.loggers import get_gw_logger, get_component_logger
 from simo.core.service_suspension import is_service_suspended
+from simo.core.utils.processes import install_parent_death_signal
 from simo.users.models import InstanceUser
 from .helpers import haversine_distance
 from simo.core.utils.mqtt import connect_with_retry, install_reconnect_handler
@@ -66,6 +67,14 @@ class ScriptRunHandler(multiprocessing.Process):
         self.watchers_cleaned = multiprocessing.Event()
 
     def run(self):
+        # Script processes are children of a gateway worker.  If that worker
+        # is killed (including through its own parent-death signal), do not
+        # allow an automation script to survive as an orphan.
+        if multiprocessing.current_process().name != 'MainProcess':
+            signal.signal(signal.SIGINT, signal.SIG_DFL)
+            signal.signal(signal.SIGTERM, signal.SIG_DFL)
+            install_parent_death_signal('simo.automation')
+
         # A script is an automation execution boundary.  In particular, on
         # Linux this process is forked from the MQTT command handler, which
         # may currently be scoped to the user who started the script.  Never
