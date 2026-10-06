@@ -2394,6 +2394,25 @@ class SentinelDeviceConfigForm(BaseComponentForm):
         return last_comp
 
 
+class TempHumSensorConfigForm(BaseComponentForm):
+    temperature_offset = forms.FloatField(
+        label="Temperature offset (°C)",
+        required=False,
+        initial=0.0,
+        min_value=-15.0,
+        max_value=15.0,
+        help_text=(
+            "Added to the reported temperature. Humidity is recalculated "
+            "for the adjusted temperature."
+        ),
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Home owners may calibrate the sensor from the app.
+        self.basic_fields = [*self.basic_fields, 'temperature_offset']
+
+
 class RoomZonePresenceConfigForm(BaseComponentForm):
     colonel = Select2ModelChoiceField(
         label="Sentinel", queryset=Colonel.objects.filter(type='sentinel'),

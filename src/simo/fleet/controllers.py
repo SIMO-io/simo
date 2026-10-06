@@ -1,4 +1,4 @@
-import json, ast
+import json, ast, math
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 from django.db.transaction import atomic
@@ -41,7 +41,7 @@ from .forms import (
     DaliOccupancySensorConfigForm, DALILightSensorConfigForm,
     DALIButtonConfigForm, SentinelDeviceConfigForm,
     RoomPresenceSensorConfigForm,
-    RoomZonePresenceConfigForm, VoiceAssistantConfigForm
+    RoomZonePresenceConfigForm, VoiceAssistantConfigForm, TempHumSensorConfigForm
 )
 
 
@@ -1061,7 +1061,7 @@ class AirQualitySensor(FleetDeviceMixin, BaseMultiSensor):
 
 class TempHumSensor(FleetDeviceMixin, BasicSensorMixin, BaseMultiSensor):
     gateway_class = FleetGatewayHandler
-    config_form = BaseComponentForm
+    config_form = TempHumSensorConfigForm
     name = "Temperature & Humidity sensor"
     app_widget = NumericSensorWidget
     manual_add = False
@@ -1090,8 +1090,9 @@ class TempHumSensor(FleetDeviceMixin, BasicSensorMixin, BaseMultiSensor):
     def _receive_from_device(self, value, *args, **kwargs):
 
         if isinstance(value, dict):
-            temp = value['temp']
-            humidity = value['hum']
+            temp = float(value['temp'])
+            humidity = float(value['hum'])
+            device_value = value
         else:
             buf = bytes.fromhex(value)
             humidity = (
@@ -1102,17 +1103,35 @@ class TempHumSensor(FleetDeviceMixin, BasicSensorMixin, BaseMultiSensor):
             temp = ((buf[2] & 0xF) << 16) | (buf[3] << 8) | buf[4]
             temp = ((temp * 200.0) / 0x100000) - 50
             temp = round(temp, 1)
+            device_value = {}
+
+        try:
+            offset = float(self.component.config.get('temperature_offset', 0.0))
+        except (TypeError, ValueError):
+            offset = 0.0
+        if offset:
+            # Preserve the measured vapour pressure while expressing relative
+            # humidity at the corrected ambient temperature.
+            vapour_pressure = humidity * 6.112 * math.exp(
+                (17.62 * temp) / (243.12 + temp)
+            ) / 100.0
+            temp += offset
+            humidity = 100.0 * vapour_pressure / (
+                6.112 * math.exp((17.62 * temp) / (243.12 + temp))
+            )
+        temp = round(temp, 1)
+        humidity = round(max(0.0, min(100.0, humidity)), 0)
 
         new_val = [
             ['temperature', temp, self.sys_temp_units],
             ['humidity', humidity, '%'],
             ['real_feel', 0, self.sys_temp_units],
-            ['temp_raw', value.get('temp_raw'), 'C'],
-            ['hum_raw', value.get('hum_raw'), '%'],
-            ['core', value.get('core'), 'C'],
-            ['outside', value.get('out'), 'C'],
-            ['tmp1', value.get('tmp1'), 'C'],
-            ['tmp2', value.get('tmp2'), 'C']
+            ['temp_raw', device_value.get('temp_raw'), 'C'],
+            ['hum_raw', device_value.get('hum_raw'), '%'],
+            ['core', device_value.get('core'), 'C'],
+            ['outside', device_value.get('out'), 'C'],
+            ['tmp1', device_value.get('tmp1'), 'C'],
+            ['tmp2', device_value.get('tmp2'), 'C']
         ]
 
         if self.sys_temp_units == 'F':

@@ -166,6 +166,79 @@ class FleetControllersMoreTests(BaseSimoTestCase):
         out = controller._prepare_for_set({'temp': 10, 'hum': 50})
         self.assertEqual(out[0][1], 50.0)
 
+    def test_temp_hum_sensor_offset_corrects_temperature_and_humidity(self):
+        from simo.fleet.controllers import TempHumSensor
+        from simo.core.controllers import ControllerBase
+
+        comp = self._mk_component(
+            controller_uid=TempHumSensor.uid,
+            base_type='multi-sensor',
+            config={'temperature_offset': 2.0},
+            value=[],
+        )
+        controller = TempHumSensor(comp)
+
+        with mock.patch.object(
+            ControllerBase, '_receive_from_device', autospec=True
+        ) as receive:
+            controller._receive_from_device({'temp': 20.0, 'hum': 50.0})
+
+        value = receive.call_args.args[1]
+        self.assertEqual(value[0], ['temperature', 22.0, 'C'])
+        self.assertEqual(value[1], ['humidity', 44.0, '%'])
+
+    def test_temp_hum_sensor_offset_uses_display_temperature_units(self):
+        from simo.fleet.controllers import TempHumSensor
+        from simo.core.controllers import ControllerBase
+
+        self.inst.units_of_measure = 'imperial'
+        self.inst.save(update_fields=['units_of_measure'])
+        comp = self._mk_component(
+            controller_uid=TempHumSensor.uid,
+            base_type='multi-sensor',
+            config={'temperature_offset': 2.0},
+            value=[],
+        )
+        controller = TempHumSensor(comp)
+
+        with mock.patch.object(
+            ControllerBase, '_receive_from_device', autospec=True
+        ) as receive:
+            controller._receive_from_device({'temp': 20.0, 'hum': 50.0})
+
+        value = receive.call_args.args[1]
+        self.assertEqual(value[0], ['temperature', 71.6, 'F'])
+        self.assertEqual(value[1], ['humidity', 44.0, '%'])
+
+    def test_temp_hum_sensor_offset_is_saved_and_visible_to_owners(self):
+        from simo.core.serializers import ComponentSerializer
+        from simo.fleet.controllers import TempHumSensor
+        from simo.fleet.forms import TempHumSensorConfigForm
+
+        comp = self._mk_component(
+            controller_uid=TempHumSensor.uid,
+            base_type='multi-sensor',
+            value=[],
+        )
+        form = TempHumSensorConfigForm(
+            instance=comp, data={'temperature_offset': '2.5'}
+        )
+        self.assertTrue(form.is_valid(), form.errors)
+        form.save()
+        comp.refresh_from_db()
+        self.assertEqual(comp.config['temperature_offset'], 2.5)
+
+        user = mk_user('owner@simo.io', 'Owner')
+        role = mk_role(self.inst, is_owner=True)
+        mk_instance_user(user, self.inst, role)
+        request = SimpleNamespace(user=user, path='/', build_absolute_uri=lambda p: p)
+        serializer = ComponentSerializer(
+            instance=comp,
+            context={'request': request, 'instance': self.inst},
+        )
+        owner_form = serializer.get_form(instance=comp)
+        self.assertIn('temperature_offset', owner_form.fields)
+
     def test_bme680_occupied_pins_uses_interface_plus_100(self):
         from simo.fleet.controllers import BME680Sensor
 
