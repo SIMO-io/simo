@@ -382,10 +382,10 @@ class FleetControllersMoreTests(BaseSimoTestCase):
         self.assertEqual(form.fields['mounting_height'].min_value, 1.0)
         self.assertEqual(form.fields['mounting_height'].max_value, 3.2)
 
-    def test_room_presence_sensor_config_form_pushes_live_update_config(self):
+    def test_room_presence_sensor_owner_form_saves_and_pushes_live_update_config(self):
         from simo.core.events import GatewayObjectCommand
+        from simo.core.serializers import ComponentSerializer
         from simo.fleet.controllers import RoomPresenceSensor
-        from simo.fleet.forms import RoomPresenceSensorConfigForm
 
         comp = self._mk_component(
             controller_uid=RoomPresenceSensor.uid,
@@ -399,17 +399,31 @@ class FleetControllersMoreTests(BaseSimoTestCase):
             value=False,
         )
 
+        user = mk_user('owner@simo.io', 'Owner')
+        role = mk_role(self.inst, is_owner=True)
+        mk_instance_user(user, self.inst, role)
+        request = SimpleNamespace(user=user, path='/', build_absolute_uri=lambda p: p)
+        serializer = ComponentSerializer(
+            instance=comp,
+            context={'request': request, 'instance': self.inst},
+        )
+        owner_form = serializer.get_form(instance=comp)
+        self.assertIn('sens', owner_form.fields)
+        self.assertIn('range', owner_form.fields)
+        self.assertNotIn('mounting_height', owner_form.fields)
+
         GatewayObjectCommand.publish.reset_mock()
-        form = RoomPresenceSensorConfigForm(
+        form = serializer.get_form(
             instance=comp,
             data={'sens': '14', 'range': '5.3', 'mounting_height': '2.7'},
         )
         self.assertTrue(form.is_valid(), form.errors)
         obj = form.save()
 
+        obj.refresh_from_db()
         self.assertEqual(obj.config.get('sens'), 14)
         self.assertEqual(obj.config.get('range'), 5.3)
-        self.assertEqual(obj.config.get('mounting_height'), 2.7)
+        self.assertEqual(obj.config.get('mounting_height'), 3.2)
         GatewayObjectCommand.publish.assert_called_once()
         cmd_obj = GatewayObjectCommand.publish.call_args.args[0]
         self.assertEqual(cmd_obj.data.get('command'), 'call')
@@ -417,7 +431,7 @@ class FleetControllersMoreTests(BaseSimoTestCase):
         self.assertEqual(cmd_obj.data.get('id'), comp.id)
         self.assertEqual(
             cmd_obj.data.get('args'),
-            [{'sens': 14, 'range': 5.3, 'mounting_height': 2.7}],
+            [{'sens': 14, 'range': 5.3, 'mounting_height': 3.2}],
         )
 
     def test_room_presence_sensor_config_form_does_not_trigger_full_colonel_update(self):

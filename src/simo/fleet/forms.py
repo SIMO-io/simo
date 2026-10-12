@@ -2105,6 +2105,10 @@ class RoomPresenceSensorConfigForm(BaseComponentForm):
         help_text="Sentinel mounting height in meters. Accepted values: 1.0-3.2."
     )
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.basic_fields = [*self.basic_fields, 'sens', 'range']
+
     def save(self, commit=True):
         is_new = not self.instance.pk
         obj = super().save(commit=commit)
