@@ -183,7 +183,7 @@ class GenericGatewayGroupsAndPulseTests(BaseSimoTestCase):
         )
 
         pulse = {'frame': 2.0, 'duty': 0.25}
-        with mock.patch('simo.core.controllers.Switch.send', autospec=True) as send:
+        with mock.patch.object(comp, 'send', autospec=True) as send:
             handler.start_pulse(comp, pulse)
 
         send.assert_called_once()
@@ -216,7 +216,7 @@ class GenericGatewayGroupsAndPulseTests(BaseSimoTestCase):
         }
         pulse = {'frame': 300, 'duty': 0.45}
 
-        with mock.patch('simo.core.controllers.Switch.send', autospec=True) as send:
+        with mock.patch.object(comp, 'send', autospec=True) as send:
             handler.start_pulse(comp, pulse)
 
         send.assert_not_called()
