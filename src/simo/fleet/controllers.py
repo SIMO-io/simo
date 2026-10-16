@@ -89,6 +89,14 @@ class FleetDeviceMixin:
                 config[key] = val
         return config
 
+    def _ctrl(self, ctrl_no, ctrl_event, method):
+        GatewayObjectCommand(
+            self.component.gateway,
+            Colonel(id=self.component.config['colonel']),
+            id=self.component.id, command='call', method='ctrl',
+            args=[ctrl_no, ctrl_event, method]
+        ).publish()
+
     def _call_cmd(self, method, *args, **kwargs):
         GatewayObjectCommand(
             self.component.gateway,
@@ -266,14 +274,6 @@ class BasicOutputMixin:
             if 'pin_no' in ctrl:
                 pins.append(ctrl['pin_no'])
         return pins
-
-    def _ctrl(self, ctrl_no, ctrl_event, method):
-        GatewayObjectCommand(
-            self.component.gateway,
-            Colonel(id=self.component.config['colonel']),
-            id=self.component.id, command='call', method='ctrl',
-            args=[ctrl_no, ctrl_event, method]
-        ).publish()
 
 
 class Switch(FleetDeviceMixin, BasicOutputMixin, BaseSwitch):

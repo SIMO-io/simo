@@ -752,7 +752,7 @@ class ColonelSwitchConfigForm(ColonelComponentForm):
         obj = super().save(commit=commit)
         if commit and 'slaves' in self.cleaned_data:
             obj.slaves.set(self.cleaned_data['slaves'])
-        if commit and self.cleaned_data.get('controls'):
+        if commit and 'controls' in self.cleaned_data:
             GatewayObjectCommand(
                 self.instance.gateway, obj, command='watch_buttons'
             ).publish()
@@ -814,14 +814,14 @@ class PWMOutputBaseConfig(ColonelComponentForm):
         obj = super().save(commit=commit)
         if commit and 'slaves' in self.cleaned_data:
             obj.slaves.set(self.cleaned_data['slaves'])
-        if not update_colonel:
+        if commit and not update_colonel:
             GatewayObjectCommand(
                 obj.gateway, self.cleaned_data['colonel'], id=obj.id,
                 command='call', method='update_config', args=[
                     obj.controller._get_colonel_config()
                 ]
             ).publish()
-        if commit and self.cleaned_data.get('controls'):
+        if commit and 'controls' in self.cleaned_data:
             GatewayObjectCommand(
                 self.instance.gateway, obj, command='watch_buttons'
             ).publish()
@@ -1027,7 +1027,7 @@ class ColonelRGBLightConfigForm(ColonelComponentForm):
             self.instance.config['output_pin_no'] = \
                 self.cleaned_data['output_pin'].no
         obj = super().save(commit)
-        if commit and self.cleaned_data.get('controls'):
+        if commit and 'controls' in self.cleaned_data:
             GatewayObjectCommand(
                 self.instance.gateway, obj, command='watch_buttons'
             ).publish()
@@ -1319,7 +1319,7 @@ class BlindsConfigForm(ColonelComponentForm):
             self.instance.config['close_pin_no'] = \
                 self.cleaned_data['close_pin'].no
         obj = super().save(commit=commit)
-        if commit and self.cleaned_data.get('controls'):
+        if commit and 'controls' in self.cleaned_data:
             GatewayObjectCommand(
                 self.instance.gateway, obj, command='watch_buttons'
             ).publish()
@@ -1506,7 +1506,7 @@ class GateConfigForm(ColonelComponentForm):
             self.instance.config['sensor_pin_no'] = \
                 self.cleaned_data['sensor_pin'].no
         obj = super().save(commit=commit)
-        if commit and self.cleaned_data.get('controls'):
+        if commit and 'controls' in self.cleaned_data:
             GatewayObjectCommand(
                 self.instance.gateway, obj, command='watch_buttons'
             ).publish()
@@ -1634,7 +1634,7 @@ class ElectricStrikeLockConfigForm(ColonelComponentForm):
         else:
             self.instance.config.pop('status_pin_no', None)
         obj = super().save(commit=commit)
-        if commit and self.cleaned_data.get('controls'):
+        if commit and 'controls' in self.cleaned_data:
             GatewayObjectCommand(
                 self.instance.gateway, obj, command='watch_buttons'
             ).publish()
@@ -1854,7 +1854,7 @@ class DaliLampForm(DALIDeviceConfigForm, BaseComponentForm):
         previous_controls = deepcopy(self.instance.config.get('controls', []))
         obj = super().save(commit=commit)
         if commit:
-            if self.cleaned_data.get('controls'):
+            if 'controls' in self.cleaned_data:
                 GatewayObjectCommand(
                     self.instance.gateway, obj, command='watch_buttons'
                 ).publish()
@@ -1903,7 +1903,7 @@ class DaliBusDimmerForm(DALIDeviceConfigForm, BaseComponentForm):
                         }
                     }
                 ).publish()
-            if self.cleaned_data.get('controls'):
+            if 'controls' in self.cleaned_data:
                 GatewayObjectCommand(
                     self.instance.gateway, obj, command='watch_buttons'
                 ).publish()
@@ -1934,7 +1934,7 @@ class DaliSwitchConfigForm(DALIDeviceConfigForm, BaseComponentForm):
         previous_controls = deepcopy(self.instance.config.get('controls', []))
         obj = super().save(commit=commit)
         if commit:
-            if self.cleaned_data.get('controls'):
+            if 'controls' in self.cleaned_data:
                 GatewayObjectCommand(
                     self.instance.gateway, obj, command='watch_buttons'
                 ).publish()
@@ -2044,7 +2044,7 @@ class DaliGearGroupForm(DALIDeviceConfigForm, BaseComponentForm):
                 ).publish()
 
         if commit:
-            if self.cleaned_data.get('controls'):
+            if 'controls' in self.cleaned_data:
                 GatewayObjectCommand(
                     self.instance.gateway, obj, command='watch_buttons'
                 ).publish()

@@ -5,6 +5,7 @@ import time
 import threading
 import traceback
 from django.conf import settings
+from django.db import close_old_connections
 from django.utils import timezone
 import paho.mqtt.client as mqtt
 from simo.core.models import Instance, Component
@@ -200,6 +201,8 @@ class GenericGatewayHandler(
         self.sleep_is_on = {}
         self.last_set_state = None
         self.pulsing_switches = {}
+        self._pulse_lock = threading.Lock()
+        self._pulse_worker = None
 
 
     def watch_timers(self):
@@ -371,15 +374,13 @@ class GenericGatewayHandler(
             cam_watch = CameraWatcher(cam.id, exit)
             cam_watch.start()
 
-        threading.Thread(
-            target=self.watch_switch_pulses, args=(exit,),
-            daemon=True
-        ).start()
+        self._ensure_pulse_worker(exit)
 
         print("GATEWAY STARTED!")
         self.mqtt_client.loop_start()
         while not exit.is_set():
-            time.sleep(1)
+            self._ensure_pulse_worker(exit)
+            exit.wait(1)
         self.mqtt_client.loop_stop()
         self.mqtt_client.disconnect()
 
@@ -586,88 +587,127 @@ class GenericGatewayHandler(
         ] = time.time()
 
 
-    def watch_switch_pulses(self, exit):
+    def _ensure_pulse_worker(self, exit):
+        if exit.is_set() or (
+            self._pulse_worker is not None and self._pulse_worker.is_alive()
+        ):
+            return
+        if self._pulse_worker is not None:
+            self.logger.error("Pulse worker stopped; restarting")
+        self._pulse_worker = threading.Thread(
+            target=self._run_pulse_worker, args=(exit,), daemon=True,
+            name='generic-switch-pulses',
+        )
+        self._pulse_worker.start()
+
+    def _run_pulse_worker(self, exit):
+        try:
+            self.watch_switch_pulses(exit)
+        except Exception:
+            self.logger.exception("Pulse worker failed; supervisor will restart it")
+        finally:
+            close_old_connections()
+
+    def _pulse_snapshot(self):
+        with self._pulse_lock:
+            return dict(self.pulsing_switches)
+
+    def _replace_pulse(self, component_id, expected, replacement):
+        # Entries are replaced, never mutated. Identity acts as a revision so
+        # work based on an old snapshot cannot overwrite a newer MQTT update.
+        with self._pulse_lock:
+            if self.pulsing_switches.get(component_id) is not expected:
+                return False
+            if replacement is None:
+                self.pulsing_switches.pop(component_id, None)
+            else:
+                self.pulsing_switches[component_id] = replacement
+            return True
+
+    def _send_pulse(self, component_id, data, value):
+        with self._pulse_lock:
+            if self.pulsing_switches.get(component_id) is not data:
+                return
+        # Publishing can block or invoke callbacks: never hold the state lock.
+        data['comp'].send(value)
+        self._replace_pulse(component_id, data, {
+            **data, 'last_toggle': time.time(), 'value': value,
+        })
+
+    def _sync_switch_pulses(self):
+        snapshot = self._pulse_snapshot()
+        seen = set()
         for comp in Component.objects.filter(
             base_type='switch', meta__has_key='pulse'
         ):
-            comp.send(True)
-            self.pulsing_switches[comp.id] = {
-                'comp': comp, 'last_toggle': time.time(), 'value': True,
-                'pulse': comp.meta['pulse']
-            }
+            seen.add(comp.id)
+            try:
+                previous = snapshot.get(comp.id)
+                data = {
+                    'comp': comp, 'pulse': dict(comp.meta['pulse']),
+                    'last_toggle': previous['last_toggle'] if previous else 0,
+                    'value': previous['value'] if previous else None,
+                }
+                if self._replace_pulse(comp.id, previous, data):
+                    if data['value'] is None:
+                        self._send_pulse(comp.id, data, True)
+            except Exception:
+                self.logger.exception("Failed to synchronize pulse for switch %s", comp.id)
+        for component_id, data in snapshot.items():
+            if component_id not in seen:
+                self._replace_pulse(component_id, data, None)
 
+    def _watch_switch_pulse(self, component_id, data):
+        if data['value'] is None:
+            self._send_pulse(component_id, data, True)
+            return
+        on_interval = data['pulse']['frame'] * data['pulse']['duty']
+        interval = (
+            on_interval if data['value'] else data['pulse']['frame'] - on_interval
+        )
+        if time.time() - data['last_toggle'] <= interval:
+            return
+
+        comp = data['comp']
+        comp.refresh_from_db()
+        pulse = comp.meta.get('pulse')
+        if not pulse:
+            self._replace_pulse(component_id, data, None)
+        elif data['pulse'] != pulse:
+            self._replace_pulse(component_id, data, {**data, 'pulse': dict(pulse)})
+        else:
+            self._send_pulse(component_id, data, not data['value'])
+
+    def watch_switch_pulses(self, exit):
+        drop_current_instance()
+        self._sync_switch_pulses()
         step = 0
         while not exit.is_set():
             time.sleep(0.25)
             step += 1
-            remove_switches = []
-            for id, data in self.pulsing_switches.items():
-                on_interval = data['pulse']['frame'] * data['pulse']['duty']
-                off_interval = data['pulse']['frame'] - on_interval
-
-                if (
-                    data['value'] and
-                    time.time() - data['last_toggle'] > on_interval
-                ) or (
-                    not data['value'] and
-                    time.time() - data['last_toggle'] > off_interval
-                ):
-                    data['comp'].refresh_from_db()
-                    if not data['comp'].meta.get('pulse'):
-                        remove_switches.append(id)
-                        continue
-                    if data['pulse'] != data['comp'].meta['pulse']:
-                        self.pulsing_switches[id]['pulse'] = data['comp'].meta['pulse']
-                        continue
-
-                if data['value']:
-                    if time.time() - data['last_toggle'] > on_interval:
-                        data['comp'].send(False)
-                        self.pulsing_switches[id]['last_toggle'] = time.time()
-                        self.pulsing_switches[id]['value'] = False
-                else:
-                    if time.time() - data['last_toggle'] > off_interval:
-                        data['comp'].send(True)
-                        self.pulsing_switches[id]['last_toggle'] = time.time()
-                        self.pulsing_switches[id]['value'] = True
-
-            for id in remove_switches:
-                del self.pulsing_switches[id]
-
-            # Update with db every 10s just in case something is missed.
-            if step < 40:
-                continue
-            step = 0
-
-            remove_switches = set(self.pulsing_switches.keys())
-            for comp in Component.objects.filter(
-                base_type='switch', meta__has_key='pulse'
-            ):
-                if comp.id in remove_switches:
-                    remove_switches.remove(comp.id)
-                    self.pulsing_switches[comp.id]['pulse'] = comp.meta['pulse']
-                    continue
-                comp.send(True)
-                self.pulsing_switches[comp.id] = {
-                    'comp': comp, 'last_toggle': time.time(), 'value': True,
-                    'pulse': comp.meta['pulse']
-                }
-            for id in remove_switches:
-                del self.pulsing_switches[id]
-
+            for component_id, data in self._pulse_snapshot().items():
+                try:
+                    self._watch_switch_pulse(component_id, data)
+                except Component.DoesNotExist:
+                    self._replace_pulse(component_id, data, None)
+                except Exception:
+                    self.logger.exception("Failed to process pulse for switch %s", component_id)
+            # Reconcile with the database every ten seconds.
+            if step >= 40:
+                step = 0
+                self._sync_switch_pulses()
 
     def start_pulse(self, comp, pulse):
-        tracked = self.pulsing_switches.get(comp.id)
-        if tracked:
-            tracked['comp'] = comp
-            tracked['pulse'] = pulse
-            return
-
-        comp.send(True)
-        self.pulsing_switches[comp.id] = {
-            'comp': comp, 'last_toggle': time.time(), 'value': True,
-            'pulse': pulse
-        }
+        with self._pulse_lock:
+            previous = self.pulsing_switches.get(comp.id)
+            data = {
+                'comp': comp, 'pulse': dict(pulse),
+                'last_toggle': previous['last_toggle'] if previous else 0,
+                'value': previous['value'] if previous else None,
+            }
+            self.pulsing_switches[comp.id] = data
+        if previous is None:
+            self._send_pulse(comp.id, data, True)
 
 
 
