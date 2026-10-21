@@ -269,7 +269,9 @@ class ComponentAdminForm(forms.ModelForm):
 
     # fields that can be edited via SIMO.io app by instance owners.
     # Users who have is_owner enabled on their user role.
-    basic_fields = ['name', 'icon', 'zone', 'category', 'show_in_app']
+    basic_fields = [
+        'name', 'icon', 'zone', 'category', 'show_in_app', 'breach_delay'
+    ]
 
     class Meta:
         model = Component
