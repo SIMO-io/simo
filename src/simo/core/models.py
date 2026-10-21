@@ -534,6 +534,18 @@ class Component(DirtyFieldsMixin, models.Model, SimoAdminMixin, OnChangeMixin):
             "Leave empty or use 0 for immediate breach."
         ),
     )
+    breach_delay_type = models.CharField(
+        max_length=20,
+        default='continuous',
+        choices=(
+            ('continuous', _("Continuous")),
+            ('accumulated', _("Accumulated")),
+        ),
+        help_text=_(
+            "Continuous requires an uninterrupted alarm. Accumulated breaches "
+            "after the delay from the first activation, even if the alarm clears."
+        ),
+    )
     arm_status = models.CharField(
         max_length=20, db_index=True, default='disarmed', choices=(
             ('disarmed', _("Disarmed")), ('pending-arm', _("Pending Arm")),
@@ -643,7 +655,7 @@ class Component(DirtyFieldsMixin, models.Model, SimoAdminMixin, OnChangeMixin):
                     else:
                         self._clear_pending_breach()
                         self.arm_status = 'breached'
-                else:
+                elif self.breach_delay_type == 'continuous':
                     self._clear_pending_breach()
             else:
                 self._clear_pending_breach()
@@ -683,7 +695,7 @@ class Component(DirtyFieldsMixin, models.Model, SimoAdminMixin, OnChangeMixin):
             modifying_fields = (
                 'name', 'icon', 'zone', 'category', 'config',
                 'value_units', 'slaves', 'show_in_app', 'alarm_category',
-                'breach_delay'
+                'breach_delay', 'breach_delay_type'
             )
             if any(f in dirty_fields_initial for f in modifying_fields):
                 self.last_modified = timezone.now()
@@ -761,6 +773,7 @@ class Component(DirtyFieldsMixin, models.Model, SimoAdminMixin, OnChangeMixin):
             'last_modified': dirty_current.get('last_modified', self.last_modified),
             'arm_status': self.arm_status,
             'breach_delay': self.breach_delay,
+            'breach_delay_type': self.breach_delay_type,
             'battery_level': self.battery_level,
             'alive': self.alive,
             'meta': self.meta,
@@ -803,6 +816,7 @@ class Component(DirtyFieldsMixin, models.Model, SimoAdminMixin, OnChangeMixin):
                     'last_modified': master.last_modified,
                     'arm_status': master.arm_status,
                     'breach_delay': master.breach_delay,
+                    'breach_delay_type': master.breach_delay_type,
                     'battery_level': master.battery_level,
                     'alive': master.alive,
                     'meta': master.meta,

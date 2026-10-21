@@ -706,6 +706,7 @@ class MCPBasicComponentSerializer(serializers.ModelSerializer):
             'value_units',
             'slave_components', 'last_change', 'alive', 'error_msg',
             'battery_level', 'show_in_app', 'alarm_category', 'breach_delay',
+            'breach_delay_type',
             'arm_status'
         )
 
@@ -746,6 +747,7 @@ class MCPFullComponentSerializer(serializers.ModelSerializer):
             'base_type', 'controller_uid', 'config', 'meta', 'value',
             'value_units', 'alive', 'error_msg',
             'battery_level', 'show_in_app', 'alarm_category', 'breach_delay',
+            'breach_delay_type',
             'arm_status',
             'info', 'controller_methods', 'slave_components', 'last_change',
             'unix_timestamp'

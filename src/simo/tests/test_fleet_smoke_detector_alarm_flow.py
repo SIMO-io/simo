@@ -1,3 +1,4 @@
+from types import SimpleNamespace
 from unittest import mock
 
 from simo.core.models import Component, Gateway, Zone
@@ -67,6 +68,9 @@ class SmokeDetectorAlarmFlowTests(BaseSimoTestCase):
             value='armed',
             alarm_category='fire',
         )
+        # Controller initialization applies its default value on creation.
+        # Arm the group after it has been persisted.
+        self.alarm_group.controller.set('armed')
 
     def _run_notification_tasks_inline(self):
         from simo.generic.tasks import notify_users_on_alarm_group_breach
@@ -186,6 +190,105 @@ class SmokeDetectorAlarmFlowTests(BaseSimoTestCase):
         self.assertEqual(self.smoke.arm_status, 'armed')
         self.assertEqual(self.alarm_group.value, 'armed')
         self.assertEqual(Notification.objects.count(), 0)
+
+    def test_accumulated_delay_survives_short_bursts_and_breaches_while_clear(self):
+        from simo.core.tasks import promote_component_breach
+
+        self.assertEqual(self.smoke.breach_delay_type, 'continuous')
+        self.smoke.breach_delay = 20
+        self.smoke.breach_delay_type = 'accumulated'
+        self.smoke.save()
+
+        with self._capture_breach_promotion() as apply_async:
+            with self.captureOnCommitCallbacks(execute=True):
+                with mock.patch('simo.core.models.time.time', return_value=1000):
+                    self.smoke.controller._receive_from_device([True, True])
+                self.smoke.refresh_from_db()
+                token = self.smoke.meta['pending_breach_token']
+                self.assertEqual(self.smoke.meta['pending_breach_deadline'], 1020)
+
+                for second in (1, 5, 10, 15, 19):
+                    with mock.patch('simo.core.models.time.time', return_value=1000 + second):
+                        self.smoke.controller._receive_from_device([False, True])
+                        self.smoke.controller._receive_from_device([True, True])
+                self.smoke.controller._receive_from_device([False, True])
+
+        apply_async.assert_called_once_with(args=[self.smoke.id, token], countdown=20)
+        self.smoke.refresh_from_db()
+        self.assertEqual(self.smoke.arm_status, 'armed')
+        self.assertFalse(self.smoke.is_in_alarm())
+        self.assertEqual(self.smoke.meta['pending_breach_token'], token)
+        self.assertEqual(self.smoke.meta['pending_breach_deadline'], 1020)
+
+        with self.captureOnCommitCallbacks(execute=True):
+            with mock.patch('simo.core.models.time.time', return_value=1020):
+                promote_component_breach(self.smoke.id, token)
+                # Duplicate delivery must not generate another breach.
+                promote_component_breach(self.smoke.id, token)
+
+        self.smoke.refresh_from_db()
+        self.alarm_group.refresh_from_db()
+        self.assertEqual(self.smoke.arm_status, 'breached')
+        self.assertEqual(self.alarm_group.value, 'breached')
+        self.assertNotIn('pending_breach_token', self.smoke.meta)
+        self.assertEqual(Notification.objects.count(), 1)
+
+    def test_accumulated_delay_is_cancelled_by_disarming_or_disabling_alarm(self):
+        from simo.core.tasks import promote_component_breach
+
+        for cancel in ('disarm', 'disable'):
+            with self.subTest(cancel=cancel):
+                self.smoke.refresh_from_db()
+                self.smoke.value = False
+                self.smoke.alarm_category = 'fire'
+                self.smoke.arm_status = 'armed'
+                self.smoke.breach_delay = 20
+                self.smoke.breach_delay_type = 'accumulated'
+                self.smoke.save()
+                with self._capture_breach_promotion() as apply_async:
+                    with self.captureOnCommitCallbacks(execute=True):
+                        self.smoke.controller._receive_from_device([True, True])
+                task_args = apply_async.call_args.kwargs['args']
+                self.smoke.refresh_from_db()
+                if cancel == 'disarm':
+                    self.smoke.arm_status = 'disarmed'
+                else:
+                    self.smoke.alarm_category = None
+                self.smoke.save()
+                self.smoke.refresh_from_db()
+                self.assertNotIn('pending_breach_token', self.smoke.meta)
+                promote_component_breach(*task_args)
+                self.smoke.refresh_from_db()
+                self.assertEqual(self.smoke.arm_status, 'disarmed')
+
+    def test_delay_type_editing_permissions(self):
+        from simo.core.serializers import ComponentSerializer
+
+        for access in ('owner', 'superuser', 'master'):
+            with self.subTest(access=access):
+                user = mk_user(f'{access}@example.com', access, is_master=access == 'master')
+                role = mk_role(
+                    self.inst, is_owner=access == 'owner',
+                    is_superuser=access == 'superuser',
+                )
+                mk_instance_user(user, self.inst, role)
+                self.smoke.breach_delay_type = 'continuous'
+                self.smoke.save()
+                request = SimpleNamespace(user=user, path='/', FILES={})
+                serializer = ComponentSerializer(
+                    instance=self.smoke,
+                    data={'breach_delay': 20, 'breach_delay_type': 'accumulated'},
+                    partial=True,
+                    context={'request': request, 'instance': self.inst},
+                )
+                self.assertEqual('breach_delay_type' in serializer.fields, access != 'owner')
+                self.assertTrue(serializer.is_valid(), serializer.errors)
+                serializer.save()
+                self.smoke.refresh_from_db()
+                self.assertEqual(
+                    self.smoke.breach_delay_type,
+                    'continuous' if access == 'owner' else 'accumulated',
+                )
 
     def test_duplicate_active_packets_keep_detector_and_group_breached(self):
         with self._run_notification_tasks_inline():

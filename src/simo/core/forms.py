@@ -278,7 +278,7 @@ class ComponentAdminForm(forms.ModelForm):
         fields = (
             'name', 'icon', 'zone', 'category', 'show_in_app',
             'value_units', 'custom_methods',
-            'notes', 'alarm_category', 'breach_delay'
+            'notes', 'alarm_category', 'breach_delay', 'breach_delay_type'
         )
         widgets = {
             'icon': autocomplete.ModelSelect2(
@@ -365,7 +365,7 @@ class ComponentAdminForm(forms.ModelForm):
             'name', 'icon', 'zone', 'category',
             'show_in_app', 'battery_level',
             'value_units',
-            'alarm_category', 'breach_delay', 'arm_status',
+            'alarm_category', 'breach_delay', 'breach_delay_type', 'arm_status',
             'notes'
         )
         base_fields = ['id', 'gateway', 'base_type', 'controller_uid', 'info', 'name']
@@ -406,7 +406,8 @@ class ComponentAdminForm(forms.ModelForm):
             fieldsets.append(
                 (_("Alarm"), {
                     'fields': (
-                        'alarm_category', 'breach_delay', 'arm_status'
+                        'alarm_category', 'breach_delay',
+                        'breach_delay_type', 'arm_status'
                     ),
                     'classes': ('collapse',),
                 })

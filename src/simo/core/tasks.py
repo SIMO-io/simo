@@ -56,7 +56,10 @@ def promote_component_breach(component_id, breach_token):
             component._clear_pending_breach()
             component.save(update_fields=['meta'])
             return
-        if not component.is_in_alarm():
+        if (
+            component.breach_delay_type == 'continuous'
+            and not component.is_in_alarm()
+        ):
             component._clear_pending_breach()
             component.save(update_fields=['meta'])
             return

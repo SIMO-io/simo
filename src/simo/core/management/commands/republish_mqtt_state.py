@@ -39,6 +39,7 @@ class Command(BaseCommand):
                     'last_change': comp.last_change,
                     'arm_status': comp.arm_status,
                     'breach_delay': comp.breach_delay,
+                    'breach_delay_type': comp.breach_delay_type,
                     'battery_level': comp.battery_level,
                     'alive': comp.alive,
                     'meta': comp.meta,
