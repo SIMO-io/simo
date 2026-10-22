@@ -381,6 +381,20 @@ class FleetControllersMoreTests(BaseSimoTestCase):
         self.assertEqual(form.fields['mounting_height'].initial, 3.2)
         self.assertEqual(form.fields['mounting_height'].min_value, 1.0)
         self.assertEqual(form.fields['mounting_height'].max_value, 3.2)
+        self.assertEqual(form.fields['trigger_threshold'].initial, 0.0)
+        self.assertEqual(form.fields['trigger_threshold'].widget.attrs['step'], 0.1)
+        self.assertIn('trigger_threshold', form.basic_fields)
+
+    def test_room_presence_trigger_threshold_validation(self):
+        from simo.fleet.controllers import RoomPresenceSensor
+
+        form = RoomPresenceSensor.config_form(controller_uid=RoomPresenceSensor.uid)
+        field = form.fields['trigger_threshold']
+        for value in ('0', '0.1', '0.8', '1.0', '60'):
+            self.assertEqual(field.clean(value), float(value))
+        for value in ('-0.1', '60.1', '0.15', 'nan', 'inf'):
+            with self.subTest(value=value), self.assertRaises(ValidationError):
+                field.clean(value)
 
     def test_room_presence_sensor_owner_form_saves_and_pushes_live_update_config(self):
         from simo.core.events import GatewayObjectCommand
@@ -410,12 +424,16 @@ class FleetControllersMoreTests(BaseSimoTestCase):
         owner_form = serializer.get_form(instance=comp)
         self.assertIn('sens', owner_form.fields)
         self.assertIn('range', owner_form.fields)
+        self.assertIn('trigger_threshold', owner_form.fields)
         self.assertNotIn('mounting_height', owner_form.fields)
 
         GatewayObjectCommand.publish.reset_mock()
         form = serializer.get_form(
             instance=comp,
-            data={'sens': '14', 'range': '5.3', 'mounting_height': '2.7'},
+            data={
+                'sens': '14', 'range': '5.3', 'mounting_height': '2.7',
+                'trigger_threshold': '0.8',
+            },
         )
         self.assertTrue(form.is_valid(), form.errors)
         obj = form.save()
@@ -424,6 +442,7 @@ class FleetControllersMoreTests(BaseSimoTestCase):
         self.assertEqual(obj.config.get('sens'), 14)
         self.assertEqual(obj.config.get('range'), 5.3)
         self.assertEqual(obj.config.get('mounting_height'), 3.2)
+        self.assertEqual(obj.config.get('trigger_threshold'), 0.8)
         GatewayObjectCommand.publish.assert_called_once()
         cmd_obj = GatewayObjectCommand.publish.call_args.args[0]
         self.assertEqual(cmd_obj.data.get('command'), 'call')
@@ -431,8 +450,34 @@ class FleetControllersMoreTests(BaseSimoTestCase):
         self.assertEqual(cmd_obj.data.get('id'), comp.id)
         self.assertEqual(
             cmd_obj.data.get('args'),
-            [{'sens': 14, 'range': 5.3, 'mounting_height': 3.2}],
+            [{'sens': 14, 'range': 5.3, 'mounting_height': 3.2, 'trigger_threshold': 0.8}],
         )
+
+    def test_room_presence_threshold_only_update_preserves_radar_settings(self):
+        from simo.core.events import GatewayObjectCommand
+        from simo.fleet.controllers import RoomPresenceSensor
+
+        comp = self._mk_component(
+            controller_uid=RoomPresenceSensor.uid,
+            base_type='binary-sensor',
+            config={'sens': 10, 'range': 3.0, 'mounting_height': 3.2},
+            value=False,
+        )
+        form = RoomPresenceSensor.config_form(
+            instance=comp, data={'trigger_threshold': '1.0'},
+        )
+        self.assertTrue(form.is_valid(), form.errors)
+        GatewayObjectCommand.publish.reset_mock()
+        with mock.patch('simo.fleet.models.Colonel.update_config') as update_config:
+            form.save()
+        update_config.assert_not_called()
+        comp.refresh_from_db()
+        self.assertEqual(comp.config['trigger_threshold'], 1.0)
+        self.assertEqual(comp.config['range'], 3.0)
+        GatewayObjectCommand.publish.assert_called_once()
+        command = GatewayObjectCommand.publish.call_args.args[0].data
+        self.assertEqual(command['method'], 'update_config')
+        self.assertEqual(command['args'][0]['trigger_threshold'], 1.0)
 
     def test_room_presence_sensor_config_form_does_not_trigger_full_colonel_update(self):
         from simo.fleet.controllers import RoomPresenceSensor

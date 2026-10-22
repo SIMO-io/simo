@@ -2083,6 +2083,18 @@ class DALIButtonConfigForm(DALIDeviceConfigForm, BaseComponentForm):
 
 
 class RoomPresenceSensorConfigForm(BaseComponentForm):
+    trigger_threshold = forms.FloatField(
+        label="Presence trigger threshold",
+        min_value=0.0,
+        max_value=60.0,
+        step_size=0.1,
+        initial=0.0,
+        help_text=(
+            "Seconds of consecutive detections before presence activates (0 disables). "
+            "Rounded down to whole 0.3-second samples: 1.0 requires 3 samples, "
+            "0.8 requires 2. Also applies to room zones. Changes take effect immediately."
+        ),
+    )
     sens = forms.TypedChoiceField(
         label="AT+SENS",
         coerce=int,
@@ -2107,7 +2119,7 @@ class RoomPresenceSensorConfigForm(BaseComponentForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.basic_fields = [*self.basic_fields, 'sens', 'range']
+        self.basic_fields = [*self.basic_fields, 'sens', 'range', 'trigger_threshold']
 
     def save(self, commit=True):
         is_new = not self.instance.pk
