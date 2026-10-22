@@ -397,6 +397,7 @@ class FleetControllersMoreTests(BaseSimoTestCase):
                 field.clean(value)
 
     def test_room_presence_sensor_owner_form_saves_and_pushes_live_update_config(self):
+        from simo.core.api_meta import SIMOAPIMetadata
         from simo.core.events import GatewayObjectCommand
         from simo.core.serializers import ComponentSerializer
         from simo.fleet.controllers import RoomPresenceSensor
@@ -416,7 +417,7 @@ class FleetControllersMoreTests(BaseSimoTestCase):
         user = mk_user('owner@simo.io', 'Owner')
         role = mk_role(self.inst, is_owner=True)
         mk_instance_user(user, self.inst, role)
-        request = SimpleNamespace(user=user, path='/', build_absolute_uri=lambda p: p)
+        request = SimpleNamespace(user=user, path='/', FILES={}, build_absolute_uri=lambda p: p)
         serializer = ComponentSerializer(
             instance=comp,
             context={'request': request, 'instance': self.inst},
@@ -428,15 +429,22 @@ class FleetControllersMoreTests(BaseSimoTestCase):
         self.assertNotIn('mounting_height', owner_form.fields)
 
         GatewayObjectCommand.publish.reset_mock()
-        form = serializer.get_form(
+        serializer = ComponentSerializer(
             instance=comp,
             data={
                 'sens': '14', 'range': '5.3', 'mounting_height': '2.7',
                 'trigger_threshold': '0.8',
             },
+            partial=True,
+            context={'request': request, 'instance': self.inst},
         )
-        self.assertTrue(form.is_valid(), form.errors)
-        obj = form.save()
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        metadata = SIMOAPIMetadata()
+        for field_name in ('range', 'trigger_threshold'):
+            self.assertEqual(
+                metadata.get_field_info(serializer.fields[field_name])['type'], 'float',
+            )
+        obj = serializer.save()
 
         obj.refresh_from_db()
         self.assertEqual(obj.config.get('sens'), 14)

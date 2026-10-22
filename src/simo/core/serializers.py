@@ -310,6 +310,7 @@ class ComponentSerializer(FormSerializer):
         form = ComponentAdminForm
         field_mapping = {
             HiddenField: HiddenSerializerField,
+            forms.FloatField: serializers.FloatField,
             forms.TypedChoiceField: serializers.ChoiceField,
             forms.SlugField: serializers.CharField,
             PlainLocationField: LocationSerializer,
