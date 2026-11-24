@@ -295,12 +295,12 @@ class BlindsConfigFormTests(BaseSimoTestCase):
         self.zone = Zone.objects.create(instance=self.inst, name='Z', order=0)
         Gateway.objects.get_or_create(type=FleetGatewayHandler.uid)
         self.colonel = Colonel.objects.create(
-            instance=self.inst, uid='c-2', type='sentinel', name='C2'
+            instance=self.inst, uid='c-2', type='ample-wall', name='C2'
         )
         output_pins = list(self.colonel.pins.filter(output=True)[:2])
         self.open_pin, self.close_pin = output_pins
 
-    def test_save_persists_parallel_control_layout(self):
+    def test_save_persists_control_layout_and_endpoint_calibration(self):
         form = BlindsConfigForm(
             controller_uid=Blinds.uid,
             data={
@@ -317,6 +317,7 @@ class BlindsConfigFormTests(BaseSimoTestCase):
                 'control_type': 'hold',
                 'control_mode': 'click',
                 'control_layout': 'parallel',
+                'endpoint_calibration': True,
             },
         )
 
@@ -324,3 +325,4 @@ class BlindsConfigFormTests(BaseSimoTestCase):
         component = form.save()
 
         self.assertEqual(component.config['control_layout'], 'parallel')
+        self.assertTrue(component.config['endpoint_calibration'])

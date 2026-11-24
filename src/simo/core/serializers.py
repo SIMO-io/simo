@@ -134,6 +134,10 @@ class ComponentManyToManyRelatedField(serializers.Field):
         self.allow_blank = kwargs.pop('allow_blank', False)
         super().__init__(*args, **kwargs)
 
+    def get_attribute(self, instance):
+        if isinstance(instance, Component) and self.field_name in instance.config:
+            return self.queryset.filter(pk__in=instance.config[self.field_name] or [])
+        return super().get_attribute(instance)
 
     def to_representation(self, value):
         return [obj.pk for obj in value.all()]

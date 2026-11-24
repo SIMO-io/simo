@@ -14,6 +14,30 @@ from .tasks import (
 
 
 @receiver(post_save, sender=Component)
+@receiver(post_delete, sender=Component)
+def sync_blinds_groups(sender, instance, signal, using, **kwargs):
+    from .controllers import BlindsGroup
+
+    if instance.base_type != 'blinds' or instance.controller_uid == BlindsGroup.uid:
+        return
+    if signal is post_save and (
+        kwargs.get('raw') or not {'value', 'alive', 'config'}.intersection(instance.get_dirty_fields())
+    ):
+        return
+
+    reference_id = instance.pk
+
+    def sync():
+        groups = Component.all_objects.filter(
+            controller_uid=BlindsGroup.uid, config__reference_blind=reference_id,
+        )
+        for group in groups:
+            group.controller._sync_reference()
+
+    transaction.on_commit(sync, using=using)
+
+
+@receiver(post_save, sender=Component)
 def handle_alarm_groups(sender, instance, *args, **kwargs):
     if not instance.alarm_category:
         return

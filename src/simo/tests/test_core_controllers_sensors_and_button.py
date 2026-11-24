@@ -2,7 +2,9 @@ from decimal import Decimal
 from unittest import mock
 
 from django.core.exceptions import ValidationError
+from rest_framework.test import APIClient
 
+from simo.core.events import GatewayObjectCommand
 from simo.core.models import Component, ComponentHistory, Gateway, Zone
 
 from .base import BaseSimoTestCase, mk_instance, mk_instance_user, mk_role, mk_user
@@ -92,13 +94,9 @@ class ButtonControllerTests(BaseSimoTestCase):
         self.inst = mk_instance('inst-a', 'A')
         self.zone = Zone.objects.create(instance=self.inst, name='Z', order=0)
 
+        from simo.generic.controllers import DummyButton
         from simo.generic.gateways import DummyGatewayHandler
-        from simo.core.controllers import Button as BaseButton
 
-        class TestButton(BaseButton):
-            gateway_class = DummyGatewayHandler
-
-        self.Button = TestButton
         self.gw, _ = Gateway.objects.get_or_create(type=DummyGatewayHandler.uid)
         self.button = Component.objects.create(
             name='BTN',
@@ -106,14 +104,36 @@ class ButtonControllerTests(BaseSimoTestCase):
             category=None,
             gateway=self.gw,
             base_type='button',
-            controller_uid=TestButton.uid,
+            controller_uid=DummyButton.uid,
             config={},
             meta={},
             value='up',
         )
 
+    def test_dummy_button_accepts_app_gestures(self):
+        user = mk_user('button-user@example.com', 'Button user')
+        mk_instance_user(user, self.inst, mk_role(self.inst, is_superuser=True))
+        api = APIClient()
+        api.force_authenticate(user=type(user).objects.get(pk=user.pk))
+        url = f'/api/{self.inst.slug}/core/components/{self.button.id}/controller/'
+        events = (
+            'down', 'hold', 'up',
+            'down', 'up', 'click',
+            'down', 'up', 'down', 'up', 'double-click',
+        )
+
+        for event in events:
+            with self.subTest(event=event):
+                response = api.post(url, {'send': [event]}, format='json')
+                self.assertEqual(response.status_code, 200, response.data)
+                command = GatewayObjectCommand.publish.call_args.args[0]
+                self.assertEqual(command.data['set_val'], event)
+                self.gw.handler.perform_value_send(self.button, command.data['set_val'])
+                self.button.refresh_from_db()
+                self.assertEqual(self.button.value, event)
+
     def test_button_state_helpers(self):
-        ctrl = self.Button(self.button)
+        ctrl = self.button.controller
         self.button.value = 'down'
         self.assertTrue(ctrl.is_down())
         self.assertFalse(ctrl.is_held())
@@ -157,7 +177,7 @@ class ButtonControllerTests(BaseSimoTestCase):
             value=False,
         )
 
-        ctrl = self.Button(self.button)
+        ctrl = self.button.controller
         gear = ctrl.get_bonded_gear()
         self.assertEqual({c.id for c in gear}, {c1.id, c2.id})
 
@@ -168,17 +188,16 @@ class ButtonControllerTests(BaseSimoTestCase):
         mk_instance_user(user1, self.inst, role)
         mk_instance_user(user2, self.inst, role)
 
-        self.button.track_history = True
         self.button.value = 'down'
-        self.button.save(update_fields=['track_history', 'value'])
+        self.button.save(update_fields=['value'])
 
         ComponentHistory.objects.create(
             component=self.button, type='value', value='down', user=user1
         )
-        self.Button(self.button).set('down', actor=user1)
+        self.button.controller.set('down', actor=user1)
         self.assertEqual(ComponentHistory.objects.count(), 1)
 
-        self.Button(self.button).set('down', actor=user2)
+        self.button.controller.set('down', actor=user2)
         self.assertEqual(ComponentHistory.objects.count(), 2)
         last_event = ComponentHistory.objects.order_by('-date', '-id').first()
         self.assertEqual(last_event.value, 'down')
@@ -190,11 +209,8 @@ class ButtonControllerTests(BaseSimoTestCase):
         mk_instance_user(user, self.inst, role)
         original_last_action = user.last_action
 
-        self.button.track_history = True
-        self.button.save(update_fields=['track_history'])
-
         with mock.patch('simo.users.models.User.save', autospec=True) as save:
-            self.Button(self.button).set('down', actor=user)
+            self.button.controller.set('down', actor=user)
 
         save.assert_not_called()
         user.refresh_from_db()

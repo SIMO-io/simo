@@ -2,6 +2,7 @@ import os
 import librosa
 import tempfile
 from django import forms
+from django.db import transaction
 from django.forms import formset_factory
 from django.db.models import Q
 from django.utils.translation import gettext_lazy as _
@@ -23,6 +24,7 @@ from simo.core.form_fields import (
 from simo.core.forms import DimmerConfigForm, SwitchForm
 from simo.core.form_fields import SoundField
 from simo.multimedia.models import Sound
+from .gateways import GenericGatewayHandler
 
 ACTION_METHODS = (
     ('turn_on', "Turn ON"), ('turn_off', "Turn OFF"),
@@ -81,6 +83,91 @@ class SwitchGroupConfigForm(SwitchForm):
             ControlForm, can_delete=True, can_order=True, extra=0, max_num=999
         )
     )
+
+
+class BlindsGroupControlForm(ControlForm):
+    event = forms.ChoiceField(initial='click', choices=(
+        ('click', _('Click')), ('double-click', _('Double click')),
+        ('down', _('Press')), ('up', _('Release')), ('hold', _('Hold')),
+    ))
+    action = forms.ChoiceField(choices=(
+        ('open', _('Open')), ('close', _('Close')), ('stop', _('Stop')),
+        ('set_angle', _('Set slat angle')),
+    ))
+    angle = forms.IntegerField(required=False, min_value=0, max_value=180)
+
+    def clean(self):
+        data = super().clean()
+        if data.get('action') == 'set_angle' and data.get('angle') is None:
+            self.add_error('angle', _('Enter a slat angle.'))
+        return data
+
+
+def blinds_group_candidates(queryset):
+    return queryset.filter(
+        base_type='blinds', config__slats_angle_duration__gt=0,
+    ).exclude(gateway__type=GenericGatewayHandler.uid)
+
+
+class BlindsGroupConfigForm(BaseComponentForm):
+    basic_fields = BaseComponentForm.basic_fields + [
+        'reference_blind', 'additional_blinds',
+    ]
+    reference_blind = Select2ModelChoiceField(
+        label=_('First blind'),
+        help_text=_('The group displays this blind’s position and slat angle.'),
+        queryset=blinds_group_candidates(Component.objects.all()),
+        url='autocomplete-component',
+        forward=(forward.Const(True, 'blinds_group_candidates'),),
+    )
+    additional_blinds = Select2ModelMultipleChoiceField(
+        required=False,
+        queryset=reference_blind.queryset,
+        url='autocomplete-component',
+        forward=(forward.Const(True, 'blinds_group_candidates'),),
+    )
+    controls = FormsetField(formset_factory(
+        BlindsGroupControlForm, can_delete=True, can_order=True, extra=0,
+    ))
+
+    def clean(self):
+        data = super().clean()
+        zone = data.get('zone') or getattr(self.instance, 'zone', None)
+        if not zone:
+            return data
+
+        reference = data.get('reference_blind')
+        if reference and reference.zone.instance_id != zone.instance_id:
+            self.add_error('reference_blind', _('Select a first blind from this instance.'))
+        elif not self.instance.pk and 'reference_blind' not in self.fields:
+            self.add_error(None, _('Select a first blind.'))
+
+        if any(blind.zone.instance_id != zone.instance_id for blind in data.get('additional_blinds', ())):
+            self.add_error('additional_blinds', _('Select blinds from this instance.'))
+
+        if 'controls' in data:
+            button_ids = {control['button'] for control in data['controls'] or []}
+            buttons = Component.all_objects.filter(
+                pk__in=button_ids, base_type='button', zone__instance_id=zone.instance_id,
+            )
+            if buttons.count() != len(button_ids):
+                self.add_error('controls', _('Select buttons from this instance.'))
+        return data
+
+    @transaction.atomic
+    def save(self, commit=True):
+        if commit and self.instance.pk:
+            current = Component.all_objects.select_for_update().get(pk=self.instance.pk)
+            self.instance.config = current.config
+            self.instance.value = current.value
+            self.instance.value_previous = current.value_previous
+            self.instance.alive = current.alive
+            self.instance.last_change = current.last_change
+        group = super().save(commit)
+        if commit:
+            group.controller._sync_reference()
+            group.refresh_from_db()
+        return group
 
 
 class ThermostatConfigForm(BaseComponentForm):

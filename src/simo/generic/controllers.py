@@ -10,14 +10,15 @@ from django.utils.functional import cached_property
 from django.utils.translation import gettext_lazy as _
 from django.conf import settings
 from django.urls import reverse_lazy
-from simo.users.utils import get_system_user
+from simo.users.utils import get_current_user, get_system_user
+from simo.core.app_widgets import SlidesWidget
 from simo.core.models import Component, ComponentHistory
 from simo.core.utils.helpers import get_random_string
 from simo.core.middleware import get_current_instance
 from simo.core.controllers import (
     BEFORE_SEND, ControllerBase,
-    BinarySensor, NumericSensor, MultiSensor, Switch, Dimmer, DimmerPlus,
-    RGBWLight,
+    BinarySensor, NumericSensor, MultiSensor, Button, Switch, Dimmer, DimmerPlus,
+    RGBWLight, Blinds,
     DoubleSwitch, TripleSwitch, QuadrupleSwitch, QuintupleSwitch
 )
 from .base_types import (
@@ -38,11 +39,11 @@ from .app_widgets import (
     WeatherWidget
 )
 from .forms import (
-    DimmableLightsGroupConfigForm, SwitchGroupConfigForm,
+    DimmableLightsGroupConfigForm, SwitchGroupConfigForm, BlindsGroupConfigForm,
     ThermostatConfigForm, AlarmGroupConfigForm,
     IPCameraConfigForm, WeatherForm,
     WateringConfigForm, StateSelectForm, MainStateSelectForm,
-    AlarmClockConfigForm, AudioAlertConfigForm
+    AlarmClockConfigForm, AudioAlertConfigForm, blinds_group_candidates
 )
 
 # ----------- Generic controllers -----------------------------
@@ -62,6 +63,106 @@ class SwitchGroup(Switch):
     name = _("On/Off Group")
     gateway_class = GenericGatewayHandler
     config_form = SwitchGroupConfigForm
+
+
+class BlindsGroup(Blinds):
+    name = _('Blinds Group')
+    gateway_class = GenericGatewayHandler
+    app_widget = SlidesWidget
+    config_form = BlindsGroupConfigForm
+    default_config = {'control_mode': 'slide', 'open_direction': 'up'}
+
+    def _blinds(self):
+        return blinds_group_candidates(Component.all_objects).filter(
+            zone__instance_id=self.component.zone.instance_id,
+        )
+
+    @transaction.atomic
+    def _sync_reference(self):
+        group = Component.all_objects.select_for_update().filter(pk=self.component.pk).first()
+        if group is None:
+            return
+        self.component = group
+        reference = self._blinds().filter(pk=group.config.get('reference_blind')).first()
+        if reference is None:
+            if group.alive:
+                group.alive = False
+                group.save(update_fields=['alive'])
+            return
+
+        config = {
+            **group.config,
+            'open_direction': reference.config.get('open_direction') or 'up',
+            'slats_angle_duration': reference.config['slats_angle_duration'],
+        }
+        if config != group.config:
+            group.config = config
+            group.save(update_fields=['config'])
+
+        value = {**self.default_value, **reference.value}
+        if value != group.value or reference.alive != group.alive:
+            super().set(value, alive=reference.alive)
+
+    @transaction.atomic
+    def send(self, value):
+        """Send the same position and angle to every blind in the group."""
+        from simo.core.service_suspension import (
+            CONTROL_BLOCKED_ERROR, is_direct_colonel_control_blocked,
+        )
+
+        self.component = Component.all_objects.select_for_update().get(pk=self.component.pk)
+        reference_id = self.component.config.get('reference_blind')
+        member_ids = dict.fromkeys([
+            reference_id, *self.component.config.get('additional_blinds', []),
+        ])
+        members = self._blinds().in_bulk(member_ids)
+        reference = members.get(reference_id)
+        if reference is None:
+            raise ValidationError(_('Select an available first blind for this group.'))
+
+        if isinstance(value, dict) and not value.keys() - {'target', 'angle'}:
+            value = dict(value)
+            if 'target' not in value and 'angle' in value:
+                target = reference.value.get('target', -1)
+                value['target'] = target if target >= 0 else reference.value.get('position', 0)
+        elif type(value) in (int, float):
+            value = {'target': value}
+        else:
+            raise ValidationError(_('Provide a position and slat angle.'))
+        value.setdefault('angle', reference.value.get('angle', 0))
+        value = self._validate_val(value, BEFORE_SEND)
+        if not math.isfinite(value['target']):
+            raise ValidationError(_('The target position must be finite.'))
+        user = get_current_user()
+        if any(is_direct_colonel_control_blocked(user, blind) for blind in members.values()):
+            raise ValidationError(CONTROL_BLOCKED_ERROR)
+
+        for member_id in member_ids:
+            blind = members.get(member_id)
+            if blind and blind.controller:
+                if value['target'] == -1:
+                    blind.controller.stop()
+                else:
+                    blind.controller.send(dict(value))
+
+    def open(self):
+        self.send({'target': 100})
+
+    def close(self):
+        self.send({'target': 0})
+
+    def stop(self):
+        self.send({'target': -1})
+
+    def _handle_button(self, button):
+        for control in self.component.config.get('controls') or ():
+            if control['button'] != button.pk or control['event'] != button.value:
+                continue
+            action = control['action']
+            if action == 'set_angle':
+                self.send({'angle': control['angle']})
+            elif action in ('open', 'close', 'stop'):
+                getattr(self, action)()
 
 
 class Thermostat(ControllerBase):
@@ -2637,6 +2738,11 @@ class DummyNumericSensor(NumericSensor):
 
 
 class DummyMultiSensor(MultiSensor):
+    gateway_class = DummyGatewayHandler
+    info_template_path = 'generic/controllers_info/dummy.md'
+
+
+class DummyButton(Button):
     gateway_class = DummyGatewayHandler
     info_template_path = 'generic/controllers_info/dummy.md'
 

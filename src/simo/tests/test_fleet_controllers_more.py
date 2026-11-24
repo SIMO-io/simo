@@ -302,6 +302,47 @@ class FleetControllersMoreTests(BaseSimoTestCase):
 
         self.assertEqual(ctrl._get_occupied_pins(), [1, 6])
 
+    def test_blind_calibration_checks_position_before_publishing(self):
+        from simo.fleet.controllers import Blinds
+
+        comp = self._mk_component(
+            controller_uid=Blinds.uid,
+            base_type='blinds',
+            config={'endpoint_calibration': True, 'control_type': 'hold'},
+        )
+        Component.objects.filter(pk=comp.pk).update(
+            value={'position': 60, 'target': 60, 'angle': 0},
+        )
+        ctrl = Blinds(comp)
+        with mock.patch.object(ctrl, '_call_cmd') as command:
+            self.assertEqual(ctrl.recalibrate_blind()['status'], 'skipped')
+            self.assertEqual(ctrl.recalibrate_blind('close')['status'], 'skipped')
+            command.assert_not_called()
+            self.assertEqual(ctrl.recalibrate_blind(force=True)['status'], 'queued')
+            command.assert_called_once_with('recalibrate_blind', None, None, True)
+
+        Component.objects.filter(pk=comp.pk).update(
+            value={'position': 100, 'target': 100, 'angle': 0},
+        )
+        with mock.patch.object(ctrl, '_call_cmd') as command:
+            self.assertEqual(ctrl.recalibrate_blind('close')['status'], 'skipped')
+            self.assertEqual(ctrl.recalibrate_blind('open', 2.5)['status'], 'queued')
+            command.assert_called_once_with('recalibrate_blind', 'open', 2.5, False)
+
+    def test_blind_calibration_requires_opt_in_and_valid_duration(self):
+        from simo.fleet.controllers import Blinds
+
+        comp = self._mk_component(controller_uid=Blinds.uid, base_type='blinds')
+        ctrl = Blinds(comp)
+        with mock.patch.object(ctrl, '_call_cmd') as command:
+            with self.assertRaisesMessage(ValidationError, 'Enable endpoint calibration'):
+                ctrl.recalibrate_blind(force=True)
+            for duration in (0, -1, True, float('nan'), float('inf')):
+                with self.subTest(duration=duration):
+                    with self.assertRaisesMessage(ValidationError, 'Extra seconds'):
+                        ctrl.recalibrate_blind(extra_seconds=duration)
+            command.assert_not_called()
+
     def test_gate_occupied_pins_use_current_pin_fields(self):
         from simo.fleet.controllers import Gate
 

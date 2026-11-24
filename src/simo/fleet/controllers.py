@@ -481,6 +481,40 @@ class Blinds(FleetDeviceMixin, BasicOutputMixin, BaseBlinds):
     gateway_class = FleetGatewayHandler
     config_form = BlindsConfigForm
 
+    def recalibrate_blind(self, direction=None, extra_seconds=None, force=False):
+        """Run past an endpoint for extra_seconds, defaulting to half its travel time.
+
+        Set force to move to an endpoint first. With no direction, use the
+        nearest endpoint and choose closed at the midpoint.
+        """
+        if direction not in (None, 'open', 'close'):
+            raise ValidationError("Direction must be open or close.")
+        if type(force) is not bool:
+            raise ValidationError("Force must be true or false.")
+        if extra_seconds is not None and (
+            type(extra_seconds) not in (int, float)
+            or not 0 < extra_seconds <= 360000
+        ):
+            raise ValidationError("Extra seconds must be greater than 0 and at most 360000.")
+
+        self.component.refresh_from_db()
+        config = self.component.config
+        if config.get('endpoint_calibration') is not True or config.get('control_type') != 'hold':
+            raise ValidationError("Enable endpoint calibration on a hold-controlled blind first.")
+
+        if not force:
+            value = self.component.value or {}
+            position = value.get('position')
+            endpoint = 'close' if position == 0 else 'open' if position == 100 else None
+            if (
+                endpoint is None or value.get('target') != position
+                or direction not in (None, endpoint)
+            ):
+                return {'status': 'skipped', 'reason': 'not_at_requested_endpoint'}
+
+        self._call_cmd('recalibrate_blind', direction, extra_seconds, force)
+        return {'status': 'queued'}
+
     def _get_occupied_pins(self):
         pins = [
             self.component.config['open_pin_no'],

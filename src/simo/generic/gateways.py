@@ -61,50 +61,43 @@ class GroupButtonsHandler:
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.group_buttons = {}
+        self.group_button_watchers = {}
         self.fade_directions = {}
 
     def watch_groups(self):
-        from .controllers import DimmableLightsGroup, SwitchGroup
+        from .controllers import BlindsGroup, DimmableLightsGroup, SwitchGroup
         current_group_buttons = {}
         for group_comp in Component.objects.filter(
-            controller_uid__in=(DimmableLightsGroup.uid, SwitchGroup.uid)
+            controller_uid__in=(BlindsGroup.uid, DimmableLightsGroup.uid, SwitchGroup.uid)
         ):
-            for ctrl in group_comp.config.get('controls', []):
-                if ctrl['button'] not in current_group_buttons:
-                    current_group_buttons[ctrl['button']] = {group_comp.id}
-                else:
-                    current_group_buttons[ctrl['button']].add(group_comp.id)
+            for ctrl in group_comp.config.get('controls') or ():
+                current_group_buttons.setdefault(ctrl['button'], set()).add(group_comp.id)
 
-                if ctrl['button'] not in self.group_buttons:
-                    self.group_buttons[ctrl['button']] = set()
-                if group_comp.id not in self.group_buttons[ctrl['button']]:
-                    self.group_buttons[ctrl['button']].add(group_comp.id)
-                    btn = Component.objects.filter(id=ctrl['button']).first()
-                    if btn:
-                        btn.on_change(self.watch_group_button)
-
-        # remove groups and buttons that are no longer in use
-        for btn_id, groups in self.group_buttons.items():
-            if btn_id not in current_group_buttons:
-                self.group_buttons[btn_id] = set()
-                continue
-            self.group_buttons[btn_id] = current_group_buttons[btn_id]
+        self.group_buttons = current_group_buttons
+        removed_ids = self.group_button_watchers.keys() - current_group_buttons.keys()
+        for button_id in removed_ids:
+            self.group_button_watchers.pop(button_id).on_change(None)
+        added_ids = current_group_buttons.keys() - self.group_button_watchers.keys()
+        for button in Component.objects.filter(pk__in=added_ids, base_type='button'):
+            button.on_change(self.watch_group_button)
+            self.group_button_watchers[button.pk] = button
 
 
     def watch_group_button(self, button):
+        from .controllers import BlindsGroup
+
         group_ids = self.group_buttons.get(button.id)
         if not group_ids:
             return
 
         btn_type = button.config.get('btn_type', 'momentary')
-
-        if btn_type == 'momentary':
-            if button.value not in ('click', 'double-click', 'down', 'up', 'hold'):
-                return
-            for g_id in group_ids:
-                group = Component.objects.filter(id=g_id).first()
-                if not group:
-                    continue
+        for group in Component.objects.filter(pk__in=group_ids):
+            if group.controller_uid == BlindsGroup.uid:
+                try:
+                    group.controller._handle_button(button)
+                except Exception:
+                    self.logger.exception('Failed to control blinds group %s', group.pk)
+            elif btn_type == 'momentary':
                 if button.value == 'click':
                     group.toggle()
                 elif button.value == 'double-click':
@@ -121,13 +114,7 @@ class GroupButtonsHandler:
                         self.fade_directions[group.id] = 0
                         group.fade_stop()
 
-        else: # toggle
-            if button.value not in ('down', 'up'):
-                return
-            for g_id in group_ids:
-                group = Component.objects.filter(id=g_id).first()
-                if not group:
-                    continue
+            elif button.value in ('down', 'up'):
                 group.toggle()
 
 

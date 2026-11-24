@@ -118,6 +118,11 @@ class ComponentAutocomplete(autocomplete.Select2QuerySetView):
         if 'controller_uid' in self.forwarded:
             qs = qs.filter(controller_uid__in=self.forwarded['controller_uid'])
 
+        if self.forwarded.get('blinds_group_candidates'):
+            from simo.generic.forms import blinds_group_candidates
+
+            qs = blinds_group_candidates(qs)
+
         if 'alarm_category' in self.forwarded:
             qs = qs.filter(
                 Q(base_type='alarm-group') |
