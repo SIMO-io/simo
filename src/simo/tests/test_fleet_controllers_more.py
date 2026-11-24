@@ -308,7 +308,7 @@ class FleetControllersMoreTests(BaseSimoTestCase):
         comp = self._mk_component(
             controller_uid=Blinds.uid,
             base_type='blinds',
-            config={'endpoint_calibration': True, 'control_type': 'hold'},
+            config={'control_type': 'hold'},
         )
         Component.objects.filter(pk=comp.pk).update(
             value={'position': 60, 'target': 60, 'angle': 0},
@@ -329,13 +329,17 @@ class FleetControllersMoreTests(BaseSimoTestCase):
             self.assertEqual(ctrl.recalibrate_blind('open', 2.5)['status'], 'queued')
             command.assert_called_once_with('recalibrate_blind', 'open', 2.5, False)
 
-    def test_blind_calibration_requires_opt_in_and_valid_duration(self):
+    def test_blind_calibration_requires_hold_control_and_valid_duration(self):
         from simo.fleet.controllers import Blinds
 
-        comp = self._mk_component(controller_uid=Blinds.uid, base_type='blinds')
+        comp = self._mk_component(
+            controller_uid=Blinds.uid,
+            base_type='blinds',
+            config={'control_type': 'click'},
+        )
         ctrl = Blinds(comp)
         with mock.patch.object(ctrl, '_call_cmd') as command:
-            with self.assertRaisesMessage(ValidationError, 'Enable endpoint calibration'):
+            with self.assertRaisesMessage(ValidationError, 'requires hold motor control'):
                 ctrl.recalibrate_blind(force=True)
             for duration in (0, -1, True, float('nan'), float('inf')):
                 with self.subTest(duration=duration):

@@ -498,9 +498,8 @@ class Blinds(FleetDeviceMixin, BasicOutputMixin, BaseBlinds):
             raise ValidationError("Extra seconds must be greater than 0 and at most 360000.")
 
         self.component.refresh_from_db()
-        config = self.component.config
-        if config.get('endpoint_calibration') is not True or config.get('control_type') != 'hold':
-            raise ValidationError("Enable endpoint calibration on a hold-controlled blind first.")
+        if self.component.config.get('control_type') != 'hold':
+            raise ValidationError("Endpoint calibration requires hold motor control.")
 
         if not force:
             value = self.component.value or {}

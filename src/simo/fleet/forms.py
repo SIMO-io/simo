@@ -1228,13 +1228,6 @@ class BlindsConfigForm(ColonelComponentForm):
         help_text="Retain blinds angle after adjusting it's "
                   "position using physical buttons."
     )
-    endpoint_calibration = forms.BooleanField(
-        label="Allow endpoint calibration",
-        required=False,
-        help_text="Enable only for hold-controlled blinds with verified motor "
-                  "end limits. Calibration keeps the direction relay active "
-                  "for extra time at the estimated end of travel.",
-    )
     control_mode = forms.ChoiceField(
         label="App control mode", required=True, choices=(
             ('click', "Click"), ('hold', "Hold"), ('slide', "Slide")
@@ -1267,13 +1260,6 @@ class BlindsConfigForm(ColonelComponentForm):
 
     def clean(self):
         super().clean()
-
-        if self.cleaned_data.get('endpoint_calibration') and (
-            self.cleaned_data.get('control_type', self.instance.config.get('control_type')) != 'hold'
-        ):
-            self.add_error(
-                'endpoint_calibration', "Endpoint calibration requires hold motor control."
-            )
 
         if self.cleaned_data.get('open_pin') \
         and self.cleaned_data.get('close_pin') \

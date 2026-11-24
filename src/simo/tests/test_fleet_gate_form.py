@@ -300,7 +300,7 @@ class BlindsConfigFormTests(BaseSimoTestCase):
         output_pins = list(self.colonel.pins.filter(output=True)[:2])
         self.open_pin, self.close_pin = output_pins
 
-    def test_save_persists_control_layout_and_endpoint_calibration(self):
+    def test_save_persists_parallel_control_layout(self):
         form = BlindsConfigForm(
             controller_uid=Blinds.uid,
             data={
@@ -317,7 +317,6 @@ class BlindsConfigFormTests(BaseSimoTestCase):
                 'control_type': 'hold',
                 'control_mode': 'click',
                 'control_layout': 'parallel',
-                'endpoint_calibration': True,
             },
         )
 
@@ -325,4 +324,3 @@ class BlindsConfigFormTests(BaseSimoTestCase):
         component = form.save()
 
         self.assertEqual(component.config['control_layout'], 'parallel')
-        self.assertTrue(component.config['endpoint_calibration'])
