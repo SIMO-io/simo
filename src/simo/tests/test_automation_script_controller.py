@@ -1,8 +1,10 @@
 from unittest import mock
 
+from django.contrib.admin import AdminSite
 from django.core.exceptions import ValidationError
-from django.test import override_settings
+from django.test import RequestFactory, override_settings
 
+from simo.core.admin import ComponentAdmin
 from simo.core.models import Gateway, Zone, Component
 from simo.users.utils import introduce_user
 
@@ -66,6 +68,43 @@ class ScriptControllerTests(BaseSimoTestCase):
 
         self.comp.refresh_from_db()
         self.assertEqual(self.comp.config.get('code'), 'print("new")')
+
+    def test_admin_saves_script_without_breach_delay_type(self):
+        admin = ComponentAdmin(Component, AdminSite())
+        self.comp.breach_delay_type = 'accumulated'
+        self.comp.save(update_fields=['breach_delay_type'])
+        generated = {
+            'status': 'success',
+            'result': 'print("generated")',
+            'description': 'Generated script',
+        }
+        for prompt, code, show_in_app in (
+            ('', 'print("manual")', False),
+            ('Change hold to double click', 'print("manual")', False),
+            ('', generated['result'], True),
+        ):
+            with self.subTest(prompt=prompt, code=code, show_in_app=show_in_app):
+                request = RequestFactory().post('/', {
+                    'name': self.comp.name,
+                    'zone': self.zone.pk,
+                    'code': code,
+                    'notes': self.comp.notes or '',
+                    'assistant_request': prompt,
+                    'show_in_app': 'on' if show_in_app else '',
+                })
+                form_class = admin.get_form(request, self.comp, change=True)
+                with mock.patch.object(self.comp, 'ai_assistant', return_value=generated) as assistant:
+                    form = form_class(request.POST, request.FILES, instance=self.comp)
+                    self.assertTrue(form.is_valid(), form.errors)
+                    obj = admin.save_form(request, form, change=True)
+                    admin.save_model(request, obj, form, change=True)
+                    self.assertEqual(assistant.call_count, int(bool(prompt)))
+                self.comp.refresh_from_db()
+                self.assertEqual(self.comp.config['code'], generated['result'] if prompt else code)
+                if prompt:
+                    self.assertEqual(self.comp.notes, generated['description'])
+                self.assertEqual(self.comp.show_in_app, show_in_app)
+                self.assertEqual(self.comp.breach_delay_type, 'accumulated')
 
 
 class ScriptConfigChangeSignalTests(BaseSimoTransactionTestCase):

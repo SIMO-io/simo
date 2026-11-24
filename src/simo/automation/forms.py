@@ -44,6 +44,9 @@ class AutomationComponentForm(BaseComponentForm):
 
 
 class ScriptConfigForm(AutomationComponentForm):
+    class Meta(AutomationComponentForm.Meta):
+        exclude = ('breach_delay_type',)
+
     autostart = forms.BooleanField(
         initial=True, required=False,
         help_text="Start automatically on system boot."
