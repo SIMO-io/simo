@@ -389,19 +389,15 @@ class GateControllerTests(BaseSimoTestCase):
         for state in ('closed', 'open', 'open_moving', 'closed_moving'):
             self.assertEqual(ctrl._validate_val(state, occasion=BEFORE_SET), state)
 
-    def test_is_in_alarm_flags_closed_states(self):
+    def test_is_in_alarm_only_clears_when_closed(self):
         ctrl = self.Gate(self.comp)
         self.comp.value = 'closed'
-        self.assertTrue(ctrl.is_in_alarm())
-        self.comp.value = 'closed_moving'
-        self.assertTrue(ctrl.is_in_alarm())
-        self.comp.value = 'open'
-        self.assertFalse(ctrl.is_in_alarm())
-        self.comp.value = 'open_moving'
         self.assertFalse(ctrl.is_in_alarm())
 
-        self.comp.value = None
-        self.assertFalse(ctrl.is_in_alarm())
+        for state in ('open', 'open_moving', 'closed_moving', None):
+            with self.subTest(state=state):
+                self.comp.value = state
+                self.assertTrue(ctrl.is_in_alarm())
 
     def test_open_close_call_delegate_to_send(self):
         ctrl = self.Gate(self.comp)
